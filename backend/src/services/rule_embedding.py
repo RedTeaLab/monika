@@ -1,7 +1,10 @@
 """Rule embedding service for generating vector embeddings using OpenAI API."""
+import logging
 from functools import lru_cache
 from typing import List, Dict
 from src.models.rule import Rule, RuleFAQ
+
+logger = logging.getLogger(__name__)
 
 
 class RuleEmbeddingService:
@@ -21,6 +24,7 @@ class RuleEmbeddingService:
         """
         self.llm_provider = llm_provider
         self.embedding_model = "text-embedding-3-small"
+        self.embedding_dim = 1536
         self._cache: Dict[str, List[float]] = {}
 
     async def generate_embedding(self, text: str) -> List[float]:
@@ -38,13 +42,16 @@ class RuleEmbeddingService:
             return self._cache[text]
 
         # Generate new embedding
-        response = await self.llm_provider.client.embeddings.create(
-            model=self.embedding_model,
-            input=text
-        )
-
-        # Extract the embedding vector from the response
-        embedding = response.data[0].embedding
+        try:
+            response = await self.llm_provider.client.embeddings.create(
+                model=self.embedding_model,
+                input=text
+            )
+            # Extract the embedding vector from the response
+            embedding = response.data[0].embedding
+        except Exception as e:
+            logger.error(f"Failed to generate embedding for text: {e}")
+            raise
 
         # Cache the result (maintain LRU behavior by limiting cache size)
         if len(self._cache) >= 1000:
