@@ -3,6 +3,7 @@ from src.models.user import User
 from src.models.character import Character
 from src.models.session import GameSession, SessionState
 from src.models.event import Event, EventType, VisibilityLevel
+from src.models.rule import Rule, RuleFAQ
 
 __all__ = [
     "User",
@@ -12,4 +13,6 @@ __all__ = [
     "Event",
     "EventType",
     "VisibilityLevel",
+    "Rule",
+    "RuleFAQ",
 ]
