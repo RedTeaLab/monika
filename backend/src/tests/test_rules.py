@@ -148,3 +148,92 @@ class TestRuleModel:
 
         assert len(faq.related_rule_ids) == 1
         assert faq.related_rule_ids[0] == rule_id
+
+
+class TestRuleSchemas:
+    """Test Pydantic schemas for rules."""
+
+    def test_rule_schema_validation(self):
+        """Test that rule schema validates correctly."""
+        from src.schemas.rule import RuleCreate, RuleCategory
+        from pydantic import ValidationError
+
+        # Valid input
+        rule_data = {
+            "title": "暗视",
+            "category": RuleCategory.SKILL,
+            "subcategory": "感知技能",
+            "content": "暗视允许调查员在几乎完全黑暗的环境中进行检定...",
+            "aliases": ["夜视"],
+            "tags": ["感知", "修正"]
+        }
+
+        rule = RuleCreate(**rule_data)
+        assert rule.title == "暗视"
+        assert rule.category == RuleCategory.SKILL
+
+    def test_rule_schema_validation_invalid(self):
+        """Test that rule schema rejects invalid input."""
+        from src.schemas.rule import RuleCreate
+        from pydantic import ValidationError
+
+        # Invalid input (missing required fields)
+        with pytest.raises(ValidationError):
+            RuleCreate(title="暗视")  # Missing category and content
+
+    def test_rule_update_schema(self):
+        """Test that RuleUpdate accepts partial updates."""
+        from src.schemas.rule import RuleUpdate, RuleCategory
+
+        # Partial update - only title
+        update_data = RuleUpdate(title="暗视 (修订版)")
+        assert update_data.title == "暗视 (修订版)"
+        assert update_data.category is None
+
+        # Full update
+        update_data = RuleUpdate(
+            title="暗视",
+            category=RuleCategory.SKILL,
+            content="更新的内容..."
+        )
+        assert update_data.title == "暗视"
+        assert update_data.category == RuleCategory.SKILL
+
+    def test_faq_schema_validation(self):
+        """Test that FAQ schema validates correctly."""
+        from src.schemas.rule import FAQCreate
+
+        faq_data = {
+            "question": "暗视技能如何使用?",
+            "answer": "暗视允许调查员在几乎完全黑暗的环境中进行检定...",
+            "category": "skill"
+        }
+
+        faq = FAQCreate(**faq_data)
+        assert faq.question == "暗视技能如何使用?"
+        assert faq.answer == "暗视允许调查员在几乎完全黑暗的环境中进行检定..."
+        assert faq.category == "skill"
+
+    def test_rule_search_result_schema(self):
+        """Test that search result schema works correctly."""
+        from src.schemas.rule import RuleSearchResult, RuleSummary
+
+        related_rule = RuleSummary(
+            id=str(uuid.uuid4()),
+            title="相关规则",
+            category="skill",
+            content="相关规则内容..."
+        )
+
+        search_result = RuleSearchResult(
+            id=str(uuid.uuid4()),
+            title="暗视",
+            category="skill",
+            content="暗视允许调查员在几乎完全黑暗的环境中进行检定...",
+            relevance_score=0.95,
+            related_rules=[related_rule]
+        )
+
+        assert search_result.relevance_score == 0.95
+        assert len(search_result.related_rules) == 1
+        assert search_result.related_rules[0].title == "相关规则"
