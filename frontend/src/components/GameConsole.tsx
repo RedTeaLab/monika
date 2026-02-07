@@ -4,6 +4,7 @@ import { MessageList } from "@/components/MessageList"
 import { StatePanel } from "@/components/StatePanel"
 import { Footer } from "@/components/Footer"
 import { CombatOverlay } from "@/components/combat/CombatOverlay"
+import { RuleSearch } from "@/components/rules"
 import { useGameWebSocket } from "@/hooks/useGameWebSocket"
 import { useLLMResponse } from "@/hooks/useLLMResponse"
 import { useCombatState } from "@/hooks/useCombatState"
@@ -14,7 +15,7 @@ import type { Combat, AttackRequest, HealRequest } from "@/types/combat"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Maximize2, Sword, GitFork } from "lucide-react"
+import { Maximize2, Sword, GitFork, BookOpen, X } from "lucide-react"
 import { ChaseOverlay } from "@/components/chase"
 
 interface Message {
@@ -53,6 +54,9 @@ export function GameConsole() {
   // Chase state management
   const [chaseId, setChaseId] = useState<string | null>(null)
   const [isChaseMinimized, setIsChaseMinimized] = useState(false)
+
+  // Rules panel state
+  const [showRules, setShowRules] = useState(false)
 
   const {
     combat,
@@ -380,7 +384,7 @@ export function GameConsole() {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header characterName="调查员" />
+      <Header characterName="调查员" onToggleRules={() => setShowRules(!showRules)} showRules={showRules} />
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col min-w-0">
           <MessageList messages={messages} />
@@ -399,6 +403,34 @@ export function GameConsole() {
             luck: character.luck,
           }}
         />
+        {showRules && (
+          <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold text-gray-900">Rules</h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowRules(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <RuleSearch />
+              <div className="text-xs text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
+                <p className="font-medium mb-1">Quick Tips:</p>
+                <ul className="space-y-1 list-disc list-inside">
+                  <li>Search for rules like "pushing", "sanity"</li>
+                  <li>Click results to see full details</li>
+                  <li>Use keywords like "combat", "chase"</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Combat Overlay */}

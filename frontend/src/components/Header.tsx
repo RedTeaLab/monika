@@ -1,12 +1,14 @@
 import { Button } from '@/components/ui/button'
-import { LogOut } from 'lucide-react'
+import { LogOut, BookOpen } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
   characterName: string
+  onToggleRules?: () => void
+  showRules?: boolean
 }
 
-export function Header({ characterName }: HeaderProps) {
+export function Header({ characterName, onToggleRules, showRules = false }: HeaderProps) {
   const { logout, user } = useAuth()
 
   const handleLogout = async () => {
@@ -30,10 +32,22 @@ export function Header({ characterName }: HeaderProps) {
           </>
         )}
       </div>
-      <Button variant="ghost" size="sm" onClick={handleLogout}>
-        <LogOut className="w-4 h-4 mr-2" />
-        退出
-      </Button>
+      <div className="flex items-center gap-2">
+        {onToggleRules && (
+          <Button
+            variant={showRules ? "default" : "ghost"}
+            size="sm"
+            onClick={onToggleRules}
+          >
+            <BookOpen className="w-4 h-4 mr-2" />
+            规则
+          </Button>
+        )}
+        <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <LogOut className="w-4 h-4 mr-2" />
+          退出
+        </Button>
+      </div>
     </header>
   )
 }
