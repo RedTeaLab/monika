@@ -1,0 +1,221 @@
+{
+  "rules": [
+    {
+      "title": "Darkness",
+      "category": "core",
+      "subcategory": "vision",
+      "content": "When making checks in dark or dim environments, investigators suffer penalties. Total darkness reduces skill values by half. Dim light (weak light sources) applies a -20 point penalty. This affects Spot Hidden, Listen, Firearm, Throw and other vision-dependent skills. Creatures or characters with darkvision are unaffected.",
+      "example": "A detective with Spot Hidden 60 searches a pitch-black basement. In total darkness, they can only roll at 30 skill value.",
+      "mechanics": {
+        "penalty_darkness": "-50% skill",
+        "penalty_dim_light": "-20 points",
+        "affected_skills": ["Spot Hidden", "Listen", "Firearm", "Throw"],
+        "exceptions": ["Darkvision ability"]
+      },
+      "aliases": ["Dark Vision", "Night Vision", "Darkness Penalty"],
+      "tags": ["vision", "darkness", "penalty", "environment"]
+    },
+    {
+      "title": "Pushing the Roll",
+      "category": "core",
+      "subcategory": "dice_mechanics",
+      "content": "When an investigator fails a check, the player may choose to 'push' the roll by rolling again. Pushing can only be used in specific situations: skill checks, attribute checks, or non-combat scenarios. Even if the second roll succeeds, additional negative consequences occur, such as time passing, noise attracting attention, or resource consumption. Attack and dodge rolls in combat typically cannot be pushed. The Keeper should apply reasonable narrative consequences.",
+      "example": "A detective fails a Lockpick check and decides to push. The second check succeeds and opens the lock, but the noise from the tools alerts a guard.",
+      "mechanics": {
+        "trigger": "Failed skill/attribute check",
+        "action": "Reroll the same check",
+        "consequences": "Narrative penalties from Keeper",
+        "restrictions": ["Cannot push combat attacks", "Cannot push dodge"],
+        "uses_per_roll": 1
+      },
+      "aliases": ["Reroll", "Push Roll", "Push Dice"],
+      "tags": ["dice", "mechanic", "reroll", "narrative"]
+    },
+    {
+      "title": "Spending Luck",
+      "category": "core",
+      "subcategory": "luck",
+      "content": "Investigators can spend Luck Points to alter dice roll results. Luck can be used in two ways: 1) Reroll and take the better result; 2) Add luck points to a failed roll to make it succeed. Each use costs at least 1 luck point, up to a maximum of 5 points. Luck points can be recovered through successful luck checks (rolling below luck value). Luck points represent the investigator's fate and fortune as a valuable resource.",
+      "example": "A detective's Spot Hidden check rolls 75 (failure). They spend 3 luck points to change the result to 72 (success). Their luck decreases from 15 to 12.",
+      "mechanics": {
+        "cost_min": 1,
+        "cost_max": 5,
+        "use_1": "Reroll and take better result",
+        "use_2": "Add luck points to failed roll",
+        "recovery": "Luck check (luck/5) to recover 1d3 points per day",
+        "resource": "Consumable"
+      },
+      "aliases": ["Luck Points", "Spend Luck", "Luck Dice"],
+      "tags": ["luck", "dice", "resource", "mechanic"]
+    },
+    {
+      "title": "Sanity Check",
+      "category": "sanity",
+      "subcategory": "sanity_check",
+      "content": "When investigators encounter horrifying, disturbing, or irrational things, they must make a Sanity (SAN) check. Roll 1d100 and if the result is less than or equal to current SAN, it's a success. Success loses less SAN (usually 0 or 1/d10), while failure loses more SAN (usually 1/d6 or 1/d20). When SAN loss reaches 1/5 of max SAN, a temporary insanity check is required. At every 1/5 interval, an indefinite insanity check is required. When SAN reaches 0, the investigator is permanently insane.",
+      "example": "An investigator encounters a rotting corpse (SAN loss 0/1d4). With SAN 50, they roll 30 and succeed, losing 0 SAN. If they rolled 60 and failed, they would roll 1d4 for SAN loss.",
+      "mechanics": {
+        "check": "1d100 <= current SAN",
+        "success_loss": "0 or 1/d10 SAN",
+        "failure_loss": "1/d6 or 1/d20 SAN",
+        "thresholds": {
+          "temporary_insanity": "1/5 of max SAN",
+          "indefinite_insanity": "Every 1/5 of max SAN",
+          "permanent_insanity": "SAN reaches 0"
+        },
+        "recovery": "Successful psychotherapy or counseling"
+      },
+      "aliases": ["SAN Check", "Roll SAN", "Sanity Loss", "Insanity Check"],
+      "tags": ["sanity", "horror", "check", "mental"]
+    },
+    {
+      "title": "Surprise",
+      "category": "combat",
+      "subcategory": "initiative",
+      "content": "When combat begins, all participants make an initiative (DEX) check to determine action order. Those who succeed can act in the first round, while those who fail lose their first round. The successful character with the highest DEX acts first, followed by others in descending DEX order. Characters with equal DEX act simultaneously. Surprise reflects the importance of agility and reaction speed in combat.",
+      "example": "A detective (DEX 70) and a monster (DEX 50) enter combat. The detective rolls 35 and succeeds, while the monster rolls 65 and fails. The detective can act in the first round, but the monster cannot.",
+      "mechanics": {
+        "check": "1d100 <= DEX",
+        "success": "Act in first round",
+        "failure": "Lose first round",
+        "order": "Highest DEX acts first",
+        "tie": "Simultaneous action"
+      },
+      "aliases": ["Initiative", "DEX Check", "Combat Initiative"],
+      "tags": ["combat", "initiative", "DEX", "action_order"]
+    },
+    {
+      "title": "Damage Roll",
+      "category": "combat",
+      "subcategory": "damage",
+      "content": "When an attack successfully hits a target, a damage roll is made to calculate actual damage. Weapon damage is typically expressed as XdY, such as 1d6, 2d4, etc. Some weapons may have damage bonuses (+db) based on the investigator's STR and SIZ. The damage roll result minus the target's armor value (if any) is the actual damage. Actual damage is deducted from the target's Hit Points (HP).",
+      "example": "A detective fires a .38 revolver (damage 1d10) and hits. Rolling 7 damage against a monster with no armor reduces its HP by 7. If the monster had 2 armor, only 5 damage would be dealt.",
+      "mechanics": {
+        "weapon_damage": "XdY format",
+        "damage_bonus": "Based on STR+SIZ",
+        "armor": "Subtracts from damage",
+        "min_damage": 1,
+        "critical": "Weapon-specific critical damage",
+        "impale": "Some weapons deal impaling damage"
+      },
+      "aliases": ["Damage Calculation", "Damage Check", "Weapon Damage"],
+      "tags": ["combat", "damage", "weapon", "HP"]
+    },
+    {
+      "title": "Combat Round",
+      "category": "combat",
+      "subcategory": "combat_round",
+      "content": "Combat proceeds in rounds, with each round representing several seconds of game time. In each round, all characters who can act take their turns in DEX order. During a turn, a character can move, attack, use skills or items, etc. After one round ends, the next begins until combat concludes. Combat typically ends when all members of one side are incapacitated or have fled.",
+      "example": "In the first round of combat, the detective acts first (DEX 70) and shoots, then the monster (DEX 50) counterattacks. The second round begins, repeating this process until one side falls.",
+      "mechanics": {
+        "time_per_round": "Several seconds in game",
+        "actions_per_round": 1,
+        "action_order": "By DEX rank",
+        "round_continuation": "Until combat ends"
+      },
+      "aliases": ["Combat Turn", "Turn-based", "Combat Rounds"],
+      "tags": ["combat", "round", "turn", "time"]
+    },
+    {
+      "title": "Chase System",
+      "category": "chase",
+      "subcategory": "chase_mechanics",
+      "content": "The chase system handles pursuit and escape scenarios between investigators and targets. Chases use distance (grid spaces) as units, with each side having Action Points (AP) for movement and actions. AP is calculated based on Movement Rate (MOV). During chases, obstacles require skill checks to overcome. Pressure increases each round, affecting dice rolls. The chase ends when maximum distance is reached or one side gives up.",
+      "example": "A detective chases a suspect down a street. The detective with MOV 8 gets 8 AP, while the suspect with MOV 9 gets 9 AP. Each round, both spend AP to move, and obstacles like fences require climb checks to pass.",
+      "mechanics": {
+        "distance_units": "Grid spaces",
+        "action_points": "Based on MOV rate",
+        "obstacles": "Require skill checks",
+        "pressure": "Increases each round, affects dice",
+        "end_conditions": ["Max distance reached", "One side gives up"]
+      },
+      "aliases": ["Pursuit", "Chase", "Escape System"],
+      "tags": ["chase", "movement", "action_points", "obstacles"]
+    },
+    {
+      "title": "Skill Check",
+      "category": "skill",
+      "subcategory": "skill_check",
+      "content": "Skill checks are the core mechanic of CoC 7e, determining whether characters successfully use skills. The basic method is rolling 1d100, with a result less than or equal to the skill value being a success. Success levels are: regular success (<= skill value), hard success (<= skill/2), extreme success (<= skill/5), and critical success (natural 1). Failures are: regular failure (> skill value) and fumble (>= skill value with last digit 0, or >=96). Some situations apply bonus dice (roll multiple, take lowest) or penalty dice (roll multiple, take highest).",
+      "example": "A detective uses Spot Hidden (60) for a check. Rolling 30 is a success, 15 is a hard success, 8 is an extreme success, and 1 is a critical. Rolling 70 is a failure, and rolling 60 is a fumble.",
+      "mechanics": {
+        "check": "1d100 <= skill_value",
+        "success_levels": {
+          "normal": "<= skill value",
+          "hard": "<= skill/2",
+          "extreme": "<= skill/5",
+          "critical": "Natural 1"
+        },
+        "failure_levels": {
+          "failure": "> skill value",
+          "fumble": ">= skill value and last digit 0, or >=96"
+        },
+        "bonus_dice": "Roll multiple, take lowest",
+        "penalty_dice": "Roll multiple, take highest"
+      },
+      "aliases": ["Roll Skill", "Check", "Skill Dice"],
+      "tags": ["skill", "check", "dice", "mechanic"]
+    },
+    {
+      "title": "Attribute Check",
+      "category": "skill",
+      "subcategory": "attribute_check",
+      "content": "When no specific skill applies, an attribute (STR, CON, POW, DEX, APP, INT, SIZ, EDU) can be checked. Attribute check success values are typically the attribute value itself, though some situations apply modifiers (such as EDUx5 for knowledge checks). Attribute checks also have regular, hard, extreme, and critical success levels, determined the same way as skill checks.",
+      "example": "A detective tries to push a heavy stone door, and the Keeper requests a STR check. With STR 70, rolling 45 succeeds. If the door is particularly heavy, it might be a hard check (<= 35).",
+      "mechanics": {
+        "check": "1d100 <= attribute value",
+        "success_levels": {
+          "normal": "<= attribute value",
+          "hard": "<= attribute/2",
+          "extreme": "<= attribute/5",
+          "critical": "Natural 1"
+        },
+        "common_modifiers": ["EDUx5 for knowledge", "APPx5 for social"]
+      },
+      "aliases": ["Roll Attribute", "Attribute Dice", "Ability Check"],
+      "tags": ["attribute", "check", "dice", "stat"]
+    }
+  ],
+  "faqs": [
+    {
+      "question": "What is pushing the roll? When can it be used?",
+      "answer": "Pushing the Roll is an important mechanism in CoC 7e. When your skill check fails, you may choose to push by rolling again. Pushing can only be used in specific situations: skill checks, attribute checks, or non-combat scenarios. Even if the second roll succeeds, additional negative consequences occur. For example, successfully pushing a Lockpick check might alert a guard, while pushing a Spot Hidden check might take too much time. Attack and dodge rolls in combat typically cannot be pushed.",
+      "category": "dice_mechanics"
+    },
+    {
+      "question": "How do luck points recover?",
+      "answer": "Luck points can be recovered through a daily luck check. Make a luck check (1d100 <= luck value), and if successful, recover 1d3 luck points. This check can only be made once every 24 hours, typically at dawn. Additionally, the Keeper may award luck points based on the story, but this is very rare. Luck points are a valuable resource that should be used carefully.",
+      "category": "luck"
+    },
+    {
+      "question": "What happens when SAN reaches zero?",
+      "answer": "When an investigator's SAN (Sanity) reaches zero, the character descends into permanent insanity. This typically means the character exits the game as a PC, becoming an NPC or being institutionalized. Permanently insane characters usually cannot continue normal play. As SAN approaches zero (such as at 5 points or below), any SAN loss may immediately reduce it to zero, triggering permanent insanity. Therefore, maintaining sufficient SAN values is very important.",
+      "category": "sanity"
+    },
+    {
+      "question": "How do bonus and penalty dice work?",
+      "answer": "Bonus Dice and Penalty Dice are unique mechanics in CoC 7e. Bonus Dice: Roll multiple d100s (such as 2), taking the lowest result as the final result. This makes success easier. Penalty Dice: Roll multiple d100s, taking the highest result as the final result. This makes success more difficult. Bonus dice are typically +1 to +3, while penalty dice follow the same pattern. For example, +1 bonus die means rolling 2d100 and taking the lowest; -2 penalty dice means rolling 3d100 and taking the highest.",
+      "category": "dice_mechanics"
+    },
+    {
+      "question": "What's the difference between DEX rank and initiative?",
+      "answer": "DEX Rank (DEX Rank) is the action order each round in combat, arranged from highest to lowest DEX. Initiative (Initiative) is the first-round eligibility check before combat begins. Only those who succeed on the initiative check can act in the first round, while failures cannot act in round one. From round two onward, all participants act normally according to DEX rank. Simply put: initiative determines whether you can act, DEX rank determines action order.",
+      "category": "combat"
+    },
+    {
+      "question": "How is damage bonus (DB) calculated?",
+      "answer": "Damage Bonus (DB) is calculated based on the sum of STR and SIZ. STR+SIZ <= 124: no bonus; 125-164: +1d4; 165-204: +1d6; 205-284: +2d6; 285-364: +3d6; 365-444: +4d6; 445+: +5d6. DB is added to melee weapon damage roll results. Ranged weapons typically do not add DB. For example, STR 70 + SIZ 65 = 135, damage bonus is +1d4.",
+      "category": "combat"
+    },
+    {
+      "question": "How are action points (AP) used in the chase system?",
+      "answer": "Action Points (AP) in chases are based on the character's MOV value, typically MOV equals AP. Each round, characters spend AP to move (1 AP per grid space) or perform actions (such as climbing obstacles, opening doors, typically 2-5 AP). Remaining AP carries over to the next round, up to 2x the current MOV value. When pressure increases, all checks receive penalty dice penalties. Chase end conditions include: distance reaching maximum (typically 12 spaces), one side giving up, or one side being incapacitated.",
+      "category": "chase"
+    },
+    {
+      "question": "When is a temporary insanity check required?",
+      "answer": "When an investigator loses SAN equal to 1/5 of their maximum SAN within a short period (typically one hour), a temporary insanity check is required. For example, a character with max SAN 99 needs to check when losing 20 SAN in a single or consecutive series of losses. Temporary insanity lasts 1d10 rounds, during which the character exhibits symptoms of fear, paranoia, aggression, etc. The Keeper should describe the manifestation of insanity based on the horrific encounter.",
+      "category": "sanity"
+    }
+  ]
+}
