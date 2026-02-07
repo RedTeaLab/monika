@@ -97,6 +97,47 @@ def get_prompt_builder() -> PromptBuilder:
     return _prompt_builder
 
 
+async def execute_search_rules(arguments: Dict[str, str]) -> Dict:
+    """Execute search_rules tool call.
+
+    Args:
+        arguments: Tool arguments containing 'query'
+
+    Returns:
+        Search results dictionary
+    """
+    query = arguments.get("query", "")
+    if not query:
+        return {"error": "Query is required"}
+
+    try:
+        # Get synchronous database session for rule search
+        db_gen = get_db_sync()
+        db = next(db_gen)
+
+        try:
+            # Initialize embedding service (optional)
+            embedding_service = None
+
+            # Initialize rule search service
+            search_service = RuleSearchService(db, embedding_service)
+
+            # Perform search
+            results = await search_service.search(query=query, limit=5)
+
+            return {
+                "query": query,
+                "results": results,
+                "total": len(results)
+            }
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error executing search_rules: {e}")
+        return {"error": str(e)}
+
+
 @websocket_router.websocket("/game/{session_id}")
 async def websocket_endpoint(
     websocket: WebSocket,
@@ -266,47 +307,6 @@ async def websocket_endpoint(
                     })
 
                     # Apply state changes if any
-
-
-async def execute_search_rules(arguments: Dict[str, str]) -> Dict:
-    """Execute search_rules tool call.
-
-    Args:
-        arguments: Tool arguments containing 'query'
-
-    Returns:
-        Search results dictionary
-    """
-    query = arguments.get("query", "")
-    if not query:
-        return {"error": "Query is required"}
-
-    try:
-        # Get synchronous database session for rule search
-        db_gen = get_db_sync()
-        db = next(db_gen)
-
-        try:
-            # Initialize embedding service (optional)
-            embedding_service = None
-
-            # Initialize rule search service
-            search_service = RuleSearchService(db, embedding_service)
-
-            # Perform search
-            results = await search_service.search(query=query, limit=5)
-
-            return {
-                "query": query,
-                "results": results,
-                "total": len(results)
-            }
-        finally:
-            db.close()
-
-    except Exception as e:
-        logger.error(f"Error executing search_rules: {e}")
-        return {"error": str(e)}
                     if full_response.state_changes:
                         session = await state_sync.apply_state_changes(
                             session=session,
