@@ -9,6 +9,7 @@ from src.api.combat import router as combat_router
 from src.api.chase import router as chase_router
 from src.api.sessions import router as sessions_router
 from src.api.websocket import websocket_router
+from src.api.rules import router as rules_router
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -34,6 +35,7 @@ app.include_router(game_router)
 app.include_router(combat_router)
 app.include_router(chase_router)
 app.include_router(sessions_router)
+app.include_router(rules_router)
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 
