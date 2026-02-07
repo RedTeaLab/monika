@@ -1,6 +1,13 @@
 """LLM response schema definitions."""
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Literal
+
+
+class ToolCall(BaseModel):
+    """工具调用定义"""
+    name: Literal["search_rules"] = Field(..., description="工具名称")
+    arguments: Dict[str, str] = Field(..., description="工具参数")
+    result_id: Optional[str] = Field(None, description="工具调用结果ID")
 
 
 class StateChanges(BaseModel):
@@ -18,3 +25,4 @@ class LLMResponse(BaseModel):
     suggestions: Optional[List[str]] = Field(None, description="给玩家的操作建议")
     audio_cue: Optional[str] = Field(None, description="音效提示")
     requires_roll: bool = Field(False, description="是否建议玩家进行检定")
+    tool_calls: Optional[List[ToolCall]] = Field(None, description="工具调用列表")

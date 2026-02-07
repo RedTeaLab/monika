@@ -14,6 +14,34 @@ export interface StateChanges {
   };
 }
 
+export interface ToolCall {
+  name: 'search_rules';
+  arguments: Record<string, string>;
+  result_id?: string;
+}
+
+export interface ToolResult {
+  tool: string;
+  result: {
+    query?: string;
+    results?: Array<{
+      id: string;
+      title: string;
+      category: string;
+      content: string;
+      relevance_score: number;
+      related_rules: Array<{
+        id: string;
+        title: string;
+        category: string;
+        content: string;
+      }>;
+    }>;
+    total?: number;
+    error?: string;
+  };
+}
+
 export interface LLMResponse {
   narrative: string;
   tone: ToneType;
@@ -22,6 +50,7 @@ export interface LLMResponse {
   suggestions?: string[];
   audio_cue?: string;
   requires_roll: boolean;
+  tool_results?: ToolResult[];
 }
 
 export interface UserMessage {

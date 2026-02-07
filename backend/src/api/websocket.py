@@ -7,12 +7,15 @@ from typing import Dict, Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from src.core.database import get_db
+from src.core.database import get_db, get_db_sync
 from src.services.llm.openai import OpenAIProvider
 from src.services.response_parser import ResponseParser
 from src.services.prompt import PromptBuilder
 from src.services.state_sync import StateSyncService
+from src.services.rule_search import RuleSearchService
+from src.services.rule_embedding import RuleEmbeddingService
 from src.models.session import GameSession
 from src.models.character import Character
 from src.models.event import Event
@@ -236,18 +239,74 @@ async def websocket_endpoint(
 
                 # Send final response
                 if full_response:
+                    response_content = {
+                        "narrative": full_response.narrative,
+                        "tone": full_response.tone,
+                        "urgency": full_response.urgency,
+                        "suggestions": full_response.suggestions or []
+                    }
+
+                    # Process tool calls if any
+                    if full_response.tool_calls:
+                        tool_results = []
+                        for tool_call in full_response.tool_calls:
+                            if tool_call.name == "search_rules":
+                                # Execute rule search
+                                result = await execute_search_rules(tool_call.arguments)
+                                tool_results.append({
+                                    "tool": tool_call.name,
+                                    "result": result
+                                })
+                        response_content["tool_results"] = tool_results
+
                     await manager.send_message(session_id, {
                         "type": "keeper_message",
-                        "content": {
-                            "narrative": full_response.narrative,
-                            "tone": full_response.tone,
-                            "urgency": full_response.urgency,
-                            "suggestions": full_response.suggestions or []
-                        },
+                        "content": response_content,
                         "is_streaming": False
                     })
 
                     # Apply state changes if any
+
+
+async def execute_search_rules(arguments: Dict[str, str]) -> Dict:
+    """Execute search_rules tool call.
+
+    Args:
+        arguments: Tool arguments containing 'query'
+
+    Returns:
+        Search results dictionary
+    """
+    query = arguments.get("query", "")
+    if not query:
+        return {"error": "Query is required"}
+
+    try:
+        # Get synchronous database session for rule search
+        db_gen = get_db_sync()
+        db = next(db_gen)
+
+        try:
+            # Initialize embedding service (optional)
+            embedding_service = None
+
+            # Initialize rule search service
+            search_service = RuleSearchService(db, embedding_service)
+
+            # Perform search
+            results = await search_service.search(query=query, limit=5)
+
+            return {
+                "query": query,
+                "results": results,
+                "total": len(results)
+            }
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error executing search_rules: {e}")
+        return {"error": str(e)}
                     if full_response.state_changes:
                         session = await state_sync.apply_state_changes(
                             session=session,

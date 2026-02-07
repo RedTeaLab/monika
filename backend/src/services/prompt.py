@@ -18,12 +18,31 @@ class PromptBuilder:
 3. 尊重玩家的选择，推动故事发展
 4. 可以修改场景信息和添加线索，但不能直接修改玩家角色的 HP/SAN 等核心属性
 
+规则查询工具：
+当玩家询问游戏规则时，你可以使用 search_rules 工具来查询相关规则。
+工具调用格式：
+{{
+  "tool_calls": [
+    {{
+      "name": "search_rules",
+      "arguments": {{"query": "搜索关键词"}}
+    }}
+  ]
+}}
+
+常见规则查询场景：
+- 玩家询问某个技能如何使用
+- 玩家询问战斗机制
+- 玩家询问 SAN 检定规则
+- 玩家询问推骰、花幸运等机制
+
 请以 JSON 格式响应，包含以下字段：
 - narrative: 叙述文本（第二人称"你"）
 - tone: 语气 (mystery|horror|action|calm)
 - urgency: 紧迫度 (low|medium|high)
 - state_changes: 状态变化（可选）- 只修改 current_scene 和 world_state
 - suggestions: 给玩家的建议（可选）
+- tool_calls: 工具调用（可选）- 当需要查询规则时使用
 """
 
     async def build_system_prompt(self) -> str:
