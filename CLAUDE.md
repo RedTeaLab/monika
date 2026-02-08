@@ -343,6 +343,9 @@ Key components in `frontend/src/components/`:
 - **MessageList**: Chat-like message interface with streaming support
 - **MessageBubble**: Individual message display with typing indicators
 - **DiceRoll**: Interactive dice rolling
+- **TabView**: Tab navigation for tablet layout
+- **BottomTabBar**: Bottom navigation with 56px touch targets
+- **MobileFooter**: Observer mode prompt for mobile
 
 Uses shadcn/ui base components with TailwindCSS styling.
 
@@ -365,6 +368,55 @@ const { isConnected, error, sendMessage, disconnect, reconnect } =
 - Auto-reconnect on disconnect
 - Message buffering while disconnected
 - Error handling and recovery
+
+### Responsive Layout Hooks
+
+#### useBreakpoint
+
+Custom hook for breakpoint detection:
+
+```typescript
+const breakpoint = useBreakpoint();
+// Returns: 'mobile' | 'tablet' | 'desktop'
+```
+
+**Features:**
+- Mobile: < 768px
+- Tablet: 768px - 1023px
+- Desktop: ≥ 1024px
+- Reactive to window resize
+
+#### useTouchOptimizer
+
+Touch optimization and haptic feedback:
+
+```typescript
+const { optimizeTouch, triggerHaptic } = useTouchOptimizer();
+```
+
+**Features:**
+- Prevents zoom on double-tap
+- Prevents context menu on long-press
+- Triggers haptic feedback (vibration)
+- iOS/Android safe area handling
+
+#### useGestures
+
+Gesture handling with @use-gesture/react:
+
+```typescript
+const bind = useGestures({
+  onSwipeLeft: () => console.log('swiped left'),
+  onSwipeRight: () => console.log('swiped right'),
+  onPullToRefresh: () => console.log('refresh')
+});
+```
+
+**Features:**
+- Swipe left/right detection
+- Pull-to-refresh support
+- Configurable gesture thresholds
+- Touch-friendly interaction
 
 ## Testing Strategy
 
