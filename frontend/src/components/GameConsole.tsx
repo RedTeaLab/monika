@@ -397,12 +397,13 @@ export function GameConsole() {
       <Header characterName="调查员" onToggleRules={() => setShowRules(!showRules)} showRules={showRules} />
       <div className="flex-1 flex overflow-hidden">
         {isMobile ? (
-          // Mobile: Observer mode
-          <>
-            <div className="flex-1 flex flex-col min-w-0">
+          // Mobile: Observer mode with proper scrolling
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
               <MessageList messages={messages} />
             </div>
             <StatePanel
+              fullWidth
               character={{
                 hp: character.hp,
                 hpMax: character.hpMax,
@@ -421,7 +422,7 @@ export function GameConsole() {
               }}
             />
             <MobileFooter />
-          </>
+          </div>
         ) : isTablet ? (
           // Tablet: Tab navigation
           <TabView
@@ -433,12 +434,13 @@ export function GameConsole() {
               id: 1,
               name: user?.username || "调查员",
               hp: character.hp,
-              maxHp: character.hpMax,
+              hpMax: character.hpMax,
               mp: character.mp,
-              maxMp: character.mpMax,
+              mpMax: character.mpMax,
               san: character.san,
-              maxSan: character.sanMax,
+              sanMax: character.sanMax,
               luck: character.luck,
+              luckMax: character.luckMax,
             }}
             world={{
               currentScene: world.currentScene,
@@ -447,7 +449,7 @@ export function GameConsole() {
               leads: world.leads,
             }}
           />
-        ) : (
+        ) : isDesktop ? (
           // Desktop: Original three-column layout
           <>
             <div className="flex-1 flex flex-col min-w-0">
@@ -501,7 +503,7 @@ export function GameConsole() {
               </div>
             )}
           </>
-        )}
+        ) : null}
       </div>
 
       {/* Combat Overlay */}
@@ -579,10 +581,12 @@ export function GameConsole() {
 
       {/* Bottom Tab Bar for tablet */}
       {isTablet && (
-        <BottomTabBar
-          activeTab={activeTab}
-          onChange={setActiveTab}
-        />
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t">
+          <BottomTabBar
+            activeTab={activeTab}
+            onChange={setActiveTab}
+          />
+        </div>
       )}
     </div>
   )
