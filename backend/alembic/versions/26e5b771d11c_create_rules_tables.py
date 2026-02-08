@@ -23,7 +23,7 @@ except ImportError:
 
 # revision identifiers, used by Alembic.
 revision: str = '26e5b771d11c'
-down_revision: Union[str, Sequence[str], None] = None
+down_revision: Union[str, Sequence[str], None] = '001_initial_schema'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

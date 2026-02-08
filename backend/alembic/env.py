@@ -21,8 +21,18 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # Override sqlalchemy.url from environment variable
+# Build DATABASE_URL from components if not set
 if os.environ.get("DATABASE_URL"):
     config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+else:
+    # Build from component environment variables
+    db_host = os.environ.get("DB_HOST", "localhost")
+    db_port = os.environ.get("DB_PORT", "5432")
+    db_name = os.environ.get("DB_NAME", "monika")
+    db_user = os.environ.get("DB_USER", "postgres")
+    db_password = os.environ.get("DB_PASSWORD", "postgres")
+    database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    config.set_main_option("sqlalchemy.url", database_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
