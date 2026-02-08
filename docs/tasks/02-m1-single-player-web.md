@@ -297,8 +297,8 @@
 
 | ID | 任务 | 类型 | 预估工时 | 依赖 | 状态 |
 |----|------|------|----------|------|------|
-| M1-107 | [ ] 实现日志查看面板 | frontend | 4h | M1-037 | [ ] |
-| M1-108 | [ ] 实现日志导出功能 | frontend | 2h | M1-107 | [ ] |
+| M1-107 | [x] 实现日志查看面板 | frontend | 4h | M1-037 | [x] |
+| M1-108 | [x] 实现日志导出功能 | frontend | 2h | M1-107 | [x] |
 
 ---
 
@@ -320,7 +320,7 @@
 | M1-113 | [x] 编写认证单元测试 | test | 4h | M1-013 | [x] |
 | M1-114 | [x] 编写掷骰引擎测试 | test | 4h | M1-065 | [x] |
 | M1-115 | [x] 编写战斗系统测试 | test | 4h | M1-079 | [x] |
-| M1-116 | [ ] E2E 测试覆盖 | test | 8h | M1-112 | [ ] |
+| M1-116 | [x] E2E 测试覆盖 | test | 8h | M1-112 | [x] |
 
 ---
 
@@ -332,7 +332,7 @@
 - [x] 检定系统 (d100/奖惩骰/推骰/花幸运)
 - [x] 战斗系统 (回合/伤害/濒死)
 - [x] 追逐系统 (距离/压力/障碍)
-- [ ] 规则问答闭环
+- [x] 规则问答闭环
 - [x] 事件日志可追溯
 - [x] 响应式布局 (桌面 + 平板)
 
@@ -362,6 +362,37 @@
 | 响应式适配耗时 | 中 | 中 | 先专注桌面 |
 
 ---
+
+## 完成记录
+
+**2025-02-08**: 规则问答闭环完成
+- 实现 RuleInlineCitation 组件用于在消息气泡中显示规则引用
+- WebSocket 消息中的 tool_results 现在会被传递到前端并显示
+- 用户可以点击规则引用打开 RuleDetailDialog 查看完整详情
+
+**2025-02-08**: M1-107 事件日志查看面板完成
+- 创建 backend/src/api/events.py 事件 API 端点
+- 创建 frontend/src/types/event.ts 事件类型定义
+- 创建 frontend/src/components/events/EventLogPanel.tsx 事件日志面板组件
+- 创建 frontend/src/services/api/events.ts 事件 API 客户端
+- 集成到 GameConsole (桌面侧边栏 + 平板/移动端标签页)
+
+**2025-02-08**: M1-108 事件日志导出功能完成
+- 创建 frontend/src/utils/export.ts 导出工具函数
+- 创建 frontend/src/components/events/ExportButton.tsx 导出按钮组件
+- 支持导出为 JSON (完整数据) 和 CSV (表格格式，支持 Excel)
+- 集成到 EventLogPanel 头部工具栏
+- 文件名包含会话 ID 和时间戳
+
+**2025-02-08**: M1-116 E2E 测试覆盖完成
+- 安装并配置 Playwright E2E 测试框架
+- 创建 frontend/playwright.config.ts 配置文件
+- 创建 frontend/e2e/helpers/utils.ts 测试工具函数
+- 创建 e2e/auth.spec.ts 认证流程测试 (登录/注册/登出)
+- 创建 e2e/game-console.spec.ts 游戏台测试 (消息/响应式布局/状态面板)
+- 创建 e2e/dice.spec.ts 掷骰系统测试 (检定/推骰/花幸运/奖惩骰)
+- 创建 e2e/events.spec.ts 事件日志测试 (面板/筛选/导出 JSON/CSV)
+- 添加 npm scripts: test:e2e, test:e2e:ui, test:e2e:debug
 
 **负责人**: -
 **开始日期**: -

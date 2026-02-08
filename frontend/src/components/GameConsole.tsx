@@ -5,6 +5,7 @@ import { StatePanel } from "@/components/StatePanel"
 import { Footer } from "@/components/Footer"
 import { CombatOverlay } from "@/components/combat/CombatOverlay"
 import { RuleSearch } from "@/components/rules"
+import { EventLogPanel } from "@/components/events"
 import { useGameWebSocket } from "@/hooks/useGameWebSocket"
 import { useLLMResponse } from "@/hooks/useLLMResponse"
 import { useCombatState } from "@/hooks/useCombatState"
@@ -21,7 +22,7 @@ import type { Combat, AttackRequest, HealRequest } from "@/types/combat"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Maximize2, Sword, GitFork, BookOpen, X } from "lucide-react"
+import { Maximize2, Sword, GitFork, BookOpen, X, ListTodo } from "lucide-react"
 import { ChaseOverlay } from "@/components/chase"
 
 export interface Message {
@@ -30,6 +31,7 @@ export interface Message {
   content: string
   timestamp: Date
   sender?: string
+  toolResults?: import('@/types/websocket').ToolResult[]
 }
 
 interface CharacterState {
@@ -67,15 +69,18 @@ export function GameConsole() {
   // Rules panel state
   const [showRules, setShowRules] = useState(false)
 
+  // Events panel state
+  const [showEvents, setShowEvents] = useState(false)
+
   // Responsive breakpoint detection
   const { isMobile, isTablet, isDesktop } = useBreakpoint()
 
   // Tab state for tablet layout
-  const [activeTab, setActiveTab] = useState<'messages' | 'state' | 'rules'>('messages')
+  const [activeTab, setActiveTab] = useState<'messages' | 'state' | 'rules' | 'events'>('messages')
 
   // Swipe gesture for tablet tab switching
   const tabletSwipeBind = useSwipeToSwipe((direction) => {
-    const tabs: Array<'messages' | 'state' | 'rules'> = ['messages', 'state', 'rules']
+    const tabs: Array<'messages' | 'state' | 'rules' | 'events'> = ['messages', 'state', 'rules', 'events']
     const currentIndex = tabs.indexOf(activeTab)
 
     if (direction === 'left' && currentIndex < tabs.length - 1) {
@@ -156,6 +161,7 @@ export function GameConsole() {
       role: "kp",
       content: llmResponse.narrative,
       timestamp: new Date(),
+      toolResults: llmResponse.tool_results,
     }
     setMessages(prev => [...prev, keeperMessage])
   }, [])
@@ -416,7 +422,13 @@ export function GameConsole() {
 
   return (
     <div className="flex flex-col h-screen">
-      <Header characterName="调查员" onToggleRules={() => setShowRules(!showRules)} showRules={showRules} />
+      <Header
+        characterName="调查员"
+        onToggleRules={() => setShowRules(!showRules)}
+        showRules={showRules}
+        onToggleEvents={() => setShowEvents(!showEvents)}
+        showEvents={showEvents}
+      />
       <div {...tabletSwipeBind} className="flex-1 flex overflow-hidden">
         {isMobile ? (
           // Mobile: Observer mode with proper scrolling
@@ -470,6 +482,7 @@ export function GameConsole() {
               timer: world.timer?.toString(),
               leads: world.leads,
             }}
+            sessionId={sessionId}
           />
         ) : isDesktop ? (
           // Desktop: Original three-column layout
@@ -522,6 +535,11 @@ export function GameConsole() {
                     </ul>
                   </div>
                 </div>
+              </div>
+            )}
+            {showEvents && sessionId && (
+              <div className="w-80 border-l border-gray-200 bg-white overflow-hidden flex flex-col">
+                <EventLogPanel sessionId={sessionId} className="flex-1" />
               </div>
             )}
           </>

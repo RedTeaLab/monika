@@ -1,8 +1,12 @@
+import { useState, useCallback } from "react"
 import type { ReactNode } from "react"
 import { Dice3, Shield, Heart } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { RuleInlineCitation } from "@/components/rules"
+import { RuleDetailDialog } from "@/components/rules"
+import type { ToolResult } from "@/types/websocket"
 
 export type MessageRole = "kp" | "player" | "ooc" | "system"
 
@@ -22,6 +26,7 @@ export interface Message {
   sender?: string // Player name for player messages
   stateChanges?: StateChange[]
   next?: string[] // Next actions suggestions
+  toolResults?: ToolResult[]
 }
 
 interface MessageBubbleProps {
@@ -29,6 +34,19 @@ interface MessageBubbleProps {
 }
 
 export function MessageBubble({ message }: MessageBubbleProps) {
+  // Rule dialog state management
+  const [selectedRule, setSelectedRule] = useState<string | null>(null)
+  const [showRuleDialog, setShowRuleDialog] = useState(false)
+
+  const handleRuleClick = useCallback((ruleId: string) => {
+    setSelectedRule(ruleId)
+    setShowRuleDialog(true)
+  }, [])
+
+  const handleDialogClose = useCallback(() => {
+    setShowRuleDialog(false)
+  }, [])
+
   const isKP = message.role === "kp"
   const isPlayer = message.role === "player"
   const isOOC = message.role === "ooc"
@@ -190,7 +208,30 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             </div>
           </div>
         )}
+
+        {/* Rule citations */}
+        {message.toolResults && message.toolResults.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-border/50 pt-2">
+            {message.toolResults.map((toolResult, idx) => (
+              <RuleInlineCitation
+                key={`${toolResult.tool}-${idx}`}
+                toolResult={toolResult}
+                onRuleClick={handleRuleClick}
+                compact={isPlayer}
+              />
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* Rule detail dialog */}
+      {selectedRule && (
+        <RuleDetailDialog
+          ruleId={selectedRule}
+          open={showRuleDialog}
+          onOpenChange={handleDialogClose}
+        />
+      )}
     </div>
   )
 }

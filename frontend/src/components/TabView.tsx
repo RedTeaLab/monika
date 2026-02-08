@@ -1,6 +1,7 @@
 import { MessageList } from '@/components/MessageList'
 import { StatePanel } from '@/components/StatePanel'
 import { RuleSearch } from '@/components/rules/RuleSearch'
+import { EventLogPanel } from '@/components/events'
 import { Footer } from '@/components/Footer'
 import type { Message } from '@/components/GameConsole'
 
@@ -30,9 +31,10 @@ interface TabViewProps {
       verified: boolean
     }>
   }
+  sessionId?: string | null
 }
 
-type TabId = 'messages' | 'state' | 'rules'
+type TabId = 'messages' | 'state' | 'rules' | 'events'
 
 interface Tab {
   id: TabId
@@ -43,10 +45,11 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'messages', label: '消息', icon: '💬' },
   { id: 'state', label: '状态', icon: '❤️' },
-  { id: 'rules', label: '规则', icon: '📖' }
+  { id: 'rules', label: '规则', icon: '📖' },
+  { id: 'events', label: '日志', icon: '📋' }
 ]
 
-export function TabView({ activeTab, onChange, messages, onSendMessage, character, world }: TabViewProps) {
+export function TabView({ activeTab, onChange, messages, onSendMessage, character, world, sessionId }: TabViewProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -99,6 +102,17 @@ export function TabView({ activeTab, onChange, messages, onSendMessage, characte
         {activeTab === 'rules' && (
           <div className="h-full overflow-y-auto p-4 bg-gray-50">
             <RuleSearch />
+          </div>
+        )}
+        {activeTab === 'events' && (
+          <div className="h-full overflow-hidden bg-gray-50">
+            {sessionId ? (
+              <EventLogPanel sessionId={sessionId} className="h-full" />
+            ) : (
+              <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+                No session ID available
+              </div>
+            )}
           </div>
         )}
       </div>

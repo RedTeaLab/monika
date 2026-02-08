@@ -1,4 +1,4 @@
-import { MessageSquare, HeartPulse, BookOpen } from 'lucide-react'
+import { MessageSquare, HeartPulse, BookOpen, ListTodo } from 'lucide-react'
 import type { TabId } from './TabView'
 import { hapticFeedback } from '@/hooks/useTouchOptimizer'
 
@@ -11,6 +11,7 @@ const tabConfig = [
   { id: 'messages' as const, label: '消息', icon: MessageSquare },
   { id: 'state' as const, label: '状态', icon: HeartPulse },
   { id: 'rules' as const, label: '规则', icon: BookOpen },
+  { id: 'events' as const, label: '日志', icon: ListTodo },
 ]
 
 export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
