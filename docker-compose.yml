@@ -43,6 +43,8 @@ services:
       DB_NAME: ${DB_NAME:-monika}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy-key-for-migrations}
     depends_on:
       postgres:
         condition: service_healthy

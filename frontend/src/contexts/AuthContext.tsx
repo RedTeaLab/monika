@@ -8,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isLoading: boolean
   login: (username: string, password: string, rememberMe?: boolean) => Promise<void>
-  register: (username: string, email: string, password: string) => Promise<void>
+  register: (username: string, email: string, password: string) => Promise<{ success: boolean; username: string }>
   logout: () => void
 }
 
@@ -74,9 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.register({ username, email, password })
 
-      // 注册成功后自动登录（不显示登录成功的 toast）
-      await login(username, password, true, false)
-      toast.success('注册成功')
+      // 注册成功，显示 toast 并返回成功
+      toast.success('注册成功！')
+      // 注意：不再自动登录，由调用方处理跳转
+      return { success: true, username }
     } catch (error: any) {
       const message = error.response?.data?.detail || '注册失败'
       toast.error(message)

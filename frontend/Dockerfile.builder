@@ -14,8 +14,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Clear Vite cache and build the application
+RUN rm -rf node_modules/.vite && npm run build
 
 # Runtime stage - minimal image just for building
 FROM node:latest

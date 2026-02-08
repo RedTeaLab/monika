@@ -78,10 +78,12 @@ export function AuthPage() {
     try {
       if (mode === 'login') {
         await login(formData.username, formData.password, rememberMe)
+        navigate('/select-character')
       } else {
-        await register(formData.username, formData.email, formData.password)
+        const result = await register(formData.username, formData.email, formData.password)
+        // 注册成功后跳转到欢迎页面
+        navigate(`/register-success?username=${encodeURIComponent(result.username)}`)
       }
-      navigate('/select-character')
     } catch {
       // Error already handled by AuthContext with toast
     }
