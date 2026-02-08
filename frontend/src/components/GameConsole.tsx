@@ -11,6 +11,8 @@ import { useCombatState } from "@/hooks/useCombatState"
 import { useCombatActions } from "@/hooks/useCombatActions"
 import { useAuth } from "@/contexts/AuthContext"
 import { useBreakpoint } from "@/hooks/useBreakpoint"
+import { useTouchOptimizer, hapticFeedback } from "@/hooks/useTouchOptimizer"
+import { useSwipeToSwipe } from "@/hooks/useGestures"
 import { TabView } from "@/components/TabView"
 import { BottomTabBar } from "@/components/BottomTabBar"
 import { MobileFooter } from "@/components/MobileFooter"
@@ -51,6 +53,9 @@ interface WorldState {
 export function GameConsole() {
   const { user } = useAuth()
 
+  // Touch optimization for mobile devices
+  useTouchOptimizer()
+
   // Combat state management
   const [combatId, setCombatId] = useState<string | null>(null)
   const [isCombatMinimized, setIsCombatMinimized] = useState(false)
@@ -67,6 +72,23 @@ export function GameConsole() {
 
   // Tab state for tablet layout
   const [activeTab, setActiveTab] = useState<'messages' | 'state' | 'rules'>('messages')
+
+  // Swipe gesture for tablet tab switching
+  const tabletSwipeBind = useSwipeToSwipe((direction) => {
+    const tabs: Array<'messages' | 'state' | 'rules'> = ['messages', 'state', 'rules']
+    const currentIndex = tabs.indexOf(activeTab)
+
+    if (direction === 'left' && currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1])
+    } else if (direction === 'right' && currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1])
+    }
+  })
+
+  // Haptic feedback on tab change
+  useEffect(() => {
+    hapticFeedback('light')
+  }, [activeTab])
 
   const {
     combat,
@@ -395,7 +417,7 @@ export function GameConsole() {
   return (
     <div className="flex flex-col h-screen">
       <Header characterName="调查员" onToggleRules={() => setShowRules(!showRules)} showRules={showRules} />
-      <div className="flex-1 flex overflow-hidden">
+      <div {...tabletSwipeBind} className="flex-1 flex overflow-hidden">
         {isMobile ? (
           // Mobile: Observer mode with proper scrolling
           <div className="flex-1 flex flex-col overflow-hidden">

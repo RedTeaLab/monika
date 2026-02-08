@@ -1,5 +1,6 @@
 import { MessageSquare, HeartPulse, BookOpen } from 'lucide-react'
 import type { TabId } from './TabView'
+import { hapticFeedback } from '@/hooks/useTouchOptimizer'
 
 interface BottomTabBarProps {
   activeTab: TabId
@@ -13,6 +14,11 @@ const tabConfig = [
 ]
 
 export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
+  const handleTabChange = (tabId: TabId) => {
+    hapticFeedback('light')
+    onChange(tabId)
+  }
+
   return (
     <nav className="lg:hidden flex border-t bg-background pb-safe-area-bottom">
       {tabConfig.map((tab) => {
@@ -22,7 +28,7 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
         return (
           <button
             key={tab.id}
-            onClick={() => onChange(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`
               flex-1 flex flex-col items-center justify-center py-3 min-h-[56px]
               transition-colors duration-200
