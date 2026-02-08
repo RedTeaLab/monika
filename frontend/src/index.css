@@ -69,6 +69,7 @@ body {
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --spacing-safe-area-bottom: env(safe-area-inset-bottom);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
