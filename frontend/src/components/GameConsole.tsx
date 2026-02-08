@@ -10,6 +10,10 @@ import { useLLMResponse } from "@/hooks/useLLMResponse"
 import { useCombatState } from "@/hooks/useCombatState"
 import { useCombatActions } from "@/hooks/useCombatActions"
 import { useAuth } from "@/contexts/AuthContext"
+import { useBreakpoint } from "@/hooks/useBreakpoint"
+import { TabView } from "@/components/TabView"
+import { BottomTabBar } from "@/components/BottomTabBar"
+import { MobileFooter } from "@/components/MobileFooter"
 import type { ServerMessage, KeeperMessage, StateUpdate, ChaseStartedMessage, ChaseEndedMessage } from "@/types/websocket"
 import type { Combat, AttackRequest, HealRequest } from "@/types/combat"
 import { toast } from "sonner"
@@ -18,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Maximize2, Sword, GitFork, BookOpen, X } from "lucide-react"
 import { ChaseOverlay } from "@/components/chase"
 
-interface Message {
+export interface Message {
   id: string
   role: 'kp' | 'player' | 'system'
   content: string
@@ -57,6 +61,12 @@ export function GameConsole() {
 
   // Rules panel state
   const [showRules, setShowRules] = useState(false)
+
+  // Responsive breakpoint detection
+  const { isMobile, isTablet, isDesktop } = useBreakpoint()
+
+  // Tab state for tablet layout
+  const [activeTab, setActiveTab] = useState<'messages' | 'state' | 'rules'>('messages')
 
   const {
     combat,
@@ -386,50 +396,111 @@ export function GameConsole() {
     <div className="flex flex-col h-screen">
       <Header characterName="调查员" onToggleRules={() => setShowRules(!showRules)} showRules={showRules} />
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 flex flex-col min-w-0">
-          <MessageList messages={messages} />
-          <Footer onSendMessage={handleSendMessage} />
-        </div>
-        <StatePanel
-          character={{
-            id: 1,
-            name: user?.username || "调查员",
-            hp: character.hp,
-            maxHp: character.hpMax,
-            mp: character.mp,
-            maxMp: character.mpMax,
-            san: character.san,
-            maxSan: character.sanMax,
-            luck: character.luck,
-          }}
-        />
-        {showRules && (
-          <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-semibold text-gray-900">Rules</h3>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowRules(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <RuleSearch />
-              <div className="text-xs text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
-                <p className="font-medium mb-1">Quick Tips:</p>
-                <ul className="space-y-1 list-disc list-inside">
-                  <li>Search for rules like "pushing", "sanity"</li>
-                  <li>Click results to see full details</li>
-                  <li>Use keywords like "combat", "chase"</li>
-                </ul>
-              </div>
+        {isMobile ? (
+          // Mobile: Observer mode
+          <>
+            <div className="flex-1 flex flex-col min-w-0">
+              <MessageList messages={messages} />
             </div>
-          </div>
+            <StatePanel
+              character={{
+                hp: character.hp,
+                hpMax: character.hpMax,
+                mp: character.mp,
+                mpMax: character.mpMax,
+                san: character.san,
+                sanMax: character.sanMax,
+                luck: character.luck,
+                luckMax: character.luckMax,
+              }}
+              world={{
+                currentScene: world.currentScene,
+                location: world.location,
+                timer: world.timer?.toString(),
+                leads: world.leads,
+              }}
+            />
+            <MobileFooter />
+          </>
+        ) : isTablet ? (
+          // Tablet: Tab navigation
+          <TabView
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            character={{
+              id: 1,
+              name: user?.username || "调查员",
+              hp: character.hp,
+              maxHp: character.hpMax,
+              mp: character.mp,
+              maxMp: character.mpMax,
+              san: character.san,
+              maxSan: character.sanMax,
+              luck: character.luck,
+            }}
+            world={{
+              currentScene: world.currentScene,
+              location: world.location,
+              timer: world.timer?.toString(),
+              leads: world.leads,
+            }}
+          />
+        ) : (
+          // Desktop: Original three-column layout
+          <>
+            <div className="flex-1 flex flex-col min-w-0">
+              <MessageList messages={messages} />
+              <Footer onSendMessage={handleSendMessage} />
+            </div>
+            <StatePanel
+              character={{
+                hp: character.hp,
+                hpMax: character.hpMax,
+                mp: character.mp,
+                mpMax: character.mpMax,
+                san: character.san,
+                sanMax: character.sanMax,
+                luck: character.luck,
+                luckMax: character.luckMax,
+              }}
+              world={{
+                currentScene: world.currentScene,
+                location: world.location,
+                timer: world.timer?.toString(),
+                leads: world.leads,
+              }}
+            />
+            {showRules && (
+              <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="h-5 w-5 text-blue-600" />
+                      <h3 className="font-semibold text-gray-900">Rules</h3>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowRules(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <RuleSearch />
+                  <div className="text-xs text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="font-medium mb-1">Quick Tips:</p>
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>Search for rules like "pushing", "sanity"</li>
+                      <li>Click results to see full details</li>
+                      <li>Use keywords like "combat", "chase"</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -504,6 +575,14 @@ export function GameConsole() {
             </Button>
           </div>
         </Card>
+      )}
+
+      {/* Bottom Tab Bar for tablet */}
+      {isTablet && (
+        <BottomTabBar
+          activeTab={activeTab}
+          onChange={setActiveTab}
+        />
       )}
     </div>
   )

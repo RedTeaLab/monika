@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { MessageList } from '@/components/MessageList'
 import { StatePanel } from '@/components/StatePanel'
 import { RuleSearch } from '@/components/rules/RuleSearch'
@@ -6,6 +5,8 @@ import { Footer } from '@/components/Footer'
 import type { Message } from '@/components/GameConsole'
 
 interface TabViewProps {
+  activeTab: TabId
+  onChange: (tab: TabId) => void
   messages: Message[]
   onSendMessage: (content: string) => void
   character: {
@@ -45,8 +46,7 @@ const TABS: Tab[] = [
   { id: 'rules', label: '规则', icon: '📖' }
 ]
 
-export function TabView({ messages, onSendMessage, character, world }: TabViewProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('messages')
+export function TabView({ activeTab, onChange, messages, onSendMessage, character, world }: TabViewProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -55,7 +55,7 @@ export function TabView({ messages, onSendMessage, character, world }: TabViewPr
         {TABS.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => onChange(tab.id)}
             className={`
               flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2
               transition-colors duration-200
