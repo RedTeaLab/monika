@@ -5,11 +5,13 @@ import { LandingPage } from '@/pages/LandingPage'
 import { AuthPage } from '@/pages/AuthPage'
 import { CharacterSelectPage } from '@/pages/CharacterSelectPage'
 import { GameConsole } from '@/components/GameConsole'
+import { Toaster } from '@/components/ui/toaster'
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Toaster />
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
