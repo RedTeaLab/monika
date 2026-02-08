@@ -34,6 +34,7 @@ interface StatePanelProps {
   character: CharacterState
   world: WorldState
   className?: string
+  fullWidth?: boolean
 }
 
 interface StatBarProps {
@@ -114,7 +115,7 @@ function StatBar({
   )
 }
 
-export function StatePanel({ character, world, className }: StatePanelProps) {
+export function StatePanel({ character, world, className, fullWidth = false }: StatePanelProps) {
   const [previousValues, setPreviousValues] = useState<CharacterState>(character)
 
   useEffect(() => {
@@ -142,7 +143,7 @@ export function StatePanel({ character, world, className }: StatePanelProps) {
   const sanityStatus = getSanityStatus()
 
   return (
-    <Card className={cn("w-80 h-fit flex flex-col", className)}>
+    <Card className={cn(fullWidth ? "w-full h-fit flex flex-col" : "w-80 h-fit flex flex-col", className)}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold">Status Panel</CardTitle>
       </CardHeader>
