@@ -51,7 +51,7 @@ export function AuthPage() {
 
       const hasLetter = /[a-zA-Z]/.test(formData.password)
       const hasNumber = /[0-9]/.test(formData.password)
-      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password)
+      const hasSpecial = /[!@#$%^&*()\-_=+\[\]{}\\|;:'",.<>/?`~]/.test(formData.password)
 
       if (!hasLetter || !hasNumber || !hasSpecial) {
         return '密码必须包含字母、数字和特殊字符'
