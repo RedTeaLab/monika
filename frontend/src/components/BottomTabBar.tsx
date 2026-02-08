@@ -14,7 +14,7 @@ const tabConfig = [
 
 export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
   return (
-    <nav className="md:lg:hidden flex border-t bg-background pb-safe-area-bottom">
+    <nav className="lg:hidden flex border-t bg-background pb-safe-area-bottom">
       {tabConfig.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
