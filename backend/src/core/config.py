@@ -11,33 +11,71 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Database
-    DATABASE_URL: str = "postgresql+psycopg2://postgres:password@localhost:5432/monika"
+    # ===== REQUIRED CONFIGURATION =====
+    # Security (REQUIRED)
+    SECRET_KEY: str = Field(
+        ...,
+        description="JWT signing key (min 32 chars). Generate with: openssl rand -hex 32"
+    )
 
-    # Security
-    SECRET_KEY: str = "change-this-secret-key-in-production"
+    # ===== DATABASE CONFIGURATION =====
+    # Database connection (defaults for Docker environment)
+    DB_HOST: str = Field(default="postgres", description="Database host")
+    DB_PORT: int = Field(default=5432, description="Database port")
+    DB_NAME: str = Field(default="monika", description="Database name")
+    DB_USER: str = Field(default="postgres", description="Database user")
+    DB_PASSWORD: str = Field(default="postgres", description="Database password")
+
+    @property
+    def DATABASE_URL(self) -> str:
+        """Build database URL from components."""
+        return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+
+    # ===== LLM CONFIGURATION (REQUIRED) =====
+    # LLM provider to use
+    LLM_PROVIDER: str = Field(
+        default="openai",
+        description="LLM provider: openai, claude, or custom"
+    )
+
+    # OpenAI Configuration (REQUIRED if using openai provider)
+    OPENAI_BASE_URL: str = Field(
+        default="https://api.openai.com/v1",
+        description="OpenAI API base URL"
+    )
+    OPENAI_API_KEY: str = Field(
+        ...,
+        description="OpenAI API key"
+    )
+    OPENAI_MODEL: str = Field(
+        default="gpt-4o-mini",
+        description="OpenAI model name"
+    )
+
+    # Claude Configuration (REQUIRED if using claude provider)
+    CLAUDE_BASE_URL: str = Field(
+        default="https://api.anthropic.com",
+        description="Claude API base URL"
+    )
+    CLAUDE_API_KEY: str = Field(
+        default="",
+        description="Claude API key (required if LLM_PROVIDER=claude)"
+    )
+    CLAUDE_MODEL: str = Field(
+        default="claude-3-5-sonnet-20241022",
+        description="Claude model name"
+    )
+
+    # ===== OPTIONAL CONFIGURATION =====
+    # Application
+    DEBUG: bool = Field(default=False, description="Enable debug mode (production: false)")
+
+    # ===== INTERNAL CONFIGURATION =====
+    # These values are fixed and should not need to be changed
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-
-    # Application
-    DEBUG: bool = True
-
-    # LLM Configuration
-    llm_provider: str = Field(default="openai", description="LLM Provider: openai, claude, qwen")
-    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API Key")
-    openai_model: str = Field(default="gpt-4", description="OpenAI Model")
-    claude_api_key: Optional[str] = Field(default=None, description="Anthropic API Key")
-    claude_model: str = Field(
-        default="claude-3-sonnet-20240229", description="Claude Model"
-    )
-
-    # WebSocket Configuration
-    ws_heartbeat_interval: int = Field(
-        default=30, description="WebSocket heartbeat interval (seconds)"
-    )
-    ws_reconnect_max_attempts: int = Field(
-        default=5, description="Max WebSocket reconnect attempts"
-    )
+    ws_heartbeat_interval: int = 30
+    ws_reconnect_max_attempts: int = 5
 
 
 settings = Settings()

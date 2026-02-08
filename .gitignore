@@ -61,3 +61,20 @@ backend/alembic/versions/*.py
 
 # Git worktrees
 .worktrees/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Backups
+backups/
+*.sql
+*.sql.gz
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+
+# uv cache
+.uv/

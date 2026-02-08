@@ -48,7 +48,7 @@ interface CharacterState {
 interface WorldState {
   currentScene: string
   location: string
-  timer?: number
+  timer?: string
   leads: Array<{ id: string; text: string; verified: boolean }>
 }
 
@@ -438,22 +438,8 @@ export function GameConsole() {
             </div>
             <StatePanel
               fullWidth
-              character={{
-                hp: character.hp,
-                hpMax: character.hpMax,
-                mp: character.mp,
-                mpMax: character.mpMax,
-                san: character.san,
-                sanMax: character.sanMax,
-                luck: character.luck,
-                luckMax: character.luckMax,
-              }}
-              world={{
-                currentScene: world.currentScene,
-                location: world.location,
-                timer: world.timer?.toString(),
-                leads: world.leads,
-              }}
+              character={character}
+              world={world}
             />
             <MobileFooter />
           </div>
@@ -468,13 +454,12 @@ export function GameConsole() {
               id: 1,
               name: user?.username || "调查员",
               hp: character.hp,
-              hpMax: character.hpMax,
+              maxHp: character.hpMax,
               mp: character.mp,
-              mpMax: character.mpMax,
+              maxMp: character.mpMax,
               san: character.san,
-              sanMax: character.sanMax,
+              maxSan: character.sanMax,
               luck: character.luck,
-              luckMax: character.luckMax,
             }}
             world={{
               currentScene: world.currentScene,
@@ -492,22 +477,8 @@ export function GameConsole() {
               <Footer onSendMessage={handleSendMessage} />
             </div>
             <StatePanel
-              character={{
-                hp: character.hp,
-                hpMax: character.hpMax,
-                mp: character.mp,
-                mpMax: character.mpMax,
-                san: character.san,
-                sanMax: character.sanMax,
-                luck: character.luck,
-                luckMax: character.luckMax,
-              }}
-              world={{
-                currentScene: world.currentScene,
-                location: world.location,
-                timer: world.timer?.toString(),
-                leads: world.leads,
-              }}
+              character={character}
+              world={world}
             />
             {showRules && (
               <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
