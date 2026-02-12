@@ -14,18 +14,28 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # 解析参数
+USE_SQLITE=false
 KEEP_DB=false
 for arg in "$@"; do
     case $arg in
+        --sqlite)
+            USE_SQLITE=true
+            shift
+            ;;
         --keep-db)
             KEEP_DB=true
             shift
             ;;
         --help)
-            echo "Usage: ./start-dev.sh [--keep-db]"
+            echo "Usage: ./start-dev.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --keep-db    保留数据库数据,不删除卷"
+            echo "  --sqlite      使用 SQLite 数据库 (无需 Docker)"
+            echo "  --keep-db     保留数据库数据,不删除卷"
+            echo ""
+            echo "Examples:"
+            echo "  ./start-dev.sh          # PostgreSQL (需要 Docker)"
+            echo "  ./start-dev.sh --sqlite  # SQLite (无需 Docker)"
             exit 0
             ;;
     esac
@@ -36,16 +46,31 @@ echo "  Monika 本地开发服务器"
 echo "========================================="
 echo ""
 
+if [ "$USE_SQLITE" = true ]; then
+    echo -e "${YELLOW}模式: SQLite (无需 Docker)${NC}"
+else
+    echo -e "${YELLOW}模式: PostgreSQL (需要 Docker)${NC}"
+fi
+echo ""
+
 # 1. 检查必需工具
 check_required_tools() {
     echo -e "${YELLOW}检查必需工具...${NC}"
     local missing=()
 
-    for cmd in docker uv node npm; do
+    # 基础工具 (始终需要)
+    for cmd in uv node npm; do
         if ! command -v $cmd &> /dev/null; then
             missing+=($cmd)
         fi
     done
+
+    # 仅在非 SQLite 模式下检查 docker
+    if [ "$USE_SQLITE" = false ]; then
+        if ! command -v docker &> /dev/null; then
+            missing+=(docker)
+        fi
+    fi
 
     if [ ${#missing[@]} -gt 0 ]; then
         echo -e "${RED}缺少必需工具: ${missing[*]}${NC}"
@@ -55,7 +80,42 @@ check_required_tools() {
     echo -e "${GREEN}✓ 所有工具已就绪${NC}"
 }
 
-# 2. 清理缓存
+# 2. 配置 SQLite 模式
+setup_sqlite_env() {
+    echo -e "${YELLOW}配置 SQLite 环境...${NC}"
+
+    cd backend
+
+    # 确保 .env 存在
+    if [ ! -f .env ]; then
+        if [ -f .env.example ]; then
+            cp .env.example .env
+            echo -e "${YELLOW}创建 .env 从 .env.example${NC}"
+        else
+            echo -e "${RED}错误: .env.example 不存在${NC}"
+            exit 1
+        fi
+    fi
+
+    # 设置 SQLite 配置
+    sed -i.bak 's/^DB_TYPE=.*/DB_TYPE=sqlite/' .env
+    sed -i.bak 's/^# SQLITE_PATH=.*/SQLITE_PATH=monika.db/' .env
+    sed -i.bak 's/^SQLITE_PATH=.*/SQLITE_PATH=monika.db/' .env
+
+    # 注释掉 PostgreSQL 配置
+    sed -i.bak 's/^DB_HOST=/# DB_HOST=/' .env
+    sed -i.bak 's/^DB_PORT=/# DB_PORT=/' .env
+    sed -i.bak 's/^DB_NAME=/# DB_NAME=/' .env
+    sed -i.bak 's/^DB_USER=/# DB_USER=/' .env
+    sed -i.bak 's/^DB_PASSWORD=/# DB_PASSWORD=/' .env
+
+    rm -f .env.bak
+    cd ..
+
+    echo -e "${GREEN}✓ SQLite 配置完成${NC}"
+}
+
+# 3. 清理缓存
 clear_cache() {
     echo -e "${YELLOW}清理缓存...${NC}"
 
@@ -69,13 +129,20 @@ clear_cache() {
     rm -rf backend/__pycache__
     rm -rf backend/src/__pycache__
 
+    # SQLite database file (if resetting)
+    if [ "$USE_SQLITE" = true ] && [ "$KEEP_DB" = false ]; then
+        rm -f backend/monika.db
+        rm -f backend/monika.db-journal
+        echo -e "${YELLOW}  - 已删除旧 SQLite 数据库${NC}"
+    fi
+
     # Write new cache-bust timestamp
     echo $RANDOM > frontend/.cache-bust
 
     echo -e "${GREEN}✓ 缓存已清理${NC}"
 }
 
-# 3. 释放端口
+# 4. 释放端口
 free_ports() {
     echo -e "${YELLOW}释放端口 8000 和 5173...${NC}"
 
@@ -105,8 +172,13 @@ free_ports() {
     echo -e "${GREEN}✓ 端口已释放${NC}"
 }
 
-# 4. 数据库设置
+# 5. 数据库设置 (仅 PostgreSQL)
 setup_database() {
+    if [ "$USE_SQLITE" = true ]; then
+        echo -e "${YELLOW}跳过 PostgreSQL 设置 (使用 SQLite)${NC}"
+        return 0
+    fi
+
     echo -e "${YELLOW}设置数据库...${NC}"
 
     if [ "$KEEP_DB" = false ]; then
@@ -139,7 +211,7 @@ wait_for_postgres() {
     exit 1
 }
 
-# 5. 数据库迁移
+# 6. 数据库迁移
 run_migrations() {
     echo -e "${YELLOW}运行数据库迁移...${NC}"
 
@@ -150,7 +222,7 @@ run_migrations() {
     echo -e "${GREEN}✓ 迁移完成${NC}"
 }
 
-# 6. 启动后端
+# 7. 启动后端
 start_backend() {
     echo -e "${YELLOW}启动后端...${NC}"
 
@@ -180,7 +252,7 @@ start_backend() {
     exit 1
 }
 
-# 7. 启动前端
+# 8. 启动前端
 start_frontend() {
     echo -e "${YELLOW}启动前端...${NC}"
 
@@ -215,7 +287,7 @@ start_frontend() {
     exit 1
 }
 
-# 8. 显示摘要
+# 9. 显示摘要
 show_summary() {
     echo ""
     echo -e "${GREEN}═════════════════════════════════════${NC}"
@@ -224,6 +296,12 @@ show_summary() {
     echo ""
     echo -e "  后端:  ${GREEN}http://localhost:8000${NC}"
     echo -e "  前端: ${GREEN}http://localhost:5173${NC}"
+    echo ""
+    if [ "$USE_SQLITE" = true ]; then
+        echo -e "${YELLOW}数据库: SQLite (backend/monika.db)${NC}"
+    else
+        echo -e "${YELLOW}数据库: PostgreSQL (Docker)${NC}"
+    fi
     echo ""
     echo -e "${YELLOW}日志:${NC}"
     echo -e "  后端:  logs/backend.log"
@@ -247,6 +325,11 @@ main() {
 
     # Run all steps
     check_required_tools
+
+    if [ "$USE_SQLITE" = true ]; then
+        setup_sqlite_env
+    fi
+
     clear_cache
     free_ports
     setup_database

@@ -209,7 +209,14 @@ echo "✓ Ports freed"
 
 | 参数 | 说明 |
 |------|------|
+| `--sqlite` | 使用 SQLite 数据库 (无需 Docker) |
 | `--keep-db` | 保留数据库数据,不执行 `docker-compose down -v` |
+
+**示例:**
+```bash
+./start-dev.sh          # PostgreSQL (需要 Docker)
+./start-dev.sh --sqlite  # SQLite (无需 Docker)
+```
 
 ---
 
@@ -247,6 +254,8 @@ NC='\033[0m'
 
 - [x] 创建 `start-dev.sh` 主脚本
 - [x] 创建 `stop-dev.sh` 停止脚本
-- [ ] 测试完整启动流程
+- [x] 跨平台端口释放 (lsof/netstat)
+- [x] SQLite 模式支持 (无需 Docker)
+- [x] 测试完整启动流程
 - [ ] 测试 `--keep-db` 参数
 - [ ] 测试错误处理流程
