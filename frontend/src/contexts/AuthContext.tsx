@@ -42,30 +42,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe = true,
     showToast = true
   ) => {
+    console.log('[AuthContext] Starting login for:', username)
     setIsLoading(true)
+
     try {
+      // Step 1: 调用登录 API
       const response = await authApi.login({ username, password })
+      console.log('[AuthContext] Login API response:', response)
 
-      // 获取用户信息
+      if (!response.access_token) {
+        throw new Error(response.data?.detail || '登录失败：未收到 access token')
+      }
+
+      const access_token = response.access_token
+
+      // Step 2: 获取用户信息（使用新获取的 token）
       const userData = await authApi.getCurrentUser()
+      console.log('[AuthContext] User data received:', userData)
 
-      setToken(response.access_token)
+      // 验证用户数据
+      if (!userData || !userData.id) {
+        throw new Error('登录失败：无法获取用户信息')
+      }
+
+      // Step 3: 保存到 localStorage（最后，确保数据完整后再保存）
       setUser(userData)
+      setToken(access_token)
 
       if (rememberMe) {
-        localStorage.setItem(STORAGE_KEYS.TOKEN, response.access_token)
+        localStorage.setItem(STORAGE_KEYS.TOKEN, access_token)
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData))
+        console.log('[AuthContext] Saved to localStorage')
       }
 
       if (showToast) {
         toast.success('登录成功')
+        console.log('[AuthContext] Toast shown')
       }
+
+      // 登录成功后导航到角色选择页面
+      setTimeout(() => {
+        console.log('[AuthContext] Navigating to /select-character')
+        // 这里不能直接用 navigate，需要让调用方决定何时跳转
+        // 因为 navigate 会立即改变路由，可能导致 Promise 中断
+      }, 100)
+
     } catch (error: any) {
-      const message = error.response?.data?.detail || '登录失败'
+      console.error('[AuthContext] Login error:', error)
+      const message = error?.response?.data?.detail || error?.message || '登录失败'
       toast.error(message)
-      throw error
-    } finally {
+
+      // 确保即使出错也要重置 loading 状态
       setIsLoading(false)
+
+      // 对于已知错误，可以不 throw，让调用方处理
+      if (error?.response?.status !== 401) {
+        throw error
+      }
+    } finally {
+      console.log('[AuthContext] Login completed (loading set to false)')
     }
   }
 

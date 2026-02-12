@@ -143,15 +143,7 @@ export interface CharacterCreate {
 // 认证 API
 export const authApi = {
   login: async (data: LoginRequest): Promise<AuthResponse> => {
-    const formData = new FormData()
-    formData.append('username', data.username)
-    formData.append('password', data.password)
-
-    const response = await api.post<AuthResponse>('/auth/login', formData, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    })
+    const response = await api.post<AuthResponse>('/auth/login', data)
     return response.data
   },
 

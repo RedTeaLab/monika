@@ -20,24 +20,29 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS
+# CORS - Allow multiple Vite ports for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "*"  # Fallback for other ports
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(auth_router)
-app.include_router(characters_router)
-app.include_router(game_router)
-app.include_router(combat_router)
-app.include_router(chase_router)
-app.include_router(sessions_router)
-app.include_router(rules_router)
-app.include_router(events_router)
+# Include routers with /api prefix for frontend proxy compatibility
+app.include_router(auth_router, prefix="/api")
+app.include_router(characters_router, prefix="/api")
+app.include_router(game_router, prefix="/api")
+app.include_router(combat_router, prefix="/api")
+app.include_router(chase_router, prefix="/api")
+app.include_router(sessions_router, prefix="/api")
+app.include_router(rules_router, prefix="/api")
+app.include_router(events_router, prefix="/api")
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 

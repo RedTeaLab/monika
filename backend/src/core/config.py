@@ -19,16 +19,24 @@ class Settings(BaseSettings):
     )
 
     # ===== DATABASE CONFIGURATION =====
-    # Database connection (defaults for Docker environment)
+    # Database type (sqlite or postgresql)
+    DB_TYPE: str = Field(default="postgresql", description="Database type: sqlite or postgresql")
+
+    # PostgreSQL configuration (for Docker/production)
     DB_HOST: str = Field(default="postgres", description="Database host")
     DB_PORT: int = Field(default=5432, description="Database port")
     DB_NAME: str = Field(default="monika", description="Database name")
     DB_USER: str = Field(default="postgres", description="Database user")
     DB_PASSWORD: str = Field(default="postgres", description="Database password")
 
+    # SQLite configuration (for local development)
+    SQLITE_PATH: str = Field(default="monika.db", description="SQLite database file path")
+
     @property
     def DATABASE_URL(self) -> str:
         """Build database URL from components."""
+        if self.DB_TYPE == "sqlite":
+            return f"sqlite:///{self.SQLITE_PATH}"
         return f"postgresql+psycopg2://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     # ===== LLM CONFIGURATION (REQUIRED) =====

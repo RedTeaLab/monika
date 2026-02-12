@@ -1,98 +1,26 @@
-from logging.config import fileConfig
+"""
+Alembic environment configuration.
+
+This file is executed before alembic commands to set environment variables.
+For SQLite, we directly set the DATABASE_URL here.
+"""
+
 import os
-from sqlalchemy import engine_from_config, pool
-from alembic import context
+import sys
+from pathlib import Path
 
-# Import your Base and models
-from src.core.database import Base
-from src.models import User, Character, GameSession, Event, Rule, RuleFAQ
+# 项目根目录
+project_root = Path(__file__).parent.parent
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
-config = context.config
+# SQLite 数据库配置
+# 直接使用 SQLite 数据库文件
+sqlite_db_path = project_root / "monika.db"
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# 设置 Alembic 使用的数据库 URL
+os.environ["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{sqlite_db_path}"
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-target_metadata = Base.metadata
+# 设置数据库类型（可选，用于代码中判断）
+os.environ["DB_TYPE"] = "sqlite"
 
-# Override sqlalchemy.url from environment variable
-# Build DATABASE_URL from components if not set
-if os.environ.get("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
-else:
-    # Build from component environment variables
-    db_host = os.environ.get("DB_HOST", "localhost")
-    db_port = os.environ.get("DB_PORT", "5432")
-    db_name = os.environ.get("DB_NAME", "monika")
-    db_user = os.environ.get("DB_USER", "postgres")
-    db_password = os.environ.get("DB_PASSWORD", "postgres")
-    database_url = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
-    config.set_main_option("sqlalchemy.url", database_url)
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
-
-def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    Calls to context.execute() here emit the given string to the
-    script output.
-
-    """
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-    # Import pgvector to support Vector type in migrations
-    try:
-        from pgvector.sqlalchemy import Vector
-    except ImportError:
-        pass
-
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
-
-        with context.begin_transaction():
-            context.run_migrations()
-
-
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
+print(f"Using SQLite database: {sqlite_db_path}")
+print(f"Database URL: sqlite:///{sqlite_db_path}")

@@ -47,5 +47,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
+    role: str = "user"
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)

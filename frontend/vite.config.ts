@@ -11,10 +11,13 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: false,  // Auto-increment if port in use
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        secure: false,
+        ws: true,
       },
     },
   },

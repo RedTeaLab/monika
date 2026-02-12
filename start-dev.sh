@@ -79,11 +79,28 @@ clear_cache() {
 free_ports() {
     echo -e "${YELLOW}释放端口 8000 和 5173...${NC}"
 
-    # Kill processes on port 8000
-    lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+    # Detect OS and use appropriate command
+    if command -v lsof &> /dev/null; then
+        # Linux/macOS: use lsof
+        lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+        lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+    elif command -v netstat &> /dev/null; then
+        # Windows/Cygwin: use netstat + taskkill
+        # Get PID listening on port 8000
+        local pid8000=$(netstat -aon | grep ":8000 " | grep "LISTENING" | awk '{print $5}' | sort -u)
+        if [ -n "$pid8000" ]; then
+            taskkill //F //PID $pid8000 2>/dev/null || true
+        fi
 
-    # Kill processes on port 5173
-    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+        # Get PID listening on port 5173
+        local pid5173=$(netstat -aon | grep ":5173 " | grep "LISTENING" | awk '{print $5}' | sort -u)
+        if [ -n "$pid5173" ]; then
+            taskkill //F //PID $pid5173 2>/dev/null || true
+        fi
+    else
+        # Fallback: try using /proc (Linux) or warn user
+        echo -e "${YELLOW}无法自动释放端口，请确保端口 8000 和 5173 未被占用${NC}"
+    fi
 
     echo -e "${GREEN}✓ 端口已释放${NC}"
 }
