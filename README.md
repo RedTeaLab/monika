@@ -78,13 +78,46 @@ For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Development Setup
 
-### Backend
+### Quick Start (Recommended)
+
+Use the one-click startup script for automated setup:
+
+```bash
+# SQLite mode (no Docker required)
+./start-dev.sh --sqlite
+
+# PostgreSQL mode (requires Docker)
+./start-dev.sh
+
+# With database persistence
+./start-dev.sh --sqlite --keep-db
+
+# Stop all services
+./stop-dev.sh
+```
+
+The script automatically:
+- Checks required tools (uv, node, npm)
+- Clears all caches
+- Frees ports 8000 and 5173
+- Sets up database (SQLite or PostgreSQL)
+- Runs migrations
+- Starts backend and frontend services
+- Displays service URLs and PIDs
+
+### Manual Setup
+
+#### Backend
 
 ```bash
 cd backend
 
 # Install dependencies (requires uv)
 uv sync
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your settings
 
 # Run development server
 uv run python -m uvicorn src.main:app --reload
@@ -93,7 +126,7 @@ uv run python -m uvicorn src.main:app --reload
 uv run pytest
 ```
 
-### Frontend
+#### Frontend
 
 ```bash
 cd frontend
