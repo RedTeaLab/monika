@@ -7,7 +7,6 @@ import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { chaseApi } from '../lib/api';
 import type {
-  Chase,
   ChaseRoundRequest,
   ChaseRoundResponse,
   ChaseActionRequestItem,

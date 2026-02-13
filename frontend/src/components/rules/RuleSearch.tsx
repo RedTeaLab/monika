@@ -2,9 +2,9 @@
  * RuleSearch component for searching CoC 7e rules
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
-import { Search, Loader2, BookOpen, X } from 'lucide-react';
-import { RuleSearchResult, RuleCategory } from '../../types/rules';
+import { useState, useCallback, useEffect } from 'react';
+import { Loader2, BookOpen, X } from 'lucide-react';
+import { RuleSearchResult } from '../../types/rules';
 import { RuleInlineResult } from './RuleInlineResult';
 import { RuleDetailDialog } from './RuleDetailDialog';
 

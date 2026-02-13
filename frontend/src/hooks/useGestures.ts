@@ -1,5 +1,5 @@
 import { useDrag } from '@use-gesture/react'
-import { useRef, useCallback } from 'react'
+import { useRef } from 'react'
 
 export function usePullToRefresh(onRefresh: () => void) {
   const ref = useRef<HTMLDivElement>(null)

@@ -2,7 +2,6 @@
  * RuleInlineResult component for displaying compact rule search results
  */
 
-import React from 'react';
 import { RuleSearchResult } from '../../types/rules';
 
 interface RuleInlineResultProps {

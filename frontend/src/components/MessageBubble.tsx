@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react"
-import type { ReactNode } from "react"
 import { Dice3, Shield, Heart } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -47,10 +46,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     setShowRuleDialog(false)
   }, [])
 
-  const isKP = message.role === "kp"
   const isPlayer = message.role === "player"
-  const isOOC = message.role === "ooc"
-  const isSystem = message.role === "system"
 
   const getBubbleClass = () => {
     switch (message.role) {
@@ -104,31 +100,6 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         return <Dice3 className="h-3 w-3" />
       default:
         return null
-    }
-  }
-
-  const getStateVariant = (
-    type: StateChange["type"]
-  ):
-    | "default"
-    | "secondary"
-    | "outline"
-    | "success"
-    | "warning"
-    | "info"
-    | "destructive" => {
-    switch (type) {
-      case "hp":
-      case "damage":
-        return "destructive"
-      case "san":
-        return "warning"
-      case "luck":
-        return "info"
-      case "roll":
-        return "secondary"
-      default:
-        return "outline"
     }
   }
 

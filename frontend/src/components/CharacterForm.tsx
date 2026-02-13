@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Save, Upload, Download, User, Swords, BookOpen, Heart } from "lucide-react"
-import { cn } from "@/lib/utils"
 import { characterApi, CharacterCreate } from "@/lib/api"
 import { toast } from "sonner"
 

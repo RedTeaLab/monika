@@ -8,7 +8,9 @@ export interface Occupation {
   credit_rating: string
   suggested_attrs: string[]
   occupation_skills: string[]
+  occupation_items?: string[]
   skill_bonus: number
+  suggested_skills?: string[]
 }
 
 export interface CharacterCreationState {

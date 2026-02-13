@@ -4,6 +4,9 @@
  * This file exports all components for easier imports
  */
 
+// Character Creation Components
+export * from './character-creation'
+
 // Investigator File Card
 export {
   InvestigatorFileCard,

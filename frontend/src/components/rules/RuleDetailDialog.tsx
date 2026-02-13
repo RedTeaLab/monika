@@ -2,9 +2,9 @@
  * RuleDetailDialog component for displaying full rule details
  */
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, BookOpen, Tag, Link2, Info } from 'lucide-react';
-import { RuleDetail, RuleCategory } from '../../types/rules';
+import { RuleDetail } from '../../types/rules';
 
 interface RuleDetailDialogProps {
   ruleId: string;
