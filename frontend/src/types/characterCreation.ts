@@ -1,10 +1,15 @@
 // frontend/src/types/characterCreation.ts
-import type { Attributes } from '@/utils/characterCalculations'
 
-export interface Occupation {
-  id: string
-  name: string
-  // Additional occupation properties can be added as needed
+export interface Attributes {
+  str: number
+  con: number
+  siz: number
+  dex: number
+  app: number
+  pow: number
+  int: number
+  edu: number
+  luck: number
 }
 
 export interface Background {
@@ -16,11 +21,47 @@ export interface Background {
   traits: string
 }
 
+export interface Equipment {
+  occupationItems: string[]
+  customItems: string[]
+  cash: number
+  assets: number
+}
+
+export interface Occupation {
+  id: string
+  name: string
+  occupation_items?: string[]
+  occupation_skills?: string[]
+  // Additional occupation properties can be added as needed
+}
+
 export interface CharacterCreationState {
   name: string
   age: number
-  gender?: string
-  occupation?: Occupation
+  gender: string
+  occupation: Occupation | null
   attributes: Attributes
+  skills: Record<string, number>
+  occupationalPointsRemaining: number
+  interestPointsRemaining: number
   background: Background
+  equipment: Equipment
 }
+
+export type CharacterCreationAction =
+  | { type: 'SET_NAME'; value: string }
+  | { type: 'SET_AGE'; value: number }
+  | { type: 'SET_GENDER'; value: string }
+  | { type: 'SET_OCCUPATION'; occupation: Occupation | null }
+  | { type: 'SET_ATTRIBUTE'; attribute: keyof Attributes; value: number }
+  | { type: 'ROLL_ATTRIBUTE'; attribute: keyof Attributes }
+  | { type: 'ROLL_ALL_ATTRIBUTES' }
+  | { type: 'CHANGE_SKILL'; skill: string; delta: number }
+  | { type: 'ADD_INTEREST_SKILL'; skill: string }
+  | { type: 'SET_BACKGROUND'; field: keyof Background; value: string }
+  | { type: 'ADD_EQUIPMENT'; category: 'occupation' | 'custom'; item: string }
+  | { type: 'REMOVE_EQUIPMENT'; category: 'occupation' | 'custom'; item: string }
+  | { type: 'SET_CASH'; value: number }
+  | { type: 'SET_ASSETS'; value: number }
+  | { type: 'RESET_FORM' }
