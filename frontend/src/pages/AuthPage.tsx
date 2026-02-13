@@ -78,14 +78,17 @@ export function AuthPage() {
     try {
       if (mode === 'login') {
         await login(formData.username, formData.password, rememberMe)
-        navigate('/select-character')
+        // 登录成功后跳转到 dashboard
+        console.log('[AuthPage] Login successful, navigating to dashboard...')
+        navigate('/dashboard')
       } else {
         const result = await register(formData.username, formData.email, formData.password)
         // 注册成功后跳转到欢迎页面
         navigate(`/register-success?username=${encodeURIComponent(result.username)}`)
       }
-    } catch {
-      // Error already handled by AuthContext with toast
+    } catch (err) {
+      // Error already handled by AuthContext with toast, do nothing
+      console.log('[AuthPage] Login failed, staying on auth page:', err)
     }
   }
 

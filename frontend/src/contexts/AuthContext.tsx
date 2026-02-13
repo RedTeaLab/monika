@@ -47,16 +47,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // Step 1: 调用登录 API
-      const response = await authApi.login({ username, password })
-      console.log('[AuthContext] Login API response:', response)
+      const apiResponse = await authApi.login({ username, password })
+      console.log('[AuthContext] Login API response:', apiResponse)
 
-      if (!response.access_token) {
-        throw new Error(response.data?.detail || '登录失败：未收到 access token')
+      // API 返回格式: { code: 0, message: "...", data: { access_token: "...", ... } }
+      // 需要从 data 字段中提取 access_token
+      const access_token = (apiResponse as any).data?.access_token || apiResponse?.access_token
+      if (!access_token) {
+        throw new Error('登录失败：未收到 access token')
       }
 
-      const access_token = response.access_token
+      // Step 2: 先保存 token 到 localStorage（在调用 API 之前）
+      // 这样 getCurrentUser() 的请求拦截器才能获取到 token
+      setToken(access_token)
 
-      // Step 2: 获取用户信息（使用新获取的 token）
+      if (rememberMe) {
+        localStorage.setItem(STORAGE_KEYS.TOKEN, access_token)
+        console.log('[AuthContext] Token saved to localStorage before getCurrentUser call')
+      }
+
+      // Step 3: 获取用户信息（现在 token 已经在 localStorage 中了）
       const userData = await authApi.getCurrentUser()
       console.log('[AuthContext] User data received:', userData)
 
@@ -65,14 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('登录失败：无法获取用户信息')
       }
 
-      // Step 3: 保存到 localStorage（最后，确保数据完整后再保存）
+      // Step 4: 保存用户信息到 state 和 localStorage
       setUser(userData)
-      setToken(access_token)
 
       if (rememberMe) {
-        localStorage.setItem(STORAGE_KEYS.TOKEN, access_token)
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData))
-        console.log('[AuthContext] Saved to localStorage')
+        console.log('[AuthContext] User data saved to localStorage')
       }
 
       if (showToast) {
@@ -80,26 +88,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[AuthContext] Toast shown')
       }
 
-      // 登录成功后导航到角色选择页面
-      setTimeout(() => {
-        console.log('[AuthContext] Navigating to /select-character')
-        // 这里不能直接用 navigate，需要让调用方决定何时跳转
-        // 因为 navigate 会立即改变路由，可能导致 Promise 中断
-      }, 100)
-
     } catch (error: any) {
       console.error('[AuthContext] Login error:', error)
-      const message = error?.response?.data?.detail || error?.message || '登录失败'
+      // Axios拦截器已经将业务错误转换为Error(data.message)
+      // HTTP错误会有error.response，业务错误只有error.message
+      const message = error?.message || '登录失败'
       toast.error(message)
 
-      // 确保即使出错也要重置 loading 状态
-      setIsLoading(false)
-
-      // 对于已知错误，可以不 throw，让调用方处理
-      if (error?.response?.status !== 401) {
-        throw error
-      }
+      // Always throw to allow caller to handle navigation
+      throw error
     } finally {
+      setIsLoading(false)
       console.log('[AuthContext] Login completed (loading set to false)')
     }
   }

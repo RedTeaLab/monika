@@ -9,8 +9,10 @@
 
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from src.core.database import get_db
+from src.models.user import User
 from src.core.security import get_password_hash, verify_password, create_access_token
 from src.core.config import settings
 from src.core.auth import get_current_user
@@ -34,6 +36,7 @@ class RegisterRequest(BaseModel):
 class ApiResponse(BaseModel):
     code: int  # 业务状态码：0=成功，1=失败
     message: str  # 具体消息
+    data: dict | None = None  # 可选的额外数据
 
 
 class LoginResponse(BaseModel):

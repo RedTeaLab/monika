@@ -32,14 +32,16 @@ if command -v lsof &> /dev/null; then
     lsof -ti:5173 | xargs kill -9 2>/dev/null || true
 elif command -v netstat &> /dev/null; then
     # Windows/Cygwin: use netstat + taskkill
-    local pid8000=$(netstat -aon | grep ":8000 " | grep "LISTENING" | awk '{print $5}' | sort -u)
-    if [ -n "$pid8000" ]; then
-        taskkill //F //PID $pid8000 2>/dev/null || true
-    fi
-    local pid5173=$(netstat -aon | grep ":5173 " | grep "LISTENING" | awk '{print $5}' | sort -u)
-    if [ -n "$pid5173" ]; then
-        taskkill //F //PID $pid5173 2>/dev/null || true
-    fi
+    # Match any interface listening on the port (IPv4 and IPv6)
+    for port in 8000 5173; do
+        # Match patterns like: 0.0.0.0:8000, 127.0.0.1:8000, [::]:8000, [::1]:8000
+        pids=$(netstat -aon 2>/dev/null | grep "LISTENING" | grep -E "[:\[]*$port\b" | awk '{print $NF}' | sort -u)
+        for pid in $pids; do
+            if [ -n "$pid" ] && [ "$pid" != "0" ]; then
+                taskkill //F //PID "$pid" 2>/dev/null && echo "  Killed PID $pid (port $port)" || true
+            fi
+        done
+    done
 fi
 
 echo -e "${GREEN}✓ 端口已释放${NC}"

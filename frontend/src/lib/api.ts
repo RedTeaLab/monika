@@ -56,9 +56,23 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 响应拦截器 - 处理 401
+// 响应拦截器 - 解包 API 响应并处理 401
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // API 返回格式: { code: 0, message: "...", data: ... }
+    // 解包 data 字段，如果 code 不为 0 则抛出错误
+    const data = response.data as any
+    if (data && typeof data === 'object' && 'code' in data && 'data' in data) {
+      if (data.code === 0) {
+        // 成功响应，返回 data 字段内容
+        response.data = data.data
+      } else {
+        // 业务错误，抛出异常
+        return Promise.reject(new Error(data.message || '请求失败'))
+      }
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem(STORAGE_KEYS.TOKEN)
@@ -182,6 +196,18 @@ export const characterApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/characters/${id}`)
+  },
+
+  getOccupations: async (): Promise<any[]> => {
+    const response = await api.get('/occupations/')
+    const data = response.data
+    // Handle both object and array response formats
+    if (Array.isArray(data)) {
+      return data
+    } else if (typeof data === 'object') {
+      return Object.values(data)
+    }
+    return []
   },
 }
 

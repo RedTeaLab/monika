@@ -4,6 +4,9 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { LandingPage } from '@/pages/LandingPage'
 import { AuthPage } from '@/pages/AuthPage'
 import { RegisterSuccessPage } from '@/pages/RegisterSuccessPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { CharacterCreatePage } from '@/pages/CharacterCreatePage'
+import { CharacterListPage } from '@/pages/CharacterListPage'
 import { CharacterSelectPage } from '@/pages/CharacterSelectPage'
 import { GameConsole } from '@/components/GameConsole'
 import { Toaster } from '@/components/ui/toaster'
@@ -17,6 +20,33 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/register-success" element={<RegisterSuccessPage />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/characters"
+            element={
+              <ProtectedRoute>
+                <CharacterListPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/character/new"
+            element={
+              <ProtectedRoute>
+                <CharacterCreatePage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/select-character"
@@ -42,15 +72,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <div>角色编辑页（待实现）</div>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/character/new"
-            element={
-              <ProtectedRoute>
-                <div>角色创建页（待实现）</div>
               </ProtectedRoute>
             }
           />

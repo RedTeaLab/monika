@@ -15,15 +15,15 @@ NC='\033[0m'
 
 # 解析参数
 USE_SQLITE=false
-KEEP_DB=false
+RESET_DB=false
 for arg in "$@"; do
     case $arg in
         --sqlite)
             USE_SQLITE=true
             shift
             ;;
-        --keep-db)
-            KEEP_DB=true
+        --reset-db)
+            RESET_DB=true
             shift
             ;;
         --help)
@@ -31,11 +31,12 @@ for arg in "$@"; do
             echo ""
             echo "Options:"
             echo "  --sqlite      使用 SQLite 数据库 (无需 Docker)"
-            echo "  --keep-db     保留数据库数据,不删除卷"
+            echo "  --reset-db    重置数据库 (删除所有数据)"
             echo ""
             echo "Examples:"
-            echo "  ./start-dev.sh          # PostgreSQL (需要 Docker)"
-            echo "  ./start-dev.sh --sqlite  # SQLite (无需 Docker)"
+            echo "  ./start-dev.sh            # PostgreSQL (需要 Docker)"
+            echo "  ./start-dev.sh --sqlite    # SQLite (保留数据)"
+            echo "  ./start-dev.sh --sqlite --reset-db  # SQLite (重置数据)"
             exit 0
             ;;
     esac
@@ -129,11 +130,11 @@ clear_cache() {
     rm -rf backend/__pycache__
     rm -rf backend/src/__pycache__
 
-    # SQLite database file (if resetting)
-    if [ "$USE_SQLITE" = true ] && [ "$KEEP_DB" = false ]; then
+    # SQLite database file (only if --reset-db specified)
+    if [ "$USE_SQLITE" = true ] && [ "$RESET_DB" = true ]; then
         rm -f backend/monika.db
         rm -f backend/monika.db-journal
-        echo -e "${YELLOW}  - 已删除旧 SQLite 数据库${NC}"
+        echo -e "${YELLOW}  - 已重置 SQLite 数据库${NC}"
     fi
 
     # Write new cache-bust timestamp
@@ -175,13 +176,17 @@ free_ports() {
 # 5. 数据库设置 (仅 PostgreSQL)
 setup_database() {
     if [ "$USE_SQLITE" = true ]; then
-        echo -e "${YELLOW}跳过 PostgreSQL 设置 (使用 SQLite)${NC}"
+        if [ "$RESET_DB" = true ]; then
+            echo -e "${YELLOW}重置 SQLite 数据库...${NC}"
+        else
+            echo -e "${YELLOW}使用现有 SQLite 数据库 (如需重置请用 --reset-db)${NC}"
+        fi
         return 0
     fi
 
     echo -e "${YELLOW}设置数据库...${NC}"
 
-    if [ "$KEEP_DB" = false ]; then
+    if [ "$RESET_DB" = true ]; then
         # Stop and remove existing containers and volumes
         docker-compose down -v 2>/dev/null || true
     else

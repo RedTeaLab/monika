@@ -1,5 +1,7 @@
 """Character API routes."""
 from typing import List, Dict, Any
+import json
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -7,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.core.auth import get_current_user
 from src.core.database import get_db
 from src.models.character import Character
+from src.models.occupation import Occupation
 from src.models.user import User
 from src.schemas.character import CharacterCreate, CharacterUpdate
 
@@ -164,3 +167,71 @@ def delete_character(
     db.delete(character)
     db.commit()
     return {"message": "Character deleted successfully"}
+
+
+@router.get("/{character_id}")
+def validate_character(
+    character_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Validate character against CoC 7e rules."""
+    character = (
+        db.query(Character)
+        .filter(Character.id == character_id, Character.owner_id == current_user.id)
+        .first()
+    )
+    if character is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
+    # 规则验证结果
+    errors = []
+    warnings = []
+
+    # 1. 检查属性范围
+    for attr in ["str", "con", "dex", "app", "pow", "int", "siz", "edu"]:
+        value = getattr(character, attr, 0)
+        if value < 0 or value > 100:
+            errors.append({
+                "field": attr,
+                "message": f"{attr} 必须在 0-100 之间"
+            })
+
+    # 2. 检查技能点数
+    if character.skills:
+        total_points = sum(character.skills.values())
+        max_points = (character.edu * 20) + 50  # 基础 EDU × 20
+        if total_points > max_points:
+            errors.append({
+                "field": "skills",
+                "message": f"技能点数 {total_points} 超过最大值 {max_points}"
+            })
+
+    # 3. 年龄修正检查
+    if character.age < 15:
+            warnings.append({
+                "field": "age",
+                "message": "年龄 15 岁以下会获得 -5 点数修正"
+            })
+    elif character.age > 40:
+            errors.append({
+                "field": "age",
+                "message": "年龄 40 岁上会失去 -5 点数修正"
+            })
+
+    # 4. 职业设置检查
+    if not character.occupation and character.skills:
+            warnings.append({
+                "field": "occupation",
+                "message": "角色没有选择职业"
+            })
+
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "can_start_game": len(errors) == 0 and len(warnings) == 0
+    }
