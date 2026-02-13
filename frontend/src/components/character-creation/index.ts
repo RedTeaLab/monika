@@ -26,3 +26,7 @@ export type { EquipmentSectionProps } from './EquipmentSection'
 // Modals
 export { OccupationSelectModal } from './OccupationSelectModal'
 export type { OccupationSelectModalProps } from './OccupationSelectModal'
+
+// Attribute Info Components
+export { AttributeInfoCard } from './AttributeInfoCard'
+export { AttributeGuidePanel } from './AttributeGuidePanel'

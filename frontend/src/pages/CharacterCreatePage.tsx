@@ -153,7 +153,7 @@ export function CharacterCreatePage() {
         characterName="创建调查员"
       />
 
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
+      <main className="container mx-auto px-4 py-8">
         {/* Page title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">创建调查员</h1>
