@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[AuthContext] Login API response:', response)
 
       if (!response.access_token) {
-        throw new Error(response.data?.detail || '登录失败：未收到 access token')
+        throw new Error('登录失败：未收到 access token')
       }
 
       const access_token = response.access_token

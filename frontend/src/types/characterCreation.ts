@@ -36,10 +36,12 @@ export interface Occupation {
   // Additional occupation properties can be added as needed
 }
 
+export type Gender = 'male' | 'female' | 'other'
+
 export interface CharacterCreationState {
   name: string
   age: number
-  gender: string
+  gender: Gender
   occupation: Occupation | null
   attributes: Attributes
   skills: Record<string, number>
@@ -52,7 +54,7 @@ export interface CharacterCreationState {
 export type CharacterCreationAction =
   | { type: 'SET_NAME'; value: string }
   | { type: 'SET_AGE'; value: number }
-  | { type: 'SET_GENDER'; value: string }
+  | { type: 'SET_GENDER'; value: Gender }
   | { type: 'SET_OCCUPATION'; occupation: Occupation | null }
   | { type: 'SET_ATTRIBUTE'; attribute: keyof Attributes; value: number }
   | { type: 'ROLL_ATTRIBUTE'; attribute: keyof Attributes }

@@ -38,9 +38,10 @@ export function CharacterCreatePage() {
         })
       }
       if (draft.skills) {
-        // Restore all skills
+        // Restore all skills - set to 0 first then add value
         Object.entries(draft.skills).forEach(([skill, value]) => {
-          dispatch({ type: 'SET_SKILL', skill, value })
+          dispatch({ type: 'ADD_INTEREST_SKILL', skill })
+          dispatch({ type: 'CHANGE_SKILL', skill, delta: value })
         })
       }
       if (draft.background) {
