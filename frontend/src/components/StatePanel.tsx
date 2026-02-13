@@ -51,7 +51,6 @@ function StatBar({
   max,
   label,
   icon,
-  color,
   previousValue,
 }: StatBarProps) {
   const percentage = Math.max(0, Math.min(100, (value / max) * 100))

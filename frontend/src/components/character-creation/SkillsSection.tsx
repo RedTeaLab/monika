@@ -1,10 +1,8 @@
 // frontend/src/components/character-creation/SkillsSection.tsx
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import type { Occupation } from '@/types/occupation'
 import type { CharacterCreationAction } from '@/types/characterCreation'
 
@@ -19,7 +17,6 @@ export interface SkillsSectionProps {
 
 export function SkillsSection({
   occupation,
-  attributes,
   skills,
   occupationalPointsRemaining,
   interestPointsRemaining,
@@ -36,10 +33,6 @@ export function SkillsSection({
 
   const isOccupationSkill = (skill: string): boolean => {
     return occupation?.occupation_skills?.includes(skill) ?? false
-  }
-
-  const getPointCost = (skill: string): number => {
-    return isOccupationSkill(skill) ? 1 : 2
   }
 
   return (

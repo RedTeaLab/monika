@@ -18,11 +18,11 @@ import { TabView } from "@/components/TabView"
 import { BottomTabBar } from "@/components/BottomTabBar"
 import { MobileFooter } from "@/components/MobileFooter"
 import type { ServerMessage, KeeperMessage, StateUpdate, ChaseStartedMessage, ChaseEndedMessage } from "@/types/websocket"
-import type { Combat, AttackRequest, HealRequest } from "@/types/combat"
+import type { AttackRequest, HealRequest } from "@/types/combat"
 import { toast } from "sonner"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Maximize2, Sword, GitFork, BookOpen, X, ListTodo } from "lucide-react"
+import { Maximize2, Sword, GitFork, BookOpen, X } from "lucide-react"
 import { ChaseOverlay } from "@/components/chase"
 
 export interface Message {
@@ -100,7 +100,6 @@ export function GameConsole() {
     combatants,
     currentTurn,
     isLoading: isCombatLoading,
-    fetchCombat,
     updateFromTurnResponse,
     updateCombatant,
   } = useCombatState(combatId)
@@ -122,7 +121,7 @@ export function GameConsole() {
     },
   ])
 
-  const [character, setCharacter] = useState<CharacterState>({
+  const [character] = useState<CharacterState>({
     hp: 12,
     hpMax: 12,
     san: 60,
@@ -149,7 +148,7 @@ export function GameConsole() {
   const sessionId = user?.id?.toString() || localStorage.getItem('monika_session_id') || null
 
   // LLM streaming response management
-  const { streamingText, isStreaming, currentResponse, processStream, finalizeResponse, reset: resetLLM } = useLLMResponse()
+  const { processStream, finalizeResponse, reset: resetLLM } = useLLMResponse()
 
   /**
    * Add a keeper message to the message list

@@ -50,20 +50,6 @@ function getHpColor(currentHp: number, maxHp: number): string {
   return "text-green-600 dark:text-green-400"
 }
 
-/**
- * Helper function to get HP progress bar color
- */
-function getHpProgressColor(currentHp: number, maxHp: number): string {
-  const percentage = (currentHp / maxHp) * 100
-  if (percentage <= 25) {
-    return "bg-red-500"
-  }
-  if (percentage <= 50) {
-    return "bg-orange-500"
-  }
-  return "bg-green-500"
-}
-
 interface CombatantCardProps {
   combatant: Combatant
   isCurrentTurn?: boolean

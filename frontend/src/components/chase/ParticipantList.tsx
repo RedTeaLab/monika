@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Skull, Plus, Minus } from "lucide-react"
+import { Skull } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Chase, ChaseParticipant, ChaseParticipantRole } from "@/types/chase"
 

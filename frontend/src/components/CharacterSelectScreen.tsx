@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { characterApi, type Character, type CharacterCreate } from "@/lib/api"
 import { CharacterForm, type CharacterData } from "@/components/CharacterForm"

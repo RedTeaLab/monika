@@ -16,13 +16,12 @@ import {
   Swords,
   GitFork,
   Heart,
-  Zap,
   MessageSquare,
   Settings,
   Clock,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { EventEntry, EventType, EventCategory } from "@/types/event"
+import type { EventEntry, EventCategory } from "@/types/event"
 import { getEventCategory, getEventTypeLabel } from "@/types/event"
 import { getEvents } from "@/services/api/events"
 import { ExportButton } from "./ExportButton"
@@ -105,19 +104,6 @@ function formatTimestamp(timestamp: string): string {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  })
-}
-
-/**
- * Format full date and time
- */
-function formatFullTimestamp(timestamp: string): string {
-  const date = new Date(timestamp)
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   })
 }
 

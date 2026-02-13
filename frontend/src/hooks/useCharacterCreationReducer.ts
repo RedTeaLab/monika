@@ -1,6 +1,6 @@
 // frontend/src/hooks/useCharacterCreationReducer.ts
 import { useReducer } from 'react'
-import type { CharacterCreationState, CharacterCreationAction, Attributes, Background, Equipment } from '@/types/characterCreation'
+import type { CharacterCreationState, CharacterCreationAction, Attributes } from '@/types/characterCreation'
 
 const INITIAL_STATE: CharacterCreationState = {
   name: '',

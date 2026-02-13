@@ -30,21 +30,6 @@ export function PressureBar({ pressure, className }: PressureBarProps) {
   }
 
   /**
-   * Get progress bar color based on pressure level
-   */
-  const getProgressColor = (): string => {
-    const level = getPressureLevel()
-    switch (level) {
-      case "safe":
-        return "bg-green-600 dark:bg-green-400"
-      case "warning":
-        return "bg-yellow-600 dark:bg-yellow-400"
-      case "critical":
-        return "bg-red-600 dark:bg-red-400 animate-pulse"
-    }
-  }
-
-  /**
    * Get badge variant based on pressure level
    */
   const getBadgeVariant = (): "default" | "secondary" | "outline" | "destructive" => {
