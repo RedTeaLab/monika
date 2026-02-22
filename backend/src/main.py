@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 
 from src.api.auth import router as auth_router
 from src.api.characters import router as characters_router
-from src.api.occupations import router as occupations_router  # 新增公开职业路由
+from src.api.occupations import router as occupations_router
 from src.api.game import router as game_router
 from src.api.combat import router as combat_router
 from src.api.chase import router as chase_router
@@ -19,7 +19,10 @@ from src.api.messages import router as messages_router
 from src.api.queue import router as queue_router
 from src.api.checkpoints import router as checkpoints_router
 from src.api.leads import router as leads_router
-from src.models.occupation import Occupation  # 新增
+from src.api.scripts import router as scripts_router
+from src.api.summaries import router as summaries_router
+from src.api.search import router as search_router
+from src.models.occupation import Occupation
 from src.services.socketio_service import sio, socketio_app, get_socketio_stats
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -63,6 +66,9 @@ app.include_router(messages_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(checkpoints_router, prefix="/api")
 app.include_router(leads_router, prefix="/api")
+app.include_router(scripts_router, prefix="/api")
+app.include_router(summaries_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 # Mount Socket.io server at /socket.io path

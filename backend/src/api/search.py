@@ -1,9 +1,10 @@
 """Search API endpoints.
 
-Provides REST API for searching events, leads, and summaries
+Provides REST API for searching events, leads, summaries, rules, and scripts
 using full-text, semantic, and hybrid search.
 """
-from typing import Optional
+
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from src.schemas.search import (
     SearchHistoryResponse,
 )
 from src.services.search import SearchService
+from src.services.rule_search import RuleSearchService
 from src.core.auth import get_current_user_optional
 from src.models.user import User
 
@@ -28,7 +30,7 @@ async def search(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> SearchResponse:
-    """Perform search across events, leads, and summaries.
+    """Perform search across events, leads, summaries, rules, and scripts.
 
     Args:
         request: Search request with query, filters, and pagination
@@ -40,18 +42,15 @@ async def search(
     """
     search_service = SearchService(db)
 
-    # Apply visibility filter based on user role
     filters = request.filters
     if not filters:
         from src.schemas.search import SearchFilters
+
         filters = SearchFilters()
 
-    # Filter results based on user role
     if current_user and current_user.role == "kp":
-        # Keepers can see everything
         pass
     else:
-        # Players can only see public and their own player-prefixed events
         if not filters.visibility:
             filters.visibility = ["public"]
         if current_user:
@@ -68,7 +67,6 @@ async def search(
         include_highlights=request.include_highlights,
     )
 
-    # Save to search history if authenticated
     if current_user:
         search_service.save_search_history(
             user_id=current_user.id,
@@ -78,6 +76,111 @@ async def search(
         )
 
     return results
+
+
+@router.post("/unified")
+async def unified_search(
+    request: SearchRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
+):
+    """Perform unified search across all resources.
+
+    Searches events, leads, summaries, rules, and scripts.
+    Returns combined results sorted by relevance.
+    """
+    all_results = []
+
+    event_service = SearchService(db)
+    event_results = event_service.search(
+        query=request.query,
+        filters=request.filters,
+        search_type=request.search_type,
+        page=1,
+        page_size=request.page_size,
+    )
+    for r in event_results.results:
+        r.source = "events"
+        all_results.append(r)
+
+    rule_service = RuleSearchService(db)
+    rule_results = rule_service.search(
+        query=request.query,
+        category=request.filters.rule_category if request.filters else None,
+        limit=request.page_size,
+    )
+    for r in rule_results.results:
+        from src.schemas.search import SearchResultItem
+
+        all_results.append(
+            SearchResultItem(
+                id=r.id,
+                type="rule",
+                session_id=None,
+                title=r.title,
+                description=r.content[:500] if r.content else None,
+                event_type=None,
+                timestamp=None,
+                highlights=[],
+                relevance_score=r.score,
+                source="rules",
+            )
+        )
+
+    from src.models.script import Script
+    from sqlalchemy import select, or_
+
+    script_query = select(Script).where(
+        or_(
+            Script.name.ilike(f"%{request.query}%"),
+            Script.description.ilike(f"%{request.query}%"),
+        )
+    )
+    if current_user:
+        script_query = script_query.where(
+            or_(Script.owner_id == current_user.id, Script.is_public == True)
+        )
+    else:
+        script_query = script_query.where(Script.is_public == True)
+
+    scripts = db.scalars(script_query.limit(request.page_size)).all()
+    for script in scripts:
+        from src.schemas.search import SearchResultItem
+
+        all_results.append(
+            SearchResultItem(
+                id=script.id,
+                type="script",
+                session_id=None,
+                title=script.name,
+                description=script.description,
+                event_type=None,
+                timestamp=script.updated_at,
+                highlights=[],
+                relevance_score=0.5,
+                source="scripts",
+            )
+        )
+
+    all_results.sort(key=lambda x: x.relevance_score or 0, reverse=True)
+
+    page = request.page
+    page_size = request.page_size
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated = all_results[start:end]
+
+    from src.schemas.search import SearchResponse
+
+    return SearchResponse(
+        results=paginated,
+        total_count=len(all_results),
+        page=page,
+        page_size=page_size,
+        total_pages=(len(all_results) + page_size - 1) // page_size,
+        query=request.query,
+        search_type=request.search_type,
+    )
 
 
 @router.get("/suggestions", response_model=SearchSuggestionResponse)

@@ -1,4 +1,5 @@
 """Search schemas for request/response validation."""
+
 from datetime import datetime
 from typing import Optional, List, Literal, Any
 from pydantic import BaseModel, Field
@@ -14,6 +15,10 @@ class SearchFilters(BaseModel):
     end_time: Optional[datetime] = Field(None, description="Filter events before this time")
     visibility: Optional[List[str]] = Field(None, description="Filter by visibility levels")
     session_id: Optional[UUID] = Field(None, description="Filter by session ID")
+    rule_category: Optional[str] = Field(None, description="Filter by rule category")
+    source_types: Optional[List[str]] = Field(
+        None, description="Filter by source types (events, rules, scripts)"
+    )
 
 
 class SearchResultHighlight(BaseModel):
@@ -27,15 +32,20 @@ class SearchResultHighlight(BaseModel):
 class SearchResultItem(BaseModel):
     """Single search result item."""
 
-    id: UUID = Field(..., description="Event ID")
-    type: Literal["event", "lead", "summary"] = Field(..., description="Result type")
-    session_id: UUID = Field(..., description="Session ID")
-    title: Optional[str] = Field(None, description="Title (for leads/summaries)")
+    id: UUID | str = Field(..., description="Result ID")
+    type: Literal["event", "lead", "summary", "rule", "script"] = Field(
+        ..., description="Result type"
+    )
+    session_id: Optional[UUID] = Field(None, description="Session ID")
+    title: Optional[str] = Field(None, description="Title (for leads/summaries/rules/scripts)")
     description: str = Field(..., description="Description or content")
     event_type: Optional[str] = Field(None, description="Event type (for events)")
-    timestamp: datetime = Field(..., description="Event timestamp")
-    highlights: List[SearchResultHighlight] = Field(default_factory=list, description="Search highlights")
-    relevance_score: float = Field(..., description="Relevance score (0-1)")
+    timestamp: Optional[datetime] = Field(None, description="Event timestamp")
+    highlights: List[SearchResultHighlight] = Field(
+        default_factory=list, description="Search highlights"
+    )
+    relevance_score: float = Field(default=0.5, description="Relevance score (0-1)")
+    source: Optional[str] = Field(None, description="Source type (events, rules, scripts)")
 
 
 class SearchRequest(BaseModel):
@@ -45,7 +55,7 @@ class SearchRequest(BaseModel):
     filters: Optional[SearchFilters] = Field(None, description="Search filters")
     search_type: Literal["keyword", "semantic", "hybrid"] = Field(
         default="keyword",
-        description="Search type: keyword (full-text), semantic (vector), or hybrid"
+        description="Search type: keyword (full-text), semantic (vector), or hybrid",
     )
     page: int = Field(default=1, ge=1, description="Page number (1-indexed)")
     page_size: int = Field(default=20, ge=1, le=100, description="Results per page")

@@ -1,4 +1,5 @@
 """Database models."""
+
 from src.models.user import User
 from src.models.character import Character
 from src.models.session import GameSession, SessionState
@@ -17,6 +18,14 @@ from src.models.lead import (
     LeadStatus,
     LeadVisibility,
     LeadExecutionMethod,
+)
+from src.models.script import (
+    Script,
+    ScriptVersion,
+    ScriptScene,
+    ScriptAsset,
+    ScriptStatus,
+    ScriptType,
 )
 
 __all__ = [
@@ -50,4 +59,10 @@ __all__ = [
     "LeadStatus",
     "LeadVisibility",
     "LeadExecutionMethod",
+    "Script",
+    "ScriptVersion",
+    "ScriptScene",
+    "ScriptAsset",
+    "ScriptStatus",
+    "ScriptType",
 ]
