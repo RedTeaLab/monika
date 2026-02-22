@@ -1,6 +1,7 @@
 """Summary database model for structured session summaries."""
+
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -38,21 +39,18 @@ class Summary(Base):
         UUID(as_uuid=True),
         ForeignKey("game_sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
     checkpoint_id = Column(
         UUID(as_uuid=True),
         ForeignKey("checkpoints.id", ondelete="CASCADE"),
         nullable=True,
-        index=True
+        index=True,
     )
 
     # Classification
     summary_type = Column(
-        String(20),
-        default=SummaryType.CHECKPOINT.value,
-        nullable=False,
-        index=True
+        String(20), default=SummaryType.CHECKPOINT.value, nullable=False, index=True
     )
 
     # Time range covered by this summary
@@ -107,14 +105,14 @@ class Summary(Base):
     # Timestamps
     created_at = Column(
         DateTime(timezone=True),
-        server_default=func.now(),
+        default=lambda: datetime.now(timezone.utc),
         nullable=False,
-        index=True
+        index=True,
     )
     updated_at = Column(
         DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now()
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     # Soft delete
@@ -135,7 +133,9 @@ class Summary(Base):
             "session_id": str(self.session_id),
             "checkpoint_id": str(self.checkpoint_id) if self.checkpoint_id else None,
             "summary_type": self.summary_type,
-            "time_range_start": self.time_range_start.isoformat() if self.time_range_start else None,
+            "time_range_start": self.time_range_start.isoformat()
+            if self.time_range_start
+            else None,
             "time_range_end": self.time_range_end.isoformat() if self.time_range_end else None,
             "first_event_id": str(self.first_event_id) if self.first_event_id else None,
             "last_event_id": str(self.last_event_id) if self.last_event_id else None,
@@ -217,70 +217,92 @@ class Summary(Base):
 
         for event in events:
             # Count events by type
-            event_type = event.event_type.value if hasattr(event, 'event_type') else str(event.get('event_type', 'unknown'))
+            event_type = (
+                event.event_type.value
+                if hasattr(event, "event_type")
+                else str(event.get("event_type", "unknown"))
+            )
             event_counts[event_type] = event_counts.get(event_type, 0) + 1
 
             # Extract key events (significant game moments)
-            if hasattr(event, 'event_type'):
+            if hasattr(event, "event_type"):
                 # Significiant events to highlight
-                if event.event_type.value in ['combat_start', 'combat_end', 'chase_start', 'chase_end',
-                                              'san_check', 'insanity_gain', 'scene_change']:
-                    key_events.append({
-                        "event_type": event.event_type.value,
-                        "description": event.description or event.payload.get('description', ''),
-                        "event_id": str(event.id),
-                        "timestamp": event.timestamp.isoformat() if event.timestamp else None,
-                    })
+                if event.event_type.value in [
+                    "combat_start",
+                    "combat_end",
+                    "chase_start",
+                    "chase_end",
+                    "san_check",
+                    "insanity_gain",
+                    "scene_change",
+                ]:
+                    key_events.append(
+                        {
+                            "event_type": event.event_type.value,
+                            "description": event.description
+                            or event.payload.get("description", ""),
+                            "event_id": str(event.id),
+                            "timestamp": event.timestamp.isoformat() if event.timestamp else None,
+                        }
+                    )
 
                 # Extract state changes
-                if event.event_type.value in ['hp_change', 'damage', 'heal']:
+                if event.event_type.value in ["hp_change", "damage", "heal"]:
                     char_id = event.character_id
                     if char_id:
                         participant_characters.add(char_id)
-                        amount = event.payload.get('amount', 0) or event.payload.get('change', 0)
-                        state_changes.append({
-                            "character_id": str(char_id),
-                            "hp_change": amount,
-                            "san_change": 0,
-                            "luck_change": 0,
-                            "mp_change": 0,
-                        })
+                        amount = event.payload.get("amount", 0) or event.payload.get("change", 0)
+                        state_changes.append(
+                            {
+                                "character_id": str(char_id),
+                                "hp_change": amount,
+                                "san_change": 0,
+                                "luck_change": 0,
+                                "mp_change": 0,
+                            }
+                        )
 
-                elif event.event_type.value in ['san_change', 'san_loss']:
+                elif event.event_type.value in ["san_change", "san_loss"]:
                     char_id = event.character_id
                     if char_id:
                         participant_characters.add(char_id)
-                        amount = event.payload.get('amount', 0) or event.payload.get('loss', 0)
-                        state_changes.append({
-                            "character_id": str(char_id),
-                            "hp_change": 0,
-                            "san_change": -abs(amount),
-                            "luck_change": 0,
-                            "mp_change": 0,
-                        })
+                        amount = event.payload.get("amount", 0) or event.payload.get("loss", 0)
+                        state_changes.append(
+                            {
+                                "character_id": str(char_id),
+                                "hp_change": 0,
+                                "san_change": -abs(amount),
+                                "luck_change": 0,
+                                "mp_change": 0,
+                            }
+                        )
 
                 # Extract clues and promises from payload
                 payload = event.payload or {}
-                if 'clues' in payload:
-                    discovered_clues.extend(payload['clues'])
-                if 'promises' in payload:
-                    pending_promises.extend([
-                        {
-                            "description": p.get('description', ''),
-                            "source_event_id": str(event.id),
-                        }
-                        for p in payload['promises']
-                    ])
+                if "clues" in payload:
+                    discovered_clues.extend(payload["clues"])
+                if "promises" in payload:
+                    pending_promises.extend(
+                        [
+                            {
+                                "description": p.get("description", ""),
+                                "source_event_id": str(event.id),
+                            }
+                            for p in payload["promises"]
+                        ]
+                    )
             else:
                 # Handle dict-style events
-                event_type = event.get('event_type', 'unknown')
-                if event_type in ['combat_start', 'combat_end', 'scene_change']:
-                    key_events.append({
-                        "event_type": event_type,
-                        "description": event.get('description', ''),
-                        "event_id": str(event.get('id', '')),
-                        "timestamp": event.get('timestamp', ''),
-                    })
+                event_type = event.get("event_type", "unknown")
+                if event_type in ["combat_start", "combat_end", "scene_change"]:
+                    key_events.append(
+                        {
+                            "event_type": event_type,
+                            "description": event.get("description", ""),
+                            "event_id": str(event.get("id", "")),
+                            "timestamp": event.get("timestamp", ""),
+                        }
+                    )
 
         # Get event range
         if events:
@@ -288,12 +310,12 @@ class Summary(Base):
             last_event = events[-1]
 
             # Handle both SQLAlchemy Event objects and dict events
-            if hasattr(first_event, 'id'):
+            if hasattr(first_event, "id"):
                 # SQLAlchemy Event object
                 first_event_id = first_event.id
                 last_event_id = last_event.id
-                first_event_seq = getattr(first_event, 'sequence', None)
-                last_event_seq = getattr(last_event, 'sequence', None)
+                first_event_seq = getattr(first_event, "sequence", None)
+                last_event_seq = getattr(last_event, "sequence", None)
 
                 if not time_range_start:
                     time_range_start = first_event.timestamp
@@ -301,15 +323,15 @@ class Summary(Base):
                     time_range_end = last_event.timestamp
             else:
                 # Dict event
-                first_event_id = first_event.get('id')
-                last_event_id = last_event.get('id')
-                first_event_seq = first_event.get('sequence')
-                last_event_seq = last_event.get('sequence')
+                first_event_id = first_event.get("id")
+                last_event_id = last_event.get("id")
+                first_event_seq = first_event.get("sequence")
+                last_event_seq = last_event.get("sequence")
 
                 if not time_range_start:
-                    time_range_start = first_event.get('timestamp')
+                    time_range_start = first_event.get("timestamp")
                 if not time_range_end:
-                    time_range_end = last_event.get('timestamp')
+                    time_range_end = last_event.get("timestamp")
         else:
             first_event_id = None
             last_event_id = None

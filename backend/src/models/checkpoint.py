@@ -1,4 +1,5 @@
 """Checkpoint database model for session state persistence."""
+
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -17,6 +18,7 @@ class CheckpointType(str, Enum):
     MANUAL = "manual"  # User-created checkpoint
     AUTO = "auto"  # Automatic checkpoint on events
     PAUSE = "pause"  # Checkpoint created on session pause
+    SESSION_START = "session_start"  # Snapshot at session start
 
 
 class Checkpoint(Base):
@@ -37,15 +39,12 @@ class Checkpoint(Base):
         UUID(as_uuid=True),
         ForeignKey("game_sessions.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # Classification
     checkpoint_type = Column(
-        String(20),
-        default=CheckpointType.MANUAL.value,
-        nullable=False,
-        index=True
+        String(20), default=CheckpointType.MANUAL.value, nullable=False, index=True
     )
 
     # State snapshots - JSON fields for flexible storage
@@ -77,6 +76,7 @@ class Checkpoint(Base):
 
     # Metadata
     notes = Column(Text, nullable=True)  # Optional notes from user
+    name = Column(String(200), nullable=True)  # Snapshot name
     auto_created = Column(String(10), default="false", nullable=False)  # "true" or "false"
 
     # Capture context - what triggered this checkpoint
@@ -88,16 +88,9 @@ class Checkpoint(Base):
 
     # Timestamps
     created_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
-        index=True
+        DateTime(timezone=True), default=datetime.utcnow, nullable=False, index=True
     )
-    updated_at = Column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now()
-    )
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Soft delete - allow marking checkpoints as deleted without removing them
     is_deleted = Column(String(10), default="false", nullable=False)
@@ -106,8 +99,12 @@ class Checkpoint(Base):
 
     # Relationships
     session = relationship("GameSession", backref="checkpoints")
-    created_by = relationship("User", foreign_keys=[created_by_player_id], backref="created_checkpoints")
-    deleted_by = relationship("User", foreign_keys=[deleted_by_player_id], backref="deleted_checkpoints")
+    created_by = relationship(
+        "User", foreign_keys=[created_by_player_id], backref="created_checkpoints"
+    )
+    deleted_by = relationship(
+        "User", foreign_keys=[deleted_by_player_id], backref="deleted_checkpoints"
+    )
 
     def __repr__(self) -> str:
         scene_str = f" scene={self.scene_name}" if self.scene_name else ""
@@ -130,6 +127,7 @@ class Checkpoint(Base):
             "scene_name": self.scene_name,
             "round_number": self.round_number,
             "notes": self.notes,
+            "name": self.name,
             "auto_created": self.auto_created == "true",
             "trigger_event_type": self.trigger_event_type,
             "trigger_reason": self.trigger_reason,

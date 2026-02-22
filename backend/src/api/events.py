@@ -1,9 +1,13 @@
 """Event API routes for game event log and audit trail."""
+
+import csv
+import io
 import uuid
 from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -76,7 +80,7 @@ def get_events(
         )
 
     try:
-        session_uuid = uuid.UUID(session_id)
+        session_id = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -87,7 +91,7 @@ def get_events(
     session = (
         db.query(GameSession)
         .filter(
-            GameSession.id == session_uuid,
+            GameSession.id == session_id,
             GameSession.owner_id == current_user.id,
         )
         .first()
@@ -113,7 +117,7 @@ def get_events(
     # Get events using the EventLogger service
     event_logger = EventLogger(db)
     events = event_logger.get_session_events(
-        session_id=session_uuid,
+        session_id=session_id,
         actor_role=actor_role,
         event_type=parsed_event_type,
         limit=limit,
@@ -123,26 +127,33 @@ def get_events(
     return [event.to_dict() for event in events]
 
 
-@router.get("/{session_id}", response_model=List[EventListResponse])
-def get_session_events(
+# =============================================================================
+# Export endpoint - must be defined BEFORE /{session_id} to avoid route conflicts
+# =============================================================================
+@router.get("/export/{session_id}")
+def export_events(
     session_id: str,
+    format: str = Query("json", description="Export format: json or csv"),
     event_type: Optional[str] = Query(None, description="Filter by event type"),
     actor_role: Optional[str] = Query(None, description="Filter by actor role"),
-    visibility: Optional[str] = Query(None, description="Filter by visibility (public, kp)"),
+    visibility: Optional[str] = Query(None, description="Filter by visibility"),
     character_id: Optional[int] = Query(None, description="Filter by character ID"),
-    start_time: Optional[str] = Query(None, description="Filter events after this time (ISO format)"),
-    end_time: Optional[str] = Query(None, description="Filter events before this time (ISO format)"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of events"),
-    offset: int = Query(0, ge=0, description="Number of events to skip"),
+    start_time: Optional[str] = Query(
+        None, description="Filter events after this time (ISO format)"
+    ),
+    end_time: Optional[str] = Query(
+        None, description="Filter events before this time (ISO format)"
+    ),
+    limit: int = Query(1000, ge=1, le=5000, description="Maximum number of events to export"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get events for a session with optional filtering.
+    """Export events for a session in various formats.
 
-    Uses path parameter for session_id (alternative to query parameter).
-    Can filter by event type, actor role, visibility, character, and time range.
-    Returns events ordered by timestamp (newest first).
+    Supports JSON and CSV export formats with filtering options.
+    Returns all event fields in the export.
     """
+    # Validate session_id format
     try:
         session_uuid = uuid.UUID(session_id)
     except ValueError:
@@ -165,6 +176,13 @@ def get_session_events(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
+        )
+
+    # Validate format
+    if format not in ("json", "csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid format. Use 'json' or 'csv'.",
         )
 
     # Parse event type if provided
@@ -221,10 +239,182 @@ def get_session_events(
         start_time=parsed_start_time,
         end_time=parsed_end_time,
         limit=limit,
-        offset=offset,
+        offset=0,
     )
 
-    return [event.to_dict() for event in events]
+    # Convert to dict format
+    events_data = [e.to_dict() for e in events]
+
+    if format == "json":
+        # Return JSON response
+        return {
+            "session_id": str(session_uuid),
+            "session_name": session.name,
+            "total_events": len(events_data),
+            "events": events_data,
+            "export_time": datetime.utcnow().isoformat() + "Z",
+        }
+    else:
+        # Return CSV response
+        return StreamingResponse(
+            content=_generate_csv(events_data),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename=events_{session_id}.csv",
+            },
+        )
+
+
+def _generate_csv(events: List[dict]) -> str:
+    """Generate CSV content from events data."""
+    if not events:
+        # Return header only if no events
+        return "id,session_id,actor_player_id,actor_role,character_id,event_type,category,payload,visibility,timestamp,description\n"
+
+    output = io.StringIO()
+    fieldnames = [
+        "id",
+        "session_id",
+        "actor_player_id",
+        "actor_role",
+        "character_id",
+        "event_type",
+        "category",
+        "payload",
+        "visibility",
+        "timestamp",
+        "description",
+    ]
+
+    writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+    writer.writeheader()
+
+    for event in events:
+        # Convert payload dict to string for CSV
+        row = event.copy()
+        if isinstance(row.get("payload"), dict):
+            row["payload"] = str(row["payload"])
+        writer.writerow(row)
+
+    return output.getvalue()
+
+
+# =============================================================================
+# Session-specific event endpoints
+# =============================================================================
+
+
+@router.get("/{session_id}")
+def get_session_events(
+    session_id: str,
+    event_type: Optional[str] = Query(None, description="Filter by event type"),
+    actor_role: Optional[str] = Query(None, description="Filter by actor role"),
+    visibility: Optional[str] = Query(None, description="Filter by visibility (public, kp)"),
+    character_id: Optional[int] = Query(None, description="Filter by character ID"),
+    start_time: Optional[str] = Query(
+        None, description="Filter events after this time (ISO format)"
+    ),
+    end_time: Optional[str] = Query(
+        None, description="Filter events before this time (ISO format)"
+    ),
+    sort_by: Optional[str] = Query(None, description="Sort field: timestamp, sequence, event_type"),
+    sort_order: Optional[str] = Query(None, description="Sort order: asc or desc"),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of events"),
+    offset: int = Query(0, ge=0, description="Number of events to skip"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = (
+        db.query(GameSession)
+        .filter(
+            GameSession.id == session_id,
+            GameSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    parsed_event_type = None
+    if event_type:
+        try:
+            parsed_event_type = EventType(event_type)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid event_type: {event_type}",
+            )
+
+    parsed_visibility = None
+    if visibility:
+        try:
+            parsed_visibility = VisibilityLevel(visibility)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid visibility: {visibility}",
+            )
+
+    parsed_start_time = None
+    if start_time:
+        try:
+            parsed_start_time = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid start_time format. Use ISO format.",
+            )
+
+    parsed_end_time = None
+    if end_time:
+        try:
+            parsed_end_time = datetime.fromisoformat(end_time.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid end_time format. Use ISO format.",
+            )
+
+    resolved_sort_order = sort_order if sort_order else "desc"
+
+    event_logger = EventLogger(db)
+    try:
+        result = event_logger.get_session_events(
+            session_id=session_id,
+            actor_role=actor_role,
+            event_type=parsed_event_type,
+            visibility=parsed_visibility,
+            character_id=character_id,
+            start_time=parsed_start_time,
+            end_time=parsed_end_time,
+            sort_by=sort_by,
+            sort_order=resolved_sort_order,
+            limit=limit,
+            offset=offset,
+            include_total=True,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    items = result["items"]
+    total = result["total"]
+
+    return {
+        "items": [event.to_dict() for event in items],
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + limit < total,
+        },
+    }
 
 
 @router.get("/{session_id}/{event_id}", response_model=EventListResponse)
@@ -239,7 +429,7 @@ def get_single_event(
     Returns the event details if found and belongs to the session.
     """
     try:
-        session_uuid = uuid.UUID(session_id)
+        session_id = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -258,7 +448,7 @@ def get_single_event(
     session = (
         db.query(GameSession)
         .filter(
-            GameSession.id == session_uuid,
+            GameSession.id == session_id,
             GameSession.owner_id == current_user.id,
         )
         .first()
@@ -281,7 +471,7 @@ def get_single_event(
         )
 
     # Verify event belongs to this session
-    if event.session_id != session_uuid:
+    if event.session_id != session_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Event not found in this session",
@@ -301,7 +491,7 @@ def get_event_summary(
     Includes event counts, time range, and recent events.
     """
     try:
-        session_uuid = uuid.UUID(session_id)
+        session_id = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -312,7 +502,7 @@ def get_event_summary(
     session = (
         db.query(GameSession)
         .filter(
-            GameSession.id == session_uuid,
+            GameSession.id == session_id,
             GameSession.owner_id == current_user.id,
         )
         .first()
@@ -326,7 +516,7 @@ def get_event_summary(
 
     # Get summary using the EventLogger service
     event_logger = EventLogger(db)
-    summary = event_logger.create_summary(session_uuid)
+    summary = event_logger.create_summary(session_id)
 
     return summary
 
@@ -342,7 +532,7 @@ def get_state_changes(
     Groups HP, SAN, Luck, and MP changes separately.
     """
     try:
-        session_uuid = uuid.UUID(session_id)
+        session_id = uuid.UUID(session_id)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -353,7 +543,7 @@ def get_state_changes(
     session = (
         db.query(GameSession)
         .filter(
-            GameSession.id == session_uuid,
+            GameSession.id == session_id,
             GameSession.owner_id == current_user.id,
         )
         .first()
@@ -367,7 +557,7 @@ def get_state_changes(
 
     # Get state changes using the EventLogger service
     event_logger = EventLogger(db)
-    state_changes = event_logger.get_state_changes(session_uuid)
+    state_changes = event_logger.get_state_changes(session_id)
 
     # Convert events to dict format
     return {

@@ -1,4 +1,5 @@
 """Event logging service for append-only audit trail."""
+
 from datetime import datetime
 import uuid
 from typing import Optional, Any, Dict, List
@@ -155,6 +156,9 @@ class EventLogger:
         """
         return self.db.query(Event).filter(Event.id == event_id).first()
 
+    ALLOWED_SORT_FIELDS = {"timestamp", "sequence", "event_type"}
+    ALLOWED_SORT_ORDERS = {"asc", "desc"}
+
     def get_session_events(
         self,
         session_id: uuid.UUID,
@@ -166,23 +170,10 @@ class EventLogger:
         end_time: Optional[datetime] = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[Event]:
-        """Get events for a session with optional filters.
-
-        Args:
-            session_id: Session UUID
-            actor_role: Filter by actor role
-            event_type: Filter by event type
-            visibility: Filter by visibility level
-            character_id: Filter by character ID
-            start_time: Filter events after this time
-            end_time: Filter events before this time
-            limit: Maximum number of events to return
-            offset: Number of events to skip
-
-        Returns:
-            List of events, ordered by timestamp (newest first)
-        """
+        sort_by: Optional[str] = None,
+        sort_order: str = "desc",
+        include_total: bool = False,
+    ):
         query = self.db.query(Event).filter(Event.session_id == session_id)
 
         if actor_role:
@@ -198,7 +189,24 @@ class EventLogger:
         if end_time:
             query = query.filter(Event.timestamp <= end_time)
 
-        return query.order_by(Event.timestamp.desc()).offset(offset).limit(limit).all()
+        sort_field = sort_by if sort_by else "timestamp"
+        if sort_field not in self.ALLOWED_SORT_FIELDS:
+            raise ValueError(f"Invalid sort_by field: {sort_field}")
+        if sort_order not in self.ALLOWED_SORT_ORDERS:
+            raise ValueError(f"Invalid sort_order: {sort_order}")
+
+        column = getattr(Event, sort_field)
+        if sort_order == "asc":
+            query = query.order_by(column.asc())
+        else:
+            query = query.order_by(column.desc())
+
+        if include_total:
+            total = query.count()
+            items = query.offset(offset).limit(limit).all()
+            return {"items": items, "total": total}
+
+        return query.offset(offset).limit(limit).all()
 
     def get_character_events(
         self,

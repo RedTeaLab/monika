@@ -6,7 +6,7 @@ import {
   Eye,
   MoreVertical,
   UserMinus,
-  userPlus,
+  UserPlus,
 } from 'lucide-react'
 import { campaignsApi } from '@/services/api/campaigns'
 import { toast } from 'sonner'

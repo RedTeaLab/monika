@@ -9,6 +9,8 @@ import { CharacterCreatePage } from '@/pages/CharacterCreatePage'
 import { CharacterListPage } from '@/pages/CharacterListPage'
 import { CharacterSelectPage } from '@/pages/CharacterSelectPage'
 import { GameConsole } from '@/components/GameConsole'
+import { SessionsPage } from '@/pages/Sessions'
+import { RecapPage } from '@/pages/Recap'
 import { Toaster } from '@/components/ui/toaster'
 
 function App() {
@@ -62,6 +64,25 @@ function App() {
             element={
               <ProtectedRoute>
                 <GameConsole />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* M3: Memory Web - Session List and Recap */}
+          <Route
+            path="/sessions"
+            element={
+              <ProtectedRoute>
+                <SessionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/recap/:sessionId"
+            element={
+              <ProtectedRoute>
+                <RecapPage />
               </ProtectedRoute>
             }
           />

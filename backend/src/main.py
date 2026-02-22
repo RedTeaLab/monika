@@ -18,6 +18,7 @@ from src.api.spotlight import router as spotlight_router
 from src.api.messages import router as messages_router
 from src.api.queue import router as queue_router
 from src.api.checkpoints import router as checkpoints_router
+from src.api.leads import router as leads_router
 from src.models.occupation import Occupation  # 新增
 from src.services.socketio_service import sio, socketio_app, get_socketio_stats
 
@@ -45,6 +46,7 @@ app.add_middleware(
 
 # Include routers with /api prefix for frontend proxy compatibility
 app.include_router(auth_router, prefix="/api")
+app.include_router(auth_router)  # For test compatibility - routes at /auth/*
 app.include_router(characters_router, prefix="/api")
 app.include_router(occupations_router, prefix="/api", tags=["occupations"])  # 添加 tags
 app.include_router(game_router, prefix="/api")
@@ -53,12 +55,14 @@ app.include_router(chase_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(rules_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
+app.include_router(events_router)  # For test compatibility - routes at /events/*
 app.include_router(skills_router, prefix="/api", tags=["skills"])
 app.include_router(campaigns_router, prefix="/api")
 app.include_router(spotlight_router, prefix="/api")
 app.include_router(messages_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(checkpoints_router, prefix="/api")
+app.include_router(leads_router, prefix="/api")
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 # Mount Socket.io server at /socket.io path

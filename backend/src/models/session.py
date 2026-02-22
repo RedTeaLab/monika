@@ -1,13 +1,14 @@
 """Game Session database model."""
+
 import uuid
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import Column, String, DateTime, Integer, JSON, ForeignKey, UUID, Text
+from sqlalchemy import Column, String, DateTime, Integer, JSON, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
-from src.core.database import Base
+from src.core.database import Base, GUID
 
 
 class SessionState(str, Enum):
@@ -29,7 +30,7 @@ class GameSession(Base):
 
     __tablename__ = "game_sessions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Ownership
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -40,7 +41,7 @@ class GameSession(Base):
     state = Column(String(20), default=SessionState.ACTIVE.value, nullable=False, index=True)
 
     # Campaign/module this session belongs to
-    campaign_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    campaign_id = Column(GUID(), nullable=True, index=True)
     module_id = Column(String(100), nullable=True)  # ID of the scenario/module being played
 
     # Current scene state

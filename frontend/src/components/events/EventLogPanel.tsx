@@ -36,7 +36,7 @@ interface EventLogPanelProps {
  */
 function getCategoryIcon(category: EventCategory) {
   switch (category) {
-    case "dice":
+    case "check":
       return <Dice3 className="h-4 w-4" />
     case "sanity":
       return <Shield className="h-4 w-4" />
@@ -46,7 +46,7 @@ function getCategoryIcon(category: EventCategory) {
       return <GitFork className="h-4 w-4" />
     case "state":
       return <Heart className="h-4 w-4" />
-    case "narrative":
+    case "interaction":
       return <MessageSquare className="h-4 w-4" />
     case "system":
       return <Settings className="h-4 w-4" />
@@ -60,7 +60,7 @@ function getCategoryIcon(category: EventCategory) {
  */
 function getCategoryBadgeColor(category: EventCategory): "default" | "secondary" | "outline" | "destructive" {
   switch (category) {
-    case "dice":
+    case "check":
       return "secondary"
     case "sanity":
       return "destructive"
@@ -70,7 +70,7 @@ function getCategoryBadgeColor(category: EventCategory): "default" | "secondary"
       return "outline"
     case "state":
       return "destructive"
-    case "narrative":
+    case "interaction":
       return "secondary"
     case "system":
       return "outline"
@@ -84,12 +84,12 @@ function getCategoryBadgeColor(category: EventCategory): "default" | "secondary"
  */
 function getCategoryLabel(category: EventCategory): string {
   const labels: Record<EventCategory, string> = {
-    dice: "Dice",
+    check: "Check",
     sanity: "Sanity",
     combat: "Combat",
     chase: "Chase",
     state: "State",
-    narrative: "Narrative",
+    interaction: "Interaction",
     system: "System",
   }
   return labels[category] || category
@@ -177,12 +177,12 @@ export function EventLogPanel({ sessionId, className }: EventLogPanelProps) {
    */
   const categoryCounts: Record<EventCategory | "all", number> = {
     all: events.length,
-    dice: 0,
+    check: 0,
     sanity: 0,
     combat: 0,
     chase: 0,
     state: 0,
-    narrative: 0,
+    interaction: 0,
     system: 0,
   }
 
@@ -237,9 +237,9 @@ export function EventLogPanel({ sessionId, className }: EventLogPanelProps) {
             <TabsTrigger value="all" className="gap-1">
               All ({categoryCounts.all})
             </TabsTrigger>
-            <TabsTrigger value="dice" className="gap-1">
+            <TabsTrigger value="check" className="gap-1">
               <Dice3 className="h-3 w-3" />
-              ({categoryCounts.dice})
+              ({categoryCounts.check})
             </TabsTrigger>
             <TabsTrigger value="sanity" className="gap-1">
               <Shield className="h-3 w-3" />
@@ -257,9 +257,9 @@ export function EventLogPanel({ sessionId, className }: EventLogPanelProps) {
               <Heart className="h-3 w-3" />
               ({categoryCounts.state})
             </TabsTrigger>
-            <TabsTrigger value="narrative" className="gap-1">
+            <TabsTrigger value="interaction" className="gap-1">
               <MessageSquare className="h-3 w-3" />
-              ({categoryCounts.narrative})
+              ({categoryCounts.interaction})
             </TabsTrigger>
             <TabsTrigger value="system" className="gap-1">
               <Settings className="h-3 w-3" />

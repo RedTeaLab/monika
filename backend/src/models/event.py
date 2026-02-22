@@ -1,17 +1,21 @@
 """Event database model for append-only audit logging."""
-from datetime import datetime
+
 import uuid
 from enum import Enum
 
-from sqlalchemy import Column, String, DateTime, Integer, Text, ForeignKey, JSON, Enum as SQLEnum
+from sqlalchemy import (
+    Column,
+    String,
+    DateTime,
+    Integer,
+    Text,
+    ForeignKey,
+    JSON,
+    Enum as SQLEnum,
+)
 from sqlalchemy.sql import func
-try:
-    from sqlalchemy.dialects.postgresql import UUID
-except ImportError:
-    from sqlalchemy import String
-    UUID = String
 
-from src.core.database import Base
+from src.core.database import Base, GUID
 
 
 class VisibilityLevel(str, Enum):
@@ -97,10 +101,10 @@ class Event(Base):
     __tablename__ = "events"
 
     # Primary key - UUID for distributed systems support
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
 
     # Session this event belongs to
-    session_id = Column(UUID(as_uuid=True), ForeignKey("game_sessions.id"), nullable=True, index=True)
+    session_id = Column(GUID(), ForeignKey("game_sessions.id"), nullable=True, index=True)
 
     # M3: Event sequence number within a session (for ordering and replay)
     # Auto-incremented per session
@@ -114,10 +118,18 @@ class Event(Base):
     character_id = Column(Integer, ForeignKey("characters.id"), nullable=True, index=True)
 
     # Event type
-    event_type = Column(SQLEnum(EventType, name="event_type", create_constraint=False, native_enum=False), nullable=False, index=True)
+    event_type = Column(
+        SQLEnum(EventType, name="event_type", create_constraint=False, native_enum=False),
+        nullable=False,
+        index=True,
+    )
 
     # M3: Event category for high-level grouping (interaction, check, combat, etc.)
-    category = Column(SQLEnum(EventCategory, name="event_category", create_constraint=False, native_enum=False), nullable=True, index=True)
+    category = Column(
+        SQLEnum(EventCategory, name="event_category", create_constraint=False, native_enum=False),
+        nullable=True,
+        index=True,
+    )
 
     # Event payload - structured data specific to event type
     # Examples:
@@ -134,9 +146,11 @@ class Event(Base):
 
     # Visibility: who can see this event
     visibility = Column(
-        SQLEnum(VisibilityLevel, name="visibility_level", create_constraint=False, native_enum=False),
+        SQLEnum(
+            VisibilityLevel, name="visibility_level", create_constraint=False, native_enum=False
+        ),
         nullable=False,
-        default=VisibilityLevel.PUBLIC
+        default=VisibilityLevel.PUBLIC,
     )
 
     # Timestamp - immutable, set at creation
@@ -152,17 +166,23 @@ class Event(Base):
     tags = Column(JSON, nullable=True, default=list)
 
     # M3: Reference to checkpoint if this event is associated with one
-    checkpoint_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    checkpoint_id = Column(GUID(), nullable=True, index=True)
 
     # M3: Detailed state changes tracking (structured JSON)
     # Format: [{path, type, old_value, new_value, delta, added, removed, metadata}]
     state_changes_json = Column(JSON, nullable=True, default=list)
 
     # Optional: reference to related event (e.g., a push_roll references the original roll)
-    parent_event_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    parent_event_id = Column(GUID(), nullable=True, index=True)
 
     # Optional: human-readable description for quick viewing
     description = Column(String(500), nullable=True)
+
+    # M3: Vector embedding for semantic search (pgvector)
+    # 1536 dimensions for text-embedding-3-small
+    # Only available on PostgreSQL with pgvector extension
+    # Use JSON for SQLite compatibility
+    embedding = Column(JSON, nullable=True)
 
     # Composite index for efficient queries
     __table_args__ = (
@@ -189,11 +209,14 @@ class Event(Base):
             "narration": self.narration,
             "visibility": self.visibility.value,
             "timestamp": self.timestamp.isoformat(),
-            "client_timestamp": self.client_timestamp.isoformat() if self.client_timestamp else None,
+            "client_timestamp": self.client_timestamp.isoformat()
+            if self.client_timestamp
+            else None,
             "source": self.source,
             "tags": self.tags or [],
             "checkpoint_id": str(self.checkpoint_id) if self.checkpoint_id else None,
             "state_changes_json": self.state_changes_json or [],
             "parent_event_id": str(self.parent_event_id) if self.parent_event_id else None,
             "description": self.description,
+            "embedding": self.embedding,
         }

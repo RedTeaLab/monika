@@ -11,7 +11,9 @@ from src.core.database import Base, get_db
 from src.models import (
     User, Character, GameSession, SessionState,
     Event, EventType, VisibilityLevel, Rule, RuleFAQ,
-    Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
+    Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus,
+    Lead, LeadChoice, LeadPriority, LeadType, LeadStatus, LeadVisibility, LeadExecutionMethod,
+    Message, MessageVisibility
 )
 
 # Use SQLite for testing

@@ -53,6 +53,108 @@ export interface EventEntry {
   description: string | null
 }
 
+// Full GameEvent structure from event-structure.md spec
+export interface GameEvent {
+  // Basic info
+  event_id: string
+  session_id: string
+  timestamp: string
+  sequence: number
+
+  // Actor info
+  actor: {
+    player_id: string | null
+    character_id: string | null
+    role: 'KP' | 'Player' | 'System'
+  }
+
+  // Event type
+  type: {
+    category: EventCategory
+    type: string
+    sub_type?: string
+  }
+
+  // Input content
+  input: {
+    raw_message: string
+    parsed_command?: ParsedCommand
+  }
+
+  // Execution result
+  result: {
+    success: boolean
+    error?: string
+    data?: unknown
+  }
+
+  // Narrative content
+  narration: {
+    text: string
+    style: 'narrative' | 'compact' | 'detailed'
+  }
+
+  // State changes
+  state_changes: StateChange[]
+
+  // Large object references
+  large_objects?: {
+    before_ref?: string
+    after_ref?: string
+  }
+
+  // Visibility
+  visibility: EventVisibility
+
+  // Metadata
+  metadata: {
+    client_timestamp?: number
+    source: 'web' | 'api' | 'system'
+    tags?: string[]
+  }
+}
+
+export interface ParsedCommand {
+  command: string
+  [key: string]: unknown
+}
+
+export interface StateChange {
+  path: string
+  type: 'set' | 'add' | 'remove' | 'increment' | 'decrement'
+  old_value?: unknown
+  new_value?: unknown
+  added?: unknown[]
+  removed?: unknown[]
+  delta?: number
+  metadata?: {
+    reason?: string
+    source?: string
+  }
+}
+
+export interface EventVisibility {
+  base: VisibilityBase
+  overrides?: VisibilityOverride[]
+  conditional?: VisibilityCondition[]
+}
+
+export type VisibilityBase =
+  | 'public'      // Everyone can see
+  | 'party'       // All players can see
+  | 'kp'          // Only KP can see
+  | 'private'     // Private event
+
+export interface VisibilityOverride {
+  type: 'exclude' | 'include'
+  target: string
+}
+
+export interface VisibilityCondition {
+  expression: string
+  show_if_true: boolean
+}
+
 export interface EventListResponse {
   events: EventEntry[]
   total: number
@@ -66,33 +168,34 @@ export interface EventFilter {
 }
 
 // Event type categories for grouping/filtering
+// Aligned with event-structure.md spec
 export type EventCategory =
-  | "dice"      // roll, push_roll, luck_spend
-  | "sanity"    // san_check, san_loss, insanity_gain
-  | "combat"    // combat_start, combat_end, combat_round, damage, heal
-  | "chase"     // chase_start, chase_end, chase_round, chase_obstacle
-  | "state"     // hp_change, mp_change, san_change, luck_change
-  | "narrative" // message, scene_change, npc_appear
-  | "system"    // session_start, session_end, retcon
+  | "interaction"  // message, description, scene_change
+  | "check"        // roll, push_roll, luck_spend
+  | "combat"       // combat_start, combat_action, combat_end, damage, death
+  | "chase"        // chase_start, chase_round, chase_end
+  | "sanity"       // san_check, san_loss, madness_start, madness_end
+  | "state"        // condition_added, condition_removed, heal
+  | "system"       // checkpoint, session_start, session_end
 
 /**
  * Get category for an event type
  */
 export function getEventCategory(eventType: EventType): EventCategory {
-  const diceTypes: EventType[] = ["roll", "push_roll", "luck_spend"]
+  const checkTypes: EventType[] = ["roll", "push_roll", "luck_spend"]
   const sanityTypes: EventType[] = ["san_check", "san_loss", "insanity_gain"]
   const combatTypes: EventType[] = ["combat_start", "combat_end", "combat_round", "damage", "heal"]
   const chaseTypes: EventType[] = ["chase_start", "chase_end", "chase_round", "chase_obstacle"]
   const stateTypes: EventType[] = ["hp_change", "mp_change", "san_change", "luck_change"]
-  const narrativeTypes: EventType[] = ["message", "scene_change", "npc_appear"]
+  const interactionTypes: EventType[] = ["message", "scene_change", "npc_appear"]
   const systemTypes: EventType[] = ["session_start", "session_end", "retcon"]
 
-  if (diceTypes.includes(eventType)) return "dice"
+  if (checkTypes.includes(eventType)) return "check"
   if (sanityTypes.includes(eventType)) return "sanity"
   if (combatTypes.includes(eventType)) return "combat"
   if (chaseTypes.includes(eventType)) return "chase"
   if (stateTypes.includes(eventType)) return "state"
-  if (narrativeTypes.includes(eventType)) return "narrative"
+  if (interactionTypes.includes(eventType)) return "interaction"
   if (systemTypes.includes(eventType)) return "system"
 
   return "system"
