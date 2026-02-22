@@ -82,3 +82,6 @@ dist-ssr/
 
 # uv cache
 .uv/
+
+# Git worktrees
+.worktrees/
