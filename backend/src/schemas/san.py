@@ -20,6 +20,26 @@ class SANCategory(str, Enum):
     CREATURE_SPECIFIC = "creature_specific"
 
 
+class SANState(str, Enum):
+    """SAN state for character mental health status."""
+
+    STABLE = "stable"
+    UNSETTLED = "unsettled"
+    DISTURBED = "disturbed"
+    UNSTABLE = "unstable"
+    CRITICAL = "critical"
+    INSANE = "insane"
+
+
+class SANWarningLevel(str, Enum):
+    """Warning levels for SAN status."""
+
+    NORMAL = "normal"
+    WARNING = "warning"
+    DANGER = "danger"
+    CRITICAL = "critical"
+
+
 class TriggerType(str, Enum):
     """Types of SAN check triggers."""
 

@@ -421,3 +421,80 @@ def get_active_real_life(
         is_active=record.is_active,
         notes=record.notes,
     )
+
+
+@router.get("/character/{character_id}/warning")
+def get_san_warning(
+    character_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get SAN warning information for a character.
+
+    Returns detailed warning information including state, level,
+    message, and recommendations.
+
+    Args:
+        character_id: Character ID.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        SAN warning information.
+    """
+    character = (
+        db.query(Character)
+        .filter(Character.id == character_id, Character.owner_id == current_user.id)
+        .first()
+    )
+    if character is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
+    service = SANService(db)
+    return service.get_san_warning(character.san, character.max_san)
+
+
+@router.get("/character/{character_id}/state")
+def get_san_state(
+    character_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get SAN state for a character.
+
+    Returns the current mental health state based on SAN percentage.
+
+    Args:
+        character_id: Character ID.
+        current_user: Authenticated user.
+        db: Database session.
+
+    Returns:
+        SAN state information.
+    """
+    character = (
+        db.query(Character)
+        .filter(Character.id == character_id, Character.owner_id == current_user.id)
+        .first()
+    )
+    if character is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
+    service = SANService(db)
+    state = service.get_san_state(character.san, character.max_san)
+
+    return {
+        "character_id": character.id,
+        "current_san": character.san,
+        "max_san": character.max_san,
+        "state": state,
+        "san_percentage": round(character.san / character.max_san * 100, 1)
+        if character.max_san > 0
+        else 0,
+    }

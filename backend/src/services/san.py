@@ -521,6 +521,122 @@ class SANService:
             "requires_indefinite_madness": san_loss >= 5 or final_san == 0,
         }
 
+    def get_san_state(self, current_san: int, max_san: int) -> str:
+        """Get current SAN state based on percentage.
+
+        States:
+        - STABLE: >75% SAN
+        - UNSETTLED: 50-75% SAN
+        - DISTURBED: 25-50% SAN
+        - UNSTABLE: 10-25% SAN
+        - CRITICAL: 1-10% SAN
+        - INSANE: 0 SAN
+
+        Args:
+            current_san: Current SAN value.
+            max_san: Maximum SAN value.
+
+        Returns:
+            SAN state string.
+        """
+        from src.schemas.san import SANState
+
+        if current_san <= 0:
+            return SANState.INSANE.value
+
+        if max_san <= 0:
+            return SANState.INSANE.value
+
+        percentage = (current_san / max_san) * 100
+
+        if percentage > 75:
+            return SANState.STABLE.value
+        elif percentage > 50:
+            return SANState.UNSETTLED.value
+        elif percentage > 25:
+            return SANState.DISTURBED.value
+        elif percentage > 10:
+            return SANState.UNSTABLE.value
+        else:
+            return SANState.CRITICAL.value
+
+    def get_san_warning(self, current_san: int, max_san: int) -> dict:
+        """Get SAN warning information.
+
+        Args:
+            current_san: Current SAN value.
+            max_san: Maximum SAN value.
+
+        Returns:
+            Dict with warning information.
+        """
+        from src.schemas.san import SANState, SANWarningLevel
+
+        state = self.get_san_state(current_san, max_san)
+        level = self.get_san_warning_level(current_san, max_san)
+
+        warning_messages = {
+            SANWarningLevel.NORMAL.value: "SAN 状态正常",
+            SANWarningLevel.WARNING.value: "SAN 值偏低，请注意心理健康",
+            SANWarningLevel.DANGER.value: "SAN 值危险，建议寻求帮助",
+            SANWarningLevel.CRITICAL.value: "SAN 值危急，随时可能陷入疯狂",
+        }
+
+        recommendations = {
+            SANWarningLevel.NORMAL.value: [],
+            SANWarningLevel.WARNING.value: ["休息", "与信任的人交谈"],
+            SANWarningLevel.DANGER.value: ["寻求心理治疗", "远离恐怖场景", "休息"],
+            SANWarningLevel.CRITICAL.value: ["立即寻求专业帮助", "远离一切压力源"],
+        }
+
+        return {
+            "state": state,
+            "level": level,
+            "message": warning_messages.get(level, ""),
+            "recommendations": recommendations.get(level, []),
+            "san_percentage": round(current_san / max_san * 100, 1) if max_san > 0 else 0,
+            "is_insane": current_san <= 0,
+        }
+
+    def log_san_change(
+        self,
+        character_id: int,
+        change_type: str,
+        previous_value: int,
+        new_value: int,
+        reason: str,
+        session_id: Optional[str] = None,
+    ) -> dict:
+        """Log a SAN change event.
+
+        Args:
+            character_id: Character ID.
+            change_type: Type of change (loss, recovery, real_life).
+            previous_value: SAN before change.
+            new_value: SAN after change.
+            reason: Reason for change.
+            session_id: Optional session ID.
+
+        Returns:
+            Dict with change event information.
+        """
+        from src.schemas.san import SANState
+
+        delta = new_value - previous_value
+
+        return {
+            "character_id": character_id,
+            "session_id": session_id,
+            "change_type": change_type,
+            "previous_san": previous_value,
+            "new_san": new_value,
+            "delta": delta,
+            "reason": reason,
+            "state_before": self.get_san_state(previous_value, 99),
+            "state_after": self.get_san_state(new_value, 99),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
 
 from src.services.dice import determine_success, roll_d100
 
