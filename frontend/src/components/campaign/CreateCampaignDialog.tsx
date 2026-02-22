@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { campaignsApi } from '@/services/api/campaigns'
 import { toast } from 'sonner'
@@ -14,24 +14,36 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import type { CreateCampaignRequest } from '@/types/campaign'
+import type { CreateCampaignRequest, Campaign } from '@/types/campaign'
 
 interface CreateCampaignDialogProps {
   open: boolean
   onClose: () => void
   onSuccess?: () => void
+  campaign?: Campaign
 }
 
 export function CreateCampaignDialog({
   open,
   onClose,
   onSuccess,
+  campaign,
 }: CreateCampaignDialogProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [maxPlayers, setMaxPlayers] = useState(4)
   const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const isEditMode = !!campaign
+
+  useEffect(() => {
+    if (campaign) {
+      setName(campaign.name)
+      setDescription(campaign.description || '')
+      setMaxPlayers(campaign.max_players || 4)
+    }
+  }, [campaign])
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -66,10 +78,14 @@ export function CreateCampaignDialog({
       const data: CreateCampaignRequest = {
         name: name.trim(),
         description: description.trim() || undefined,
-        maxPlayers,
+        max_players: maxPlayers,
       }
 
-      await campaignsApi.createCampaign(data)
+      if (isEditMode && campaign) {
+        await campaignsApi.updateCampaign(campaign.id, data)
+      } else {
+        await campaignsApi.createCampaign(data)
+      }
 
       // Reset form
       setName('')
@@ -79,7 +95,7 @@ export function CreateCampaignDialog({
 
       onSuccess?.()
     } catch (err: any) {
-      toast.error(err.message || '创建战役失败')
+      toast.error(err.message || (isEditMode ? '更新战役失败' : '创建战役失败'))
     } finally {
       setSubmitting(false)
     }
@@ -99,9 +115,9 @@ export function CreateCampaignDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>创建新战役</DialogTitle>
+          <DialogTitle>{isEditMode ? '编辑战役' : '创建新战役'}</DialogTitle>
           <DialogDescription>
-            创建一个新的CoC 7e战役并邀请玩家加入
+            {isEditMode ? '修改战役信息' : '创建一个新的CoC 7e战役并邀请玩家加入'}
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +179,7 @@ export function CreateCampaignDialog({
               取消
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? '创建中...' : '创建'}
+              {submitting ? (isEditMode ? '保存中...' : '创建中...') : (isEditMode ? '保存' : '创建')}
             </Button>
           </DialogFooter>
         </form>

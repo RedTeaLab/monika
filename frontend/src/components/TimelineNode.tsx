@@ -5,12 +5,11 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { EventTypeIcon } from '@/components/EventTypeIcon'
 import type { GameEvent } from '@/types/event'
 
-// Helper component to avoid React 19 type inference issues
-function ActorDisplay({ role, characterId }: { role: 'KP' | 'Player' | 'System'; characterId: string | null }) {
-  if (role === 'KP') return <>KP</>
-  if (role === 'System') return <>系统</>
-  if (characterId) return <>角色 {characterId.slice(0, 8)}</>
-  return <>未知</>
+function getActorDisplay(role: 'KP' | 'Player' | 'System', characterId: string | null): string {
+  if (role === 'KP') return 'KP'
+  if (role === 'System') return '系统'
+  if (characterId) return `角色 ${characterId.slice(0, 8)}`
+  return '未知'
 }
 
 interface TimelineNodeProps {
@@ -79,53 +78,47 @@ export function TimelineNode({ event, isExpanded, onToggle, className = '' }: Ti
           </div>
 
           {/* Expanded Details */}
-          {isExpanded && (
+          {isExpanded ? (
             <div className="mt-3 pt-3 border-t space-y-2">
               {/* Event Type */}
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">类型:</span>
                 <span className="font-medium">{String(event.type.category)}</span>
-                {event.type.sub_type && (
-                  <>
-                    <span className="text-muted-foreground">/</span>
-                    <span>{String(event.type.sub_type)}</span>
-                  </>
-                )}
+                {event.type.sub_type ? (
+                  <span className="text-muted-foreground">/{String(event.type.sub_type)}</span>
+                ) : null}
               </div>
 
               {/* Actor */}
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-muted-foreground">操作者:</span>
-                <>
-                  {event.actor.role === 'KP' && <span className="font-medium">KP</span>}
-                  {event.actor.role === 'System' && <span className="font-medium">系统</span>}
-                  {event.actor.role !== 'KP' && event.actor.role !== 'System' && event.actor.character_id && <span className="font-medium">角色 {event.actor.character_id.slice(0, 8)}</span>}
-                  {event.actor.role !== 'KP' && event.actor.role !== 'System' && !event.actor.character_id && <span className="font-medium">未知</span>}
-                </>
+                <span className="font-medium">
+                  {getActorDisplay(event.actor.role, event.actor.character_id)}
+                </span>
               </div>
 
               {/* Input */}
-              {event.input.raw_message && (
+              {event.input.raw_message ? (
                 <div className="text-xs">
                   <span className="text-muted-foreground">输入:</span>
                   <p className="mt-1 p-2 bg-muted rounded font-mono text-xs">
                     {event.input.raw_message}
                   </p>
                 </div>
-              )}
+              ) : null}
 
               {/* Result */}
-              {event.result.data && (
+              {event.result.data ? (
                 <div className="text-xs">
                   <span className="text-muted-foreground">结果:</span>
                   <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto">
                     {JSON.stringify(event.result.data, null, 2)}
                   </pre>
                 </div>
-              )}
+              ) : null}
 
               {/* State Changes */}
-              {event.state_changes && event.state_changes.length > 0 && (
+              {event.state_changes && event.state_changes.length > 0 ? (
                 <div className="text-xs">
                   <span className="text-muted-foreground">状态变化:</span>
                   <div className="mt-1 space-y-1">
@@ -135,19 +128,19 @@ export function TimelineNode({ event, isExpanded, onToggle, className = '' }: Ti
                         <span className="ml-2 text-muted-foreground">
                           {change.type}
                         </span>
-                        {change.old_value !== undefined && (
+                        {change.old_value !== undefined ? (
                           <span className="ml-2">
                             {JSON.stringify(change.old_value)}
                           </span>
-                        )}
-                        {change.new_value !== undefined && (
+                        ) : null}
+                        {change.new_value !== undefined ? (
                           <span className="ml-2">→ {JSON.stringify(change.new_value)}</span>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Visibility */}
               <div className="flex items-center gap-2 text-xs">
@@ -160,7 +153,7 @@ export function TimelineNode({ event, isExpanded, onToggle, className = '' }: Ti
                 ID: {event.event_id}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </Card>
     </div>

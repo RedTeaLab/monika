@@ -55,9 +55,9 @@ class SocketService {
   private connectionInfo: Partial<SocketConnectionInfo> = {};
   private eventListeners: Map<string, Set<Function>> = new Map();
   private messageBuffer: GameMessageData[] = [];
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isManualDisconnect = false;
-  private typingTimer: NodeJS.Timeout | null = null;
+  private typingTimer: ReturnType<typeof setTimeout> | null = null;
 
   // -------------------------------------------------------------------------
   // Connection Management

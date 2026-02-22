@@ -1,4 +1,12 @@
+import os
 import pytest
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-for-testing-min-32-chars")
+os.environ.setdefault("OPENAI_API_KEY", "sk-test-key")
+os.environ.setdefault("LLM_PROVIDER", "openai")
+os.environ.setdefault("OPENAI_MODEL", "gpt-4o-mini")
+os.environ.setdefault("DEBUG", "true")
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -9,11 +17,29 @@ from src.core.database import Base, get_db
 
 # Import all models to ensure they're registered with Base
 from src.models import (
-    User, Character, GameSession, SessionState,
-    Event, EventType, VisibilityLevel, Rule, RuleFAQ,
-    Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus,
-    Lead, LeadChoice, LeadPriority, LeadType, LeadStatus, LeadVisibility, LeadExecutionMethod,
-    Message, MessageVisibility
+    User,
+    Character,
+    GameSession,
+    SessionState,
+    Event,
+    EventType,
+    VisibilityLevel,
+    Rule,
+    RuleFAQ,
+    Campaign,
+    CampaignMember,
+    CampaignStatus,
+    CampaignRole,
+    MemberStatus,
+    Lead,
+    LeadChoice,
+    LeadPriority,
+    LeadType,
+    LeadStatus,
+    LeadVisibility,
+    LeadExecutionMethod,
+    Message,
+    MessageVisibility,
 )
 
 # Use SQLite for testing

@@ -37,7 +37,7 @@ export const useMultiplayerGame = (options: UseMultiplayerGameOptions): UseMulti
   const [isConnected, setIsConnected] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Connect to WebSocket
   useEffect(() => {

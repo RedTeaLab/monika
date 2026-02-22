@@ -640,3 +640,156 @@ class SearchService:
             history=[],
             total_count=0,
         )
+
+
+class RankingService:
+    """Service for ranking search results."""
+
+    DEFAULT_EVENT_TYPE_WEIGHTS = {
+        EventType.SAN_LOSS: 2.5,
+        EventType.SAN_CHECK: 2.0,
+        EventType.DAMAGE: 1.8,
+        EventType.COMBAT_START: 1.5,
+        EventType.ROLL: 1.0,
+        EventType.MESSAGE: 1.0,
+        EventType.CHASE_START: 1.4,
+        EventType.SCENE_CHANGE: 1.3,
+        EventType.NPC_APPEAR: 1.2,
+    }
+
+    def __init__(
+        self,
+        relevance_weight: float = 0.5,
+        recency_weight: float = 0.3,
+        event_type_weight: float = 0.2,
+        recency_half_life_days: int = 7,
+        event_type_weights: Optional[Dict[EventType, float]] = None,
+    ):
+        self.relevance_weight = relevance_weight
+        self.recency_weight = recency_weight
+        self.event_type_weight = event_type_weight
+        self.recency_half_life_days = recency_half_life_days
+        self.event_type_weights = event_type_weights or self.DEFAULT_EVENT_TYPE_WEIGHTS.copy()
+
+    def rank_results(
+        self,
+        results: List[SearchResultItem],
+        relevance_weight: Optional[float] = None,
+        recency_weight: Optional[float] = None,
+        event_type_weight: Optional[float] = None,
+        keywords: Optional[List[str]] = None,
+        deduplicate: bool = False,
+    ) -> List[SearchResultItem]:
+        """Rank search results by multiple factors.
+
+        Args:
+            results: Search results to rank
+            relevance_weight: Override relevance weight
+            recency_weight: Override recency weight
+            event_type_weight: Override event type weight
+            keywords: Keywords for exact match boosting
+            deduplicate: Whether to remove duplicates
+
+        Returns:
+            Ranked results
+        """
+        if not results:
+            return []
+
+        rw = relevance_weight if relevance_weight is not None else self.relevance_weight
+        cw = recency_weight if recency_weight is not None else self.recency_weight
+        ew = event_type_weight if event_type_weight is not None else self.event_type_weight
+
+        scored_results = []
+        now = datetime.now()
+
+        for result in results:
+            relevance_score = result.relevance_score or 0.5
+
+            recency_score = 0.5
+            if result.timestamp:
+                recency_score = self._calculate_recency_score(result.timestamp, now)
+
+            event_type = EventType(result.event_type) if result.event_type else EventType.MESSAGE
+            type_score = self._calculate_event_type_score(event_type)
+
+            keyword_boost = 0.0
+            if keywords:
+                keyword_boost = self._calculate_keyword_boost(result, keywords)
+
+            total_score = (
+                relevance_score * rw + recency_score * cw + type_score * ew + keyword_boost
+            )
+
+            result_copy = result.model_copy()
+            result_copy.relevance_score = total_score
+            scored_results.append(result_copy)
+
+        scored_results.sort(key=lambda x: x.relevance_score, reverse=True)
+
+        if deduplicate:
+            seen_ids = set()
+            deduped = []
+            for result in scored_results:
+                if result.id not in seen_ids:
+                    seen_ids.add(result.id)
+                    deduped.append(result)
+            return deduped
+
+        return scored_results
+
+    def _calculate_recency_score(
+        self, timestamp: datetime, now: Optional[datetime] = None
+    ) -> float:
+        """Calculate recency score with exponential decay.
+
+        Args:
+            timestamp: Event timestamp
+            now: Current time (for testing)
+
+        Returns:
+            Recency score between 0 and 1
+        """
+        if now is None:
+            now = datetime.now()
+
+        age_seconds = (now - timestamp).total_seconds()
+        age_days = age_seconds / 86400
+
+        if age_days < 0:
+            return 0.5
+
+        decay_factor = 0.5 ** (age_days / self.recency_half_life_days)
+        return decay_factor
+
+    def _calculate_event_type_score(self, event_type: EventType) -> float:
+        """Calculate event type importance score.
+
+        Args:
+            event_type: Event type
+
+        Returns:
+            Event type score (default 0.5 if not in weights)
+        """
+        return self.event_type_weights.get(event_type, 0.5) / 2.5
+
+    def _calculate_keyword_boost(self, result: SearchResultItem, keywords: List[str]) -> float:
+        """Calculate boost for exact keyword matches.
+
+        Args:
+            result: Search result
+            keywords: Keywords to match
+
+        Returns:
+            Keyword boost score
+        """
+        if not result.description:
+            return 0.0
+
+        text_lower = result.description.lower()
+        match_count = sum(1 for kw in keywords if kw.lower() in text_lower)
+
+        if len(keywords) == 0:
+            return 0.0
+
+        return (match_count / len(keywords)) * 0.3
