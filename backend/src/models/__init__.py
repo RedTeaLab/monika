@@ -2,9 +2,20 @@
 from src.models.user import User
 from src.models.character import Character
 from src.models.session import GameSession, SessionState
-from src.models.event import Event, EventType, VisibilityLevel
+from src.models.event import Event, EventType, VisibilityLevel, EventCategory
+from src.models.event_type_metadata import EventTypeMetadata, DEFAULT_EVENT_TYPES
 from src.models.rule import Rule, RuleFAQ
 from src.models.campaign import Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
+from src.models.message import Message, MessageVisibility
+from src.models.lead import (
+    Lead,
+    LeadChoice,
+    LeadPriority,
+    LeadType,
+    LeadStatus,
+    LeadVisibility,
+    LeadExecutionMethod,
+)
 
 __all__ = [
     "User",
@@ -14,6 +25,9 @@ __all__ = [
     "Event",
     "EventType",
     "VisibilityLevel",
+    "EventCategory",
+    "EventTypeMetadata",
+    "DEFAULT_EVENT_TYPES",
     "Rule",
     "RuleFAQ",
     "Campaign",
@@ -21,4 +35,13 @@ __all__ = [
     "CampaignStatus",
     "CampaignRole",
     "MemberStatus",
+    "Message",
+    "MessageVisibility",
+    "Lead",
+    "LeadChoice",
+    "LeadPriority",
+    "LeadType",
+    "LeadStatus",
+    "LeadVisibility",
+    "LeadExecutionMethod",
 ]
