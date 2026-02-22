@@ -715,6 +715,52 @@ fix(M1-006): resolve JWT token expiration issue
 docs(NLI-10): update API documentation with WebSocket endpoints
 ```
 
+## Git Branch Strategy
+
+This project uses a **simplified Git flow** with `main` as the primary branch:
+
+### Branch Structure
+
+- **main**: Production-ready code, always deployable
+- **feature/\***: Feature branches for new development
+- **bugfix/\***: Bug fix branches
+- **hotfix/\***: Critical production fixes
+
+### Workflow
+
+1. **Create feature branch from main:**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/skill-system
+   ```
+
+2. **Develop and commit:**
+   ```bash
+   git add .
+   git commit -m "feat(skill): add new skill API endpoint"
+   ```
+
+3. **Push and create Pull Request:**
+   ```bash
+   git push origin feature/skill-system
+   # Create PR on GitHub targeting main
+   ```
+
+4. **After review, merge to main:**
+   - Use GitHub's squash and merge for clean history
+   - Delete feature branch after merge
+
+### Commit Convention
+
+Use conventional commits:
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `docs:` - Documentation changes
+- `refactor:` - Code refactoring
+- `test:` - Adding tests
+- `chore:` - Maintenance tasks
+
 ## License
 
 This project is licensed under the MIT License. See LICENSE file for details.
@@ -729,5 +775,5 @@ For questions or issues:
 
 ---
 
-**Last Updated:** 2025-01-15
-**Current Version:** 0.1.0 (NLI implementation in progress)
+**Last Updated:** 2025-02-22
+**Current Version:** 0.1.0 (Skill system API integration completed)
