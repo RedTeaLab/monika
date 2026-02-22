@@ -45,3 +45,29 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Get the current authenticated user from JWT token, or None if not authenticated."""
+    if credentials is None:
+        return None
+
+    try:
+        token = credentials.credentials
+        payload = decode_access_token(token)
+        if payload is None:
+            return None
+
+        username: str = payload.get("sub")
+        user_id: int = payload.get("user_id")
+
+        if username is None:
+            return None
+
+        user = db.query(User).filter(User.username == username).first()
+        return user
+    except (JWTError, Exception):
+        return None

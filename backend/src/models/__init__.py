@@ -7,6 +7,7 @@ from src.models.event_type_metadata import EventTypeMetadata, DEFAULT_EVENT_TYPE
 from src.models.rule import Rule, RuleFAQ
 from src.models.campaign import Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
 from src.models.message import Message, MessageVisibility
+from src.models.checkpoint import Checkpoint, CheckpointType
 from src.models.lead import (
     Lead,
     LeadChoice,
@@ -37,6 +38,8 @@ __all__ = [
     "MemberStatus",
     "Message",
     "MessageVisibility",
+    "Checkpoint",
+    "CheckpointType",
     "Lead",
     "LeadChoice",
     "LeadPriority",
