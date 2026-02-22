@@ -1,11 +1,13 @@
 // frontend/src/hooks/useCharacterCreationReducer.ts
 import { useReducer } from 'react'
-import type { CharacterCreationState, CharacterCreationAction, Attributes } from '@/types/characterCreation'
+import type { CharacterCreationState, CharacterCreationAction, Attributes, Era, SkillPointFormula, Occupation, OptionalSkillCategory } from '@/types/characterCreation'
+import { getOptionalCategorySkills } from '@/data/skills'
 
 const INITIAL_STATE: CharacterCreationState = {
   name: '',
   age: 0,
-  gender: 'other',
+  gender: 'male',
+  era: 'modern' as Era,
   occupation: null,
   attributes: {
     str: 0,
@@ -49,11 +51,61 @@ function rollAttribute(attr: 'siz' | 'int' | 'edu' | 'other'): number {
   return (d1 + d2 + d3) * 5
 }
 
-function calculateSkillPoints(edu: number, int: number): { occupational: number; interest: number } {
-  return {
-    occupational: edu * 4,
-    interest: int * 2,
+function calculateOccupationalPoints(
+  attributes: Attributes, 
+  formula: SkillPointFormula = 'edu4'
+): number {
+  const { edu, dex, str, app, pow } = attributes
+  
+  switch (formula) {
+    case 'edu4':
+      return edu * 4
+    case 'edu2_pow2':
+      return edu * 2 + pow * 2
+    case 'edu2_dex2':
+      return edu * 2 + dex * 2
+    case 'edu2_str2':
+      return edu * 2 + str * 2
+    case 'edu2_app2':
+      return edu * 2 + app * 2
+    default:
+      return edu * 4
   }
+}
+
+function calculateInterestPoints(int: number): number {
+  return int * 2
+}
+
+function isOccupationSkill(skillName: string, occupation: Occupation | null): boolean {
+  if (!occupation || occupation.isCustom) return false
+  
+  // 检查固定技能
+  if (occupation.fixed_skills?.includes(skillName)) return true
+  
+  // 检查固定技能中的基础技能名（如"格斗"匹配"格斗 (斗殴)"）
+  const baseName = skillName.includes(' (') ? skillName.split(' (')[0] : skillName
+  if (occupation.fixed_skills?.some(s => s === baseName || s.startsWith(`${baseName} (`) )) return true
+  
+  // 检查可选技能类别
+  for (const opt of (occupation.optional_skills || [])) {
+    const available = getOptionalCategorySkills(opt.category)
+    if (available.some(s => s === skillName || s === baseName)) return true
+  }
+  
+  return false
+}
+
+function countUsedOccupationPoints(skills: Record<string, number>, occupation: Occupation | null): number {
+  if (!occupation) return 0
+  
+  let total = 0
+  Object.entries(skills).forEach(([skillName, value]) => {
+    if (isOccupationSkill(skillName, occupation)) {
+      total += value
+    }
+  })
+  return total
 }
 
 export function useCharacterCreationReducer(): [CharacterCreationState, (action: CharacterCreationAction) => void] {
@@ -76,34 +128,73 @@ function characterCreationReducer(
     case 'SET_GENDER':
       return { ...state, gender: action.value }
 
+    case 'SET_ERA':
+      return { ...state, era: action.value }
+
     case 'SET_OCCUPATION': {
       const occupation = action.occupation
       const equipment = occupation?.occupation_items
         ? { ...state.equipment, occupationItems: [...occupation.occupation_items] }
         : state.equipment
 
-      const points = calculateSkillPoints(state.attributes.edu, state.attributes.int)
+      const formula = occupation?.skill_point_formula ?? 'edu4'
+      const occupationalPoints = calculateOccupationalPoints(state.attributes, formula)
+      const interestPoints = calculateInterestPoints(state.attributes.int)
 
       return {
         ...state,
         occupation,
         equipment,
-        occupationalPointsRemaining: points.occupational,
-        interestPointsRemaining: points.interest,
+        occupationalPointsRemaining: occupationalPoints,
+        interestPointsRemaining: interestPoints,
       }
     }
 
-    case 'SET_ATTRIBUTE':
+    case 'SET_ATTRIBUTE': {
+      const newAttributes = { ...state.attributes, [action.attribute]: action.value }
+      if (state.occupation) {
+        const formula = state.occupation.skill_point_formula ?? 'edu4'
+        const occupationalPoints = calculateOccupationalPoints(newAttributes, formula)
+        const interestPoints = calculateInterestPoints(newAttributes.int)
+        const usedOccPoints = countUsedOccupationPoints(state.skills, state.occupation)
+        const totalPoints = Object.values(state.skills).reduce((sum, val) => sum + val, 0)
+        const usedIntPoints = (totalPoints - usedOccPoints) * 2
+        
+        return {
+          ...state,
+          attributes: newAttributes,
+          occupationalPointsRemaining: occupationalPoints - usedOccPoints,
+          interestPointsRemaining: interestPoints - usedIntPoints,
+        }
+      }
       return {
         ...state,
-        attributes: { ...state.attributes, [action.attribute]: action.value },
+        attributes: newAttributes,
       }
+    }
 
     case 'ROLL_ATTRIBUTE': {
       const attr = action.attribute
       const isSpecial = attr === 'siz' || attr === 'int' || attr === 'edu'
       const value = rollAttribute(isSpecial ? attr : 'other')
-      return { ...state, attributes: { ...state.attributes, [attr]: value } }
+      const newAttributes = { ...state.attributes, [attr]: value }
+      
+      if (state.occupation) {
+        const formula = state.occupation.skill_point_formula ?? 'edu4'
+        const occupationalPoints = calculateOccupationalPoints(newAttributes, formula)
+        const interestPoints = calculateInterestPoints(newAttributes.int)
+        const usedOccPoints = countUsedOccupationPoints(state.skills, state.occupation)
+        const totalPoints = Object.values(state.skills).reduce((sum, val) => sum + val, 0)
+        const usedIntPoints = (totalPoints - usedOccPoints) * 2
+        
+        return {
+          ...state,
+          attributes: newAttributes,
+          occupationalPointsRemaining: occupationalPoints - usedOccPoints,
+          interestPointsRemaining: interestPoints - usedIntPoints,
+        }
+      }
+      return { ...state, attributes: newAttributes }
     }
 
     case 'ROLL_ALL_ATTRIBUTES': {
@@ -113,6 +204,22 @@ function characterCreationReducer(
         const isSpecial = attr === 'siz' || attr === 'int' || attr === 'edu'
         newAttributes[attr] = rollAttribute(isSpecial ? attr : 'other')
       })
+      
+      if (state.occupation) {
+        const formula = state.occupation.skill_point_formula ?? 'edu4'
+        const occupationalPoints = calculateOccupationalPoints(newAttributes, formula)
+        const interestPoints = calculateInterestPoints(newAttributes.int)
+        const usedOccPoints = countUsedOccupationPoints(state.skills, state.occupation)
+        const totalPoints = Object.values(state.skills).reduce((sum, val) => sum + val, 0)
+        const usedIntPoints = (totalPoints - usedOccPoints) * 2
+        
+        return {
+          ...state,
+          attributes: newAttributes,
+          occupationalPointsRemaining: occupationalPoints - usedOccPoints,
+          interestPointsRemaining: interestPoints - usedIntPoints,
+        }
+      }
       return { ...state, attributes: newAttributes }
     }
 
@@ -122,10 +229,10 @@ function characterCreationReducer(
       const current = state.skills[skill] || 0
       const newValue = current + delta
 
-      // Determine if occupation skill (cost 1) or interest skill (cost 2)
-      const isOccupationSkill = state.occupation?.occupation_skills?.includes(skill)
-      const cost = isOccupationSkill ? 1 : 2
-      const pointsField = isOccupationSkill ? 'occupationalPointsRemaining' : 'interestPointsRemaining'
+      const isOccSkill = isOccupationSkill(skill, state.occupation)
+      
+      const cost = isOccSkill ? 1 : 2
+      const pointsField = isOccSkill ? 'occupationalPointsRemaining' : 'interestPointsRemaining'
 
       if (delta > 0 && state[pointsField] < cost * delta) {
         return state // Not enough points

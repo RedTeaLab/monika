@@ -45,6 +45,10 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Large binary files (documentation should be hosted elsewhere)
+*.pdf
 
 # Logs
 *.log

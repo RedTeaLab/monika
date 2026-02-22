@@ -23,13 +23,36 @@ describe('calculateDerivedStats', () => {
     expect(result.move).toBe(9)
   })
 
-  it('calculates build from STR+SIZ', () => {
-    const result = calculateDerivedStats({ con: 50, siz: 80, str: 85, dex: 50, pow: 50, int: 50, edu: 50, app: 50 })
-    expect(result.build).toBe(1)
-  })
+  describe('build and damage bonus table', () => {
+    const testCases = [
+      // [str + siz, expectedBuild, expectedDamageBonus]
+      [64, -2, '-2'],
+      [65, -1, '-1'],
+      [84, -1, '-1'],
+      [85, 0, '0'],
+      [124, 0, '0'],
+      [125, 1, '+1D4'],
+      [164, 1, '+1D4'],
+      [165, 2, '+1D6'],
+      [204, 2, '+1D6'],
+      [205, 3, '+2D6'],
+      [284, 3, '+2D6'],
+      [285, 4, '+3D6'],
+      [364, 4, '+3D6'],
+      [365, 5, '+4D6'],
+      [444, 5, '+4D6'],
+      [445, 6, '+5D6'],
+      [524, 6, '+5D6'],
+    ] as const
 
-  it('calculates damage bonus from STR+SIZ', () => {
-    const result = calculateDerivedStats({ con: 50, siz: 80, str: 85, dex: 50, pow: 50, int: 50, edu: 50, app: 50 })
-    expect(result.damageBonus).toBe('+1D4')
+    testCases.forEach(([strSiz, expectedBuild, expectedDb]) => {
+      it(`STR+SIZ=${strSiz}: build=${expectedBuild}, DB=${expectedDb}`, () => {
+        const result = calculateDerivedStats({
+          con: 50, siz: 50, str: strSiz - 50, dex: 50, pow: 50, int: 50, edu: 50, app: 50
+        })
+        expect(result.build).toBe(expectedBuild)
+        expect(result.damageBonus).toBe(expectedDb)
+      })
+    })
   })
 })

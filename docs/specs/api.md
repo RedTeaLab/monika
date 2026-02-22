@@ -6,6 +6,7 @@ This document describes all REST and WebSocket APIs for the Monika platform.
 
 - [REST API](#rest-api)
   - [Authentication](#authentication)
+  - [Skills](#skills)
   - [Characters](#characters)
   - [Game Sessions](#game-sessions)
   - [Combat](#combat)
@@ -85,6 +86,311 @@ Authorization: Bearer <your_jwt_token>
   "expires_in": 1800
 }
 ```
+
+### Skills
+
+The Skills API provides access to the CoC 7e skill system, including base skills, specializations, and era-specific availability. Skills support both Chinese and English names.
+
+#### List Skills
+
+```http
+GET /api/skills
+Authorization: Bearer <your_jwt_token>
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `era` | string | No | Filter by era: `"modern"` or `"1920s"` |
+| `category` | string | No | Filter by category key (e.g., `"basic"`, `"combat"`) |
+| `search` | string | No | Search by name (matches both Chinese and English) |
+| `include_specializations` | boolean | No | Include specialization skills (default: `false`) |
+
+**Response:** `200 OK`
+```json
+{
+  "skills": [
+    {
+      "id": 1,
+      "name": "侦查",
+      "name_en": "Spot Hidden",
+      "base_value": 25,
+      "category": "basic",
+      "available_modern": true,
+      "available_1920s": true,
+      "description": "在场景中发现隐藏的物品、细节或线索",
+      "difficulty_levels": null,
+      "push_examples": null,
+      "push_failure_examples": null,
+      "opposing_skills": null,
+      "has_specializations": false,
+      "parent_skill_id": null,
+      "specializations": [],
+      "created_at": "2025-02-20T00:00:00Z",
+      "updated_at": "2025-02-20T00:00:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Usage Notes:**
+- By default, only base skills are returned (specializations excluded)
+- Skills are ordered by category, then by name
+- Use `include_specializations=true` to get all skills including specializations
+- Era filters use `available_modern` and `available_1920s` flags
+
+#### List Categories
+
+```http
+GET /api/skills/categories
+Authorization: Bearer <your_jwt_token>
+```
+
+**Response:** `200 OK`
+```json
+[
+  {
+    "id": 1,
+    "key": "basic",
+    "name": "基本技能",
+    "name_en": "Basic Skills",
+    "description": "调查员最常用的技能",
+    "sort_order": 1
+  },
+  {
+    "id": 2,
+    "key": "combat",
+    "name": "战斗技能",
+    "name_en": "Combat Skills",
+    "description": "用于战斗场景的技能",
+    "sort_order": 2
+  }
+]
+```
+
+**Usage Notes:**
+- Categories are ordered by `sort_order`
+- Use the `key` field for filtering in the list skills endpoint
+
+#### Get Skill by Name
+
+```http
+GET /api/skills/name/{skill_name}
+Authorization: Bearer <your_jwt_token>
+```
+
+**Path Parameters:**
+- `skill_name` (string, required): Skill name in Chinese or English
+
+**Example:**
+```http
+GET /api/skills/name/侦查
+GET /api/skills/name/Spot Hidden
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "name": "侦查",
+  "name_en": "Spot Hidden",
+  "base_value": 25,
+  "category": "basic",
+  "available_modern": true,
+  "available_1920s": true,
+  "description": "在场景中发现隐藏的物品、细节或线索",
+  "difficulty_levels": null,
+  "push_examples": null,
+  "push_failure_examples": null,
+  "opposing_skills": null,
+  "has_specializations": false,
+  "parent_skill_id": null,
+  "specializations": [],
+  "created_at": "2025-02-20T00:00:00Z",
+  "updated_at": "2025-02-20T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Skill with given name not found
+
+#### Get Skill for AI (NLI Endpoint)
+
+```http
+GET /api/skills/ai-reference/{skill_name}
+Authorization: Bearer <your_jwt_token>
+```
+
+**Path Parameters:**
+- `skill_name` (string, required): Skill name in Chinese or English
+
+**Purpose:** This endpoint is specialized for the Natural Language Interaction (NLI) system. It returns a simplified skill format optimized for AI consumption, with specialization names as a string array rather than full objects.
+
+**Example:**
+```http
+GET /api/skills/ai-reference/格斗
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": 5,
+  "name": "格斗",
+  "name_en": "Fighting",
+  "base_value": 25,
+  "category": "combat",
+  "description": "近战攻击技能",
+  "difficulty_levels": "常规: 成功率; 困难: 成功率/2; 极难: 成功率/5",
+  "push_examples": "可以尝试再次攻击",
+  "push_failure_examples": "武器损坏、失去平衡",
+  "opposing_skills": "闪避",
+  "specializations": ["斗殴", "刀剑", "斧锤", "链鞭", "枪械"]
+}
+```
+
+**Usage Notes:**
+- Used by the LLM abstraction layer for skill context
+- Includes all narrative fields (difficulty levels, push examples, opposing skills)
+- Specializations are returned as an array of names
+- NLI integration: This endpoint is called when the AI Keeper needs skill information for narrative generation or skill checks
+
+**Error Responses:**
+- `404 Not Found`: Skill with given name not found
+
+#### Get Skill by ID
+
+```http
+GET /api/skills/{skill_id}
+Authorization: Bearer <your_jwt_token>
+```
+
+**Path Parameters:**
+- `skill_id` (integer, required): Database ID of the skill
+
+**Response:** `200 OK`
+```json
+{
+  "id": 1,
+  "name": "侦查",
+  "name_en": "Spot Hidden",
+  "base_value": 25,
+  "category": "basic",
+  "available_modern": true,
+  "available_1920s": true,
+  "description": "在场景中发现隐藏的物品、细节或线索",
+  "difficulty_levels": null,
+  "push_examples": null,
+  "push_failure_examples": null,
+  "opposing_skills": null,
+  "has_specializations": false,
+  "parent_skill_id": null,
+  "specializations": [],
+  "created_at": "2025-02-20T00:00:00Z",
+  "updated_at": "2025-02-20T00:00:00Z"
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Skill with given ID not found
+
+#### Create Skill
+
+```http
+POST /api/skills
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "name": "新技能",
+  "name_en": "New Skill",
+  "base_value": 20,
+  "category": "special",
+  "available_modern": true,
+  "available_1920s": false,
+  "description": "技能描述",
+  "difficulty_levels": null,
+  "push_examples": null,
+  "push_failure_examples": null,
+  "opposing_skills": null,
+  "has_specializations": false,
+  "parent_skill_id": null
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "id": 101,
+  "name": "新技能",
+  "name_en": "New Skill",
+  "base_value": 20,
+  "category": "special",
+  "available_modern": true,
+  "available_1920s": false,
+  "description": "技能描述",
+  "difficulty_levels": null,
+  "push_examples": null,
+  "push_failure_examples": null,
+  "opposing_skills": null,
+  "has_specializations": false,
+  "parent_skill_id": null,
+  "specializations": [],
+  "created_at": "2025-02-22T12:00:00Z",
+  "updated_at": "2025-02-22T12:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400 Bad Request`: Skill with the same name already exists
+
+#### Update Skill
+
+```http
+PUT /api/skills/{skill_id}
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+```
+
+**Request Body:** All fields are optional
+```json
+{
+  "name": "更新后的技能名",
+  "base_value": 30,
+  "description": "更新后的描述"
+}
+```
+
+**Response:** `200 OK`
+Returns the updated skill object (same format as Get Skill by ID)
+
+**Error Responses:**
+- `404 Not Found`: Skill with given ID not found
+
+**Usage Notes:**
+- Only include fields you want to update
+- Unspecified fields remain unchanged
+
+#### Delete Skill
+
+```http
+DELETE /api/skills/{skill_id}
+Authorization: Bearer <your_jwt_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "message": "Skill deleted successfully"
+}
+```
+
+**Error Responses:**
+- `404 Not Found`: Skill with given ID not found
 
 ### Characters
 

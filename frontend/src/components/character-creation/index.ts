@@ -3,7 +3,6 @@
  *
  * Provides structured exports for character creation UI components:
  * - Form Sections: BasicInfoSection, AttributesSection, SkillsSection, BackgroundSection, EquipmentSection
- * - Modals: OccupationSelectModal
  * - Props Types: All section props interfaces
  */
 
@@ -22,10 +21,6 @@ export type { BackgroundSectionProps } from './BackgroundSection'
 
 export { EquipmentSection } from './EquipmentSection'
 export type { EquipmentSectionProps } from './EquipmentSection'
-
-// Modals
-export { OccupationSelectModal } from './OccupationSelectModal'
-export type { OccupationSelectModalProps } from './OccupationSelectModal'
 
 // Attribute Info Components
 export { AttributeInfoCard } from './AttributeInfoCard'

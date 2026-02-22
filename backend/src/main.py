@@ -12,6 +12,7 @@ from src.api.sessions import router as sessions_router
 from src.api.websocket import websocket_router
 from src.api.rules import router as rules_router
 from src.api.events import router as events_router
+from src.api.skills import router as skills_router
 from src.models.occupation import Occupation  # 新增
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -29,7 +30,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:3000",
-        "*"  # Fallback for other ports
+        "*",  # Fallback for other ports
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -46,6 +47,7 @@ app.include_router(chase_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(rules_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
+app.include_router(skills_router, prefix="/api", tags=["skills"])
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 

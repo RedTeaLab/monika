@@ -2,28 +2,24 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import type { Occupation } from '@/types/characterCreation'
-import type { CharacterCreationAction } from '@/types/characterCreation'
+import type { Era, CharacterCreationAction } from '@/types/characterCreation'
 
 export interface BasicInfoSectionProps {
   name: string
   age: number
-  gender: 'male' | 'female' | 'other'
-  occupation: Occupation | null
+  gender: 'male' | 'female'
+  era: Era
   errors: Record<string, string>
   dispatch: (action: CharacterCreationAction) => void
-  onOccupationClick: () => void
 }
 
 export function BasicInfoSection({
   name,
   age,
   gender,
-  occupation,
+  era,
   errors,
   dispatch,
-  onOccupationClick,
 }: BasicInfoSectionProps) {
   return (
     <Card>
@@ -59,7 +55,7 @@ export function BasicInfoSection({
           </div>
         </div>
 
-        {/* Gender - using native radio buttons */}
+        {/* Gender */}
         <div className="space-y-2">
           <Label>性别</Label>
           <div className="flex gap-4">
@@ -83,30 +79,34 @@ export function BasicInfoSection({
               />
               <span>女</span>
             </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                name="gender"
-                value="other"
-                checked={gender === 'other'}
-                onChange={() => dispatch({ type: 'SET_GENDER', value: 'other' })}
-              />
-              <span>其他</span>
-            </label>
           </div>
         </div>
 
-        {/* Occupation */}
+        {/* Era */}
         <div className="space-y-2">
-          <Label>职业 *</Label>
-          <Button
-            variant="outline"
-            className="w-full justify-start"
-            onClick={onOccupationClick}
-          >
-            {occupation ? occupation.name : '选择职业 →'}
-          </Button>
-          {errors.occupation && <p className="text-sm text-destructive">{errors.occupation}</p>}
+          <Label>年代</Label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="era"
+                value="modern"
+                checked={era === 'modern'}
+                onChange={() => dispatch({ type: 'SET_ERA', value: 'modern' })}
+              />
+              <span>现代</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="era"
+                value="1920s"
+                checked={era === '1920s'}
+                onChange={() => dispatch({ type: 'SET_ERA', value: '1920s' })}
+              />
+              <span>1920s</span>
+            </label>
+          </div>
         </div>
       </CardContent>
     </Card>

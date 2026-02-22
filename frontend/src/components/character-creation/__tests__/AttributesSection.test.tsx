@@ -11,9 +11,9 @@ describe('AttributesSection', () => {
       str: 0, con: 0, siz: 0, dex: 0, app: 0, pow: 0, int: 0, edu: 0, luck: 0
     }
     render(<AttributesSection attributes={attributes} dispatch={dispatch} />)
-    expect(screen.getByText(/力量 STR/i)).toBeInTheDocument()
-    expect(screen.getByText(/体质 CON/i)).toBeInTheDocument()
-    expect(screen.getByText(/体型 SIZ/i)).toBeInTheDocument()
+    expect(screen.getByText('力量')).toBeInTheDocument()
+    expect(screen.getByText('体质')).toBeInTheDocument()
+    expect(screen.getByText('体型')).toBeInTheDocument()
   })
 
   it('dispatches ROLL_ATTRIBUTE when dice button clicked', () => {

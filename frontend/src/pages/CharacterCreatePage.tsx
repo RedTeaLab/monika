@@ -8,19 +8,16 @@ import { AttributesSection } from '@/components/character-creation'
 import { SkillsSection } from '@/components/character-creation'
 import { BackgroundSection } from '@/components/character-creation'
 import { EquipmentSection } from '@/components/character-creation'
-import { OccupationSelectModal } from '@/components/character-creation'
 import { characterApi } from '@/lib/api'
 import { toast } from '@/components/ui/use-toast'
 import { validateCharacter } from '@/utils/characterValidation'
 import { saveDraft, loadDraft, clearDraft } from '@/utils/characterDraftStorage'
 import { useCharacterCreationReducer } from '@/hooks/useCharacterCreationReducer'
-import type { Occupation } from '@/types/occupation'
 
 export function CharacterCreatePage() {
   const navigate = useNavigate()
   const [state, dispatch] = useCharacterCreationReducer()
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [occupationModalOpen, setOccupationModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // Load draft on mount
@@ -30,28 +27,25 @@ export function CharacterCreatePage() {
       if (draft.name) dispatch({ type: 'SET_NAME', value: draft.name })
       if (draft.age) dispatch({ type: 'SET_AGE', value: draft.age })
       if (draft.gender) dispatch({ type: 'SET_GENDER', value: draft.gender })
+      if (draft.era) dispatch({ type: 'SET_ERA', value: draft.era })
       if (draft.occupation) dispatch({ type: 'SET_OCCUPATION', occupation: draft.occupation })
       if (draft.attributes) {
-        // Restore all attributes
         Object.entries(draft.attributes).forEach(([key, value]) => {
           dispatch({ type: 'SET_ATTRIBUTE', attribute: key as any, value })
         })
       }
       if (draft.skills) {
-        // Restore all skills - set to 0 first then add value
         Object.entries(draft.skills).forEach(([skill, value]) => {
           dispatch({ type: 'ADD_INTEREST_SKILL', skill })
           dispatch({ type: 'CHANGE_SKILL', skill, delta: value })
         })
       }
       if (draft.background) {
-        // Restore all background fields
         Object.entries(draft.background).forEach(([field, value]) => {
           dispatch({ type: 'SET_BACKGROUND', field: field as any, value })
         })
       }
       if (draft.equipment) {
-        // Restore equipment
         if (draft.equipment.occupationItems) {
           draft.equipment.occupationItems.forEach(item => {
             dispatch({ type: 'ADD_EQUIPMENT', item, category: 'occupation' })
@@ -80,12 +74,6 @@ export function CharacterCreatePage() {
     return () => clearTimeout(timer)
   }, [state])
 
-  // Handle occupation selection
-  const handleOccupationSelect = (occupation: Occupation) => {
-    dispatch({ type: 'SET_OCCUPATION', occupation })
-    setOccupationModalOpen(false)
-  }
-
   // Create character
   const handleCreate = async () => {
     const validationErrors = validateCharacter(state)
@@ -106,6 +94,7 @@ export function CharacterCreatePage() {
         name: state.name,
         age: state.age,
         gender: state.gender,
+        era: state.era,
         occupation: state.occupation?.name || '',
         str: state.attributes.str,
         con: state.attributes.con,
@@ -119,6 +108,7 @@ export function CharacterCreatePage() {
         backstory: Object.entries(state.background)
           .map(([k, v]) => `${k}: ${v}`)
           .join('\n'),
+        skills: state.skills,
       }
       await characterApi.create(characterData)
       clearDraft()
@@ -166,24 +156,21 @@ export function CharacterCreatePage() {
             name={state.name}
             age={state.age}
             gender={state.gender}
-            occupation={state.occupation}
+            era={state.era}
             errors={errors}
             dispatch={dispatch}
-            onOccupationClick={() => setOccupationModalOpen(true)}
           />
 
           <AttributesSection attributes={state.attributes} dispatch={dispatch} />
 
-          {state.occupation && (
-            <SkillsSection
-              occupation={state.occupation}
-              attributes={state.attributes}
-              skills={state.skills}
-              occupationalPointsRemaining={state.occupationalPointsRemaining}
-              interestPointsRemaining={state.interestPointsRemaining}
-              dispatch={dispatch}
-            />
-          )}
+          <SkillsSection
+            occupation={state.occupation}
+            attributes={state.attributes}
+            skills={state.skills}
+            occupationalPointsRemaining={state.occupationalPointsRemaining}
+            interestPointsRemaining={state.interestPointsRemaining}
+            dispatch={dispatch}
+          />
 
           <BackgroundSection background={state.background} errors={errors} dispatch={dispatch} />
 
@@ -202,14 +189,6 @@ export function CharacterCreatePage() {
           </Button>
         </div>
       </main>
-
-      {/* Occupation modal */}
-      <OccupationSelectModal
-        open={occupationModalOpen}
-        onClose={() => setOccupationModalOpen(false)}
-        onSelect={handleOccupationSelect}
-        selectedId={state.occupation?.id}
-      />
     </div>
   )
 }
