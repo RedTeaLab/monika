@@ -4,6 +4,7 @@ from src.models.character import Character
 from src.models.session import GameSession, SessionState
 from src.models.event import Event, EventType, VisibilityLevel
 from src.models.rule import Rule, RuleFAQ
+from src.models.campaign import Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
 
 __all__ = [
     "User",
@@ -15,4 +16,9 @@ __all__ = [
     "VisibilityLevel",
     "Rule",
     "RuleFAQ",
+    "Campaign",
+    "CampaignMember",
+    "CampaignStatus",
+    "CampaignRole",
+    "MemberStatus",
 ]

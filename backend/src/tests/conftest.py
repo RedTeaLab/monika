@@ -7,6 +7,13 @@ from sqlalchemy.pool import StaticPool
 from src.main import app
 from src.core.database import Base, get_db
 
+# Import all models to ensure they're registered with Base
+from src.models import (
+    User, Character, GameSession, SessionState,
+    Event, EventType, VisibilityLevel, Rule, RuleFAQ,
+    Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
+)
+
 # Use SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 

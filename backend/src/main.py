@@ -13,7 +13,12 @@ from src.api.websocket import websocket_router
 from src.api.rules import router as rules_router
 from src.api.events import router as events_router
 from src.api.skills import router as skills_router
+from src.api.campaigns import router as campaigns_router
+from src.api.spotlight import router as spotlight_router
+from src.api.messages import router as messages_router
+from src.api.queue import router as queue_router
 from src.models.occupation import Occupation  # 新增
+from src.services.socketio_service import sio, socketio_app, get_socketio_stats
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -48,12 +53,25 @@ app.include_router(sessions_router, prefix="/api")
 app.include_router(rules_router, prefix="/api")
 app.include_router(events_router, prefix="/api")
 app.include_router(skills_router, prefix="/api", tags=["skills"])
+app.include_router(campaigns_router, prefix="/api")
+app.include_router(spotlight_router, prefix="/api")
+app.include_router(messages_router, prefix="/api")
+app.include_router(queue_router, prefix="/api")
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
+
+# Mount Socket.io server at /socket.io path
+app.mount("/socket.io", socketio_app)
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/health/socketio")
+async def socketio_health():
+    """Get Socket.io server statistics for health monitoring."""
+    return await get_socketio_stats()
 
 
 @app.get("/")
