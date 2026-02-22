@@ -7,6 +7,7 @@ from src.api.characters import router as characters_router
 from src.api.occupations import router as occupations_router
 from src.api.game import router as game_router
 from src.api.combat import router as combat_router
+from src.api.combat_extended import router as combat_extended_router
 from src.api.chase import router as chase_router
 from src.api.sessions import router as sessions_router
 from src.api.websocket import websocket_router
@@ -56,6 +57,7 @@ app.include_router(characters_router, prefix="/api")
 app.include_router(occupations_router, prefix="/api", tags=["occupations"])  # 添加 tags
 app.include_router(game_router, prefix="/api")
 app.include_router(combat_router, prefix="/api")
+app.include_router(combat_extended_router, prefix="/api")
 app.include_router(chase_router, prefix="/api")
 app.include_router(sessions_router, prefix="/api")
 app.include_router(rules_router, prefix="/api")
