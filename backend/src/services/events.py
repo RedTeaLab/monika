@@ -160,6 +160,10 @@ class EventLogger:
         session_id: uuid.UUID,
         actor_role: Optional[str] = None,
         event_type: Optional[EventType] = None,
+        visibility: Optional[VisibilityLevel] = None,
+        character_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[Event]:
@@ -169,6 +173,10 @@ class EventLogger:
             session_id: Session UUID
             actor_role: Filter by actor role
             event_type: Filter by event type
+            visibility: Filter by visibility level
+            character_id: Filter by character ID
+            start_time: Filter events after this time
+            end_time: Filter events before this time
             limit: Maximum number of events to return
             offset: Number of events to skip
 
@@ -181,6 +189,14 @@ class EventLogger:
             query = query.filter(Event.actor_role == actor_role)
         if event_type:
             query = query.filter(Event.event_type == event_type)
+        if visibility:
+            query = query.filter(Event.visibility == visibility)
+        if character_id is not None:
+            query = query.filter(Event.character_id == character_id)
+        if start_time:
+            query = query.filter(Event.timestamp >= start_time)
+        if end_time:
+            query = query.filter(Event.timestamp <= end_time)
 
         return query.order_by(Event.timestamp.desc()).offset(offset).limit(limit).all()
 
