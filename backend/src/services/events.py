@@ -1,12 +1,13 @@
 """Event logging service for append-only audit trail."""
 from datetime import datetime
 import uuid
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from enum import Enum
 
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
-from src.models.event import Event, EventType, VisibilityLevel
+from src.models.event import Event, EventType, EventCategory, VisibilityLevel
 from src.models.user import User
 from src.models.character import Character
 
@@ -63,8 +64,61 @@ class EventRecord:
         self._data["description"] = text
         return self
 
+    # M3 Memory Web extensions
+
+    def category(self, cat: EventCategory) -> "EventRecord":
+        """Set the event category for M3 Memory Web features."""
+        self._data["category"] = cat
+        return self
+
+    def input_raw(self, raw_input: str) -> "EventRecord":
+        """Set the raw user input/message."""
+        self._data["input_raw"] = raw_input
+        return self
+
+    def narration(self, text: str) -> "EventRecord":
+        """Set the narrative text for this event."""
+        self._data["narration"] = text
+        return self
+
+    def client_timestamp(self, ts: datetime) -> "EventRecord":
+        """Set the client-side timestamp."""
+        self._data["client_timestamp"] = ts
+        return self
+
+    def source(self, src: str) -> "EventRecord":
+        """Set the source of the event (web, api, system)."""
+        self._data["source"] = src
+        return self
+
+    def tags(self, tag_list: List[str]) -> "EventRecord":
+        """Set tags for search and filtering."""
+        self._data["tags"] = tag_list
+        return self
+
+    def checkpoint(self, checkpoint_id: uuid.UUID) -> "EventRecord":
+        """Associate this event with a checkpoint."""
+        self._data["checkpoint_id"] = checkpoint_id
+        return self
+
+    def state_changes(self, changes: List[Dict[str, Any]]) -> "EventRecord":
+        """Set detailed state changes for this event."""
+        self._data["state_changes_json"] = changes
+        return self
+
     def save(self) -> Event:
         """Save the event to the database and return it."""
+        # M3: Assign sequence number if session_id is provided
+        session_id = self._data.get("session_id")
+        if session_id:
+            # Get the next sequence number for this session
+            last_seq = (
+                self.db.query(func.max(Event.sequence))
+                .filter(Event.session_id == session_id)
+                .scalar()
+            )
+            self._data["sequence"] = (last_seq or 0) + 1
+
         event = Event(**self._data)
         self.db.add(event)
         self.db.commit()

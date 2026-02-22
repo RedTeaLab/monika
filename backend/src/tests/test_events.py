@@ -1,13 +1,13 @@
 """Tests for event logging service."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from src.core.database import Base
-from src.models.event import Event, EventType, VisibilityLevel
+from src.models.event import Event, EventType, EventCategory, VisibilityLevel
 from src.models.user import User
 from src.models.character import Character
 from src.services.events import EventLogger, EventRecord
@@ -275,3 +275,257 @@ class TestEventImmutability:
         # Values should remain unchanged
         assert event.timestamp == original_timestamp
         assert event.payload["roll"] == 25
+
+
+class TestM3EventExtensions:
+    """Test M3 Memory Web extensions to the Event model."""
+
+    def test_event_category_assignment(self, test_db, test_user):
+        """Test setting event category."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        event = (
+            logger.record(EventType.ROLL, "player")
+            .session(session_id)
+            .actor(test_user)
+            .category(EventCategory.CHECK)
+            .save()
+        )
+
+        assert event.category == EventCategory.CHECK
+
+    def test_event_sequence_auto_increment(self, test_db, test_user):
+        """Test that sequence numbers auto-increment per session."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        event1 = (
+            logger.record(EventType.MESSAGE, "player")
+            .session(session_id)
+            .actor(test_user)
+            .save()
+        )
+        event2 = (
+            logger.record(EventType.ROLL, "player")
+            .session(session_id)
+            .actor(test_user)
+            .save()
+        )
+        event3 = (
+            logger.record(EventType.MESSAGE, "kp")
+            .session(session_id)
+            .save()
+        )
+
+        assert event1.sequence == 1
+        assert event2.sequence == 2
+        assert event3.sequence == 3
+
+    def test_event_with_input_raw(self, test_db):
+        """Test storing raw user input."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        event = (
+            logger.record(EventType.ROLL, "player")
+            .session(session_id)
+            .input_raw("/roll spot_hidden 50")
+            .save()
+        )
+
+        assert event.input_raw == "/roll spot_hidden 50"
+        assert event.to_dict()["input_raw"] == "/roll spot_hidden 50"
+
+    def test_event_with_narration(self, test_db):
+        """Test storing AI-generated or KP-written narrative."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        narration = "You carefully search the dimly lit room..."
+        event = (
+            logger.record(EventType.ROLL, "system")
+            .session(session_id)
+            .narration(narration)
+            .save()
+        )
+
+        assert event.narration == narration
+        assert event.to_dict()["narration"] == narration
+
+    def test_event_with_client_timestamp(self, test_db):
+        """Test storing client-side timestamp for sync."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        client_ts = datetime(2026, 2, 22, 10, 30, 0, tzinfo=timezone.utc)
+        event = (
+            logger.record(EventType.MESSAGE, "player")
+            .session(session_id)
+            .client_timestamp(client_ts)
+            .save()
+        )
+
+        # SQLite doesn't preserve timezone, check the datetime values match
+        assert event.client_timestamp is not None
+        assert event.client_timestamp.year == 2026
+        assert event.client_timestamp.month == 2
+        assert event.client_timestamp.day == 22
+        # Check that server timestamp is different (set by database)
+        assert event.timestamp != event.client_timestamp
+
+    def test_event_with_source(self, test_db):
+        """Test storing event source."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        event = (
+            logger.record(EventType.MESSAGE, "player")
+            .session(session_id)
+            .source("web")
+            .save()
+        )
+
+        assert event.source == "web"
+
+        api_event = (
+            logger.record(EventType.MESSAGE, "system")
+            .session(session_id)
+            .source("api")
+            .save()
+        )
+
+        assert api_event.source == "api"
+
+    def test_event_with_tags(self, test_db):
+        """Test storing tags for search and filtering."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        tags = ["investigation", "library", "clue"]
+        event = (
+            logger.record(EventType.ROLL, "player")
+            .session(session_id)
+            .tags(tags)
+            .save()
+        )
+
+        assert event.tags == tags
+        assert event.to_dict()["tags"] == tags
+
+    def test_event_with_checkpoint_reference(self, test_db):
+        """Test associating event with checkpoint."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+        checkpoint_id = uuid.uuid4()
+
+        event = (
+            logger.record(EventType.CHECKPOINT, "system")
+            .session(session_id)
+            .checkpoint(checkpoint_id)
+            .save()
+        )
+
+        assert event.checkpoint_id == checkpoint_id
+        assert event.to_dict()["checkpoint_id"] == str(checkpoint_id)
+
+    def test_event_with_state_changes(self, test_db, test_character):
+        """Test storing detailed state changes."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        state_changes = [
+            {
+                "path": f"characters.{test_character.id}.derived.HP",
+                "type": "decrement",
+                "old_value": 12,
+                "new_value": 10,
+                "delta": -2,
+                "metadata": {"reason": "combat_damage", "source": "cultist_knife"}
+            }
+        ]
+
+        event = (
+            logger.record(EventType.DAMAGE, "kp")
+            .session(session_id)
+            .character(test_character)
+            .state_changes(state_changes)
+            .save()
+        )
+
+        assert event.state_changes_json == state_changes
+        assert event.to_dict()["state_changes_json"] == state_changes
+
+    def test_full_m3_event_builder(self, test_db, test_user, test_character):
+        """Test building a complete M3 event with all extensions."""
+        logger = EventLogger(test_db)
+        session_id = uuid.uuid4()
+
+        state_changes = [
+            {
+                "path": f"characters.{test_character.id}.clues.discovered",
+                "type": "add",
+                "added": ["clue_old_book"]
+            }
+        ]
+
+        event = (
+            logger.record(EventType.ROLL, "player")
+            .session(session_id)
+            .actor(test_user)
+            .character(test_character)
+            .category(EventCategory.CHECK)
+            .input_raw("/roll library_use")
+            .narration("You carefully examine the ancient tome...")
+            .client_timestamp(datetime(2026, 2, 22, 10, 30, 0, tzinfo=timezone.utc))
+            .source("web")
+            .tags(["investigation", "library", "clue"])
+            .state_changes(state_changes)
+            .payload({"skill": "library_use", "roll": 25, "target": 50})
+            .description("Library Use check: 25/50 - Success")
+            .visibility(VisibilityLevel.PUBLIC)
+            .save()
+        )
+
+        # Verify all fields
+        assert event.sequence == 1
+        assert event.category == EventCategory.CHECK
+        assert event.input_raw == "/roll library_use"
+        assert event.narration == "You carefully examine the ancient tome..."
+        assert event.client_timestamp is not None
+        assert event.source == "web"
+        assert event.tags == ["investigation", "library", "clue"]
+        assert event.state_changes_json == state_changes
+        assert event.payload["roll"] == 25
+
+        # Verify to_dict includes all M3 fields
+        event_dict = event.to_dict()
+        assert "sequence" in event_dict
+        assert "category" in event_dict
+        assert "input_raw" in event_dict
+        assert "narration" in event_dict
+        assert "client_timestamp" in event_dict
+        assert "source" in event_dict
+        assert "tags" in event_dict
+        assert "state_changes_json" in event_dict
+        assert "checkpoint_id" in event_dict
+
+    def test_sequence_independent_per_session(self, test_db):
+        """Test that sequence numbers are independent per session."""
+        logger = EventLogger(test_db)
+        session1_id = uuid.uuid4()
+        session2_id = uuid.uuid4()
+
+        # Add events to session 1
+        event1 = logger.record(EventType.MESSAGE, "player").session(session1_id).save()
+        event2 = logger.record(EventType.MESSAGE, "player").session(session1_id).save()
+
+        # Add events to session 2
+        event3 = logger.record(EventType.MESSAGE, "player").session(session2_id).save()
+        event4 = logger.record(EventType.MESSAGE, "player").session(session2_id).save()
+
+        # Each session should have its own sequence
+        assert event1.sequence == 1
+        assert event2.sequence == 2
+        assert event3.sequence == 1  # New session, sequence starts at 1
+        assert event4.sequence == 2
