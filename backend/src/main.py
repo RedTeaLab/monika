@@ -26,6 +26,7 @@ from src.api.search import router as search_router
 from src.api.san import router as san_router
 from src.api.madness import router as madness_router
 from src.api.growth import router as growth_router
+from src.api.item import router as item_router
 from src.models.occupation import Occupation
 from src.services.socketio_service import sio, socketio_app, get_socketio_stats
 
@@ -77,6 +78,7 @@ app.include_router(search_router, prefix="/api")
 app.include_router(san_router, prefix="/api/game")
 app.include_router(madness_router, prefix="/api/game")
 app.include_router(growth_router, prefix="/api/game")
+app.include_router(item_router, prefix="/api/game")
 app.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 
 # Mount Socket.io server at /socket.io path
