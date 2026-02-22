@@ -18,6 +18,27 @@ export const testUsers = {
     email: `test_${Date.now()}@example.com`,
     password: 'TestPassword123!',
   },
+  // Multiplayer test users
+  keeper: {
+    username: 'keeper',
+    email: 'keeper@test.com',
+    password: 'KeeperPass123!',
+  },
+  player1: {
+    username: 'player1',
+    email: 'player1@test.com',
+    password: 'Player1Pass123!',
+  },
+  player2: {
+    username: 'player2',
+    email: 'player2@test.com',
+    password: 'Player2Pass123!',
+  },
+  player3: {
+    username: 'player3',
+    email: 'player3@test.com',
+    password: 'Player3Pass123!',
+  },
 };
 
 /**
@@ -122,5 +143,13 @@ export async function waitForWebSocket(page: Page, timeout = 5000) {
  */
 export async function navigateToGameConsole(page: Page) {
   await page.goto('/');
+  await page.waitForLoadState('networkidle');
+}
+
+/**
+ * Navigate to campaigns page
+ */
+export async function navigateToCampaigns(page: Page) {
+  await page.goto('/campaigns');
   await page.waitForLoadState('networkidle');
 }
