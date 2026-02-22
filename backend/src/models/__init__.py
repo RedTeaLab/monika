@@ -8,6 +8,7 @@ from src.models.rule import Rule, RuleFAQ
 from src.models.campaign import Campaign, CampaignMember, CampaignStatus, CampaignRole, MemberStatus
 from src.models.message import Message, MessageVisibility
 from src.models.checkpoint import Checkpoint, CheckpointType
+from src.models.summary import Summary, SummaryType
 from src.models.lead import (
     Lead,
     LeadChoice,
@@ -40,6 +41,8 @@ __all__ = [
     "MessageVisibility",
     "Checkpoint",
     "CheckpointType",
+    "Summary",
+    "SummaryType",
     "Lead",
     "LeadChoice",
     "LeadPriority",
