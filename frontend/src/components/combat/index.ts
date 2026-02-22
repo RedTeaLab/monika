@@ -20,3 +20,10 @@ export { CombatantCard } from './CombatantCard'
 
 // Combat log
 export { CombatLogPanel } from './CombatLogPanel'
+
+// Damage display
+export { DamageNumber, DamageNumberContainer } from './DamageNumber'
+
+// Target selection
+export { TargetSelector } from './TargetSelector'
+export type { TargetInfo } from './TargetSelector'
