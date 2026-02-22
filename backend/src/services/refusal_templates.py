@@ -9,6 +9,7 @@ import re
 class RefusalType(Enum):
     """Types of refusal responses."""
 
+    VALID = "valid"  # Input is valid, proceed to game
     OUT_OF_BOUNDS = "out_of_bounds"
     CANNOT_UNDERSTAND = "cannot_understand"
     CHECK_NOT_AVAILABLE = "check_not_available"
@@ -59,12 +60,17 @@ class RefusalService:
     ]
 
     CHECK_NOT_AVAILABLE_PATTERNS = [
-        r"射击|射击|开枪|开火",
+        r"射击|开枪|开火",
         r"攻击|砍杀|刺杀",
         r"武器|手枪|步枪|冲锋枪",
     ]
 
     TEMPLATES: Dict[RefusalType, RefusalTemplate] = {
+        RefusalType.VALID: RefusalTemplate(
+            message="",
+            alternatives=[],
+            next_suggestions=[],
+        ),
         RefusalType.OUT_OF_BOUNDS: RefusalTemplate(
             message="我理解你想了解这个话题，但在 CoC 跑团中，我们专注于1920年代的调查员故事。",
             alternatives=[
@@ -134,7 +140,7 @@ class RefusalService:
         if self._matches_any(user_input, self._check_not_available_re):
             return RefusalType.CHECK_NOT_AVAILABLE
 
-        return RefusalType.CANNOT_UNDERSTAND
+        return RefusalType.VALID
 
     def _matches_any(self, text: str, patterns: List[re.Pattern]) -> bool:
         """Check if text matches any of the patterns."""
@@ -178,8 +184,8 @@ class RefusalService:
         Returns:
             Dictionary containing the refusal response
         """
-        template = self.get_refusal_for_input(user_input)
         refusal_type = self.classify_input(user_input)
+        template = self.get_refusal(refusal_type)
 
         return {
             "type": refusal_type.value,

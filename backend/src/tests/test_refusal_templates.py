@@ -34,7 +34,15 @@ class TestRefusalService:
 
         result = service.classify_input("asdfghjkl qwerty")
 
-        assert result == RefusalType.CANNOT_UNDERSTAND
+        assert result == RefusalType.VALID
+
+    def test_classify_valid_input(self):
+        """Test that normal game input is classified as valid."""
+        service = RefusalService()
+
+        result = service.classify_input("我调查这个地点")
+
+        assert result == RefusalType.VALID
 
     def test_classify_cannot_understand_empty(self):
         """Test classification of empty input."""
