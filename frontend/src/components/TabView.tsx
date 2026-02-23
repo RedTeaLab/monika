@@ -52,13 +52,16 @@ const TABS: Tab[] = [
 export function TabView({ activeTab, onChange, messages, onSendMessage, character, world, sessionId }: TabViewProps) {
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden" role="main">
       {/* Tab Navigation */}
-      <div className="flex border-b border-gray-200 bg-white">
+      <div className="flex border-b border-gray-200 bg-white" role="tablist" aria-label="Content tabs">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
+            aria-label={`${tab.label} tab`}
+            aria-selected={activeTab === tab.id}
+            role="tab"
             className={`
               flex-1 py-3 px-4 text-sm font-medium flex items-center justify-center gap-2
               transition-colors duration-200
@@ -68,7 +71,7 @@ export function TabView({ activeTab, onChange, messages, onSendMessage, characte
               }
             `}
           >
-            <span className="text-lg">{tab.icon}</span>
+            <span className="text-lg" aria-hidden="true">{tab.icon}</span>
             <span>{tab.label}</span>
           </button>
         ))}
@@ -77,12 +80,12 @@ export function TabView({ activeTab, onChange, messages, onSendMessage, characte
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'messages' && (
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full" role="tabpanel" aria-label="Messages">
             <MessageList messages={messages} />
           </div>
         )}
         {activeTab === 'state' && (
-          <div className="h-full overflow-y-auto p-4 bg-gray-50">
+          <div className="h-full overflow-y-auto p-4 bg-gray-50" role="tabpanel" aria-label="Character state">
             <StatePanel
               character={{
                 hp: character.hp,
@@ -100,12 +103,12 @@ export function TabView({ activeTab, onChange, messages, onSendMessage, characte
           </div>
         )}
         {activeTab === 'rules' && (
-          <div className="h-full overflow-y-auto p-4 bg-gray-50">
+          <div className="h-full overflow-y-auto p-4 bg-gray-50" role="tabpanel" aria-label="Rules search">
             <RuleSearch />
           </div>
         )}
         {activeTab === 'events' && (
-          <div className="h-full overflow-hidden bg-gray-50">
+          <div className="h-full overflow-hidden bg-gray-50" role="tabpanel" aria-label="Event log">
             {sessionId ? (
               <EventLogPanel sessionId={sessionId} className="h-full" />
             ) : (

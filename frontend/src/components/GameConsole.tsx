@@ -482,7 +482,7 @@ export function GameConsole() {
       <div {...tabletSwipeBind} className="flex-1 flex overflow-hidden">
         {isMobile ? (
           // Mobile: Observer mode with proper scrolling
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div id="main-content" className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               <MessageList messages={messages} />
             </div>
@@ -522,7 +522,7 @@ export function GameConsole() {
         ) : isDesktop ? (
           // Desktop: Original three-column layout
           <>
-            <div className="flex-1 flex flex-col min-w-0">
+            <div id="main-content" className="flex-1 flex flex-col min-w-0">
               <MessageList messages={messages} />
               <Footer 
                 onSendMessage={handleSendMessage} 

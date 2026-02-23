@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark' | 'high-contrast'
 
 const STORAGE_KEY = 'theme'
 
@@ -14,10 +14,11 @@ export function useTheme() {
 
   useEffect(() => {
     const root = document.documentElement
+    root.classList.remove('dark', 'high-contrast')
     if (theme === 'dark') {
       root.classList.add('dark')
-    } else {
-      root.classList.remove('dark')
+    } else if (theme === 'high-contrast') {
+      root.classList.add('dark', 'high-contrast')
     }
     localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
@@ -27,12 +28,19 @@ export function useTheme() {
   }
 
   const toggleTheme = () => {
-    setThemeState(prev => prev === 'light' ? 'dark' : 'light')
+    setThemeState(prev => {
+      if (prev === 'light') return 'dark'
+      if (prev === 'dark') return 'high-contrast'
+      return 'light'
+    })
   }
+
+  const isHighContrast = theme === 'high-contrast'
 
   return {
     theme,
     setTheme,
     toggleTheme,
+    isHighContrast,
   }
 }

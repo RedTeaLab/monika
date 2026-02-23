@@ -8,10 +8,10 @@ interface BottomTabBarProps {
 }
 
 const tabConfig = [
-  { id: 'messages' as const, label: '消息', icon: MessageSquare },
-  { id: 'state' as const, label: '状态', icon: HeartPulse },
-  { id: 'rules' as const, label: '规则', icon: BookOpen },
-  { id: 'events' as const, label: '日志', icon: ListTodo },
+  { id: 'messages' as const, label: '消息', icon: MessageSquare, ariaLabel: 'Messages tab' },
+  { id: 'state' as const, label: '状态', icon: HeartPulse, ariaLabel: 'Character state tab' },
+  { id: 'rules' as const, label: '规则', icon: BookOpen, ariaLabel: 'Rules tab' },
+  { id: 'events' as const, label: '日志', icon: ListTodo, ariaLabel: 'Event log tab' },
 ]
 
 export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
@@ -21,7 +21,7 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
   }
 
   return (
-    <nav className="lg:hidden flex border-t bg-background pb-safe-area-bottom">
+    <nav className="lg:hidden flex border-t bg-background pb-safe-area-bottom" aria-label="Main navigation">
       {tabConfig.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
@@ -35,11 +35,11 @@ export function BottomTabBar({ activeTab, onChange }: BottomTabBarProps) {
               transition-colors duration-200
               ${isActive ? 'text-primary bg-primary/5' : 'text-muted-foreground'}
             `}
-            aria-label={tab.label}
+            aria-label={tab.ariaLabel}
             aria-selected={isActive}
             role="tab"
           >
-            <Icon className="h-6 w-6" />
+            <Icon className="h-6 w-6" aria-hidden="true" />
             <span className="text-xs mt-1">{tab.label}</span>
           </button>
         )
