@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
-import { LogOut, BookOpen, ListTodo } from 'lucide-react'
+import { LogOut, BookOpen, ListTodo, Sun, Moon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/hooks/useTheme'
 
 interface HeaderProps {
   characterName: string
@@ -18,6 +19,7 @@ export function Header({
   showEvents = false
 }: HeaderProps) {
   const { logout, user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
 
   const handleLogout = async () => {
     await logout()
@@ -41,6 +43,18 @@ export function Header({
         )}
       </div>
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Sun className="w-4 h-4" />
+          ) : (
+            <Moon className="w-4 h-4" />
+          )}
+        </Button>
         {onToggleRules && (
           <Button
             variant={showRules ? "default" : "ghost"}
