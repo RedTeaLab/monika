@@ -1,4 +1,5 @@
 """Session API routes for game session management."""
+
 import uuid
 from datetime import datetime
 from typing import List, Optional
@@ -134,12 +135,7 @@ def list_sessions(
     if state:
         query = query.filter(GameSession.state == state)
 
-    sessions = (
-        query.order_by(GameSession.updated_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
-    )
+    sessions = query.order_by(GameSession.updated_at.desc()).offset(offset).limit(limit).all()
 
     return [
         {
@@ -237,11 +233,7 @@ def resume_session(
         db.commit()
 
     # Get characters involved in this session
-    characters = (
-        db.query(Character)
-        .filter(Character.owner_id == current_user.id)
-        .all()
-    )
+    characters = db.query(Character).filter(Character.owner_id == current_user.id).all()
 
     # Get recent events (from the events service)
     # For now, return empty list - will be populated when events service is integrated
@@ -513,3 +505,88 @@ def delete_session(
 def sessions_health():
     """Health check for sessions API."""
     return {"status": "ok", "service": "sessions"}
+
+
+@router.get("/{session_id}/output-config", response_model=dict)
+def get_output_config(
+    session_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get output configuration for a session."""
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session_id format",
+        )
+
+    session = (
+        db.query(GameSession)
+        .filter(
+            GameSession.id == session_uuid,
+            GameSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    world_state = session.world_state or {}
+    output_config = world_state.get("output_config", {})
+
+    if not output_config:
+        output_config = {
+            "format": "normal",
+            "max_length": None,
+            "include_state_changes": True,
+            "include_leads": True,
+            "include_hints": True,
+        }
+
+    return output_config
+
+
+@router.put("/{session_id}/output-config", response_model=dict)
+def update_output_config(
+    session_id: str,
+    request: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update output configuration for a session."""
+    try:
+        session_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid session_id format",
+        )
+
+    session = (
+        db.query(GameSession)
+        .filter(
+            GameSession.id == session_uuid,
+            GameSession.owner_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    world_state = session.world_state or {}
+    world_state["output_config"] = request
+    session.world_state = world_state
+    db.commit()
+    db.refresh(session)
+
+    return request
