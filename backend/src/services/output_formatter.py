@@ -1,7 +1,8 @@
-"""Output formatter service (M6-026)."""
+"""Output formatter service (M6-026, M6-028, M6-029, M6-031, M6-032)."""
 
+import asyncio
 import re
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 from src.schemas.output_config import OutputFormat, OutputConfig
 
@@ -188,3 +189,113 @@ class OutputFormatter:
             chunks.append(current)
 
         return chunks
+
+    def substitute_variables(self, template: str, variables: dict) -> str:
+        """Substitute template variables with values.
+
+        Args:
+            template: Template string with {variable} placeholders
+            variables: Dict of variable name -> value
+
+        Returns:
+            Template with variables substituted
+        """
+        result = template
+        for key, value in variables.items():
+            result = result.replace(f"{{{key}}}", str(value))
+        return result
+
+    def process_conditionals(self, template: str, context: dict) -> str:
+        """Process conditional content in template.
+
+        Args:
+            template: Template with {if condition}...{endif} blocks
+            context: Context dict for condition evaluation
+
+        Returns:
+            Template with conditionals processed
+        """
+        pattern = r"\{if\s+([^}]+)\}(.*?)\{endif\}"
+
+        def replace_conditional(match):
+            condition = match.group(1).strip()
+            content = match.group(2)
+
+            for key, value in context.items():
+                condition = condition.replace(key, f'"{value}"')
+
+            try:
+                if eval(condition, {"__builtins__": {}}, {}):
+                    return content
+            except Exception:
+                pass
+            return ""
+
+        result = re.sub(pattern, replace_conditional, template, flags=re.DOTALL)
+        result = re.sub(r"\s+", " ", result)
+        return result.strip()
+
+    async def async_chunk_text(self, text: str, chunk_size: int = 200) -> AsyncIterator[str]:
+        """Async generator that yields text chunks progressively.
+
+        Args:
+            text: Text to chunk
+            chunk_size: Size of each chunk
+
+        Yields:
+            Text chunks
+        """
+        if not text:
+            return
+
+        if len(text) <= chunk_size:
+            yield text
+            return
+
+        chunks = self.chunk_text(text, chunk_size)
+        for chunk in chunks:
+            yield chunk
+            await asyncio.sleep(0)
+
+    def format_markdown(
+        self,
+        text: str,
+        add_headers: bool = False,
+        emphasize_words: Optional[list] = None,
+    ) -> str:
+        """Format text with markdown.
+
+        Args:
+            text: Text to format
+            add_headers: Whether to add header to first line
+            emphasize_words: Words to emphasize
+
+        Returns:
+            Markdown formatted text
+        """
+        result = text
+
+        if add_headers and result:
+            lines = result.split("\n")
+            if lines:
+                lines[0] = "# " + lines[0]
+            result = "\n".join(lines)
+
+        if emphasize_words:
+            for word in emphasize_words:
+                result = result.replace(word, f"**{word}**")
+
+        return result
+
+    def format_as_list(self, items: list) -> str:
+        """Format list items as markdown list.
+
+        Args:
+            items: List of items
+
+        Returns:
+            Markdown formatted list
+        """
+        if not items:
+            return ""
+        return "\n".join(f"- {item}" for item in items)

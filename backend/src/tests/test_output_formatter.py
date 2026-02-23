@@ -1,9 +1,11 @@
-"""Tests for output_formatter service (M6-026)."""
+"""Tests for output_formatter service (M6-026, M6-028, M6-029, M6-031, M6-032)."""
 
 import pytest
+import asyncio
 from src.services.output_formatter import (
     truncate_at_sentence_boundary,
     truncate_chinese_text,
+    compress_whitespace,
     OutputFormatter,
 )
 
@@ -113,3 +115,174 @@ class TestOutputFormatter:
         formatter = OutputFormatter(include_state_changes=False)
         result = formatter.format(narrative="叙述", suggestions=[], state_changes={"scene": "test"})
         assert "state_changes" not in result or result.get("state_changes") is None
+
+
+class TestTemplateEngine:
+    """Tests for template variable substitution (M6-028)."""
+
+    def test_substitute_character_name(self):
+        """Test character name substitution."""
+        formatter = OutputFormatter()
+        template = "你好，{character_name}，欢迎来到{scene}。"
+        result = formatter.substitute_variables(
+            template, {"character_name": "张三", "scene": "阿卡姆镇"}
+        )
+        assert result == "你好，张三，欢迎来到阿卡姆镇。"
+
+    def test_substitute_multiple_variables(self):
+        """Test multiple variable substitution."""
+        formatter = OutputFormatter()
+        template = "{character_name}在{scene}发现了{object}。"
+        result = formatter.substitute_variables(
+            template, {"character_name": "调查员", "scene": "沼泽地", "object": "古老日记"}
+        )
+        assert result == "调查员在沼泽地发现了古老日记。"
+
+    def test_substitute_missing_variable(self):
+        """Test missing variable leaves placeholder."""
+        formatter = OutputFormatter()
+        template = "你好，{character_name}，现在是{time}。"
+        result = formatter.substitute_variables(template, {"character_name": "张三"})
+        assert result == "你好，张三，现在是{time}。"
+
+    def test_substitute_empty_dict(self):
+        """Test empty variable dict."""
+        formatter = OutputFormatter()
+        template = "没有变量替换。"
+        result = formatter.substitute_variables(template, {})
+        assert result == "没有变量替换。"
+
+
+class TestConditionalContent:
+    """Tests for conditional content (M6-028)."""
+
+    def test_conditional_if_true(self):
+        """Test if block renders when condition is true."""
+        formatter = OutputFormatter()
+        template = "开始{if scene == 'combat'} 战斗模式！{endif}继续"
+        result = formatter.process_conditionals(template, {"scene": "combat"})
+        assert "战斗模式！" in result
+
+    def test_conditional_if_false(self):
+        """Test if block is removed when condition is false."""
+        formatter = OutputFormatter()
+        template = "开始{if scene == 'combat'} 战斗模式！{endif}继续"
+        result = formatter.process_conditionals(template, {"scene": "explore"})
+        assert "战斗模式！" not in result
+        assert "开始继续" in result
+
+    def test_conditional_nested_variables(self):
+        """Test conditional with variable comparison."""
+        formatter = OutputFormatter()
+        template = "{if urgency == 'high'}快跑！{endif}{if urgency == 'low'}慢慢探索。{endif}"
+        result = formatter.process_conditionals(template, {"urgency": "high"})
+        assert "快跑！" in result
+        assert "慢慢探索。" not in result
+
+    def test_conditional_multiple_blocks(self):
+        """Test multiple conditional blocks."""
+        formatter = OutputFormatter()
+        template = "{if tone == 'horror'}恐怖氛围{endif}{if tone == 'action'}动作场景{endif}"
+        result = formatter.process_conditionals(template, {"tone": "horror"})
+        assert "恐怖氛围" in result
+        assert "动作场景" not in result
+
+
+class TestAsyncChunkedGeneration:
+    """Tests for async chunked generation (M6-029)."""
+
+    @pytest.mark.asyncio
+    async def test_async_chunk_text(self):
+        """Test async chunk text generator."""
+        formatter = OutputFormatter()
+        text = "这是一个测试文本。" * 50
+        chunks = []
+        async for chunk in formatter.async_chunk_text(text, chunk_size=50):
+            chunks.append(chunk)
+        assert len(chunks) > 1
+        full_text = "".join(chunks)
+        assert full_text == text
+
+    @pytest.mark.asyncio
+    async def test_async_chunk_small_text(self):
+        """Test async chunk with text smaller than chunk size."""
+        formatter = OutputFormatter()
+        text = "短文本"
+        chunks = []
+        async for chunk in formatter.async_chunk_text(text, chunk_size=100):
+            chunks.append(chunk)
+        assert len(chunks) == 1
+        assert chunks[0] == "短文本"
+
+    @pytest.mark.asyncio
+    async def test_async_chunk_empty_text(self):
+        """Test async chunk with empty text."""
+        formatter = OutputFormatter()
+        chunks = []
+        async for chunk in formatter.async_chunk_text("", chunk_size=50):
+            chunks.append(chunk)
+        assert len(chunks) == 0
+
+
+class TestCompression:
+    """Tests for output compression (M6-031)."""
+
+    def test_compress_whitespace(self):
+        """Test whitespace compression."""
+        text = "这    是    一个   测试"
+        result = compress_whitespace(text)
+        assert "    " not in result
+        assert result == "这 是 一个 测试"
+
+    def test_compress_multiple_newlines(self):
+        """Test multiple newline compression."""
+        text = "第一行\n\n\n第二行\n\n第三行"
+        result = compress_whitespace(text)
+        assert result.count("\n") <= 2
+
+    def test_compress_extra_spaces(self):
+        """Test extra space removal."""
+        text = "内容    很多   空格"
+        result = compress_whitespace(text)
+        assert "   " not in result
+
+    def test_strip_leading_trailing(self):
+        """Test stripping leading/trailing whitespace."""
+        text = "   文字内容   "
+        result = compress_whitespace(text)
+        assert result == "文字内容"
+
+
+class TestMarkdownFormatting:
+    """Tests for markdown formatting (M6-032)."""
+
+    def test_add_headers(self):
+        """Test adding headers to narrative."""
+        formatter = OutputFormatter()
+        text = "这是场景描述"
+        result = formatter.format_markdown(text, add_headers=True)
+        assert result.startswith("# ")
+
+    def test_format_list_items(self):
+        """Test formatting list items."""
+        formatter = OutputFormatter()
+        items = ["调查线索", "询问证人", "检查现场"]
+        result = formatter.format_as_list(items)
+        assert "- 调查线索" in result
+        assert "- 询问证人" in result
+        assert "- 检查现场" in result
+
+    def test_format_with_emphasis(self):
+        """Test emphasis formatting."""
+        formatter = OutputFormatter()
+        text = "你发现了重要线索"
+        result = formatter.format_markdown(text, emphasize_words=["重要线索"])
+        assert "**" in result or "《" in result
+
+    def test_preserve_paragraphs(self):
+        """Test paragraph preservation."""
+        formatter = OutputFormatter()
+        text = "第一段内容\n\n第二段内容"
+        result = formatter.format_markdown(text)
+        assert "第一段内容" in result
+        assert "第二段内容" in result
