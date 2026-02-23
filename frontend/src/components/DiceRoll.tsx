@@ -213,26 +213,28 @@ interface PushRollDialogProps {
 
 export function PushRollDialog({ onConfirm, onCancel, skillName, risk }: PushRollDialogProps) {
   return (
-    <Card className="p-4 border-yellow-500 dark:border-yellow-700">
+    <Card className="p-4 border-yellow-500 dark:border-yellow-700" role="dialog" aria-labelledby="push-roll-title" aria-describedby="push-roll-description">
       <div className="space-y-3">
-        <h3 className="font-semibold text-sm">Push the Roll?</h3>
-        <p className="text-xs text-muted-foreground">
+        <h3 id="push-roll-title" className="font-semibold text-sm">Push the Roll?</h3>
+        <p id="push-roll-description" className="text-xs text-muted-foreground">
           You may push your <span className="font-medium">{skillName}</span> check, but if
           you fail, the consequences will be worse.
         </p>
         <div className="text-xs bg-yellow-50 dark:bg-yellow-950/30 p-2 rounded border border-yellow-200 dark:border-yellow-800">
           <span className="font-medium">Risk:</span> {risk}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="group" aria-label="Push roll actions">
           <button
             onClick={onConfirm}
-            className="flex-1 px-3 py-1.5 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
+            className="flex-1 px-3 py-1.5 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500"
+            aria-label="Push the roll"
           >
             Push It
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 px-3 py-1.5 text-sm bg-secondary hover:bg-secondary/80 rounded transition-colors"
+            className="flex-1 px-3 py-1.5 text-sm bg-secondary hover:bg-secondary/80 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Accept failure without pushing"
           >
             Accept Failure
           </button>
@@ -261,14 +263,15 @@ export function LuckSpendDialog({
   const [amount, setAmount] = useState(1)
 
   return (
-    <Card className="p-4 border-green-500 dark:border-green-700">
+    <Card className="p-4 border-green-500 dark:border-green-700" role="dialog" aria-labelledby="luck-spend-title" aria-describedby="luck-spend-description">
       <div className="space-y-3">
-        <h3 className="font-semibold text-sm">Spend Luck?</h3>
-        <p className="text-xs text-muted-foreground">{eventDescription}</p>
+        <h3 id="luck-spend-title" className="font-semibold text-sm">Spend Luck?</h3>
+        <p id="luck-spend-description" className="text-xs text-muted-foreground">{eventDescription}</p>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs">Amount:</span>
+          <label htmlFor="luck-amount" className="text-xs">Amount:</label>
           <input
+            id="luck-amount"
             type="number"
             min={1}
             max={currentLuck}
@@ -277,24 +280,27 @@ export function LuckSpendDialog({
               const val = parseInt(e.target.value) || 1
               setAmount(Math.min(Math.max(1, val), currentLuck))
             }}
-            className="w-20 h-8 px-2 text-sm border rounded"
+            className="w-20 h-8 px-2 text-sm border rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-describedby="luck-current"
           />
-          <span className="text-xs text-muted-foreground">
+          <span id="luck-current" className="text-xs text-muted-foreground">
             (Current: {currentLuck}/{maxLuck})
           </span>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="group" aria-label="Luck spend actions">
           <button
             onClick={() => onConfirm(amount)}
             disabled={amount > currentLuck}
-            className="flex-1 px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded transition-colors"
+            className="flex-1 px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 disabled:focus-visible:ring-ring"
+            aria-label={`Spend ${amount} luck points`}
           >
             Spend {amount} Luck
           </button>
           <button
             onClick={onCancel}
-            className="flex-1 px-3 py-1.5 text-sm bg-secondary hover:bg-secondary/80 rounded transition-colors"
+            className="flex-1 px-3 py-1.5 text-sm bg-secondary hover:bg-secondary/80 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Cancel luck spending"
           >
             Cancel
           </button>

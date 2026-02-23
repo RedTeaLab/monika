@@ -33,6 +33,12 @@ function App() {
       <AuthProvider>
         <PreferencesProvider>
           <Toaster />
+          <a
+            href="#main-content"
+            className="skip-link"
+          >
+            Skip to main content
+          </a>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />

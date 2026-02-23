@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Header } from "@/components/Header"
 import { MessageList } from "@/components/MessageList"
 import { StatePanel } from "@/components/StatePanel"
@@ -6,6 +6,8 @@ import { Footer } from "@/components/Footer"
 import { CombatOverlay } from "@/components/combat/CombatOverlay"
 import { RuleSearch } from "@/components/rules"
 import { EventLogPanel } from "@/components/events"
+import { HelpPanel, COMMANDS, getCommandByName, type CommandDefinition } from "@/components/HelpPanel"
+import { Tour, DEFAULT_TOUR_STEPS } from "@/components/Tour"
 import { useGameWebSocket } from "@/hooks/useGameWebSocket"
 import { useLLMResponse } from "@/hooks/useLLMResponse"
 import { useCombatState } from "@/hooks/useCombatState"
@@ -68,6 +70,17 @@ export function GameConsole() {
 
   // Rules panel state
   const [showRules, setShowRules] = useState(false)
+
+  // Help panel state
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Tour state - show on first visit
+  const [showTour, setShowTour] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('monika_tour_seen')
+    }
+    return false
+  })
 
   // Events panel state
   const [showEvents, setShowEvents] = useState(false)
@@ -266,10 +279,47 @@ export function GameConsole() {
   })
 
   /**
-   * Handle sending user messages
-   * Sends message via WebSocket and resets LLM state
-   */
+    * Handle sending user messages
+    * Sends message via WebSocket and resets LLM state
+    */
   const handleSendMessage = useCallback((content: string) => {
+    // Handle help command locally
+    if (content.startsWith('/help')) {
+      const parts = content.split(' ')
+      if (parts.length === 1) {
+        setShowHelp(true)
+        return
+      } else {
+        const cmdName = parts[1]
+        const cmd = getCommandByName(cmdName)
+        if (cmd) {
+          const systemMessage: Message = {
+            id: Date.now().toString(),
+            role: "system",
+            content: `命令: /${cmd.name}\n说明: ${cmd.description}\n用法: ${cmd.usage}${cmd.example ? `\n例: ${cmd.example}` : ''}`,
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, systemMessage])
+          return
+        } else {
+          const systemMessage: Message = {
+            id: Date.now().toString(),
+            role: "system",
+            content: `未找到命令: /${cmdName}`,
+            timestamp: new Date(),
+          }
+          setMessages((prev) => [...prev, systemMessage])
+          return
+        }
+      }
+    }
+
+    // Handle ? command (shorthand for help)
+    if (content === '?') {
+      setShowHelp(true)
+      return
+    }
+
     // Add player message to the message list
     const playerMessage: Message = {
       id: Date.now().toString(),
@@ -427,11 +477,12 @@ export function GameConsole() {
         showRules={showRules}
         onToggleEvents={() => setShowEvents(!showEvents)}
         showEvents={showEvents}
+        onToggleHelp={() => setShowHelp(true)}
       />
       <div {...tabletSwipeBind} className="flex-1 flex overflow-hidden">
         {isMobile ? (
           // Mobile: Observer mode with proper scrolling
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div id="main-content" className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               <MessageList messages={messages} />
             </div>
@@ -471,9 +522,13 @@ export function GameConsole() {
         ) : isDesktop ? (
           // Desktop: Original three-column layout
           <>
-            <div className="flex-1 flex flex-col min-w-0">
+            <div id="main-content" className="flex-1 flex flex-col min-w-0">
               <MessageList messages={messages} />
-              <Footer onSendMessage={handleSendMessage} />
+              <Footer 
+                onSendMessage={handleSendMessage} 
+                onRoll={() => {}}
+                onOpenHelp={() => setShowHelp(true)}
+              />
             </div>
             <StatePanel
               character={character}
@@ -598,6 +653,16 @@ export function GameConsole() {
           />
         </div>
       )}
+
+      {/* Help Panel */}
+      <HelpPanel isOpen={showHelp} onClose={() => setShowHelp(false)} />
+
+      {/* Tour Guide */}
+      <Tour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+        steps={DEFAULT_TOUR_STEPS}
+      />
     </div>
   )
 }
