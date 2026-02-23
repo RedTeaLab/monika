@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { LogOut, BookOpen, ListTodo, Sun, Moon } from 'lucide-react'
+import { LogOut, BookOpen, ListTodo, Sun, Moon, HelpCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   showRules?: boolean
   onToggleEvents?: () => void
   showEvents?: boolean
+  onToggleHelp?: () => void
 }
 
 export function Header({
@@ -16,7 +17,8 @@ export function Header({
   onToggleRules,
   showRules = false,
   onToggleEvents,
-  showEvents = false
+  showEvents = false,
+  onToggleHelp
 }: HeaderProps) {
   const { logout, user } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -73,6 +75,16 @@ export function Header({
           >
             <ListTodo className="w-4 h-4 mr-2" />
             日志
+          </Button>
+        )}
+        {onToggleHelp && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleHelp}
+          >
+            <HelpCircle className="w-4 h-4 mr-2" />
+            帮助
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={handleLogout}>
