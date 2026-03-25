@@ -1,22 +1,16 @@
-package tui
+package ui
 
 import (
-	"fmt"
 	"bufio"
+	"fmt"
+	agents "monika/internal/core"
 	"os"
 	"strings"
-	agents "monika/internal/core"
 )
 
 // RunSimple runs the CLI in simple output mode (no flickering, supports copy)
 func RunSimple() {
-	fmt.Println("────────────────────────────────────────────")
-	fmt.Println("  MONIKA CLI")
-	fmt.Println("────────────────────────────────────────────")
-	fmt.Println("")
-	fmt.Println("Type your message and press Enter to send.")
-	fmt.Println("Press Ctrl+C to quit.")
-	fmt.Println("────────────────────────────────────────────")
+	fmt.Println("MONIKA CLI")
 	fmt.Println("")
 
 	agent := agents.NewAgent()
