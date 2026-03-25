@@ -1,6 +1,10 @@
 # Monika CLI
 
-An interactive CLI tool that integrates with DeepSeek API to provide intelligent terminal assistance with thinking mode and tool execution capabilities.
+**Monika** is a Go-based coding agent designed for intelligent software development assistance. It integrates with DeepSeek API to provide an interactive terminal experience with thinking mode and tool execution capabilities.
+
+## Vision
+
+Monika aims to be a lightweight, efficient coding agent built entirely in Go, providing developers with intelligent assistance through natural language interaction.
 
 ## Features
 
@@ -20,15 +24,16 @@ An interactive CLI tool that integrates with DeepSeek API to provide intelligent
 ### Build from Source
 
 ```bash
-git clone https://github.com/yourusername/monika.git
+# Clone the repository
+git clone https://github.com/RedTeaLab/monika.git
 cd monika
-go build -o monika.exe cmd/monika/main.go
-```
 
-Or use the standard Go build command:
-
-```bash
+# Build the executable
 go build -o monika ./cmd/monika
+
+# On Windows, the output will be monika.exe automatically
+# Or explicitly specify:
+# go build -o monika.exe ./cmd/monika
 ```
 
 ## Configuration
