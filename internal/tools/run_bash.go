@@ -64,7 +64,22 @@ func (b *BashTool) Execute(args ...string) string {
 
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Sprintf("Error: %v\nStderr: %s", err, stderr.String())
+		stderrStr := stderr.String()
+		// Clean up non-printable characters from stderr (common on Windows)
+		cleanedStderr := strings.Map(func(r rune) rune {
+			if r < 32 && r != '\n' && r != '\r' && r != '\t' {
+				return -1 // Remove control characters
+			}
+			if r > 126 && r < 256 {
+				return -1 // Remove extended ASCII that often appears as garbage
+			}
+			return r
+		}, stderrStr)
+
+		if cleanedStderr != "" {
+			return fmt.Sprintf("Error: %v\nStderr: %s", err, cleanedStderr)
+		}
+		return fmt.Sprintf("Error: %v", err)
 	}
 
 	return strings.TrimSpace(stdout.String())
