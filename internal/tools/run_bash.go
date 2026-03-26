@@ -55,8 +55,8 @@ func (b *BashTool) Execute(args ...string) string {
 		return "Error: No command provided."
 	}
 
-	// Set default timeout to 30 seconds if not specified
-	timeout := 30
+	// Set default timeout to 120 seconds (2 minutes) for long-running commands
+	timeout := 120
 	if params.Timeout > 0 {
 		timeout = params.Timeout
 	}
@@ -81,13 +81,30 @@ func (b *BashTool) Execute(args ...string) string {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()
 
+	// Start timing
+	startTime := time.Now()
+
 	// Execute the command and capture the output
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, "bash", "-c", params.Command)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	// Run the command
 	err := cmd.Run()
+
+	// Calculate elapsed time
+	elapsed := time.Since(startTime)
+
+	// Build result header
+	var result strings.Builder
+
+	// For long-running commands (> 2 seconds), show timing info
+	if elapsed.Seconds() > 2 {
+		fmt.Fprintf(&result, "[Completed in %.2fs]\n", elapsed.Seconds())
+	}
+
+	// Check for errors
 	if err != nil {
 		// Check if the error is due to timeout
 		if ctx.Err() == context.DeadlineExceeded {
@@ -106,11 +123,32 @@ func (b *BashTool) Execute(args ...string) string {
 			return r
 		}, stderrStr)
 
-		if cleanedStderr != "" {
-			return fmt.Sprintf("Error: %v\nStderr: %s", err, cleanedStderr)
+		// Include stdout even on error (might have partial output)
+		stdoutStr := strings.TrimSpace(stdout.String())
+		if stdoutStr != "" {
+			result.WriteString(stdoutStr)
+			result.WriteString("\n")
 		}
-		return fmt.Sprintf("Error: %v", err)
+
+		if cleanedStderr != "" {
+			result.WriteString(fmt.Sprintf("Error: %v\nStderr: %s", err, cleanedStderr))
+		} else {
+			result.WriteString(fmt.Sprintf("Error: %v", err))
+		}
+		return result.String()
 	}
 
-	return strings.TrimSpace(stdout.String())
+	// Success case - include stdout
+	stdoutStr := strings.TrimSpace(stdout.String())
+	if stdoutStr != "" {
+		result.WriteString(stdoutStr)
+	}
+
+	// If no output at all, show a success message
+	resultStr := strings.TrimSpace(result.String())
+	if resultStr == "" {
+		return "[Command completed successfully with no output]"
+	}
+
+	return resultStr
 }

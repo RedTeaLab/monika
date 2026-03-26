@@ -1,0 +1,26 @@
+TODO LIST
+=========
+
+Project: Monika CLI - Go-based coding agent
+
+Current Tasks:
+[ ] Complete todo progress display feature
+[ ] Review and improve documentation
+[ ] Add more tool implementations (file read/write, search, etc.)
+[ ] Implement conversation history persistence
+[ ] Add support for streaming responses
+[ ] Add interactive mode with continuous conversation
+[ ] Improve error handling and user feedback
+
+Future Enhancements:
+[ ] Add multi-file editing capabilities
+[ ] Implement context awareness for project structure
+[ ] Add syntax highlighting for code output
+[ ] Support for multiple AI providers beyond DeepSeek
+[ ] Add plugin system for custom tools
+[ ] Implement auto-completion for commands
+
+Bug Fixes:
+[ ] Test on Linux and macOS platforms
+[ ] Verify Windows compatibility edge cases
+[ ] Check memory usage for long conversations

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	Version = "0.1.0"
+	Version = "0.0.1"
 	message string
 )
 
@@ -33,14 +33,16 @@ func main() {
 }
 
 func runInteractiveMode(agent core.Agents) {
-	fmt.Println("=== Monika Interactive Mode ===")
+	fmt.Println("=========================================")
+	fmt.Printf("Monika Agent - Version %s\n", Version)
+	fmt.Println("=========================================")
 	fmt.Println("Type your message and press Enter to send.")
-	fmt.Println("Type 'exit' or 'quit' to leave the interactive mode.")
+	fmt.Println("Type 'exit', 'quit', or '/exit' to leave the interactive mode.")
 	fmt.Println("")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("You: ")
+		fmt.Print(">")
 		if !scanner.Scan() {
 			break
 		}
@@ -51,7 +53,7 @@ func runInteractiveMode(agent core.Agents) {
 		}
 
 		// Check for exit commands
-		if strings.ToLower(input) == "exit" || strings.ToLower(input) == "quit" {
+		if strings.ToLower(input) == "exit" || strings.ToLower(input) == "quit" || strings.ToLower(input) == "/exit" {
 			fmt.Println("Goodbye!")
 			break
 		}
