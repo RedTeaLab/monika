@@ -25,8 +25,8 @@ type agent struct {
 	Context      context.Context
 	Tools        []openai.ChatCompletionToolUnionParam
 	Excute       map[string]func(args ...string) string
-	RoundCounter int            // Counts LLM response cycles (User->LLM->Tools->Results)
-	LastTodoCall int            // The round number when todo was last called (-1 = never)
+	RoundCounter int // Counts LLM response cycles (User->LLM->Tools->Results)
+	LastTodoCall int // The round number when todo was last called (-1 = never)
 	Messages     []openai.ChatCompletionMessageParamUnion
 }
 
@@ -188,8 +188,6 @@ func (a *agent) Invoke(message string) {
 	// Append the new user message
 	a.Messages = append(a.Messages, openai.UserMessage(message))
 
-	fmt.Printf("\033[34mUser:\033[0m\n %s\n", message)
-
 	// Show task progress after user input
 	a.showTaskProgress()
 
@@ -228,7 +226,8 @@ func (a *agent) Invoke(message string) {
 
 		if len(toolCalls) == 0 {
 			// No tools called, just display the assistant's response
-			fmt.Printf("Assistant:\n %s\n", assistant)
+			fmt.Printf("\033[34mAssistant:\033[0m\n %s\n", assistant)
+
 			a.Messages = append(a.Messages, openai.AssistantMessage(assistant))
 			break
 		}
