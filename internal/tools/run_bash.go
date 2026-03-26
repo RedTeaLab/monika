@@ -2,10 +2,12 @@ package tools
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type BashTool struct{}
@@ -26,6 +28,10 @@ func (b *BashTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "The bash command to execute.",
 			},
+			"timeout": map[string]any{
+				"type":        "integer",
+				"description": "Timeout in seconds for command execution (default: 30).",
+			},
 		},
 		"required": []string{"command"},
 	}
@@ -39,6 +45,7 @@ func (b *BashTool) Execute(args ...string) string {
 	// Parse the JSON arguments
 	var params struct {
 		Command string `json:"command"`
+		Timeout int    `json:"timeout"`
 	}
 	if err := json.Unmarshal([]byte(args[0]), &params); err != nil {
 		return fmt.Sprintf("Error: Invalid arguments format - %v", err)
@@ -46,6 +53,12 @@ func (b *BashTool) Execute(args ...string) string {
 
 	if params.Command == "" {
 		return "Error: No command provided."
+	}
+
+	// Set default timeout to 30 seconds if not specified
+	timeout := 30
+	if params.Timeout > 0 {
+		timeout = params.Timeout
 	}
 
 	// Basic safety check to prevent execution of dangerous commands
@@ -64,14 +77,23 @@ func (b *BashTool) Execute(args ...string) string {
 		}
 	}
 
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
 	// Execute the command and capture the output
 	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("bash", "-c", params.Command)
+	cmd := exec.CommandContext(ctx, "bash", "-c", params.Command)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
 	if err != nil {
+		// Check if the error is due to timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Sprintf("Error: Command timed out after %d seconds", timeout)
+		}
+
 		stderrStr := stderr.String()
 		// Clean up non-printable characters from stderr (common on Windows)
 		cleanedStderr := strings.Map(func(r rune) rune {
