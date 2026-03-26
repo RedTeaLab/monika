@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	DefaultBaseUrl = "https://api.openai.com/v1"
-	DefaultModel   = "gpt-3.5-turbo"
+	DefaultBaseUrl = ""
+	DefaultModel   = ""
 )
 
 type Config struct {
-	BaseUrl string
-	ApiKey  string
-	Model   string
+	BaseUrl  string
+	ApiKey   string
+	Model    string
 	Thinking bool // Enable thinking/reasoning display
 }
 

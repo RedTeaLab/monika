@@ -1,11 +1,22 @@
 package main
 
 import (
-	_ "monika/internal/core"
+	"flag"
+	"monika/internal/core"
 	_ "monika/internal/tools"
-	"monika/internal/ui"
 )
 
+var (
+	Version = "0.1.0"
+	message string
+)
+
+func init() {
+	flag.StringVar(&message, "message", "", "Message to send to the agent")
+}
+
 func main() {
-	ui.RunSimple()
+	flag.Parse()
+	agent := core.NewAgent()
+	agent.Invoke(message)
 }
