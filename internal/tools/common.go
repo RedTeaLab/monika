@@ -10,9 +10,14 @@ type Tool interface {
 }
 
 func init() {
-	RegisterTool(&BashTool{})
+	RegisterTool(
+		&BashTool{},
+		&ReadFileTool{},
+		&WriteFileTool{},
+		&EditFileTool{},
+	)
 }
 
-func RegisterTool(tool Tool) {
-	TOOLS = append(TOOLS, tool)
+func RegisterTool(tools ...Tool) {
+	TOOLS = append(TOOLS, tools...)
 }

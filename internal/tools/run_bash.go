@@ -49,10 +49,18 @@ func (b *BashTool) Execute(args ...string) string {
 	}
 
 	// Basic safety check to prevent execution of dangerous commands
-	dangerousCommands := []string{"rm", "shutdown", "reboot", "init", "poweroff"}
-	for _, dangerous := range dangerousCommands {
-		if strings.Contains(params.Command, dangerous) {
-			return fmt.Sprintf("Error: Command contains dangerous operation '%s'.", dangerous)
+	// Trim leading spaces and extract the first word (the actual command)
+	trimmedCmd := strings.TrimLeft(params.Command, " \t")
+	firstWord := strings.Fields(trimmedCmd)
+	if len(firstWord) > 0 {
+		dangerousCommands := map[string]bool{
+			"rm":       true,
+			"shutdown": true,
+			"reboot":   true,
+			"poweroff": true,
+		}
+		if dangerousCommands[firstWord[0]] {
+			return fmt.Sprintf("Error: Command '%s' is blocked for safety.", firstWord[0])
 		}
 	}
 

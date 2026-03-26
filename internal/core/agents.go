@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"monika/internal/option"
+	"monika/internal/resource"
 	"monika/internal/tools"
 	"os"
+	"runtime"
 
 	opt "github.com/openai/openai-go/v3/option"
 
@@ -74,12 +76,18 @@ func (a *agent) Invoke(message string) {
 		panic(err)
 	}
 
+	// Build system prompt with dynamic tools list
+	systemPrompt := resource.GetSystemPrompt(resource.SystemContext{
+		WorkingDir: currentDir,
+		Os:         runtime.GOOS,
+	})
+
 	messages := []openai.ChatCompletionMessageParamUnion{
-		openai.SystemMessage(fmt.Sprintf("You are a coding agent at %s. Use bash to solve tasks. Act, don't explain.", currentDir)),
+		openai.SystemMessage(systemPrompt),
 		openai.UserMessage(message),
 	}
 
-	fmt.Printf("User:\n %s\n", message)
+	fmt.Printf("\033[34mUser:\033[0m\n %s\n", message)
 
 	for {
 
@@ -104,7 +112,7 @@ func (a *agent) Invoke(message string) {
 		reasoningContent := extractReasoningContent(rawJson)
 
 		if reasoningContent != "" {
-			fmt.Printf("Thinking:\n %s\n", reasoningContent)
+			fmt.Printf("\033[33mThinking:\033[0m\n %s\n", reasoningContent)
 		}
 
 		if len(toolCalls) == 0 {
@@ -122,7 +130,7 @@ func (a *agent) Invoke(message string) {
 				if !ok {
 					panic(fmt.Sprintf("no execute function found for tool: %s", toolCall.Function.Name))
 				}
-				fmt.Printf("%s(%s)\n", toolCall.Function.Name, toolCall.Function.Arguments)
+				fmt.Printf("\033[32m%s(%s)\033[0m\n", toolCall.Function.Name, toolCall.Function.Arguments)
 				result := executeFunc(toolCall.Function.Arguments)
 				fmt.Printf("%s\n", result)
 				messages = append(messages, openai.ToolMessage(result, toolCall.ID))

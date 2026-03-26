@@ -14,10 +14,9 @@ const (
 )
 
 type Config struct {
-	BaseUrl  string
-	ApiKey   string
-	Model    string
-	Thinking bool // Enable thinking/reasoning display
+	BaseUrl string
+	ApiKey  string
+	Model   string
 }
 
 // Load creates a new Config by loading from INI file and environment variables.
@@ -50,10 +49,6 @@ func (c *Config) Apply() {
 	}
 	if c.Model == "" {
 		c.Model = DefaultModel
-	}
-
-	if env := os.Getenv("MONIKA_THINKING"); env != "" {
-		c.Thinking = env == "true" || env == "1"
 	}
 }
 
@@ -96,11 +91,6 @@ func (c *Config) loadFromINI() {
 		}
 	}
 
-	if !c.Thinking {
-		if thinking, _ := section.Key("thinking").Bool(); thinking {
-			c.Thinking = true
-		}
-	}
 }
 
 // createConfigTemplate creates a template INI config file and prompts user to configure it
@@ -113,7 +103,6 @@ func (c *Config) createConfigTemplate(path string) {
 base_url = https://api.openai.com/v1
 api_key = sk-your-api-key-here
 model = gpt-3.5-turbo
-thinking = false
 `
 
 	// Ensure directory exists
