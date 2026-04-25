@@ -1,16 +1,17 @@
 # AGENTS.md
 
 ## Repo Shape
-- Single Go module: `monika`, declared in `go.mod` with Go `1.25.5`.
-- Main entrypoint is `cmd/monika/main.go`, a cobra CLI with `provider` subcommands.
-- Reusable code under `internal/`:
-  - `internal/agent/` — agent interface, streaming provider client, event aggregation
-  - `internal/config/` — layered YAML config loader (global + project)
-  - `internal/plugin/host/` — go-plugin host skeleton (handshake, lifecycle)
-  - `internal/plugin/registry/` — JSON-based plugin registry (install tracking)
-  - `internal/provider/install/` — provider install planning utilities
-- Generated protobuf/gRPC code lives in `gen/provider/v1/`, source in `proto/provider/v1/`.
-- External providers are managed via HashiCorp go-plugin and communicate over gRPC with the protocol defined in `proto/provider/v1/provider.proto`.
+- Go workspace (`go.work`) with five modules:
+  - `engine/` — interfaces + registry, zero deps (module: `monika/engine`)
+  - `core/` — agent loop, config, tools, CLI (module: `monika`)
+  - `engines/provider/` — multi-backend LLM provider (module: `monika/engines/provider`)
+  - `engines/skill/` — Agent Skills standard loader (module: `monika/engines/skill`)
+  - `engines/mcp/` — MCP stdio transport (module: `monika/engines/mcp`)
+- CLI entrypoint is `core/cmd/monika/main.go`, a cobra CLI with `engines` subcommand.
+- Core internal packages:
+  - `core/internal/agent/` — agent interface, streaming provider client, event aggregation
+  - `core/internal/config/` — layered YAML config loader (global + project)
+- Engine packages use `database/sql`-style `init()` registration via `engine.Register()`.
 
 ## Product Direction
 - Monika's long-term goal is to become a general-purpose coding agent, not a single-provider chat wrapper.
@@ -20,29 +21,31 @@
 ## Architecture Direction
 - Build toward the intended final architecture from the start. Do not choose temporary protocols, throwaway abstractions, or "optimize later" paths when the target shape is already known.
 - Do not bake vendor-specific request or response shapes into the agent layer.
-- Provider plugins are external binaries (go-plugin), not in-process registrations.
+- Engine registration follows `database/sql` pattern: each engine module calls `engine.Register()` in `init()`, and the binary imports them via blank imports (`_ "monika/engines/..."`).
+- No go-plugin or gRPC — all engines are in-process, registered at startup.
 
 ## Commands
-- Run full verification with `go test ./...`.
-- Run a focused package check with `go test ./internal/agent`, `go test ./internal/config`, `go test ./internal/plugin/host`, `go test ./internal/plugin/registry`, `go test ./internal/provider/install`, or `go test ./cmd/monika`.
-- Run a single Go test with `go test ./path/to/package -run TestName`.
-- Format edited Go files with `gofmt -w <files>` before final verification.
-- Regenerate protobuf code with:
-  ```
-  protoc --go_out=. --go_opt=module=monika --go-grpc_out=. --go-grpc_opt=module=monika proto/provider/v1/provider.proto
-  ```
+- Run full verification: test each module from its directory with `go test ./...`.
+  - `cd engine && go test ./...`
+  - `cd core && go test ./...`
+  - `cd engines/provider && go test ./...`
+  - `cd engines/skill && go test ./...`
+  - `cd engines/mcp && go test ./...`
+- Run a focused package check: `go test ./internal/agent`, `go test ./internal/config`, `go test ./cmd/monika`.
+- Run a single test: `go test ./path/to/package -run TestName`.
+- Format edited Go files: `gofmt -w <files>` before final verification.
 - Run `go mod tidy` only when imports or dependencies change.
-- Run `go build ./cmd/monika` to verify the CLI binary compiles (safe, no real API calls).
+- Build the CLI: `go build ./core/cmd/monika` from workspace root, or `go build ./cmd/monika` from `core/`.
 
 ## Key Dependencies
 - `github.com/spf13/cobra` — CLI framework
-- `github.com/hashicorp/go-plugin` — external plugin host/protocol
-- `google.golang.org/grpc` / `google.golang.org/protobuf` — provider plugin protocol
-- `gopkg.in/yaml.v3` — config file parsing
-- `encoding/json`, `os`, `path/filepath` — registry persistence (stdlib)
+- `gopkg.in/yaml.v3` — config file parsing (core + skill engine)
+- `encoding/json`, `os`, `os/exec`, `path/filepath` — stdlib only for engine implementations
 
 ## Gotchas
-- `go run ./cmd/monika` is safe — it no longer sends real API requests; it prints cobra help.
-- The proto `go_package` is `monika/gen/provider/v1;providerv1`; generated files land in `gen/provider/v1/`.
-- Provider plugin binaries are not yet built or installed automatically — the `install` command only registers entries in `~/.monika/providers.json`.
+- `go.work` resolves local modules — no need to publish the `engine` module.
+- `core/go.mod` uses `replace` directives for `monika/engine` and `monika/engines/*` during development.
+- Run `go work sync` after adding new modules to the workspace.
+- Each engine module must call `engine.Register()` in `init()`.
+- The `engines` CLI subcommand lists all registered engines; blank imports in `main.go` trigger registration.
 - No README, CI workflow, task runner, or linter config is present; prefer executable Go sources over assumptions.
