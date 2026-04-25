@@ -8,6 +8,8 @@ import (
 type EventKind int
 
 const (
+	// UnknownEvent and any future event kinds are intentionally skipped for
+	// forward compatibility.
 	UnknownEvent EventKind = iota
 	ContentDelta
 	UsageEvent
@@ -40,6 +42,9 @@ type AssistantMessage struct {
 	FinishReason string
 }
 
+// AggregateEvents collects streaming ChatEvent items into a single
+// AssistantMessage.  Duplicate events (multiple usage, multiple finish) retain
+// the last value.
 func AggregateEvents(events []ChatEvent) (AssistantMessage, error) {
 	var out AssistantMessage
 	var content strings.Builder
@@ -51,7 +56,7 @@ func AggregateEvents(events []ChatEvent) (AssistantMessage, error) {
 		case UsageEvent:
 			out.Usage = event.Usage
 		case ErrorEvent:
-			return AssistantMessage{}, fmt.Errorf("provider error %s: %s", event.ProviderError.Code, event.ProviderError.Message)
+			return AssistantMessage{}, fmt.Errorf("provider error (%s): %s", event.ProviderError.Code, event.ProviderError.Message)
 		case MessageEnd:
 			out.FinishReason = event.FinishReason
 		}
