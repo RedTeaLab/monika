@@ -67,12 +67,33 @@ func (e *ProviderEngine) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (e *ProviderEngine) StreamChat(_ context.Context, _ engine.ChatRequest) ([]engine.ChatEvent, error) {
-	return nil, fmt.Errorf("provider engine: StreamChat not yet implemented")
+func (e *ProviderEngine) StreamChat(ctx context.Context, req engine.ChatRequest) ([]engine.ChatEvent, error) {
+	e.mu.RLock()
+	backend, ok := e.backends[req.Provider]
+	e.mu.RUnlock()
+	if !ok {
+		e.mu.RLock()
+		for _, b := range e.backends {
+			backend = b
+			ok = true
+			break
+		}
+		e.mu.RUnlock()
+	}
+	if !ok {
+		return nil, fmt.Errorf("provider engine: no backend configured")
+	}
+	return callStreamChat(backend, req)
 }
 
 func (e *ProviderEngine) ListModels(_ context.Context) ([]engine.Model, error) {
-	return nil, fmt.Errorf("provider engine: ListModels not yet implemented")
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	var models []engine.Model
+	for id, b := range e.backends {
+		models = append(models, engine.Model{ID: id, DisplayName: b.Name})
+	}
+	return models, nil
 }
 
 func (e *ProviderEngine) Backend(id string) (Backend, bool) {
