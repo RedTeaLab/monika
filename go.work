@@ -1,0 +1,9 @@
+go 1.25.5
+
+use (
+	./core
+	./engine
+	./engines/mcp
+	./engines/provider
+	./engines/skill
+)
