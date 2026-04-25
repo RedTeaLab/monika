@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"monika/engine"
+
 	"github.com/spf13/cobra"
 )
 
@@ -17,4 +19,25 @@ func Execute() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+var engineListCmd = &cobra.Command{
+	Use:   "engines",
+	Short: "List registered engines",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		for _, e := range engine.Engines() {
+			caps := e.Capabilities()
+			capStrs := make([]string, len(caps))
+			for i, c := range caps {
+				capStrs[i] = string(c)
+			}
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s [%v]\n", e.ID(), capStrs)
+		}
+		return nil
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(engineListCmd)
 }
