@@ -1,27 +1,36 @@
+// Package config loads layered monika configuration from YAML files.
+// Home directory config (~/.monika/config.yaml) is loaded first,
+// then project directory config (.monika/config.yaml) is merged on top,
+// with project values taking precedence.
 package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
+// Options specifies the directories to load configuration from.
 type Options struct {
 	HomeDir    string
 	ProjectDir string
 }
 
+// Config is the top-level monika configuration.
 type Config struct {
 	Plugins  map[string]PluginConfig `yaml:"plugins"`
 	Provider ProviderConfig          `yaml:"provider"`
 }
 
+// PluginConfig holds configuration for a single provider plugin.
 type PluginConfig struct {
 	Config map[string]any `yaml:"config"`
 }
 
+// ProviderConfig describes the active provider and its parameters.
 type ProviderConfig struct {
 	Plugin string         `yaml:"plugin"`
 	ID     string         `yaml:"id"`
@@ -29,6 +38,9 @@ type ProviderConfig struct {
 	Config map[string]any `yaml:"config"`
 }
 
+// Load reads and merges configuration from the home and project directories.
+// Home config is loaded first; project config overlays on top.
+// Missing config files are silently skipped.
 func Load(opts Options) (Config, error) {
 	var cfg Config
 	cfg.Plugins = map[string]PluginConfig{}
@@ -58,7 +70,7 @@ func mergeFile(dst *Config, path string) error {
 
 	var src Config
 	if err := yaml.Unmarshal(data, &src); err != nil {
-		return err
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	merge(dst, src)
 	return nil
@@ -87,8 +99,11 @@ func merge(dst *Config, src Config) {
 }
 
 func mergeMap(dst, src map[string]any) map[string]any {
+	if dst == nil && len(src) == 0 {
+		return dst
+	}
 	if dst == nil {
-		dst = map[string]any{}
+		dst = make(map[string]any, len(src))
 	}
 	for key, value := range src {
 		dst[key] = value

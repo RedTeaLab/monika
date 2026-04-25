@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -57,6 +58,55 @@ func TestLoadAllowsMissingConfigFiles(t *testing.T) {
 	}
 	if cfg.Provider.ID != "" {
 		t.Fatalf("provider id = %q", cfg.Provider.ID)
+	}
+}
+
+func TestLoadYAMLErrorIncludesPath(t *testing.T) {
+	tmp := t.TempDir()
+	mustWrite(t, filepath.Join(tmp, ".monika", "config.yaml"), []byte(": bad yaml"))
+
+	_, err := Load(Options{HomeDir: tmp})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), ".monika") {
+		t.Fatalf("error should contain file path, got: %v", err)
+	}
+}
+
+func TestLoadHomeOnlyKeysSurviveProjectMerge(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	project := filepath.Join(tmp, "project")
+	mustWrite(t, filepath.Join(home, ".monika", "config.yaml"), []byte(`provider:
+  id: home-only
+  config:
+    home_key: home_value
+plugins:
+  my-plugin:
+    config:
+      global_key: global_value
+`))
+	mustWrite(t, filepath.Join(project, ".monika", "config.yaml"), []byte(`provider:
+  model: project-model
+`))
+
+	cfg, err := Load(Options{HomeDir: home, ProjectDir: project})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.Provider.ID != "home-only" {
+		t.Fatalf("home-only id should survive, got %q", cfg.Provider.ID)
+	}
+	if cfg.Provider.Model != "project-model" {
+		t.Fatalf("project model should override, got %q", cfg.Provider.Model)
+	}
+	if cfg.Provider.Config["home_key"] != "home_value" {
+		t.Fatalf("home-only config key should survive, got %#v", cfg.Provider.Config["home_key"])
+	}
+	if cfg.Plugins["my-plugin"].Config["global_key"] != "global_value" {
+		t.Fatalf("home-only plugin config should survive, got %#v", cfg.Plugins["my-plugin"].Config["global_key"])
 	}
 }
 
