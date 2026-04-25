@@ -2,7 +2,7 @@ package main
 
 import (
 	_ "monika/engines/mcp"
-	_ "monika/engines/provider"
+	_ "monika/engines/provider/deepseek"
 	_ "monika/engines/skill"
 )
 

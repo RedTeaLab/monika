@@ -3,6 +3,7 @@ package provider
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,7 +24,7 @@ type chatMessage struct {
 	Content string `json:"content"`
 }
 
-type chatResponse struct {
+type chatChunk struct {
 	ID      string `json:"id"`
 	Choices []struct {
 		Delta struct {
@@ -38,14 +39,14 @@ type chatResponse struct {
 	} `json:"usage"`
 }
 
-func callStreamChat(backend Backend, req engine.ChatRequest) ([]engine.ChatEvent, error) {
-	msgs := make([]chatMessage, len(req.Messages))
-	for i, m := range req.Messages {
+func CallOpenAICompat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage) ([]engine.ChatEvent, error) {
+	msgs := make([]chatMessage, len(messages))
+	for i, m := range messages {
 		msgs[i] = chatMessage{Role: m.Role, Content: m.Content}
 	}
 
 	body := chatRequest{
-		Model:    req.Model,
+		Model:    model,
 		Messages: msgs,
 		Stream:   true,
 	}
@@ -55,16 +56,16 @@ func callStreamChat(backend Backend, req engine.ChatRequest) ([]engine.ChatEvent
 		return nil, err
 	}
 
-	httpReq, err := http.NewRequest("POST", backend.BaseURL+"/chat/completions", bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/chat/completions", bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	if backend.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+backend.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := http.DefaultClient.Do(httpReq)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +94,7 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 			break
 		}
 
-		var chunk chatResponse
+		var chunk chatChunk
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue
 		}
