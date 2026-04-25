@@ -15,27 +15,27 @@ import (
 
 // Options specifies the directories to load configuration from.
 type Options struct {
-	HomeDir    string
-	ProjectDir string
+	HomeDir    string // Path to the user home directory (usually ~/).
+	ProjectDir string // Path to the project root directory.
 }
 
 // Config is the top-level monika configuration.
 type Config struct {
-	Plugins  map[string]PluginConfig `yaml:"plugins"`
-	Provider ProviderConfig          `yaml:"provider"`
+	Plugins  map[string]PluginConfig `yaml:"plugins"`  // Per-plugin configuration keyed by plugin ID.
+	Provider ProviderConfig          `yaml:"provider"` // Active provider selection and parameters.
 }
 
 // PluginConfig holds configuration for a single provider plugin.
 type PluginConfig struct {
-	Config map[string]any `yaml:"config"`
+	Config map[string]any `yaml:"config"` // Arbitrary key-value pairs passed to the plugin.
 }
 
 // ProviderConfig describes the active provider and its parameters.
 type ProviderConfig struct {
-	Plugin string         `yaml:"plugin"`
-	ID     string         `yaml:"id"`
-	Model  string         `yaml:"model"`
-	Config map[string]any `yaml:"config"`
+	Plugin string         `yaml:"plugin"` // Name of the provider plugin to activate.
+	ID     string         `yaml:"id"`     // Provider ID within the plugin.
+	Model  string         `yaml:"model"`  // Model name to use.
+	Config map[string]any `yaml:"config"` // Provider-specific parameters (e.g. base_url).
 }
 
 // Load reads and merges configuration from the home and project directories.

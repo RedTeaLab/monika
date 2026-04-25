@@ -1,3 +1,5 @@
+// Package registry manages the JSON-based plugin registry that tracks
+// installed provider plugin binaries and their exposed AI providers.
 package registry
 
 import (
@@ -17,23 +19,23 @@ type Registry struct {
 // Plugin describes a single installed provider plugin binary.
 type Plugin struct {
 	ID                   string          `json:"plugin_id"`
-	Package              string          `json:"package"`
-	PackageRef           string          `json:"package_ref"`
-	Binary               string          `json:"binary"`
-	BinaryPath           string          `json:"binary_path"`
-	Checksum             string          `json:"checksum"`
-	Version              string          `json:"version"`
-	ProtocolVersion      string          `json:"protocol_version"`
-	InstalledAt          time.Time       `json:"installed_at"`
-	CapabilitiesSnapshot json.RawMessage `json:"capabilities_snapshot,omitempty"`
-	Providers            []ProviderEntry `json:"providers"`
+	Package              string          `json:"package"`                         // Go module path without version.
+	PackageRef           string          `json:"package_ref"`                     // Original install reference (may include @version).
+	Binary               string          `json:"binary"`                          // Logical binary name.
+	BinaryPath           string          `json:"binary_path"`                     // Filesystem path to the installed binary.
+	Checksum             string          `json:"checksum"`                        // Binary checksum for integrity verification.
+	Version              string          `json:"version"`                         // Resolved semantic version.
+	ProtocolVersion      string          `json:"protocol_version"`                // go-plugin protocol version supported by the plugin.
+	InstalledAt          time.Time       `json:"installed_at"`                    // When the plugin was installed.
+	CapabilitiesSnapshot json.RawMessage `json:"capabilities_snapshot,omitempty"` // Captured gRPC capabilities response.
+	Providers            []ProviderEntry `json:"providers"`                       // AI providers exposed by this plugin.
 }
 
 // ProviderEntry describes a single AI provider exposed by a plugin.
 type ProviderEntry struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Capabilities []string `json:"capabilities"`
+	ID           string   `json:"id"`           // Unique provider identifier within the plugin.
+	Name         string   `json:"name"`         // Human-readable provider name.
+	Capabilities []string `json:"capabilities"` // Features supported by this provider (e.g. "chat", "stream").
 }
 
 // Load reads a plugin registry from the JSON file at path.

@@ -17,6 +17,7 @@ const (
 
 // Host represents a managed provider plugin binary.
 type Host interface {
+	// Command returns the path to the provider plugin binary.
 	Command() string
 }
 
@@ -26,7 +27,7 @@ type host struct {
 
 // Options configures a new plugin host.
 type Options struct {
-	Command string
+	Command string // Path to the provider plugin binary to manage.
 }
 
 // New creates a Host for the given plugin command. An error is returned

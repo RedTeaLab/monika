@@ -19,6 +19,7 @@ multiple LLM providers, skills, MCP integration, and subagents.
 Provider-backed agent execution is not wired yet.`,
 }
 
+// Execute runs the root cobra command and exits on error.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
