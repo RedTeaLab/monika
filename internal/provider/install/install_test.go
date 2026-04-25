@@ -1,4 +1,4 @@
-package providerinstall
+package install
 
 import "testing"
 

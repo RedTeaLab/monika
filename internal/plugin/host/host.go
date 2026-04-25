@@ -1,7 +1,7 @@
-// Package pluginhost manages external provider plugin binaries using
+// Package host manages external provider plugin binaries using
 // the go-plugin framework. It defines the handshake config and host
 // lifecycle for monika provider plugins.
-package pluginhost
+package host
 
 import (
 	"errors"

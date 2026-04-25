@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package monika.provider.v1;
 
-option go_package = "monika/proto/monika/provider/v1;providerv1";
+option go_package = "monika/gen/provider/v1;providerv1";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/struct.proto";

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: proto/monika/provider/v1/provider.proto
+// source: proto/provider/v1/provider.proto
 
 package providerv1
 
@@ -62,11 +62,11 @@ func (x Role) String() string {
 }
 
 func (Role) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_monika_provider_v1_provider_proto_enumTypes[0].Descriptor()
+	return file_proto_provider_v1_provider_proto_enumTypes[0].Descriptor()
 }
 
 func (Role) Type() protoreflect.EnumType {
-	return &file_proto_monika_provider_v1_provider_proto_enumTypes[0]
+	return &file_proto_provider_v1_provider_proto_enumTypes[0]
 }
 
 func (x Role) Number() protoreflect.EnumNumber {
@@ -75,7 +75,7 @@ func (x Role) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Role.Descriptor instead.
 func (Role) EnumDescriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{0}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{0}
 }
 
 type ReasoningVisibility int32
@@ -114,11 +114,11 @@ func (x ReasoningVisibility) String() string {
 }
 
 func (ReasoningVisibility) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_monika_provider_v1_provider_proto_enumTypes[1].Descriptor()
+	return file_proto_provider_v1_provider_proto_enumTypes[1].Descriptor()
 }
 
 func (ReasoningVisibility) Type() protoreflect.EnumType {
-	return &file_proto_monika_provider_v1_provider_proto_enumTypes[1]
+	return &file_proto_provider_v1_provider_proto_enumTypes[1]
 }
 
 func (x ReasoningVisibility) Number() protoreflect.EnumNumber {
@@ -127,7 +127,7 @@ func (x ReasoningVisibility) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ReasoningVisibility.Descriptor instead.
 func (ReasoningVisibility) EnumDescriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{1}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{1}
 }
 
 type UsageSource int32
@@ -163,11 +163,11 @@ func (x UsageSource) String() string {
 }
 
 func (UsageSource) Descriptor() protoreflect.EnumDescriptor {
-	return file_proto_monika_provider_v1_provider_proto_enumTypes[2].Descriptor()
+	return file_proto_provider_v1_provider_proto_enumTypes[2].Descriptor()
 }
 
 func (UsageSource) Type() protoreflect.EnumType {
-	return &file_proto_monika_provider_v1_provider_proto_enumTypes[2]
+	return &file_proto_provider_v1_provider_proto_enumTypes[2]
 }
 
 func (x UsageSource) Number() protoreflect.EnumNumber {
@@ -176,7 +176,7 @@ func (x UsageSource) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use UsageSource.Descriptor instead.
 func (UsageSource) EnumDescriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{2}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{2}
 }
 
 type InitializeRequest struct {
@@ -191,7 +191,7 @@ type InitializeRequest struct {
 
 func (x *InitializeRequest) Reset() {
 	*x = InitializeRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[0]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -203,7 +203,7 @@ func (x *InitializeRequest) String() string {
 func (*InitializeRequest) ProtoMessage() {}
 
 func (x *InitializeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[0]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -216,7 +216,7 @@ func (x *InitializeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitializeRequest.ProtoReflect.Descriptor instead.
 func (*InitializeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{0}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *InitializeRequest) GetMonikaVersion() string {
@@ -260,7 +260,7 @@ type InitializeResponse struct {
 
 func (x *InitializeResponse) Reset() {
 	*x = InitializeResponse{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[1]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -272,7 +272,7 @@ func (x *InitializeResponse) String() string {
 func (*InitializeResponse) ProtoMessage() {}
 
 func (x *InitializeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[1]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -285,7 +285,7 @@ func (x *InitializeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitializeResponse.ProtoReflect.Descriptor instead.
 func (*InitializeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{1}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *InitializeResponse) GetPluginId() string {
@@ -331,7 +331,7 @@ type GetCapabilitiesRequest struct {
 
 func (x *GetCapabilitiesRequest) Reset() {
 	*x = GetCapabilitiesRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[2]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -343,7 +343,7 @@ func (x *GetCapabilitiesRequest) String() string {
 func (*GetCapabilitiesRequest) ProtoMessage() {}
 
 func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[2]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -356,7 +356,7 @@ func (x *GetCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{2}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{2}
 }
 
 type GetCapabilitiesResponse struct {
@@ -370,7 +370,7 @@ type GetCapabilitiesResponse struct {
 
 func (x *GetCapabilitiesResponse) Reset() {
 	*x = GetCapabilitiesResponse{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[3]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +382,7 @@ func (x *GetCapabilitiesResponse) String() string {
 func (*GetCapabilitiesResponse) ProtoMessage() {}
 
 func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[3]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +395,7 @@ func (x *GetCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*GetCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{3}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetCapabilitiesResponse) GetPlugin() *PluginInfo {
@@ -431,7 +431,7 @@ type PluginInfo struct {
 
 func (x *PluginInfo) Reset() {
 	*x = PluginInfo{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[4]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +443,7 @@ func (x *PluginInfo) String() string {
 func (*PluginInfo) ProtoMessage() {}
 
 func (x *PluginInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[4]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +456,7 @@ func (x *PluginInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PluginInfo.ProtoReflect.Descriptor instead.
 func (*PluginInfo) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{4}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *PluginInfo) GetId() string {
@@ -502,7 +502,7 @@ type ProviderEntry struct {
 
 func (x *ProviderEntry) Reset() {
 	*x = ProviderEntry{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[5]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -514,7 +514,7 @@ func (x *ProviderEntry) String() string {
 func (*ProviderEntry) ProtoMessage() {}
 
 func (x *ProviderEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[5]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -527,7 +527,7 @@ func (x *ProviderEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderEntry.ProtoReflect.Descriptor instead.
 func (*ProviderEntry) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{5}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ProviderEntry) GetId() string {
@@ -592,7 +592,7 @@ type Model struct {
 
 func (x *Model) Reset() {
 	*x = Model{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[6]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +604,7 @@ func (x *Model) String() string {
 func (*Model) ProtoMessage() {}
 
 func (x *Model) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[6]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +617,7 @@ func (x *Model) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Model.ProtoReflect.Descriptor instead.
 func (*Model) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{6}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Model) GetId() string {
@@ -665,7 +665,7 @@ type ValidateProviderConfigRequest struct {
 
 func (x *ValidateProviderConfigRequest) Reset() {
 	*x = ValidateProviderConfigRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[7]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -677,7 +677,7 @@ func (x *ValidateProviderConfigRequest) String() string {
 func (*ValidateProviderConfigRequest) ProtoMessage() {}
 
 func (x *ValidateProviderConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[7]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +690,7 @@ func (x *ValidateProviderConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateProviderConfigRequest.ProtoReflect.Descriptor instead.
 func (*ValidateProviderConfigRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{7}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ValidateProviderConfigRequest) GetProviderId() string {
@@ -716,7 +716,7 @@ type ValidateProviderConfigResponse struct {
 
 func (x *ValidateProviderConfigResponse) Reset() {
 	*x = ValidateProviderConfigResponse{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[8]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -728,7 +728,7 @@ func (x *ValidateProviderConfigResponse) String() string {
 func (*ValidateProviderConfigResponse) ProtoMessage() {}
 
 func (x *ValidateProviderConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[8]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -741,7 +741,7 @@ func (x *ValidateProviderConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateProviderConfigResponse.ProtoReflect.Descriptor instead.
 func (*ValidateProviderConfigResponse) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{8}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ValidateProviderConfigResponse) GetIssues() []*ValidationIssue {
@@ -763,7 +763,7 @@ type ValidationIssue struct {
 
 func (x *ValidationIssue) Reset() {
 	*x = ValidationIssue{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[9]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -775,7 +775,7 @@ func (x *ValidationIssue) String() string {
 func (*ValidationIssue) ProtoMessage() {}
 
 func (x *ValidationIssue) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[9]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -788,7 +788,7 @@ func (x *ValidationIssue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationIssue.ProtoReflect.Descriptor instead.
 func (*ValidationIssue) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{9}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ValidationIssue) GetField() string {
@@ -829,7 +829,7 @@ type ListModelsRequest struct {
 
 func (x *ListModelsRequest) Reset() {
 	*x = ListModelsRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[10]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -841,7 +841,7 @@ func (x *ListModelsRequest) String() string {
 func (*ListModelsRequest) ProtoMessage() {}
 
 func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[10]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -854,7 +854,7 @@ func (x *ListModelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsRequest.ProtoReflect.Descriptor instead.
 func (*ListModelsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{10}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ListModelsRequest) GetProviderId() string {
@@ -880,7 +880,7 @@ type ListModelsResponse struct {
 
 func (x *ListModelsResponse) Reset() {
 	*x = ListModelsResponse{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[11]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -892,7 +892,7 @@ func (x *ListModelsResponse) String() string {
 func (*ListModelsResponse) ProtoMessage() {}
 
 func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[11]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -905,7 +905,7 @@ func (x *ListModelsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListModelsResponse.ProtoReflect.Descriptor instead.
 func (*ListModelsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{11}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ListModelsResponse) GetModels() []*Model {
@@ -931,7 +931,7 @@ type StreamChatRequest struct {
 
 func (x *StreamChatRequest) Reset() {
 	*x = StreamChatRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[12]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +943,7 @@ func (x *StreamChatRequest) String() string {
 func (*StreamChatRequest) ProtoMessage() {}
 
 func (x *StreamChatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[12]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -956,7 +956,7 @@ func (x *StreamChatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamChatRequest.ProtoReflect.Descriptor instead.
 func (*StreamChatRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{12}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *StreamChatRequest) GetProviderId() string {
@@ -1029,7 +1029,7 @@ type Message struct {
 
 func (x *Message) Reset() {
 	*x = Message{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[13]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1041,7 +1041,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[13]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1054,7 +1054,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{13}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Message) GetId() string {
@@ -1114,7 +1114,7 @@ type ContentPart struct {
 
 func (x *ContentPart) Reset() {
 	*x = ContentPart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[14]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1126,7 +1126,7 @@ func (x *ContentPart) String() string {
 func (*ContentPart) ProtoMessage() {}
 
 func (x *ContentPart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[14]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1139,7 +1139,7 @@ func (x *ContentPart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentPart.ProtoReflect.Descriptor instead.
 func (*ContentPart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{14}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ContentPart) GetKind() isContentPart_Kind {
@@ -1222,7 +1222,7 @@ type TextPart struct {
 
 func (x *TextPart) Reset() {
 	*x = TextPart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[15]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1234,7 @@ func (x *TextPart) String() string {
 func (*TextPart) ProtoMessage() {}
 
 func (x *TextPart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[15]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1247,7 @@ func (x *TextPart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextPart.ProtoReflect.Descriptor instead.
 func (*TextPart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{15}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *TextPart) GetText() string {
@@ -1271,7 +1271,7 @@ type ImagePart struct {
 
 func (x *ImagePart) Reset() {
 	*x = ImagePart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[16]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1283,7 +1283,7 @@ func (x *ImagePart) String() string {
 func (*ImagePart) ProtoMessage() {}
 
 func (x *ImagePart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[16]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1296,7 +1296,7 @@ func (x *ImagePart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImagePart.ProtoReflect.Descriptor instead.
 func (*ImagePart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{16}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ImagePart) GetMimeType() string {
@@ -1361,7 +1361,7 @@ type AudioPart struct {
 
 func (x *AudioPart) Reset() {
 	*x = AudioPart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[17]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1373,7 +1373,7 @@ func (x *AudioPart) String() string {
 func (*AudioPart) ProtoMessage() {}
 
 func (x *AudioPart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[17]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1386,7 +1386,7 @@ func (x *AudioPart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AudioPart.ProtoReflect.Descriptor instead.
 func (*AudioPart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{17}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *AudioPart) GetMimeType() string {
@@ -1452,7 +1452,7 @@ type FilePart struct {
 
 func (x *FilePart) Reset() {
 	*x = FilePart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[18]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1464,7 +1464,7 @@ func (x *FilePart) String() string {
 func (*FilePart) ProtoMessage() {}
 
 func (x *FilePart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[18]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1477,7 +1477,7 @@ func (x *FilePart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilePart.ProtoReflect.Descriptor instead.
 func (*FilePart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{18}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *FilePart) GetMimeType() string {
@@ -1546,7 +1546,7 @@ type Tool struct {
 
 func (x *Tool) Reset() {
 	*x = Tool{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[19]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1558,7 +1558,7 @@ func (x *Tool) String() string {
 func (*Tool) ProtoMessage() {}
 
 func (x *Tool) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[19]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1571,7 +1571,7 @@ func (x *Tool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Tool.ProtoReflect.Descriptor instead.
 func (*Tool) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{19}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Tool) GetName() string {
@@ -1605,7 +1605,7 @@ type ToolChoice struct {
 
 func (x *ToolChoice) Reset() {
 	*x = ToolChoice{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[20]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1617,7 +1617,7 @@ func (x *ToolChoice) String() string {
 func (*ToolChoice) ProtoMessage() {}
 
 func (x *ToolChoice) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[20]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +1630,7 @@ func (x *ToolChoice) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolChoice.ProtoReflect.Descriptor instead.
 func (*ToolChoice) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{20}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ToolChoice) GetMode() string {
@@ -1658,7 +1658,7 @@ type ToolCall struct {
 
 func (x *ToolCall) Reset() {
 	*x = ToolCall{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[21]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1670,7 +1670,7 @@ func (x *ToolCall) String() string {
 func (*ToolCall) ProtoMessage() {}
 
 func (x *ToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[21]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1683,7 +1683,7 @@ func (x *ToolCall) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCall.ProtoReflect.Descriptor instead.
 func (*ToolCall) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{21}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ToolCall) GetId() string {
@@ -1719,7 +1719,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[22]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1731,7 +1731,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[22]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1744,7 +1744,7 @@ func (x *ToolResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolResult.ProtoReflect.Descriptor instead.
 func (*ToolResult) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{22}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ToolResult) GetToolCallId() string {
@@ -1787,7 +1787,7 @@ type GenerationConfig struct {
 
 func (x *GenerationConfig) Reset() {
 	*x = GenerationConfig{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[23]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1799,7 +1799,7 @@ func (x *GenerationConfig) String() string {
 func (*GenerationConfig) ProtoMessage() {}
 
 func (x *GenerationConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[23]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1812,7 +1812,7 @@ func (x *GenerationConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerationConfig.ProtoReflect.Descriptor instead.
 func (*GenerationConfig) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{23}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GenerationConfig) GetTemperature() float64 {
@@ -1852,7 +1852,7 @@ type RuntimePolicy struct {
 
 func (x *RuntimePolicy) Reset() {
 	*x = RuntimePolicy{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[24]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1864,7 +1864,7 @@ func (x *RuntimePolicy) String() string {
 func (*RuntimePolicy) ProtoMessage() {}
 
 func (x *RuntimePolicy) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[24]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1877,7 +1877,7 @@ func (x *RuntimePolicy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuntimePolicy.ProtoReflect.Descriptor instead.
 func (*RuntimePolicy) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{24}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *RuntimePolicy) GetPolicy() *structpb.Struct {
@@ -1909,7 +1909,7 @@ type ChatEvent struct {
 
 func (x *ChatEvent) Reset() {
 	*x = ChatEvent{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[25]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1921,7 +1921,7 @@ func (x *ChatEvent) String() string {
 func (*ChatEvent) ProtoMessage() {}
 
 func (x *ChatEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[25]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1934,7 +1934,7 @@ func (x *ChatEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ChatEvent.ProtoReflect.Descriptor instead.
 func (*ChatEvent) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{25}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ChatEvent) GetEventId() string {
@@ -2114,7 +2114,7 @@ type MessageStart struct {
 
 func (x *MessageStart) Reset() {
 	*x = MessageStart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[26]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2126,7 +2126,7 @@ func (x *MessageStart) String() string {
 func (*MessageStart) ProtoMessage() {}
 
 func (x *MessageStart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[26]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2139,7 +2139,7 @@ func (x *MessageStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageStart.ProtoReflect.Descriptor instead.
 func (*MessageStart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{26}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *MessageStart) GetMessageId() string {
@@ -2158,7 +2158,7 @@ type ContentDelta struct {
 
 func (x *ContentDelta) Reset() {
 	*x = ContentDelta{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[27]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2170,7 +2170,7 @@ func (x *ContentDelta) String() string {
 func (*ContentDelta) ProtoMessage() {}
 
 func (x *ContentDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[27]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2183,7 +2183,7 @@ func (x *ContentDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentDelta.ProtoReflect.Descriptor instead.
 func (*ContentDelta) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{27}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ContentDelta) GetText() string {
@@ -2204,7 +2204,7 @@ type ReasoningDelta struct {
 
 func (x *ReasoningDelta) Reset() {
 	*x = ReasoningDelta{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[28]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2216,7 +2216,7 @@ func (x *ReasoningDelta) String() string {
 func (*ReasoningDelta) ProtoMessage() {}
 
 func (x *ReasoningDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[28]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2229,7 +2229,7 @@ func (x *ReasoningDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReasoningDelta.ProtoReflect.Descriptor instead.
 func (*ReasoningDelta) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{28}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ReasoningDelta) GetText() string {
@@ -2263,7 +2263,7 @@ type ToolCallStart struct {
 
 func (x *ToolCallStart) Reset() {
 	*x = ToolCallStart{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[29]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2275,7 +2275,7 @@ func (x *ToolCallStart) String() string {
 func (*ToolCallStart) ProtoMessage() {}
 
 func (x *ToolCallStart) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[29]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2288,7 +2288,7 @@ func (x *ToolCallStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCallStart.ProtoReflect.Descriptor instead.
 func (*ToolCallStart) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{29}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ToolCallStart) GetToolCallId() string {
@@ -2315,7 +2315,7 @@ type ToolCallDelta struct {
 
 func (x *ToolCallDelta) Reset() {
 	*x = ToolCallDelta{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[30]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2327,7 +2327,7 @@ func (x *ToolCallDelta) String() string {
 func (*ToolCallDelta) ProtoMessage() {}
 
 func (x *ToolCallDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[30]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2340,7 +2340,7 @@ func (x *ToolCallDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCallDelta.ProtoReflect.Descriptor instead.
 func (*ToolCallDelta) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{30}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ToolCallDelta) GetToolCallId() string {
@@ -2367,7 +2367,7 @@ type ToolCallEnd struct {
 
 func (x *ToolCallEnd) Reset() {
 	*x = ToolCallEnd{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[31]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2379,7 +2379,7 @@ func (x *ToolCallEnd) String() string {
 func (*ToolCallEnd) ProtoMessage() {}
 
 func (x *ToolCallEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[31]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2392,7 +2392,7 @@ func (x *ToolCallEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ToolCallEnd.ProtoReflect.Descriptor instead.
 func (*ToolCallEnd) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{31}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ToolCallEnd) GetToolCallId() string {
@@ -2425,7 +2425,7 @@ type Usage struct {
 
 func (x *Usage) Reset() {
 	*x = Usage{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[32]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2437,7 +2437,7 @@ func (x *Usage) String() string {
 func (*Usage) ProtoMessage() {}
 
 func (x *Usage) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[32]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2450,7 +2450,7 @@ func (x *Usage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Usage.ProtoReflect.Descriptor instead.
 func (*Usage) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{32}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Usage) GetInputTokens() int64 {
@@ -2520,7 +2520,7 @@ type ProviderDiagnostic struct {
 
 func (x *ProviderDiagnostic) Reset() {
 	*x = ProviderDiagnostic{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[33]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2532,7 +2532,7 @@ func (x *ProviderDiagnostic) String() string {
 func (*ProviderDiagnostic) ProtoMessage() {}
 
 func (x *ProviderDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[33]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2545,7 +2545,7 @@ func (x *ProviderDiagnostic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderDiagnostic.ProtoReflect.Descriptor instead.
 func (*ProviderDiagnostic) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{33}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ProviderDiagnostic) GetCode() string {
@@ -2582,7 +2582,7 @@ type ProviderError struct {
 
 func (x *ProviderError) Reset() {
 	*x = ProviderError{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[34]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2594,7 +2594,7 @@ func (x *ProviderError) String() string {
 func (*ProviderError) ProtoMessage() {}
 
 func (x *ProviderError) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[34]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2607,7 +2607,7 @@ func (x *ProviderError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderError.ProtoReflect.Descriptor instead.
 func (*ProviderError) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{34}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ProviderError) GetCode() string {
@@ -2655,7 +2655,7 @@ type MessageEnd struct {
 
 func (x *MessageEnd) Reset() {
 	*x = MessageEnd{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[35]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2667,7 +2667,7 @@ func (x *MessageEnd) String() string {
 func (*MessageEnd) ProtoMessage() {}
 
 func (x *MessageEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[35]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2680,7 +2680,7 @@ func (x *MessageEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MessageEnd.ProtoReflect.Descriptor instead.
 func (*MessageEnd) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{35}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *MessageEnd) GetMessageId() string {
@@ -2705,7 +2705,7 @@ type ShutdownRequest struct {
 
 func (x *ShutdownRequest) Reset() {
 	*x = ShutdownRequest{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[36]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2717,7 +2717,7 @@ func (x *ShutdownRequest) String() string {
 func (*ShutdownRequest) ProtoMessage() {}
 
 func (x *ShutdownRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[36]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2730,7 +2730,7 @@ func (x *ShutdownRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShutdownRequest.ProtoReflect.Descriptor instead.
 func (*ShutdownRequest) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{36}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{36}
 }
 
 type ShutdownResponse struct {
@@ -2741,7 +2741,7 @@ type ShutdownResponse struct {
 
 func (x *ShutdownResponse) Reset() {
 	*x = ShutdownResponse{}
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[37]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2753,7 +2753,7 @@ func (x *ShutdownResponse) String() string {
 func (*ShutdownResponse) ProtoMessage() {}
 
 func (x *ShutdownResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_monika_provider_v1_provider_proto_msgTypes[37]
+	mi := &file_proto_provider_v1_provider_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2766,14 +2766,14 @@ func (x *ShutdownResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShutdownResponse.ProtoReflect.Descriptor instead.
 func (*ShutdownResponse) Descriptor() ([]byte, []int) {
-	return file_proto_monika_provider_v1_provider_proto_rawDescGZIP(), []int{37}
+	return file_proto_provider_v1_provider_proto_rawDescGZIP(), []int{37}
 }
 
-var File_proto_monika_provider_v1_provider_proto protoreflect.FileDescriptor
+var File_proto_provider_v1_provider_proto protoreflect.FileDescriptor
 
-const file_proto_monika_provider_v1_provider_proto_rawDesc = "" +
+const file_proto_provider_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"'proto/monika/provider/v1/provider.proto\x12\x12monika.provider.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xd9\x01\n" +
+	" proto/provider/v1/provider.proto\x12\x12monika.provider.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xd9\x01\n" +
 	"\x11InitializeRequest\x12%\n" +
 	"\x0emonika_version\x18\x01 \x01(\tR\rmonikaVersion\x12)\n" +
 	"\x10protocol_version\x18\x02 \x01(\tR\x0fprotocolVersion\x124\n" +
@@ -3001,23 +3001,23 @@ const file_proto_monika_provider_v1_provider_proto_rawDesc = "" +
 	"ListModels\x12%.monika.provider.v1.ListModelsRequest\x1a&.monika.provider.v1.ListModelsResponse\x12T\n" +
 	"\n" +
 	"StreamChat\x12%.monika.provider.v1.StreamChatRequest\x1a\x1d.monika.provider.v1.ChatEvent0\x01\x12U\n" +
-	"\bShutdown\x12#.monika.provider.v1.ShutdownRequest\x1a$.monika.provider.v1.ShutdownResponseB,Z*monika/proto/monika/provider/v1;providerv1b\x06proto3"
+	"\bShutdown\x12#.monika.provider.v1.ShutdownRequest\x1a$.monika.provider.v1.ShutdownResponseB#Z!monika/gen/provider/v1;providerv1b\x06proto3"
 
 var (
-	file_proto_monika_provider_v1_provider_proto_rawDescOnce sync.Once
-	file_proto_monika_provider_v1_provider_proto_rawDescData []byte
+	file_proto_provider_v1_provider_proto_rawDescOnce sync.Once
+	file_proto_provider_v1_provider_proto_rawDescData []byte
 )
 
-func file_proto_monika_provider_v1_provider_proto_rawDescGZIP() []byte {
-	file_proto_monika_provider_v1_provider_proto_rawDescOnce.Do(func() {
-		file_proto_monika_provider_v1_provider_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_monika_provider_v1_provider_proto_rawDesc), len(file_proto_monika_provider_v1_provider_proto_rawDesc)))
+func file_proto_provider_v1_provider_proto_rawDescGZIP() []byte {
+	file_proto_provider_v1_provider_proto_rawDescOnce.Do(func() {
+		file_proto_provider_v1_provider_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_provider_v1_provider_proto_rawDesc), len(file_proto_provider_v1_provider_proto_rawDesc)))
 	})
-	return file_proto_monika_provider_v1_provider_proto_rawDescData
+	return file_proto_provider_v1_provider_proto_rawDescData
 }
 
-var file_proto_monika_provider_v1_provider_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_monika_provider_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
-var file_proto_monika_provider_v1_provider_proto_goTypes = []any{
+var file_proto_provider_v1_provider_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_proto_provider_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_proto_provider_v1_provider_proto_goTypes = []any{
 	(Role)(0),                              // 0: monika.provider.v1.Role
 	(ReasoningVisibility)(0),               // 1: monika.provider.v1.ReasoningVisibility
 	(UsageSource)(0),                       // 2: monika.provider.v1.UsageSource
@@ -3063,7 +3063,7 @@ var file_proto_monika_provider_v1_provider_proto_goTypes = []any{
 	(*structpb.Struct)(nil),                // 42: google.protobuf.Struct
 	(*durationpb.Duration)(nil),            // 43: google.protobuf.Duration
 }
-var file_proto_monika_provider_v1_provider_proto_depIdxs = []int32{
+var file_proto_provider_v1_provider_proto_depIdxs = []int32{
 	42, // 0: monika.provider.v1.InitializeRequest.plugin_config:type_name -> google.protobuf.Struct
 	7,  // 1: monika.provider.v1.GetCapabilitiesResponse.plugin:type_name -> monika.provider.v1.PluginInfo
 	42, // 2: monika.provider.v1.GetCapabilitiesResponse.plugin_config_schema:type_name -> google.protobuf.Struct
@@ -3128,31 +3128,31 @@ var file_proto_monika_provider_v1_provider_proto_depIdxs = []int32{
 	0,  // [0:45] is the sub-list for field type_name
 }
 
-func init() { file_proto_monika_provider_v1_provider_proto_init() }
-func file_proto_monika_provider_v1_provider_proto_init() {
-	if File_proto_monika_provider_v1_provider_proto != nil {
+func init() { file_proto_provider_v1_provider_proto_init() }
+func file_proto_provider_v1_provider_proto_init() {
+	if File_proto_provider_v1_provider_proto != nil {
 		return
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[14].OneofWrappers = []any{
+	file_proto_provider_v1_provider_proto_msgTypes[14].OneofWrappers = []any{
 		(*ContentPart_Text)(nil),
 		(*ContentPart_Image)(nil),
 		(*ContentPart_Audio)(nil),
 		(*ContentPart_File)(nil),
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[16].OneofWrappers = []any{
+	file_proto_provider_v1_provider_proto_msgTypes[16].OneofWrappers = []any{
 		(*ImagePart_Data)(nil),
 		(*ImagePart_Uri)(nil),
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[17].OneofWrappers = []any{
+	file_proto_provider_v1_provider_proto_msgTypes[17].OneofWrappers = []any{
 		(*AudioPart_Data)(nil),
 		(*AudioPart_Uri)(nil),
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[18].OneofWrappers = []any{
+	file_proto_provider_v1_provider_proto_msgTypes[18].OneofWrappers = []any{
 		(*FilePart_Data)(nil),
 		(*FilePart_Uri)(nil),
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[23].OneofWrappers = []any{}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[25].OneofWrappers = []any{
+	file_proto_provider_v1_provider_proto_msgTypes[23].OneofWrappers = []any{}
+	file_proto_provider_v1_provider_proto_msgTypes[25].OneofWrappers = []any{
 		(*ChatEvent_MessageStart)(nil),
 		(*ChatEvent_ContentDelta)(nil),
 		(*ChatEvent_ReasoningDelta)(nil),
@@ -3164,23 +3164,23 @@ func file_proto_monika_provider_v1_provider_proto_init() {
 		(*ChatEvent_Error)(nil),
 		(*ChatEvent_MessageEnd)(nil),
 	}
-	file_proto_monika_provider_v1_provider_proto_msgTypes[32].OneofWrappers = []any{}
+	file_proto_provider_v1_provider_proto_msgTypes[32].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_monika_provider_v1_provider_proto_rawDesc), len(file_proto_monika_provider_v1_provider_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_provider_v1_provider_proto_rawDesc), len(file_proto_provider_v1_provider_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_monika_provider_v1_provider_proto_goTypes,
-		DependencyIndexes: file_proto_monika_provider_v1_provider_proto_depIdxs,
-		EnumInfos:         file_proto_monika_provider_v1_provider_proto_enumTypes,
-		MessageInfos:      file_proto_monika_provider_v1_provider_proto_msgTypes,
+		GoTypes:           file_proto_provider_v1_provider_proto_goTypes,
+		DependencyIndexes: file_proto_provider_v1_provider_proto_depIdxs,
+		EnumInfos:         file_proto_provider_v1_provider_proto_enumTypes,
+		MessageInfos:      file_proto_provider_v1_provider_proto_msgTypes,
 	}.Build()
-	File_proto_monika_provider_v1_provider_proto = out.File
-	file_proto_monika_provider_v1_provider_proto_goTypes = nil
-	file_proto_monika_provider_v1_provider_proto_depIdxs = nil
+	File_proto_provider_v1_provider_proto = out.File
+	file_proto_provider_v1_provider_proto_goTypes = nil
+	file_proto_provider_v1_provider_proto_depIdxs = nil
 }

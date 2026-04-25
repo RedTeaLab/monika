@@ -1,4 +1,4 @@
-package pluginregistry
+package registry
 
 import (
 	"encoding/json"

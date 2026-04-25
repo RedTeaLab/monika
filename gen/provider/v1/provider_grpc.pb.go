@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.1
 // - protoc             v7.34.1
-// source: proto/monika/provider/v1/provider.proto
+// source: proto/provider/v1/provider.proto
 
 package providerv1
 
@@ -311,5 +311,5 @@ var ProviderPlugin_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/monika/provider/v1/provider.proto",
+	Metadata: "proto/provider/v1/provider.proto",
 }

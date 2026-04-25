@@ -1,6 +1,6 @@
-// Package providerinstall provides utilities for planning and executing
+// Package install provides utilities for planning and executing
 // provider-plugin installations from Go module package references.
-package providerinstall
+package install
 
 import "path"
 
