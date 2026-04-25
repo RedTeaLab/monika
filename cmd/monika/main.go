@@ -10,7 +10,7 @@ func main() {
 	provider := provider.NewProvider(
 		provider.WithProviderOption(
 			provider.ProviderDeepSeek,
-			"deepseek-chat",
+			"deepseek-v4-flash",
 			"https://api.deepseek.com/v1",
 			"your-api-key",
 		),
