@@ -13,8 +13,18 @@ func TestHandshakeConfigIsStable(t *testing.T) {
 }
 
 func TestNewHostStoresPluginCommand(t *testing.T) {
-	host := New(Options{Command: "monika-provider-test"})
+	host, err := New(Options{Command: "monika-provider-test"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if host.Command() != "monika-provider-test" {
 		t.Fatalf("command = %q", host.Command())
+	}
+}
+
+func TestNewRejectsEmptyCommand(t *testing.T) {
+	_, err := New(Options{Command: ""})
+	if err == nil {
+		t.Fatal("expected error for empty command")
 	}
 }
