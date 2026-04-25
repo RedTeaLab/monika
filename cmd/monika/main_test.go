@@ -1,19 +1,23 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestUsageMentionsProviderInstall(t *testing.T) {
 	usage := Usage()
-	if !contains(usage, "monika provider install") {
+
+	if usage == "" {
+		t.Fatal("usage is empty")
+	}
+	if !strings.Contains(usage, "Monika") {
+		t.Fatalf("usage missing header Monika: %s", usage)
+	}
+	if !strings.Contains(usage, "monika provider install") {
 		t.Fatalf("usage missing provider install: %s", usage)
 	}
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+	if !strings.Contains(usage, "monika provider list") {
+		t.Fatalf("usage missing provider list: %s", usage)
 	}
-	return false
 }

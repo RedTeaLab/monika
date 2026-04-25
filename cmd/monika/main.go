@@ -3,9 +3,10 @@ package main
 import "fmt"
 
 func main() {
-	fmt.Print(Usage())
+	fmt.Println(Usage())
 }
 
+// Usage returns the CLI help text for monika.
 func Usage() string {
 	return `Monika
 
