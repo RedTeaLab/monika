@@ -9,10 +9,12 @@ import (
 	"time"
 )
 
+// Registry holds the set of installed provider plugins and their exposed providers.
 type Registry struct {
 	Plugins []Plugin `json:"plugins"`
 }
 
+// Plugin describes a single installed provider plugin binary.
 type Plugin struct {
 	ID                   string          `json:"plugin_id"`
 	Package              string          `json:"package"`
@@ -27,12 +29,15 @@ type Plugin struct {
 	Providers            []ProviderEntry `json:"providers"`
 }
 
+// ProviderEntry describes a single AI provider exposed by a plugin.
 type ProviderEntry struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Capabilities []string `json:"capabilities"`
 }
 
+// Load reads a plugin registry from the JSON file at path.
+// If the file does not exist, it returns an empty Registry without an error.
 func Load(path string) (Registry, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -48,6 +53,8 @@ func Load(path string) (Registry, error) {
 	return registry, nil
 }
 
+// Save writes the plugin registry to the JSON file at path, creating parent
+// directories as needed.
 func Save(path string, registry Registry) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
@@ -59,7 +66,14 @@ func Save(path string, registry Registry) error {
 	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
+// ResolveProvider looks up a provider by its ID. If pluginID is non-empty,
+// only that plugin is searched; otherwise all plugins are searched and an
+// error is returned when the provider name is found in more than one plugin.
 func (r Registry) ResolveProvider(pluginID, providerID string) (Plugin, ProviderEntry, error) {
+	if providerID == "" {
+		return Plugin{}, ProviderEntry{}, fmt.Errorf("providerID must not be empty")
+	}
+
 	var matches []struct {
 		plugin   Plugin
 		provider ProviderEntry
@@ -83,7 +97,7 @@ func (r Registry) ResolveProvider(pluginID, providerID string) (Plugin, Provider
 		return Plugin{}, ProviderEntry{}, fmt.Errorf("provider %q not found", providerID)
 	}
 	if len(matches) > 1 {
-		return Plugin{}, ProviderEntry{}, fmt.Errorf("provider %q is ambiguous; set provider.plugin", providerID)
+		return Plugin{}, ProviderEntry{}, fmt.Errorf("provider %q is registered by multiple plugins", providerID)
 	}
 	return matches[0].plugin, matches[0].provider, nil
 }
