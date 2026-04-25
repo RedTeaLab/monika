@@ -1,31 +1,40 @@
 package agents
 
-import (
-	"monika/internal/provider"
-
-	"github.com/go-resty/resty/v2"
-)
+import "context"
 
 type Agent interface {
-	Invoke(message string) (string, error)
+	Invoke(ctx context.Context, message string) (string, error)
+}
+
+type ProviderClient interface {
+	StreamChat(ctx context.Context, req ChatRequest) ([]ChatEvent, error)
+}
+
+type ChatRequest struct {
+	Messages []Message
+}
+
+type Message struct {
+	Role    string
+	Content string
 }
 
 type AgentOption struct {
-	Provider provider.Provider // 嵌入 Provider 结构体
-	R        *resty.Client     // Resty 客户端
+	Provider ProviderClient
 }
 
-func NewAgent(provider provider.Provider) Agent {
-	r := resty.New()
+func NewAgent(provider ProviderClient) Agent {
+	return &AgentOption{Provider: provider}
+}
 
-	return &AgentOption{
-		Provider: provider,
-		R:        r,
+func (a *AgentOption) Invoke(ctx context.Context, message string) (string, error) {
+	events, err := a.Provider.StreamChat(ctx, ChatRequest{Messages: []Message{{Role: "user", Content: message}}})
+	if err != nil {
+		return "", err
 	}
-}
-
-func (a *AgentOption) Invoke(message string) (string, error) {
-
-	return a.Provider.SendMessage(a.R, message)
-
+	assistant, err := AggregateEvents(events)
+	if err != nil {
+		return "", err
+	}
+	return assistant.Content, nil
 }
