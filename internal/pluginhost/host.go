@@ -10,9 +10,9 @@ import (
 )
 
 const (
-	protocolVersion uint = 1
-	magicCookieKey       = "MONIKA_PROVIDER_PLUGIN"
-	magicCookieValue     = "monika-provider-v1"
+	protocolVersion  uint = 1
+	magicCookieKey        = "MONIKA_PROVIDER_PLUGIN"
+	magicCookieValue      = "monika-provider-v1"
 )
 
 // Host represents a managed provider plugin binary.
