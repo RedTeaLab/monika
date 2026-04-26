@@ -177,6 +177,208 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 	return nil, fmt.Errorf("agent: exceeded maximum turns (%d)", a.maxTurns)
 }
 
+func (a *AgentLoop) RunStreaming(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
+	ch := make(chan Event, 64)
+	go func() {
+		defer close(ch)
+		a.runStreaming(ctx, conv, userMessage, ch)
+	}()
+	return ch
+}
+
+func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMessage string, ch chan<- Event) {
+	if conv == nil {
+		conv = &Conversation{}
+	}
+
+	conv.Messages = append(conv.Messages, engine.ChatMessage{
+		Role:    "user",
+		Content: userMessage,
+	})
+
+	tools := a.buildToolDefs()
+	var totalUsage engine.Usage
+
+	for turn := 0; turn < a.maxTurns; turn++ {
+		select {
+		case <-ctx.Done():
+			ch <- Event{Type: EventError, Content: "cancelled"}
+			return
+		default:
+		}
+
+		messages := a.buildMessages(conv)
+		req := engine.ChatRequest{
+			Model:    a.model,
+			Messages: messages,
+			Tools:    tools,
+		}
+
+		events, err := a.provider.StreamChat(ctx, req)
+		if err != nil {
+			ch <- Event{Type: EventError, Content: fmt.Sprintf("stream chat: %v", err)}
+			return
+		}
+
+		for _, ev := range events {
+			switch ev.Kind {
+			case engine.EventContentDelta:
+				if ev.ReasoningContent != "" {
+					ch <- Event{Type: EventThinking, Content: ev.ReasoningContent}
+				} else {
+					ch <- Event{Type: EventTextDelta, Content: ev.Text}
+				}
+			case engine.EventToolCallStart:
+				if ev.ToolCall != nil {
+					ch <- Event{
+						Type: EventToolStart,
+						Tool: &ToolEvent{
+							ID:    ev.ToolCall.ID,
+							Name:  ev.ToolCall.Function.Name,
+							Input: ev.ToolCall.Function.Arguments,
+						},
+					}
+				}
+			case engine.EventToolCallEnd:
+				if ev.ToolCall != nil {
+					ch <- Event{
+						Type: EventToolDone,
+						Tool: &ToolEvent{
+							ID:    ev.ToolCall.ID,
+							Name:  ev.ToolCall.Function.Name,
+							Input: ev.ToolCall.Function.Arguments,
+						},
+					}
+				}
+			case engine.EventUsage:
+				totalUsage.InputTokens += ev.Usage.InputTokens
+				totalUsage.OutputTokens += ev.Usage.OutputTokens
+				totalUsage.TotalTokens += ev.Usage.TotalTokens
+				ch <- Event{
+					Type: EventUsage,
+					Usage: UsageEvent{
+						InputTokens:  totalUsage.InputTokens,
+						OutputTokens: totalUsage.OutputTokens,
+						TotalTokens:  totalUsage.TotalTokens,
+					},
+				}
+			case engine.EventError:
+				ch <- Event{Type: EventError, Content: ev.Error.Message}
+			}
+		}
+
+		result := parseResult(events)
+		if result.Error != nil {
+			return
+		}
+
+		if len(result.ToolCalls) == 0 {
+			conv.Messages = append(conv.Messages, engine.ChatMessage{
+				Role:             "assistant",
+				Content:          result.Content,
+				ReasoningContent: result.ReasoningContent,
+			})
+			ch <- Event{Type: EventDone}
+			return
+		}
+
+		conv.Messages = append(conv.Messages, engine.ChatMessage{
+			Role:             "assistant",
+			ReasoningContent: result.ReasoningContent,
+			ToolCalls:        result.ToolCalls,
+		})
+
+		for _, tc := range result.ToolCalls {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			t, ok := a.tools.Get(tc.Function.Name)
+			if !ok {
+				ch <- Event{
+					Type: EventToolOutput,
+					Tool: &ToolEvent{
+						ID:     tc.ID,
+						Name:   tc.Function.Name,
+						Output: fmt.Sprintf("tool %s not found", tc.Function.Name),
+						Status: "error",
+					},
+				}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("tool %s not found", tc.Function.Name),
+					ToolCallID: tc.ID,
+				})
+				continue
+			}
+
+			if a.confirmFn != nil && !a.confirmFn(t, json.RawMessage(tc.Function.Arguments)) {
+				ch <- Event{
+					Type: EventToolOutput,
+					Tool: &ToolEvent{
+						ID:     tc.ID,
+						Name:   tc.Function.Name,
+						Output: "execution denied by user",
+						Status: "denied",
+					},
+				}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
+					ToolCallID: tc.ID,
+				})
+				continue
+			}
+
+			execResult, err := t.Execute(ctx, json.RawMessage(tc.Function.Arguments))
+			if err != nil {
+				ch <- Event{
+					Type: EventToolOutput,
+					Tool: &ToolEvent{
+						ID:     tc.ID,
+						Name:   tc.Function.Name,
+						Output: err.Error(),
+						Status: "error",
+					},
+				}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("error executing %s: %s", tc.Function.Name, err),
+					ToolCallID: tc.ID,
+					Name:       tc.Function.Name,
+				})
+				continue
+			}
+
+			toolContent := execResult.Content
+			if execResult.IsError {
+				toolContent = "error: " + toolContent
+			}
+
+			ch <- Event{
+				Type: EventToolOutput,
+				Tool: &ToolEvent{
+					ID:     tc.ID,
+					Name:   tc.Function.Name,
+					Output: execResult.Content,
+					Status: "done",
+				},
+			}
+
+			conv.Messages = append(conv.Messages, engine.ChatMessage{
+				Role:       "tool",
+				Content:    toolContent,
+				ToolCallID: tc.ID,
+				Name:       tc.Function.Name,
+			})
+		}
+	}
+
+	ch <- Event{Type: EventError, Content: fmt.Sprintf("agent: exceeded maximum turns (%d)", a.maxTurns)}
+}
+
 func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 	var messages []engine.ChatMessage
 
