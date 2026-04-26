@@ -65,10 +65,6 @@ func runChat(cmd *cobra.Command, args []string) error {
 		loopOpts = append(loopOpts, agent.WithSystemPrompt(prompt))
 	}
 
-	if chatVerbose {
-		loopOpts = append(loopOpts, agent.WithVerbose(cmd.ErrOrStderr()))
-	}
-
 	loop := agent.NewLoop(pr.provider, registry, loopOpts...)
 
 	result, err := loop.Run(ctx, nil, message)
