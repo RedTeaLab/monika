@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,9 +19,6 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
-
-//go:embed all:frontend/dist
-var assets embed.FS
 
 func main() {
 	home, err := os.UserHomeDir()
@@ -65,7 +61,7 @@ func main() {
 			application.NewService(appService),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(assets),
+			Handler: application.AssetFileServerFS(os.DirFS("frontend/dist")),
 		},
 	})
 
