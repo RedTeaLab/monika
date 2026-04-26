@@ -1,23 +1,41 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 
 function Console({ onResize }: { onResize: (h: number) => void }) {
   const [lines] = useState<string[]>(['$ ready'])
+  const resizeRef = useRef<{ onMove: (ev: MouseEvent) => void; onUp: () => void } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (resizeRef.current) {
+        document.removeEventListener('mousemove', resizeRef.current.onMove)
+        document.removeEventListener('mouseup', resizeRef.current.onUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+  }, [])
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    let startY = e.clientY
-    let startHeight = (e.target as HTMLElement).parentElement?.offsetHeight || 200
+    const startY = e.clientY
+    const startHeight = (e.target as HTMLElement).parentElement?.offsetHeight || 200
     let resizing = true
     document.body.style.cursor = 'ns-resize'
     document.body.style.userSelect = 'none'
+
     const onMove = (ev: MouseEvent) => {
       if (!resizing) return
       const newH = Math.max(80, Math.min(500, startHeight + (startY - ev.clientY)))
       onResize(newH)
     }
     const onUp = () => {
-      resizing = false; document.body.style.cursor = ''; document.body.style.userSelect = ''
-      document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp)
+      resizing = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      resizeRef.current = null
     }
+    resizeRef.current = { onMove, onUp }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
   }, [onResize])

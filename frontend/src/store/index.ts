@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
-import { StreamEvent } from '../../bindings/monika'
+import { StreamEvent } from '../bindings/monika'
 
 interface ToolCall {
   name: string
@@ -20,6 +20,8 @@ interface AppState {
   messages: Message[]
   generating: boolean
   tokenCount: number
+  projectPath: string
+  activeSessionId: string
 
   addMessage: (msg: Message) => void
   updateLastAssistant: (content: string) => void
@@ -28,12 +30,16 @@ interface AppState {
   setGenerating: (v: boolean) => void
   addTokens: (tokens: number) => void
   clearMessages: () => void
+  setProjectPath: (path: string) => void
+  setActiveSessionId: (id: string) => void
 }
 
 export const useStore = create<AppState>((set) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
   generating: false,
   tokenCount: 0,
+  projectPath: '',
+  activeSessionId: '',
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -81,6 +87,8 @@ export const useStore = create<AppState>((set) => ({
   setGenerating: (v) => set({ generating: v }),
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
+  setProjectPath: (path) => set({ projectPath: path }),
+  setActiveSessionId: (id) => set({ activeSessionId: id }),
 }))
 
 export function setupWailsEvents() {

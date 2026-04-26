@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	agent2 "monika/internal/agent"
@@ -28,6 +29,7 @@ type App struct {
 
 	eventBus    *EventBus
 	cancelFuncs map[string]context.CancelFunc
+	cancelMu    sync.Mutex
 
 	loopOpts []agent2.LoopOption
 }
@@ -53,9 +55,11 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 func (a *App) Shutdown() {
+	a.cancelMu.Lock()
 	for _, cancel := range a.cancelFuncs {
 		cancel()
 	}
+	a.cancelMu.Unlock()
 	a.eventBus.Close()
 }
 
@@ -143,13 +147,18 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 
 func (a *App) SendMessage(projectPath, sessionID, text string) error {
 	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+
 	s, err := sm.Load(sessionID)
 	if err != nil {
 		return err
 	}
 
 	ctx, cancel := context.WithCancel(a.ctx)
+	a.cancelMu.Lock()
 	a.cancelFuncs[sessionID] = cancel
+	a.cancelMu.Unlock()
 
 	conv := &agent2.Conversation{
 		ID:       s.ID,
@@ -164,7 +173,11 @@ func (a *App) SendMessage(projectPath, sessionID, text string) error {
 
 	go func() {
 		defer cancel()
-		defer delete(a.cancelFuncs, sessionID)
+		defer func() {
+			a.cancelMu.Lock()
+			delete(a.cancelFuncs, sessionID)
+			a.cancelMu.Unlock()
+		}()
 
 		events := loop.RunStreaming(ctx, conv, text)
 		for ev := range events {
@@ -180,7 +193,10 @@ func (a *App) SendMessage(projectPath, sessionID, text string) error {
 }
 
 func (a *App) CancelGeneration(sessionID string) {
-	if cancel, ok := a.cancelFuncs[sessionID]; ok {
+	a.cancelMu.Lock()
+	cancel, ok := a.cancelFuncs[sessionID]
+	a.cancelMu.Unlock()
+	if ok {
 		cancel()
 	}
 }
@@ -266,7 +282,7 @@ func (a *App) getSessionManager(projectPath string) *SessionManager {
 	if sm, ok := a.sessions[projectPath]; ok {
 		return sm
 	}
-	sm := NewSessionManager(projectPath)
+	sm := NewSessionManager(a.home, projectPath)
 	a.sessions[projectPath] = sm
 	return sm
 }

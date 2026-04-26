@@ -1,3 +1,5 @@
+import { Window } from '@wailsio/runtime'
+
 function TitleBar() {
   return (
     <div
@@ -9,9 +11,9 @@ function TitleBar() {
       <div className="px-2 text-xs text-[var(--color-text-dim)]">branch</div>
       <div className="flex-1" />
       <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} className="flex">
-        <button className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] text-xs text-[var(--color-text-dim)]">−</button>
-        <button className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] text-xs text-[var(--color-text-dim)]">□</button>
-        <button className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-accent-red)] text-xs text-[var(--color-text-dim)]">✕</button>
+        <button onClick={() => Window.Minimise()} className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] text-xs text-[var(--color-text-dim)]">−</button>
+        <button onClick={() => Window.Maximise()} className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-bg-tertiary)] text-xs text-[var(--color-text-dim)]">□</button>
+        <button onClick={() => Window.Close()} className="w-8 h-8 flex items-center justify-center hover:bg-[var(--color-accent-red)] text-xs text-[var(--color-text-dim)]">✕</button>
       </div>
     </div>
   )

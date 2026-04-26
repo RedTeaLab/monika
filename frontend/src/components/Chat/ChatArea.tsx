@@ -1,4 +1,4 @@
-import { App } from '../../../bindings/monika'
+import { App } from '../../bindings/monika'
 import { useStore } from '../../store'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
@@ -9,6 +9,8 @@ function ChatArea() {
   const setGenerating = useStore((s) => s.setGenerating)
   const addMessage = useStore((s) => s.addMessage)
   const clearMessages = useStore((s) => s.clearMessages)
+  const projectPath = useStore((s) => s.projectPath)
+  const activeSessionId = useStore((s) => s.activeSessionId)
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return
@@ -21,12 +23,17 @@ function ChatArea() {
       return
     }
 
+    if (!projectPath || !activeSessionId) {
+      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No project or session selected. Use /open to open a project.' })
+      return
+    }
+
     addMessage({ id: crypto.randomUUID(), role: 'user', content: text })
     addMessage({ id: crypto.randomUUID(), role: 'assistant', content: '' })
     setGenerating(true)
 
     try {
-      await App.SendMessage('', '', text)
+      await App.SendMessage(projectPath, activeSessionId, text)
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGenerating(false)

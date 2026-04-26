@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"monika/pkg/engine"
@@ -24,14 +25,27 @@ type Session struct {
 }
 
 type SessionManager struct {
+	mu          sync.Mutex
+	home        string
 	projectDir  string
 	sessionsDir string
 }
 
-func NewSessionManager(projectDir string) *SessionManager {
+func projectSlug(projectDir string) string {
+	s := strings.ToLower(projectDir)
+	s = strings.ReplaceAll(s, `\`, "-")
+	s = strings.ReplaceAll(s, "/", "-")
+	s = strings.ReplaceAll(s, ":", "")
+	s = strings.Trim(s, "-")
+	return s
+}
+
+func NewSessionManager(home, projectDir string) *SessionManager {
+	sessionsDir := filepath.Join(home, ".monika", "projects", projectSlug(projectDir), "sessions")
 	return &SessionManager{
+		home:        home,
 		projectDir:  projectDir,
-		sessionsDir: filepath.Join(projectDir, "sessions"),
+		sessionsDir: sessionsDir,
 	}
 }
 
@@ -125,4 +139,12 @@ func (sm *SessionManager) SetTitle(s *Session) {
 			return
 		}
 	}
+}
+
+func (sm *SessionManager) Lock() {
+	sm.mu.Lock()
+}
+
+func (sm *SessionManager) Unlock() {
+	sm.mu.Unlock()
 }

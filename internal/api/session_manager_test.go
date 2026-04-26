@@ -9,7 +9,7 @@ import (
 
 func TestSessionManagerNewAndLoad(t *testing.T) {
 	dir := t.TempDir()
-	sm := NewSessionManager(dir)
+	sm := NewSessionManager(dir, dir)
 
 	s, err := sm.New("gpt-4", "openai")
 	if err != nil {
@@ -56,7 +56,7 @@ func TestSessionManagerNewAndLoad(t *testing.T) {
 
 func TestSessionManagerList(t *testing.T) {
 	dir := t.TempDir()
-	sm := NewSessionManager(dir)
+	sm := NewSessionManager(dir, dir)
 
 	s1, _ := sm.New("gpt-4", "openai")
 	s1.ProjectDir = dir
@@ -79,7 +79,7 @@ func TestSessionManagerList(t *testing.T) {
 
 func TestSessionManagerDelete(t *testing.T) {
 	dir := t.TempDir()
-	sm := NewSessionManager(dir)
+	sm := NewSessionManager(dir, dir)
 
 	s, _ := sm.New("gpt-4", "openai")
 	s.ProjectDir = dir
@@ -96,7 +96,7 @@ func TestSessionManagerDelete(t *testing.T) {
 }
 
 func TestSessionManagerSetTitle(t *testing.T) {
-	sm := NewSessionManager("/tmp")
+	sm := NewSessionManager("/tmp", "/tmp")
 
 	s := &Session{
 		ID:    "test-id",
