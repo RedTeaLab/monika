@@ -2,6 +2,27 @@
 
 本文件用于记录每次功能或行为变更，方便后续审查。
 
+## 变更记录规则
+
+每次提交或一组相关提交，**必须**在此文件中追加一条记录。记录格式：
+
+```
+- **简短描述**：说明做了什么、为什么做、影响范围。
+```
+
+- 每条记录一行，以 `- ` 开头，加粗简短标题，冒号后详细说明。
+- 按日期分组，日期格式 `## YYYY-MM-DD`。
+- 变更涉及多个模块时，在说明中分别提及。
+- 设计文档存在于 `docs/plans/` 时，在相应记录中引用。
+
+---
+
+## 2026-04-27
+
+- **从 TUI 迁移到 Wails v3 桌面 GUI**：新增 `internal/api/`（App、EventBus、SessionManager、FileService）、React 前端（TitleBar、SessionList、ChatArea、FileTree、Console、StatusBar）、CodeMirror 6 编辑器、Zustand 状态管理、`internal/bootstrap/` provider 初始化。移除 `cmd/monika/`（CLI/REPL/TUI）、`internal/session/`（旧 session）、Bubble Tea/cobra/go-prompt 依赖。入口改为根目录 `main.go`。设计文档：`docs/plans/2026-04-26-agentic-editor-gui-design.md`、`docs/plans/2026-04-26-agentic-editor-gui-implementation.md`。
+- **代码审查修复**：修复 session 并发竞态（SessionManager mutex）、cancelFuncs 并发访问（cancelMu）、JSON 序列化字段名不匹配（ToolEvent/UsageEvent json tags）、App map 并发访问（sync.RWMutex）、前端空白参数传递、SessionList 接入 Go API、StatusBar 接入 Zustand、Console 事件监听器泄漏修复、窗口控制按钮接入 Wails runtime。
+- **工具注册入口统一**：工具注册移入 `internal/tool/builtin/register.go`，`internal/tool/tool.go` 保持纯接口定义。
+
 ## 2026-04-26
 
 - **工具调用闭环**：实现完整的 Tool calling 模块，包含 Tool 接口、ToolRegistry、6 个内置工具（file_read/write/list、glob、grep、bash），多平台 bash 支持（Win: pwsh/ps/cmd，Unix: sh/bash），所有文件工具强制项目目录路径校验。
@@ -10,6 +31,9 @@
 - **ChatMessage 扩展**：增加 ToolCalls、ToolCallID、Name、ReasoningContent 字段。
 - **CLI 增强**：chat 命令自动加载 AGENTS.md 作为 system prompt，注册内置工具。
 - **测试覆盖**：新增 internal/tool、builtin、agent loop、SSE tool_calls 全套测试。
+- **交互模式与会话持久化**：新增 REPL 模式支持多轮对话、会话保存与恢复。设计文档：`docs/plans/2026-04-26-interactive-mode-session-design.md`、`docs/plans/2026-04-26-interactive-mode-session-implementation.md`。
+- **引擎插件架构**：新增 `pkg/engine` 接口定义 + registry、provider adapter 抽象层、deepseek/openai 引擎适配器、skill/MCP 引擎。设计文档：`docs/plans/2026-04-26-engine-plugin-architecture-design.md`、`docs/plans/2026-04-26-engine-plugin-implementation.md`。
+- **TUI REPL**：新增 Bubble Tea TUI 提供交互式聊天界面。设计文档：`docs/plans/2026-04-26-tui-repl-design.md`、`docs/plans/2026-04-26-tui-repl-implementation.md`。
 
 ## 2026-04-25
 
