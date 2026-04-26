@@ -29,20 +29,23 @@ function SessionList() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-bg-secondary)]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border)]">
-        <span className="text-xs font-semibold text-[var(--color-text-dim)]">SESSIONS</span>
-        <button onClick={handleNewSession} className="text-xs text-[var(--color-accent)] hover:text-white">+</button>
+    <div className="flex flex-col h-full bg-[var(--bg-sidebar)]">
+      <div className="flex items-center justify-between px-5 pt-4 pb-1">
+        <span className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-[0.05em] uppercase">Sessions</span>
+        <button
+          onClick={handleNewSession}
+          className="w-5 h-5 flex items-center justify-center rounded-[3px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] text-[14px] leading-none"
+        >+</button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {sessions.length === 0 ? (
-          <div className="px-3 py-4 text-xs text-[var(--color-text-dim)] text-center">No sessions yet</div>
+          <div className="px-5 py-4 text-[12px] text-[var(--text-dim)]">No sessions yet</div>
         ) : (
           sessions.map((s) => (
             <div
               key={s.id}
-              className={`px-3 py-2 cursor-pointer text-xs truncate hover:bg-[var(--color-bg-tertiary)] ${activeSessionId === s.id ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-accent)]' : ''}`}
               onClick={() => handleSelect(s.id)}
+              className={`px-5 py-[2px] cursor-pointer text-[13px] truncate leading-[22px] hover:bg-[var(--bg-hover)] ${activeSessionId === s.id ? 'bg-[var(--bg-active)]' : ''}`}
             >
               {s.title || 'Untitled'}
             </div>

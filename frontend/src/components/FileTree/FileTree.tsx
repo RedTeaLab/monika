@@ -29,7 +29,7 @@ function FileTree() {
   }
 
   const statusColor = (status?: string) => {
-    switch (status) { case 'M': return 'var(--color-accent-yellow)'; case 'A': return 'var(--color-accent-green)'; case 'D': return 'var(--color-accent-red)'; default: return undefined; }
+    switch (status) { case 'M': return 'var(--yellow)'; case 'A': return 'var(--green)'; case 'D': return 'var(--red)'; default: return undefined; }
   }
 
   const renderNode = (node: FileNode, depth = 0) => {
@@ -37,12 +37,12 @@ function FileTree() {
     return (
       <div key={node.path}>
         <div
-          className={`flex items-center gap-1 px-2 py-0.5 cursor-pointer text-xs hover:bg-[var(--color-bg-tertiary)] ${isSelected ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-accent)]' : ''}`}
-          style={{ paddingLeft: `${depth * 12 + 8}px`, color: statusColor(node.status) }}
+          className={`flex items-center gap-1 cursor-pointer text-[13px] leading-[22px] hover:bg-[var(--bg-hover)] ${isSelected ? 'bg-[var(--bg-active)]' : ''}`}
+          style={{ paddingLeft: `${depth * 16 + 8}px`, color: statusColor(node.status) || 'var(--text-primary)' }}
           onClick={() => handleFileClick(node)} >
-          <span className="w-4 text-center">{node.is_dir ? (isExpanded ? 'v' : '>') : '·'}</span>
+          <span className="flex-shrink-0 inline-flex items-center justify-center w-4 h-4">{node.is_dir ? (isExpanded ? '\u25BC' : '\u25B6') : ''}</span>
           <span>{node.name}</span>
-          {node.status && <span className="text-[10px] ml-auto">{node.status}</span>}
+          {node.status && <span className="text-[11px] ml-auto">{node.status}</span>}
         </div>
         {node.is_dir && isExpanded && node.children?.map(ch => renderNode(ch, depth + 1))}
       </div>
@@ -50,13 +50,13 @@ function FileTree() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--color-bg-secondary)]">
-      <div className="px-3 py-2 border-b border-[var(--color-border)]">
-        <span className="text-xs font-semibold text-[var(--color-text-dim)]">FILES</span>
+    <div className="flex flex-col h-full bg-[var(--bg-sidebar)]">
+      <div className="px-5 pt-4 pb-1">
+        <span className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-[0.05em] uppercase">Files</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {tree.length === 0 ? (
-          <div className="px-3 py-4 text-xs text-[var(--color-text-dim)] text-center">No project opened</div>
+          <div className="px-5 py-4 text-[12px] text-[var(--text-dim)]">No project opened</div>
         ) : tree.map(node => renderNode(node))}
       </div>
       {selectedFile && (

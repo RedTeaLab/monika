@@ -51,10 +51,10 @@ function FileEditor({ filePath, content, readOnly = true, onClose }: FileEditorP
   }, [filePath, content, readOnly])
 
   return (
-    <div className="border-t border-[var(--color-border)] h-64 flex flex-col">
-      <div className="flex items-center justify-between px-2 py-1 bg-[var(--color-bg-tertiary)]">
-        <span className="text-xs truncate">{filePath}</span>
-        <button onClick={onClose} className="text-xs hover:text-white">&times;</button>
+    <div className="border-t border-[var(--border)] h-64 flex flex-col">
+      <div className="flex items-center justify-between px-3 py-[4px] bg-[var(--bg-sidebar)] border-b border-[var(--border)]">
+        <span className="text-[12px] truncate text-[var(--text-primary)]">{filePath.split('/').pop() || filePath.split('\\').pop()}</span>
+        <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-5 h-5 flex items-center justify-center rounded-[3px]">&times;</button>
       </div>
       <div ref={editorRef} className="flex-1 overflow-hidden" />
     </div>

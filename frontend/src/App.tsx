@@ -12,23 +12,23 @@ function App() {
   const [consoleHeight, setConsoleHeight] = useState(200)
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--color-bg-primary)]">
+    <div className="flex flex-col h-screen bg-[var(--bg-main)]">
       <TitleBar />
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-56 border-r border-[var(--color-border)] flex-shrink-0">
+        <div className="w-56 border-r border-[var(--border)] flex-shrink-0">
           <SessionList />
         </div>
         <div className="flex-1 flex flex-col min-w-0">
           <ChatArea />
         </div>
         {showFileTree && (
-          <div className="w-64 border-l border-[var(--color-border)] flex-shrink-0">
+          <div className="w-64 border-l border-[var(--border)] flex-shrink-0">
             <FileTree />
           </div>
         )}
       </div>
       {showConsole && (
-        <div style={{ height: consoleHeight }} className="border-t border-[var(--color-border)]">
+        <div style={{ height: consoleHeight }} className="border-t border-[var(--border)]">
           <Console onResize={setConsoleHeight} />
         </div>
       )}

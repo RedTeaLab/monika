@@ -11,18 +11,19 @@ function ChatInput({ onSend, disabled }: { onSend: (text: string) => void; disab
   }
 
   return (
-    <div className="border-t border-[var(--color-border)] px-4 py-2">
+    <div className="border-t border-[var(--border)] px-3 py-2 bg-[var(--bg-main)]">
       <textarea
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={disabled ? 'Generating...' : 'Send a message... (Enter to submit)'}
-        className="w-full bg-transparent text-xs text-[var(--color-text)] placeholder-[var(--color-text-dim)] resize-none outline-none"
+        className="w-full bg-[var(--bg-input)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] resize-none outline-none px-3 py-[6px] rounded-[2px] border border-transparent focus:border-[var(--border-active)]"
         rows={2}
       />
     </div>
   )
+
 }
 
 export default ChatInput
