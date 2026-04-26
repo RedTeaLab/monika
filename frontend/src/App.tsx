@@ -1,54 +1,43 @@
-import { useState, useEffect } from 'react'
-import {Events, WML} from "@wailsio/runtime";
-import {GreetService} from "../bindings/monika";
+import { useState } from 'react'
+import TitleBar from './components/TitleBar/TitleBar'
+import SessionList from './components/Sidebar/SessionList'
+import ChatArea from './components/Chat/ChatArea'
+import FileTree from './components/FileTree/FileTree'
+import Console from './components/Console/Console'
+import StatusBar from './components/StatusBar/StatusBar'
 
 function App() {
-  const [name, setName] = useState<string>('');
-  const [result, setResult] = useState<string>('Please enter your name below 👇');
-  const [time, setTime] = useState<string>('Listening for Time event...');
-
-  const doGreet = () => {
-    let localName = name;
-    if (!localName) {
-      localName = 'anonymous';
-    }
-    GreetService.Greet(localName).then((resultValue: string) => {
-      setResult(resultValue);
-    }).catch((err: any) => {
-      console.log(err);
-    });
-  }
-
-  useEffect(() => {
-    Events.On('time', (timeValue: any) => {
-      setTime(timeValue.data);
-    });
-    // Reload WML so it picks up the wml tags
-    WML.Reload();
-  }, []);
+  const [showConsole, setShowConsole] = useState(true)
+  const [showFileTree, setShowFileTree] = useState(true)
+  const [consoleHeight, setConsoleHeight] = useState(200)
 
   return (
-    <div className="container">
-      <div>
-        <a data-wml-openURL="https://wails.io">
-          <img src="/wails.png" className="logo" alt="Wails logo"/>
-        </a>
-        <a data-wml-openURL="https://reactjs.org">
-          <img src="/react.svg" className="logo react" alt="React logo"/>
-        </a>
-      </div>
-      <h1>Wails + React</h1>
-      <div className="result">{result}</div>
-      <div className="card">
-        <div className="input-box">
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} type="text" autoComplete="off"/>
-          <button className="btn" onClick={doGreet}>Greet</button>
+    <div className="flex flex-col h-screen bg-[var(--color-bg-primary)]">
+      <TitleBar />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="w-56 border-r border-[var(--color-border)] flex-shrink-0">
+          <SessionList />
         </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <ChatArea />
+        </div>
+        {showFileTree && (
+          <div className="w-64 border-l border-[var(--color-border)] flex-shrink-0">
+            <FileTree />
+          </div>
+        )}
       </div>
-      <div className="footer">
-        <div><p>Click on the Wails logo to learn more</p></div>
-        <div><p>{time}</p></div>
-      </div>
+      {showConsole && (
+        <div style={{ height: consoleHeight }} className="border-t border-[var(--color-border)]">
+          <Console onResize={setConsoleHeight} />
+        </div>
+      )}
+      <StatusBar
+        showConsole={showConsole}
+        showFileTree={showFileTree}
+        onToggleConsole={() => setShowConsole(!showConsole)}
+        onToggleFileTree={() => setShowFileTree(!showFileTree)}
+      />
     </div>
   )
 }
