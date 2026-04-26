@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
-import { StreamEvent } from '../bindings/monika'
+import { StreamEvent } from '../../bindings/monika'
 
 interface ToolCall {
   name: string

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { App, SessionInfo } from '../../bindings/monika'
+import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
 
 function SessionList() {

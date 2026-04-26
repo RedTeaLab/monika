@@ -1,4 +1,4 @@
-import { App } from '../../bindings/monika'
+import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
