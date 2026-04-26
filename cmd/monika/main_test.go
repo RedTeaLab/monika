@@ -10,8 +10,10 @@ import (
 
 func resetChatState() {
 	chatModel = ""
+	chatVerbose = false
 	_ = chatCmd.Flags().Set("help", "false")
 	_ = chatCmd.Flags().Set("model", "")
+	_ = chatCmd.Flags().Set("verbose", "false")
 	chatCmd.SilenceUsage = false
 }
 
@@ -69,6 +71,51 @@ func TestChatNoArgs(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error when chat has no args, output: %s", buf.String())
 	}
+}
+
+func resetRootState() {
+	rootContinue = false
+	rootSessionID = ""
+}
+
+func TestContinueFlag(t *testing.T) {
+	resetRootState()
+	defer resetRootState()
+	f := rootCmd.Flags().Lookup("continue")
+	if f == nil {
+		t.Fatal("expected --continue flag to be registered")
+	}
+	if f.DefValue != "false" {
+		t.Errorf("expected default false, got %s", f.DefValue)
+	}
+}
+
+func TestSessionFlag(t *testing.T) {
+	resetRootState()
+	defer resetRootState()
+	f := rootCmd.Flags().Lookup("session")
+	if f == nil {
+		t.Fatal("expected --session flag to be registered")
+	}
+	if f.DefValue != "" {
+		t.Errorf("expected default empty, got %s", f.DefValue)
+	}
+}
+
+func TestMutuallyExclusiveFlags(t *testing.T) {
+	resetRootState()
+	defer resetRootState()
+	err := rootCmd.ValidateFlagGroups()
+	if err != nil {
+		t.Fatalf("flag groups should be valid: %s", err)
+	}
+	rootCmd.Flags().Set("continue", "true")
+	rootCmd.Flags().Set("session", "abc")
+	err = rootCmd.ValidateFlagGroups()
+	if err == nil {
+		t.Fatal("expected error for mutually exclusive flags")
+	}
+	resetRootState()
 }
 
 func TestChatWithConfigFile(t *testing.T) {
