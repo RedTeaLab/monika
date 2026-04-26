@@ -1,15 +1,16 @@
-//go:build wails
-
 package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"monika/internal/agent"
 	"monika/internal/api"
+	"monika/internal/bootstrap"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
 
@@ -19,6 +20,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+//go:embed all:frontend/dist
+var assets embed.FS
 
 func main() {
 	home, err := os.UserHomeDir()
@@ -33,7 +37,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	pr, err := initProvider(ctx, home, cwd, "")
+	pr, err := bootstrap.InitProvider(ctx, home, cwd, "")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -44,14 +48,15 @@ func main() {
 
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
-		agent.WithModel(pr.model),
+		agent.WithModel(pr.Model),
 	}
-	if prompt := loadSystemPrompt(cwd); prompt != "" {
-		sysPrompt := fmt.Sprintf("OS Version: %s\nWorking directory: %s\n\n%s", runtime.GOOS, cwd, prompt)
-		loopOpts = append(loopOpts, agent.WithSystemPrompt(sysPrompt))
+	if p := loadSystemPrompt(cwd); p != "" {
+		loopOpts = append(loopOpts, agent.WithSystemPrompt(
+			fmt.Sprintf("OS Version: %s\nWorking directory: %s\n\n%s", runtime.GOOS, cwd, p),
+		))
 	}
 
-	appService := api.NewApp(home, pr.config, pr.provider, pr.model, registry, loopOpts)
+	appService := api.NewApp(home, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
 
 	app := application.New(application.Options{
 		Name:        "monika",
@@ -60,15 +65,15 @@ func main() {
 			application.NewService(appService),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(os.DirFS("../../frontend/dist")),
+			Handler: application.AssetFileServerFS(assets),
 		},
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:     "Monika",
-		Width:     1400,
-		Height:    900,
-		MinWidth:  900,
+		Title:    "Monika",
+		Width:    1400,
+		Height:   900,
+		MinWidth: 900,
 		MinHeight: 600,
 	})
 
@@ -76,4 +81,17 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func loadSystemPrompt(projectDir string) string {
+	paths := []string{
+		filepath.Join(projectDir, "AGENTS.md"),
+		filepath.Join(projectDir, ".monika", "AGENTS.md"),
+	}
+	for _, p := range paths {
+		if data, err := os.ReadFile(p); err == nil {
+			return string(data)
+		}
+	}
+	return ""
 }

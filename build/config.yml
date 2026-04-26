@@ -1,0 +1,25 @@
+# Wails v3 build configuration
+# https://v3.wails.io/configuration/build
+
+name: monika
+output: build/bin/monika
+
+dev:
+  frontend:
+    dir: frontend
+    build: npm run build
+  watcher:
+    paths:
+      - "**/*.go"
+    ignore:
+      - node_modules
+      - build
+      - .git
+
+frontend:
+  dir: frontend
+  build: npm run build
+
+info:
+  company: monika
+  copyright: "© 2026 monika"

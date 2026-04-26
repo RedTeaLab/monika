@@ -1,4 +1,4 @@
-package main
+package bootstrap
 
 import (
 	"bufio"
@@ -8,18 +8,19 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
 	"monika/internal/config"
 	"monika/pkg/engine"
+
+	"gopkg.in/yaml.v3"
 )
 
-type providerResult struct {
-	provider engine.ProviderEngine
-	model    string
-	config   config.Config
+type Result struct {
+	Provider engine.ProviderEngine
+	Model    string
+	Config   config.Config
 }
 
-func initProvider(ctx context.Context, home, cwd, modelOverride string) (*providerResult, error) {
+func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result, error) {
 	cfg, err := config.Load(config.Options{HomeDir: home, ProjectDir: cwd})
 	if err != nil {
 		return nil, fmt.Errorf("config: %w", err)
@@ -60,10 +61,10 @@ func initProvider(ctx context.Context, home, cwd, modelOverride string) (*provid
 		model = cfg.Model
 	}
 
-	return &providerResult{
-		provider: providerEng,
-		model:    model,
-		config:   cfg,
+	return &Result{
+		Provider: providerEng,
+		Model:    model,
+		Config:   cfg,
 	}, nil
 }
 
