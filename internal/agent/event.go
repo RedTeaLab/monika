@@ -21,15 +21,15 @@ type Event struct {
 }
 
 type ToolEvent struct {
-	ID     string
-	Name   string
-	Input  string
-	Output string
-	Status string
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Input  string `json:"input"`
+	Output string `json:"output"`
+	Status string `json:"status"`
 }
 
 type UsageEvent struct {
-	InputTokens  int64
-	OutputTokens int64
-	TotalTokens  int64
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+	TotalTokens  int64 `json:"total_tokens"`
 }

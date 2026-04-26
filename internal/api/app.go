@@ -23,6 +23,7 @@ type App struct {
 	model    string
 	registry *tool2.ToolRegistry
 
+	mu       sync.RWMutex
 	sessions map[string]*SessionManager
 	projects map[string]*ProjectInfo
 	fileSvc  map[string]*FileService
@@ -64,6 +65,8 @@ func (a *App) Shutdown() {
 }
 
 func (a *App) ListProjects() []ProjectInfo {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	var projects []ProjectInfo
 	for _, p := range a.projects {
 		projects = append(projects, *p)
@@ -105,7 +108,9 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 		Branch:    branch,
 		Worktrees: worktrees,
 	}
+	a.mu.Lock()
 	a.projects[path] = info
+	a.mu.Unlock()
 
 	a.getSessionManager(path)
 	a.getFileService(path)
@@ -279,6 +284,15 @@ func (a *App) handleAgentEvent(sessionID string, ev agent2.Event) {
 }
 
 func (a *App) getSessionManager(projectPath string) *SessionManager {
+	a.mu.RLock()
+	if sm, ok := a.sessions[projectPath]; ok {
+		a.mu.RUnlock()
+		return sm
+	}
+	a.mu.RUnlock()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if sm, ok := a.sessions[projectPath]; ok {
 		return sm
 	}
@@ -288,6 +302,15 @@ func (a *App) getSessionManager(projectPath string) *SessionManager {
 }
 
 func (a *App) getFileService(projectPath string) *FileService {
+	a.mu.RLock()
+	if fs, ok := a.fileSvc[projectPath]; ok {
+		a.mu.RUnlock()
+		return fs
+	}
+	a.mu.RUnlock()
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if fs, ok := a.fileSvc[projectPath]; ok {
 		return fs
 	}
