@@ -36,7 +36,7 @@ func (p *DeepSeekProvider) StreamChat(ctx context.Context, req engine.ChatReques
 	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("deepseek: base_url not configured")
 	}
-	return openai.StreamChat(ctx, cfg.BaseURL, cfg.APIKey, cfg.Model, req.Messages)
+	return openai.StreamChat(ctx, cfg.BaseURL, cfg.APIKey, cfg.Model, req.Messages, req.Tools)
 }
 
 func (p *DeepSeekProvider) ListModels(ctx context.Context) ([]engine.Model, error) {

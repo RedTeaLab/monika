@@ -14,21 +14,19 @@ import (
 )
 
 type chatRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
-}
-
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Model    string               `json:"model"`
+	Messages []engine.ChatMessage `json:"messages"`
+	Stream   bool                 `json:"stream"`
+	Tools    []engine.ToolDef     `json:"tools,omitempty"`
 }
 
 type chatChunk struct {
 	ID      string `json:"id"`
 	Choices []struct {
 		Delta struct {
-			Content string `json:"content"`
+			Content          string          `json:"content"`
+			ReasoningContent string          `json:"reasoning_content"`
+			ToolCalls        []toolCallChunk `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
@@ -39,16 +37,22 @@ type chatChunk struct {
 	} `json:"usage"`
 }
 
-func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage) ([]engine.ChatEvent, error) {
-	msgs := make([]chatMessage, len(messages))
-	for i, m := range messages {
-		msgs[i] = chatMessage{Role: m.Role, Content: m.Content}
-	}
+type toolCallChunk struct {
+	Index    int    `json:"index"`
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
 
+func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage, tools []engine.ToolDef) ([]engine.ChatEvent, error) {
 	body := chatRequest{
 		Model:    model,
-		Messages: msgs,
+		Messages: messages,
 		Stream:   true,
+		Tools:    tools,
 	}
 
 	data, err := json.Marshal(body)
@@ -82,6 +86,7 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 	var events []engine.ChatEvent
 	scanner := bufio.NewScanner(r)
+	toolCallBuf := make(map[int]*engine.ToolCall)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -106,7 +111,73 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 					Text: choice.Delta.Content,
 				})
 			}
+
+			if choice.Delta.ReasoningContent != "" {
+				events = append(events, engine.ChatEvent{
+					Kind:             engine.EventContentDelta,
+					ReasoningContent: choice.Delta.ReasoningContent,
+				})
+			}
+
+			for _, tc := range choice.Delta.ToolCalls {
+				buf, exists := toolCallBuf[tc.Index]
+				if !exists {
+					buf = &engine.ToolCall{Type: "function"}
+					toolCallBuf[tc.Index] = buf
+				}
+
+				if tc.ID != "" {
+					buf.ID = tc.ID
+				}
+				if tc.Function.Name != "" {
+					buf.Function.Name = tc.Function.Name
+				}
+
+				if tc.Function.Name != "" && buf.Function.Name == tc.Function.Name {
+					events = append(events, engine.ChatEvent{
+						Kind: engine.EventToolCallStart,
+						ToolCall: &engine.ToolCall{
+							ID:   buf.ID,
+							Type: "function",
+							Function: engine.ToolCallFunc{
+								Name: tc.Function.Name,
+							},
+						},
+					})
+				}
+
+				if tc.Function.Arguments != "" {
+					buf.Function.Arguments += tc.Function.Arguments
+					events = append(events, engine.ChatEvent{
+						Kind: engine.EventToolCallDelta,
+						ToolCall: &engine.ToolCall{
+							ID:   buf.ID,
+							Type: "function",
+							Function: engine.ToolCallFunc{
+								Name:      buf.Function.Name,
+								Arguments: tc.Function.Arguments,
+							},
+						},
+					})
+				}
+			}
+
 			if choice.FinishReason != nil && *choice.FinishReason != "" {
+				for _, buf := range toolCallBuf {
+					if buf.Function.Name != "" {
+						events = append(events, engine.ChatEvent{
+							Kind: engine.EventToolCallEnd,
+							ToolCall: &engine.ToolCall{
+								ID:   buf.ID,
+								Type: "function",
+								Function: engine.ToolCallFunc{
+									Name:      buf.Function.Name,
+									Arguments: buf.Function.Arguments,
+								},
+							},
+						})
+					}
+				}
 				events = append(events, engine.ChatEvent{
 					Kind: engine.EventMessageEnd,
 					Text: *choice.FinishReason,

@@ -3,60 +3,43 @@ package agent
 import (
 	"fmt"
 	"strings"
+
+	"monika/pkg/engine"
 )
 
-type EventKind int
-
-const (
-	UnknownEvent EventKind = iota
-	ContentDelta
-	UsageEvent
-	ErrorEvent
-	MessageEnd
-)
-
-type ChatEvent struct {
-	Kind          EventKind
-	Text          string
-	Usage         Usage
-	ProviderError ProviderError
-	FinishReason  string
+type streamResult struct {
+	Content          string
+	ReasoningContent string
+	ToolCalls        []engine.ToolCall
+	Usage            engine.Usage
+	Error            error
 }
 
-type Usage struct {
-	InputTokens  int64
-	OutputTokens int64
-	TotalTokens  int64
-}
-
-type ProviderError struct {
-	Code    string
-	Message string
-}
-
-type AssistantMessage struct {
-	Content      string
-	Usage        Usage
-	FinishReason string
-}
-
-func AggregateEvents(events []ChatEvent) (AssistantMessage, error) {
-	var out AssistantMessage
+func parseResult(events []engine.ChatEvent) streamResult {
+	var result streamResult
 	var content strings.Builder
+	var reasoning strings.Builder
 
-	for _, event := range events {
-		switch event.Kind {
-		case ContentDelta:
-			content.WriteString(event.Text)
-		case UsageEvent:
-			out.Usage = event.Usage
-		case ErrorEvent:
-			return AssistantMessage{}, fmt.Errorf("provider error (%s): %s", event.ProviderError.Code, event.ProviderError.Message)
-		case MessageEnd:
-			out.FinishReason = event.FinishReason
+	for _, ev := range events {
+		switch ev.Kind {
+		case engine.EventContentDelta:
+			if ev.ReasoningContent != "" {
+				reasoning.WriteString(ev.ReasoningContent)
+			} else {
+				content.WriteString(ev.Text)
+			}
+		case engine.EventToolCallEnd:
+			if ev.ToolCall != nil {
+				result.ToolCalls = append(result.ToolCalls, *ev.ToolCall)
+			}
+		case engine.EventUsage:
+			result.Usage = ev.Usage
+		case engine.EventError:
+			result.Error = fmt.Errorf("provider error (%s): %s", ev.Error.Code, ev.Error.Message)
 		}
 	}
 
-	out.Content = content.String()
-	return out, nil
+	result.Content = content.String()
+	result.ReasoningContent = reasoning.String()
+	return result
 }

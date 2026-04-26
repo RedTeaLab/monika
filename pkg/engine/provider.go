@@ -6,19 +6,25 @@ type ChatRequest struct {
 	Provider string
 	Model    string
 	Messages []ChatMessage
+	Tools    []ToolDef
 }
 
 type ChatMessage struct {
-	Role    string
-	Content string
+	Role             string     `json:"role"`
+	Content          string     `json:"content,omitempty"`
+	ReasoningContent string     `json:"reasoning_content,omitempty"`
+	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID       string     `json:"tool_call_id,omitempty"`
+	Name             string     `json:"name,omitempty"`
 }
 
 type ChatEvent struct {
-	Kind     EventKind
-	Text     string
-	ToolCall *ToolCall
-	Usage    Usage
-	Error    ProviderError
+	Kind             EventKind
+	Text             string
+	ReasoningContent string
+	ToolCall         *ToolCall
+	Usage            Usage
+	Error            ProviderError
 }
 
 type EventKind int
@@ -34,9 +40,14 @@ const (
 )
 
 type ToolCall struct {
-	ID        string
-	Name      string
-	Arguments string
+	ID       string       `json:"id"`
+	Type     string       `json:"type"`
+	Function ToolCallFunc `json:"function"`
+}
+
+type ToolCallFunc struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 type Usage struct {
@@ -53,6 +64,17 @@ type ProviderError struct {
 type Model struct {
 	ID          string
 	DisplayName string
+}
+
+type ToolDef struct {
+	Type     string       `json:"type"`
+	Function ToolFunction `json:"function"`
+}
+
+type ToolFunction struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Parameters  map[string]any `json:"parameters"`
 }
 
 type ProviderEngine interface {

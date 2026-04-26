@@ -35,7 +35,7 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, req engine.ChatRequest)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.openai.com/v1"
 	}
-	return oaiclient.StreamChat(ctx, cfg.BaseURL, cfg.APIKey, cfg.Model, req.Messages)
+	return oaiclient.StreamChat(ctx, cfg.BaseURL, cfg.APIKey, cfg.Model, req.Messages, req.Tools)
 }
 
 func (p *OpenAIProvider) ListModels(ctx context.Context) ([]engine.Model, error) {

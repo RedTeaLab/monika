@@ -9,7 +9,10 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	"monika/internal/agent"
 	"monika/internal/config"
+	"monika/internal/tool"
+	"monika/internal/tool/builtin"
 	"monika/pkg/engine"
 
 	"github.com/spf13/cobra"
@@ -75,11 +78,6 @@ func runChat(cmd *cobra.Command, args []string) error {
 		"base_url": providerCfg.BaseURL,
 		"api_key":  providerCfg.APIKey,
 	}
-	if chatModel != "" {
-		initCfg["model"] = chatModel
-	} else if cfg.Model != "" {
-		initCfg["model"] = cfg.Model
-	}
 
 	if err := eng.Init(ctx, initCfg); err != nil {
 		return fmt.Errorf("init %s: %w", providerName, err)
@@ -95,28 +93,47 @@ func runChat(cmd *cobra.Command, args []string) error {
 		model = cfg.Model
 	}
 
-	events, err := providerEng.StreamChat(ctx, engine.ChatRequest{
-		Provider: providerName,
-		Model:    model,
-		Messages: []engine.ChatMessage{{Role: "user", Content: message}},
-	})
+	registry := tool.NewRegistry()
+	if err := builtin.RegisterDefaults(registry, cwd); err != nil {
+		return fmt.Errorf("register tools: %w", err)
+	}
+
+	loopOpts := []agent.LoopOption{
+		agent.WithProjectDir(cwd),
+		agent.WithModel(model),
+	}
+
+	if prompt := loadSystemPrompt(cwd); prompt != "" {
+		loopOpts = append(loopOpts, agent.WithSystemPrompt(prompt))
+	}
+
+	loop := agent.NewLoop(providerEng, registry, loopOpts...)
+
+	result, err := loop.Run(ctx, nil, message)
 	if err != nil {
 		return err
 	}
 
-	for _, ev := range events {
-		switch ev.Kind {
-		case engine.EventContentDelta:
-			fmt.Fprint(cmd.OutOrStdout(), ev.Text)
-		case engine.EventUsage:
-			fmt.Fprintf(os.Stderr, "\n[tokens: in=%d out=%d total=%d]",
-				ev.Usage.InputTokens, ev.Usage.OutputTokens, ev.Usage.TotalTokens)
-		case engine.EventError:
-			fmt.Fprintf(os.Stderr, "\nerror: %s: %s", ev.Error.Code, ev.Error.Message)
+	fmt.Fprint(cmd.OutOrStdout(), result.Content)
+	fmt.Fprintln(cmd.OutOrStdout())
+	if result.Usage.TotalTokens > 0 {
+		fmt.Fprintf(os.Stderr, "[tokens: in=%d out=%d total=%d]\n",
+			result.Usage.InputTokens, result.Usage.OutputTokens, result.Usage.TotalTokens)
+	}
+	return nil
+}
+
+func loadSystemPrompt(projectDir string) string {
+	paths := []string{
+		filepath.Join(projectDir, "AGENTS.md"),
+		filepath.Join(projectDir, ".monika", "AGENTS.md"),
+	}
+	for _, p := range paths {
+		if data, err := os.ReadFile(p); err == nil {
+			return string(data)
 		}
 	}
-	fmt.Fprintln(cmd.OutOrStdout())
-	return nil
+	return ""
 }
 
 var providerDefaults = map[string]struct{ baseURL, model string }{
