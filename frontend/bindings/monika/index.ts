@@ -62,11 +62,14 @@ export interface StreamEvent {
 
 // Wails bindings - use the service name based on what Wails generates
 // For a struct in package api, Wails v3 uses the service name from registration
-const serviceName = "api.App";
+const serviceName = "monika/internal/api.App";
 
 export const App = {
   ListProjects(): Promise<ProjectInfo[]> {
     return Call.ByName(`${serviceName}.ListProjects`);
+  },
+  GetCurrentProject(): Promise<ProjectInfo | null> {
+    return Call.ByName(`${serviceName}.GetCurrentProject`);
   },
   OpenProject(path: string): Promise<ProjectInfo> {
     return Call.ByName(`${serviceName}.OpenProject`, path);

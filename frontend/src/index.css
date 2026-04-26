@@ -34,18 +34,20 @@
   --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body, #root {
-  height: 100%; width: 100%; overflow: hidden;
-  background: var(--bg-main);
-  color: var(--text-primary);
-  font-family: var(--font-ui);
-  font-size: 13px; line-height: 1.5;
+  html, body, #root {
+    height: 100%; width: 100%; overflow: hidden;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 13px; line-height: 1.5;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #424242; border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+  ::-webkit-scrollbar-corner { background: transparent; }
 }
-
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #424242; border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
-::-webkit-scrollbar-corner { background: transparent; }

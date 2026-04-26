@@ -42,6 +42,8 @@ func main() {
 	registry := tool.NewRegistry()
 	builtin.RegisterDefaults(registry, cwd)
 
+	application.RegisterEvent[api.StreamEvent]("stream")
+
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
@@ -52,7 +54,7 @@ func main() {
 		))
 	}
 
-	appService := api.NewApp(home, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
+	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
 
 	app := application.New(application.Options{
 		Name:        "monika",
@@ -66,11 +68,12 @@ func main() {
 	})
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Title:    "Monika",
-		Width:    1400,
-		Height:   900,
-		MinWidth: 900,
+		Title:     "Monika",
+		Width:     1400,
+		Height:    900,
+		MinWidth:  900,
 		MinHeight: 600,
+		Frameless: true,
 	})
 
 	if err := app.Run(); err != nil {

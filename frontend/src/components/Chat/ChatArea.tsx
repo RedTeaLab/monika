@@ -42,7 +42,7 @@ function ChatArea() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-main)]">
-      <div className="flex-1 overflow-y-auto px-6 py-3">
+      <div className="flex-1 overflow-y-auto p-[5px]">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
             No messages yet. Start a conversation.

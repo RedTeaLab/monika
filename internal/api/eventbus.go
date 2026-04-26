@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 )
 
@@ -53,6 +55,7 @@ func (eb *EventBus) Emit(ev StreamEvent) {
 		default:
 		}
 	}
+	fmt.Fprintf(os.Stderr, "[monika] EventBus.Emit: type=%s subscribers=%d\n", ev.Type, len(eb.subscribers))
 }
 
 func (eb *EventBus) Unsubscribe(ch chan StreamEvent) {

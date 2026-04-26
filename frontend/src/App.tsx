@@ -12,7 +12,7 @@ function App() {
   const [consoleHeight, setConsoleHeight] = useState(200)
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg-main)]">
+    <div className="flex flex-col h-full bg-[var(--bg-main)] overflow-hidden">
       <TitleBar />
       <div className="flex flex-1 overflow-hidden">
         <div className="w-56 border-r border-[var(--border)] flex-shrink-0">

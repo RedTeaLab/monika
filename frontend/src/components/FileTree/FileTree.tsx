@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { App, FileNode } from '../../../bindings/monika'
+import { useStore } from '../../store'
 import FileEditor from './FileEditor'
 
 function FileTree() {
@@ -7,10 +8,12 @@ function FileTree() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [selectedFile, setSelectedFile] = useState<string>()
   const [fileContent, setFileContent] = useState<string>()
+  const projectPath = useStore((s) => s.projectPath)
 
   useEffect(() => {
-    App.ListFileTree('').then(setTree).catch(() => {})
-  }, [])
+    if (!projectPath) return
+    App.ListFileTree(projectPath).then(setTree).catch(() => {})
+  }, [projectPath])
 
   const handleFileClick = async (node: FileNode) => {
     if (node.is_dir) {
@@ -20,7 +23,7 @@ function FileTree() {
     } else {
       setSelectedFile(node.path)
       try {
-        const content = await App.ReadFile('', node.path)
+        const content = await App.ReadFile(projectPath, node.path)
         setFileContent(content?.content || '')
       } catch {
         setFileContent('')
@@ -50,13 +53,13 @@ function FileTree() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-sidebar)]">
-      <div className="px-5 pt-4 pb-1">
+    <div className="flex flex-col h-full bg-[var(--bg-sidebar)]" style={{ padding: '0 10px' }}>
+      <div className="pt-4 pb-1">
         <span className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-[0.05em] uppercase">Files</span>
       </div>
       <div className="flex-1 overflow-y-auto">
         {tree.length === 0 ? (
-          <div className="px-5 py-4 text-[12px] text-[var(--text-dim)]">No project opened</div>
+          <div className="py-4 text-[12px] text-[var(--text-dim)]">No project opened</div>
         ) : tree.map(node => renderNode(node))}
       </div>
       {selectedFile && (

@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -12,16 +14,19 @@ import (
 	config2 "monika/internal/config"
 	tool2 "monika/internal/tool"
 	engine2 "monika/pkg/engine"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type App struct {
 	ctx context.Context
 
-	home     string
-	cfg      config2.Config
-	provider engine2.ProviderEngine
-	model    string
-	registry *tool2.ToolRegistry
+	home       string
+	cfg        config2.Config
+	provider   engine2.ProviderEngine
+	model      string
+	registry   *tool2.ToolRegistry
+	startupCwd string
 
 	mu       sync.RWMutex
 	sessions map[string]*SessionManager
@@ -35,13 +40,15 @@ type App struct {
 	loopOpts []agent2.LoopOption
 }
 
-func NewApp(home string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+	fmt.Fprintf(os.Stderr, "[monika] NewApp: home=%s cwd=%s\n", home, cwd)
 	return &App{
 		home:        home,
 		cfg:         cfg,
 		provider:    provider,
 		model:       model,
 		registry:    registry,
+		startupCwd:  cwd,
 		sessions:    make(map[string]*SessionManager),
 		projects:    make(map[string]*ProjectInfo),
 		fileSvc:     make(map[string]*FileService),
@@ -51,17 +58,46 @@ func NewApp(home string, cfg config2.Config, provider engine2.ProviderEngine, mo
 	}
 }
 
-func (a *App) Startup(ctx context.Context) {
+func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
+	fmt.Fprintf(os.Stderr, "[monika] ServiceStartup called, startupCwd=%q\n", a.startupCwd)
 	a.ctx = ctx
+	if a.startupCwd != "" {
+		info, err := a.OpenProject(a.startupCwd)
+		fmt.Fprintf(os.Stderr, "[monika] ServiceStartup OpenProject result: info=%+v err=%v\n", info, err)
+		if err != nil {
+			return err
+		}
+		_ = info
+	}
+	return nil
 }
 
-func (a *App) Shutdown() {
+func (a *App) GetCurrentProject() *ProjectInfo {
+	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject called, startupCwd=%q projects=%v\n", a.startupCwd, func() []string {
+		var keys []string
+		for k := range a.projects {
+			keys = append(keys, k)
+		}
+		return keys
+	}())
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	if info, ok := a.projects[a.startupCwd]; ok {
+		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning: path=%s branch=%s\n", info.Path, info.Branch)
+		return info
+	}
+	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject: no project found for key=%q\n", a.startupCwd)
+	return nil
+}
+
+func (a *App) ServiceShutdown() error {
 	a.cancelMu.Lock()
 	for _, cancel := range a.cancelFuncs {
 		cancel()
 	}
 	a.cancelMu.Unlock()
 	a.eventBus.Close()
+	return nil
 }
 
 func (a *App) ListProjects() []ProjectInfo {
@@ -280,7 +316,9 @@ func (a *App) handleAgentEvent(sessionID string, ev agent2.Event) {
 		se.Type = "done"
 	}
 
+	fmt.Fprintf(os.Stderr, "[monika] emit stream event: type=%s session=%s\n", se.Type, sessionID)
 	a.eventBus.Emit(se)
+	application.Get().Event.Emit("stream", se)
 }
 
 func (a *App) getSessionManager(projectPath string) *SessionManager {
