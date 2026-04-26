@@ -2,6 +2,15 @@
 
 本文件用于记录每次功能或行为变更，方便后续审查。
 
+## 2026-04-26
+
+- **工具调用闭环**：实现完整的 Tool calling 模块，包含 Tool 接口、ToolRegistry、6 个内置工具（file_read/write/list、glob、grep、bash），多平台 bash 支持（Win: pwsh/ps/cmd，Unix: sh/bash），所有文件工具强制项目目录路径校验。
+- **AgentLoop 多轮循环**：替换单轮 AgentOption 为多轮 AgentLoop，支持工具调用循环（最大 25 轮），confirmFn 确认回调，token usage 跨轮累积。
+- **SSE 工具调用解析**：扩展 `pkg/openai` 支持 tool_calls 分块解析与参数累加，ToolCall 线格式序列化（type/function 嵌套），DeepSeek reasoning_content 透传。
+- **ChatMessage 扩展**：增加 ToolCalls、ToolCallID、Name、ReasoningContent 字段。
+- **CLI 增强**：chat 命令自动加载 AGENTS.md 作为 system prompt，注册内置工具。
+- **测试覆盖**：新增 internal/tool、builtin、agent loop、SSE tool_calls 全套测试。
+
 ## 2026-04-25
 
 - 新增 `AGENTS.md`：记录仓库结构、常用验证命令和注意事项，帮助后续 OpenCode 会话快速了解项目。
