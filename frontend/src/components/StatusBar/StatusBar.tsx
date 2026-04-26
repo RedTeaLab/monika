@@ -16,7 +16,7 @@ function StatusBar({ showConsole, showFileTree, onToggleConsole, onToggleFileTre
         <span>{generating ? 'generating...' : 'ready'}</span>
       </div>
       <div className="flex-1 bg-[var(--bg-statusbar)] h-full" />
-      <div className="flex items-center h-full bg-[#68217a] text-white gap-2" style={{ padding: '0 10px' }}>
+      <div className="flex items-center h-full bg-[color-mix(in_srgb,var(--purple)_50%,var(--bg-main))] text-white gap-2" style={{ padding: '0 10px' }}>
         <button onClick={onToggleConsole} className={`hover:text-white ${showConsole ? 'text-white' : 'opacity-50'}`}>console</button>
         <button onClick={onToggleFileTree} className={`hover:text-white ${showFileTree ? 'text-white' : 'opacity-50'}`}>files</button>
         <span className="opacity-70 pr-2">tok: {tokenCount}</span>

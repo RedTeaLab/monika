@@ -45,28 +45,35 @@
 - Zustand v5 for global state (single store, `create<AppState>`).
 - `@wailsio/runtime` for Go↔JS: `App.*` for RPC calls, `Events.On(...)` for push events.
 
-### Design System (VS Code Dark+ inspired)
+### Design System (Cool Dark)
 All tokens live as CSS custom properties in `:root` in `index.css`. Never hardcode colors in components — always reference `var(--token)` or Tailwind `[var(--token)]` syntax.
 
 **Color tokens** (see `frontend/src/index.css` for exact values):
 | Token | Role |
 |---|---|
-| `--bg-main` | Editor/chat area (`#1e1e1e`) |
-| `--bg-sidebar` | Side panels (`#252526`) |
-| `--bg-titlebar` | Title bar only (`#323233`) |
-| `--bg-statusbar` | Status bar left side (`#007acc`) |
-| `--bg-input` | Text input background (`#3c3c3c`) |
-| `--bg-hover` | List item hover (`#2a2d2e`) |
-| `--bg-active` | Selected list item (`#37373d`) |
-| `--border` | Divider lines (`#3c3c3c`) |
-| `--border-active` | Focus ring on inputs (`#007acc`) |
-| `--text-primary` | Main content text (`#cccccc`) |
-| `--text-secondary` | Section headers (`#999999`) |
-| `--text-dim` | Placeholder/muted (`#858585`) |
-| `--accent` | Primary action blue (`#007acc`) |
-| `--green` | Success (`#4ec9b0`) |
-| `--red` | Error (`#f14c4c`) |
-| `--yellow` | Warning/running (`#cca700`) |
+| `--bg-main` | Editor/chat area (`#10141c`) |
+| `--bg-sidebar` | Side panels (`#161922`) |
+| `--bg-titlebar` | Title bar only (`#1a1d26`) |
+| `--bg-statusbar` | Status bar left side (`#2563eb`) |
+| `--bg-input` | Text input background (`#1e2231`) |
+| `--bg-hover` | List item hover (`#1c2030`) |
+| `--bg-active` | Selected list item (`#232839`) |
+| `--bg-badge` | Badge/chip background (`#2a2f40`) |
+| `--border` | Divider lines (`#252a38`) |
+| `--border-light` | Lighter dividers (`#2f3443`) |
+| `--border-active` | Focus ring on inputs (`#3b82f6`) |
+| `--text-primary` | Main content text (`#d2d6e0`) |
+| `--text-secondary` | Section headers (`#8d92a3`) |
+| `--text-dim` | Placeholder/muted (`#5a5f73`) |
+| `--text-link` | Hyperlinks (`#5da3f5`) |
+| `--accent` | Primary action blue (`#3b82f6`) |
+| `--accent-hover` | Accent hover state (`#609af7`) |
+| `--green` | Success (`#34d399`) |
+| `--red` | Error (`#f87171`) |
+| `--yellow` | Warning/running (`#fbbf24`) |
+| `--orange` | Highlights / inline code (`#fb923c`) |
+| `--blue` | Headings / keywords (`#60a5fa`) |
+| `--purple` | Secondary accent (`#a78bfa`) |
 
 **Typography tokens**:
 - `--font-ui`: `system-ui, -apple-system, 'Segoe UI', sans-serif` — all chrome/controls.
@@ -113,7 +120,7 @@ Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts`
 **StatusBar conventions**:
 - Height 22px, 12px text.
 - Left side: `--bg-statusbar` (`#007acc`) background, white text, status indicator.
-- Right side: `#68217a` background, white text, toggle buttons with 50% opacity when inactive.
+- Right side: `#a78bfa`/`var(--purple)` blended background, white text, toggle buttons with 50% opacity when inactive.
 - Middle: stretched `--bg-statusbar` to fill gap.
 
 ### State Management (Zustand)
