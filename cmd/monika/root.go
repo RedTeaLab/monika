@@ -10,8 +10,10 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "monika",
-	Short: "Monika is a general-purpose coding agent",
+	Use:           "monika",
+	Short:         "Monika is a general-purpose coding agent",
+	SilenceErrors: true,
+	SilenceUsage:  true,
 }
 
 func Execute() {
