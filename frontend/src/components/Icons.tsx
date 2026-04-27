@@ -104,8 +104,8 @@ export function IconSidebar({ size }: { size?: number }) {
 export function IconConsole({ size }: { size?: number }) {
   return (
     <Icon size={size}>
-      <path d="M3 4l3 3-3 3M8 10h5" />
       <rect x="2" y="2" width="12" height="12" rx="1.5" />
+      <path d="M3 4l3 3-3 3M8 10h5" />
     </Icon>
   )
 }
