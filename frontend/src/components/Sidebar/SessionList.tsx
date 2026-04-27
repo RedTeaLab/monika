@@ -7,6 +7,7 @@ import ConfirmModal from '../Chat/ConfirmModal'
 function SessionList() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
@@ -144,17 +145,13 @@ function SessionList() {
               tabIndex={0}
               role="button"
               aria-label={`Select ${s.title || 'session'}`}
-              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors"
+              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
               style={{
                 color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeSessionId === s.id ? 'var(--glass-active)' : 'transparent',
+                background: activeSessionId === s.id ? 'var(--glass-active)' : hoveredId === s.id ? 'var(--glass-hover)' : 'transparent',
               }}
-              onMouseEnter={(e) => {
-                if (activeSessionId !== s.id) (e.target as HTMLElement).style.background = 'var(--glass-hover)'
-              }}
-              onMouseLeave={(e) => {
-                if (activeSessionId !== s.id) (e.target as HTMLElement).style.background = 'transparent'
-              }}
+              onMouseEnter={() => setHoveredId(s.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
               <span className="truncate">{s.title || 'Untitled'}</span>
               <button
