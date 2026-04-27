@@ -9,15 +9,18 @@ import StatusBar from './components/StatusBar/StatusBar'
 function App() {
   const [showConsole, setShowConsole] = useState(true)
   const [showFileTree, setShowFileTree] = useState(true)
+  const [showSidebar, setShowSidebar] = useState(true)
   const [consoleHeight, setConsoleHeight] = useState(200)
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-main)] overflow-hidden">
       <TitleBar />
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-56 border-r border-[var(--border)] flex-shrink-0">
-          <SessionList />
-        </div>
+        {showSidebar && (
+          <div className="w-56 border-r border-[var(--border)] flex-shrink-0">
+            <SessionList />
+          </div>
+        )}
         <div className="flex-1 flex flex-col min-w-0">
           <ChatArea />
         </div>
@@ -35,8 +38,10 @@ function App() {
       <StatusBar
         showConsole={showConsole}
         showFileTree={showFileTree}
+        showSidebar={showSidebar}
         onToggleConsole={() => setShowConsole(!showConsole)}
         onToggleFileTree={() => setShowFileTree(!showFileTree)}
+        onToggleSidebar={() => setShowSidebar(!showSidebar)}
       />
     </div>
   )
