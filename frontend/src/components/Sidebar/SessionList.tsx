@@ -1,26 +1,37 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore, loadSessionMessages } from '../../store'
+import { IconPlus, IconTrash } from '../Icons'
+import ConfirmModal from '../Chat/ConfirmModal'
 
 function SessionList() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
 
   useEffect(() => {
-    console.log('[monika] SessionList: projectPath =', projectPath)
     if (!projectPath) return
-    console.log('[monika] SessionList: calling ListSessions for', projectPath)
     App.ListSessions(projectPath).then(setSessions).catch(() => setSessions([]))
   }, [projectPath])
+
+  // Dismiss modal when project changes
+  useEffect(() => {
+    setSessionToDelete(null)
+  }, [projectPath])
+
+  const sortedSessions = useMemo(() =>
+    [...sessions].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
+    [sessions]
+  )
 
   const handleNewSession = async () => {
     if (!projectPath) return
     try {
       const info = await App.NewSession(projectPath)
-      setSessions((prev) => [...prev, info])
+      setSessions((prev) => [info, ...prev])
       setActiveSessionId(info.id)
       setMessages([])
     } catch (err) {
@@ -43,30 +54,126 @@ function SessionList() {
     }
   }
 
+  const handleDeleteClick = (s: SessionInfo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSessionToDelete(s)
+  }
+
+  const handleDeleteCancel = () => {
+    setSessionToDelete(null)
+  }
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!projectPath || !sessionToDelete) return
+    await App.DeleteSession(projectPath, sessionToDelete.id)
+    // Remove from local list
+    setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id))
+    const deletedId = sessionToDelete.id
+    setSessionToDelete(null)
+
+    // Auto-switch if deleted session was active
+    if (deletedId === activeSessionId) {
+      setSessions((prev) => {
+        const sortedSessions = [...prev].sort((a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )
+        if (sortedSessions.length > 0) {
+          const nearest = sortedSessions[0]
+          setActiveSessionId(nearest.id)
+          App.LoadSession(projectPath, nearest.id).then((s) => {
+            if (s.messages && s.messages.length > 0) {
+              setMessages(loadSessionMessages(s.messages as any[]))
+            } else {
+              setMessages([])
+            }
+            // Focus the newly active row
+            document.getElementById(`session-${nearest.id}`)?.focus()
+          }).catch(() => {
+            setMessages([])
+            setActiveSessionId('')
+          })
+        } else {
+          setMessages([])
+          setActiveSessionId('')
+        }
+        return prev
+      })
+    }
+  }, [projectPath, sessionToDelete, activeSessionId, setActiveSessionId, setMessages])
+
+  const handleRowKeyDown = (s: SessionInfo, e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSelect(s.id)
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault()
+      setSessionToDelete(s)
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-sidebar)]" style={{ padding: '0 10px' }}>
-      <div className="flex items-center justify-between pt-4 pb-1">
-        <span className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-[0.05em] uppercase">Sessions</span>
+    <div
+      className="flex flex-col h-full backdrop-blur-md"
+      style={{ background: 'var(--glass-light)', padding: '0 12px' }}
+    >
+      <div className="flex items-center justify-between pt-5 pb-2">
+        <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Sessions</span>
         <button
           onClick={handleNewSession}
-          className="w-5 h-5 flex items-center justify-center rounded-[3px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] text-[14px] leading-none"
-        >+</button>
+          className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
+          aria-label="New session"
+          id="new-session-btn"
+        >
+          <IconPlus size={14} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {sessions.length === 0 ? (
-          <div className="py-4 text-[12px] text-[var(--text-dim)]">No sessions yet</div>
+        {sortedSessions.length === 0 ? (
+          <div className="py-4">
+            <div className="text-[12px] text-[var(--text-dim)]">No sessions yet</div>
+            <div className="text-[12px] text-[var(--text-dim)] mt-0.5">Click + to create one</div>
+          </div>
         ) : (
-          sessions.map((s) => (
+          sortedSessions.map((s) => (
             <div
               key={s.id}
+              id={`session-${s.id}`}
               onClick={() => handleSelect(s.id)}
-              className={`py-[2px] cursor-pointer text-[13px] truncate leading-[22px] hover:bg-[var(--bg-hover)] ${activeSessionId === s.id ? 'bg-[var(--bg-active)]' : ''}`}
+              onKeyDown={(e) => handleRowKeyDown(s, e)}
+              tabIndex={0}
+              role="button"
+              aria-label={`Select ${s.title || 'session'}`}
+              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors"
+              style={{
+                color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                background: activeSessionId === s.id ? 'var(--glass-active)' : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (activeSessionId !== s.id) (e.target as HTMLElement).style.background = 'var(--glass-hover)'
+              }}
+              onMouseLeave={(e) => {
+                if (activeSessionId !== s.id) (e.target as HTMLElement).style.background = 'transparent'
+              }}
             >
-              {s.title || 'Untitled'}
+              <span className="truncate">{s.title || 'Untitled'}</span>
+              <button
+                onClick={(e) => handleDeleteClick(s, e)}
+                aria-label={`Delete ${s.title || 'session'}`}
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors flex-shrink-0 ml-2"
+              >
+                <IconTrash size={14} />
+              </button>
             </div>
           ))
         )}
       </div>
+      {sessionToDelete && (
+        <ConfirmModal
+          title="Delete Session"
+          message={`Delete "${sessionToDelete.title || 'Untitled'}"? This cannot be undone.`}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
     </div>
   )
 }
