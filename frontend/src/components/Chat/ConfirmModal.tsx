@@ -13,10 +13,18 @@ function ConfirmModal({ title, message, onConfirm, onCancel }: ConfirmModalProps
   const [error, setError] = useState('')
   const cancelRef = useRef<HTMLButtonElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<Element | null>(null)
 
-  // Focus Cancel button on mount
+  // Focus management, scroll lock, and focus return
   useEffect(() => {
+    triggerRef.current = document.activeElement
     cancelRef.current?.focus()
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+      ;(triggerRef.current as HTMLElement)?.focus()
+    }
   }, [])
 
   // Focus trap
@@ -47,8 +55,9 @@ function ConfirmModal({ title, message, onConfirm, onCancel }: ConfirmModalProps
     setIsLoading(true)
     try {
       await onConfirm()
-    } catch (err: any) {
-      setError(err?.message || 'Deletion failed. Please try again.')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Deletion failed. Please try again.'
+      setError(message)
     } finally {
       setIsLoading(false)
     }
