@@ -53,7 +53,7 @@ function ChatArea() {
           ))
         )}
       </div>
-      <ChatInput onSend={handleSend} disabled={generating} />
+      <ChatInput key={activeSessionId} onSend={handleSend} disabled={generating} />
     </div>
   )
 }
