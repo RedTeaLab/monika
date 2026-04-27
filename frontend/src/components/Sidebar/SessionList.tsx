@@ -91,10 +91,12 @@ function SessionList() {
           }).catch(() => {
             setMessages([])
             setActiveSessionId('')
+            document.getElementById('new-session-btn')?.focus()
           })
         } else {
           setMessages([])
           setActiveSessionId('')
+          document.getElementById('new-session-btn')?.focus()
         }
         return prev
       })
