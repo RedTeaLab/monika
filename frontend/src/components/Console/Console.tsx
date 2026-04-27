@@ -49,17 +49,32 @@ function Console({ onResize }: { onResize: (h: number) => void }) {
   }, [onResize])
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-panel)]">
-      <div className="h-1 cursor-ns-resize hover:bg-[var(--accent)] flex-shrink-0" onMouseDown={handleMouseDown} />
-      <div className="py-[3px] bg-[var(--bg-sidebar)] border-b border-[var(--border)] flex items-center gap-2" style={{ padding: '3px 10px' }}>
-        <span className="text-[11px] font-semibold text-[var(--text-secondary)] tracking-[0.05em] uppercase">Console</span>
+    <div
+      className="flex flex-col h-full backdrop-blur-md"
+      style={{ background: 'var(--glass-light)' }}
+    >
+      <div
+        className="h-[3px] cursor-ns-resize flex-shrink-0 transition-colors"
+        style={{ background: 'var(--border)' }}
+        onMouseDown={handleMouseDown}
+        onMouseEnter={(e) => (e.target as HTMLElement).style.background = 'var(--accent)'}
+        onMouseLeave={(e) => (e.target as HTMLElement).style.background = 'var(--border)'}
+      />
+      <div
+        className="py-1 border-b border-[var(--border)] flex items-center"
+        style={{ padding: '2px 12px', background: 'var(--glass-strong)' }}
+      >
+        <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Console</span>
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto py-2 text-[12px] text-[var(--text-dim)]" style={{ fontFamily: 'var(--font-mono)', padding: '8px 10px' }}>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto text-[12px] text-[var(--text-dim)]"
+        style={{ fontFamily: 'var(--font-mono)', padding: '8px 12px' }}
+      >
         {lines.map((line, i) => (<div key={i}>{line}</div>))}
       </div>
     </div>
   )
-
 }
 
 export default Console
