@@ -67,40 +67,41 @@ function SessionList() {
   const handleDeleteConfirm = useCallback(async () => {
     if (!projectPath || !sessionToDelete) return
     await App.DeleteSession(projectPath, sessionToDelete.id)
-    // Remove from local list
-    setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id))
     const deletedId = sessionToDelete.id
     setSessionToDelete(null)
 
-    // Auto-switch if deleted session was active
+    // Compute remaining sessions
+    let remaining: SessionInfo[] = []
+    setSessions((prev) => {
+      remaining = prev.filter((s) => s.id !== deletedId)
+      return remaining
+    })
+
     if (deletedId === activeSessionId) {
-      setSessions((prev) => {
-        const sortedSessions = [...prev].sort((a, b) =>
-          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-        )
-        if (sortedSessions.length > 0) {
-          const nearest = sortedSessions[0]
-          setActiveSessionId(nearest.id)
-          App.LoadSession(projectPath, nearest.id).then((s) => {
-            if (s.messages && s.messages.length > 0) {
-              setMessages(loadSessionMessages(s.messages as any[]))
-            } else {
-              setMessages([])
-            }
-            // Focus the newly active row
-            document.getElementById(`session-${nearest.id}`)?.focus()
-          }).catch(() => {
+      const sorted = [...remaining].sort((a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      )
+      if (sorted.length > 0) {
+        const nearest = sorted[0]
+        setActiveSessionId(nearest.id)
+        try {
+          const s = await App.LoadSession(projectPath, nearest.id)
+          if (s.messages && s.messages.length > 0) {
+            setMessages(loadSessionMessages(s.messages as any[]))
+          } else {
             setMessages([])
-            setActiveSessionId('')
-            document.getElementById('new-session-btn')?.focus()
-          })
-        } else {
+          }
+          document.getElementById(`session-${nearest.id}`)?.focus()
+        } catch {
           setMessages([])
           setActiveSessionId('')
           document.getElementById('new-session-btn')?.focus()
         }
-        return prev
-      })
+      } else {
+        setMessages([])
+        setActiveSessionId('')
+        document.getElementById('new-session-btn')?.focus()
+      }
     }
   }, [projectPath, sessionToDelete, activeSessionId, setActiveSessionId, setMessages])
 
