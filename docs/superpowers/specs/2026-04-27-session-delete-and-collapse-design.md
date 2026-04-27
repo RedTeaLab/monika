@@ -50,13 +50,14 @@ interface ConfirmModalProps {
 
 **Layout and styling:**
 
-- Rendered via `createPortal` into `document.body`
+- Import: `import { createPortal } from 'react-dom'`
+- Rendered via `createPortal(...)` into `document.body`
 - Backdrop: fixed inset, `bg-black/50`, `z-50`
 - Card: `bg-[var(--bg-titlebar)]`, rounded `[6px]`, `max-w-[360px]`, `p-5`, centered
 - Title (`id="confirm-modal-title"`): 14px, `font-semibold`, `text-[var(--text-primary)]`
 - Message (`id="confirm-modal-desc"`): 13px, `text-[var(--text-secondary)]`, `mt-2`
-- Cancel button: `text-[var(--text-secondary)]`, hover `text-[var(--text-primary)]`
-- Confirm button: `bg-[var(--red)]`, white text, `rounded-[2px]`, hover `opacity-90`; disabled state: `opacity-50 cursor-not-allowed`
+- Cancel button: `text-[var(--text-secondary)]`, hover `text-[var(--text-primary)]`, `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`
+- Confirm button: `bg-[var(--red)]`, white text, `rounded-[2px]`, hover `opacity-90`, `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]`; disabled state: `opacity-50 cursor-not-allowed`
 
 **Accessibility:**
 
@@ -85,8 +86,8 @@ interface ConfirmModalProps {
 - If the deleted session is NOT the active session: just remove from list, no switch.
 - If deleted session === `activeSessionId`:
   1. Guard: `if (!projectPath) return`
-  2. Sort remaining sessions by `updated_at` descending
-  3. If remaining sessions exist: pick the one with the most recent `updated_at`, call `setActiveSessionId(id)`, then call `App.LoadSession(projectPath, id)` and `setMessages()` to load its messages (same pattern as existing `handleSelect` at `SessionList.tsx:37-49`)
+  2. `const sortedSessions = remaining.sort(...)` by `updated_at` descending
+  3. If remaining sessions exist: pick the one with the most recent `updated_at` (first in `sortedSessions`), call `setActiveSessionId(id)`, then call `App.LoadSession(projectPath, id)` and `setMessages()` to load its messages (same pattern as existing `handleSelect` at `SessionList.tsx:37-49`)
   4. If none remain: call `setMessages([])` and `setActiveSessionId('')`
 
 **Empty state (zero sessions after deletion):**
@@ -106,7 +107,7 @@ Replace text labels with icons:
 
 Layout (left to right): `[● ready] [IconSidebar] [IconConsole] [IconFile] [tok: xxx]`
 
-Icon color: `text-[var(--text-primary)]` when active, `text-[var(--text-dim)]` when inactive, hover `text-[var(--text-primary)]`. Each icon button gets `aria-label`.
+Icon color: `text-[var(--text-primary)]` when active, `text-[var(--text-dim)]` when inactive, hover `text-[var(--text-primary)]`, `focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)]`. Each icon button gets `aria-label`.
 
 ### App.tsx changes
 
