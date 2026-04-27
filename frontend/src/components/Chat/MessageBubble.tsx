@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import MarkdownBlock from './MarkdownBlock'
+import { IconChevronDown } from '../Icons'
 
 interface ToolCall {
   name: string
@@ -16,25 +17,27 @@ interface Message {
   tools?: ToolCall[]
 }
 
-/* ---- shared card shell ---- */
+/* ---- shared glass card shell ---- */
 
 function MsgBlock({
-  borderColor,
+  accent,
   header,
-  background,
   children,
 }: {
-  borderColor: string
+  accent?: string
   header?: React.ReactNode
-  background?: string
   children: React.ReactNode
 }) {
   return (
     <div
-      className="border-l-[3px] px-3 py-2 transition-colors rounded-[6px]"
-      style={{ borderColor, background: background || 'var(--bg-sidebar)' }}
+      className="backdrop-blur-sm rounded-lg border px-4 py-3"
+      style={{
+        background: 'var(--glass-medium)',
+        borderColor: 'var(--border)',
+        ...(accent ? { borderLeftColor: accent, borderLeftWidth: '2px' } : {}),
+      }}
     >
-      {header && <div className="mb-[6px]">{header}</div>}
+      {header && <div className="mb-2">{header}</div>}
       {children}
     </div>
   )
@@ -45,12 +48,8 @@ function MsgBlock({
 function ThinkingBlock({ content }: { content: string }) {
   return (
     <MsgBlock
-      borderColor="var(--border)"
       header={
-        <span
-          className="text-[11px] font-semibold uppercase tracking-[0.04em]"
-          style={{ color: 'var(--yellow)' }}
-        >
+        <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--yellow)]">
           Thinking
         </span>
       }
@@ -60,11 +59,11 @@ function ThinkingBlock({ content }: { content: string }) {
   )
 }
 
-/* ---- text block (user / assistant / error) ---- */
+/* ---- text block (error) ---- */
 
 function TextBlock({ content, borderColor }: { content: string; borderColor: string }) {
   return (
-    <MsgBlock borderColor={borderColor}>
+    <MsgBlock accent={borderColor}>
       <div
         className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
         style={{ fontFamily: 'var(--font-mono)' }}
@@ -77,18 +76,18 @@ function TextBlock({ content, borderColor }: { content: string; borderColor: str
 
 /* ---- tool block ---- */
 
-const DATA_TOOLS: Record<string, { color: string; bg: string }> = {
-  bash:   { color: 'var(--yellow)',  bg: 'rgba(204,167,0,0.10)' },
-  file:   { color: 'var(--blue)',    bg: 'rgba(86,156,214,0.10)' },
-  grep:   { color: 'var(--green)',   bg: 'rgba(78,201,176,0.10)' },
-  glob:   { color: 'var(--purple)',  bg: 'rgba(197,134,192,0.10)' },
-  write:  { color: 'var(--orange)',  bg: 'rgba(206,145,120,0.10)' },
-  edit:   { color: 'var(--orange)',  bg: 'rgba(206,145,120,0.10)' },
-  default:{ color: 'var(--green)',   bg: 'rgba(78,201,176,0.10)' },
+const TOOL_STYLES: Record<string, { color: string }> = {
+  bash:   { color: 'var(--yellow)' },
+  file:   { color: 'var(--blue)' },
+  grep:   { color: 'var(--green)' },
+  glob:   { color: 'var(--purple)' },
+  write:  { color: 'var(--orange)' },
+  edit:   { color: 'var(--orange)' },
+  default:{ color: 'var(--green)' },
 }
 
-function toolBadge(name: string) {
-  return DATA_TOOLS[name] || DATA_TOOLS.default
+function toolStyle(name: string) {
+  return TOOL_STYLES[name] || TOOL_STYLES.default
 }
 
 function formatToolInput(name: string, input: string): { label: string; detail: string } {
@@ -98,7 +97,6 @@ function formatToolInput(name: string, input: string): { label: string; detail: 
     const keys = Object.keys(obj).filter(k => k !== 'description')
     if (keys.length === 0) return { label: name, detail: '' }
     if (keys.length === 1) return { label: name, detail: String(obj[keys[0]]) }
-    // Two keys: show "key1: val1, key2: val2"
     const firstTwo = keys.slice(0, 2).map(k => `${k}: ${String(obj[k]).slice(0, 40)}`).join(', ')
     return { label: name, detail: firstTwo }
   } catch {
@@ -106,11 +104,11 @@ function formatToolInput(name: string, input: string): { label: string; detail: 
   }
 }
 
-function statusColors(status: string): { fg: string; bg: string } {
+function statusStyle(status: string): { color: string; label: string } {
   switch (status) {
-    case 'running': return { fg: 'var(--yellow)', bg: 'rgba(204,167,0,0.12)' }
-    case 'error':   return { fg: 'var(--red)', bg: 'rgba(241,76,76,0.12)' }
-    default:        return { fg: 'var(--text-dim)', bg: 'rgba(133,133,133,0.10)' }
+    case 'running': return { color: 'var(--yellow)', label: 'running' }
+    case 'error':   return { color: 'var(--red)', label: 'error' }
+    default:        return { color: 'var(--text-dim)', label: 'done' }
   }
 }
 
@@ -134,8 +132,8 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const overflow = lines.length > MAX_PREVIEW
   const displayLines = expanded || !overflow ? lines : lines.slice(0, MAX_PREVIEW)
   const inputInfo = formatToolInput(tool.name, tool.input)
-  const badge = toolBadge(tool.name)
-  const s = statusColors(tool.status)
+  const ts = toolStyle(tool.name)
+  const ss = statusStyle(tool.status)
 
   const handleCopy = () => {
     if (tool.output) {
@@ -148,8 +146,8 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const header = (
     <div className="flex items-center gap-2 min-w-0">
       <span
-        className="text-[11px] font-semibold shrink-0 rounded-[3px] px-[5px] py-px leading-[18px]"
-        style={{ color: badge.color, background: badge.bg, fontFamily: 'var(--font-mono)' }}
+        className="text-[10px] font-semibold shrink-0 rounded px-1.5 py-0.5 border"
+        style={{ color: ts.color, borderColor: ts.color, fontFamily: 'var(--font-mono)' }}
       >
         {tool.name}
       </span>
@@ -162,22 +160,22 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
         </span>
       )}
       <span
-        className="text-[10px] font-semibold uppercase tracking-[0.04em] shrink-0 ml-auto rounded-[3px] px-[4px] leading-[16px]"
-        style={{ color: s.fg, background: s.bg }}
+        className="text-[10px] font-semibold uppercase tracking-[0.04em] shrink-0 ml-auto"
+        style={{ color: ss.color }}
       >
-        {tool.status}
+        {ss.label}
       </span>
     </div>
   )
 
   return (
-    <MsgBlock borderColor="var(--border)" header={header} background="color-mix(in srgb, var(--bg-main) 95%, var(--blue))">
+    <MsgBlock header={header}>
       {hasOutput && (
         <div className="relative group/output">
           <button
             className="absolute top-0 right-0 opacity-0 group-hover/output:opacity-100 transition-opacity z-10
-                       text-[10px] font-semibold uppercase tracking-[0.04em] rounded-[3px] px-[5px] py-px leading-[16px]
-                       hover:bg-[var(--bg-hover)] cursor-pointer"
+                       text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
+                       hover:bg-[var(--glass-hover)] cursor-pointer"
             style={{ color: 'var(--text-dim)' }}
             onClick={handleCopy}
             aria-label="Copy output"
@@ -185,14 +183,14 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             {copied ? 'Copied' : 'Copy'}
           </button>
           <div
-            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto mt-[2px]"
+            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto mt-1"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {displayLines.map((line, i) => (
               <span key={i} className="block min-h-[1.55em]">
                 <span
                   className="inline-block w-[2.8em] mr-[1.2em] text-right select-none shrink-0"
-                  style={{ color: 'var(--text-dim)', opacity: 0.4 }}
+                  style={{ color: 'var(--text-dim)', opacity: 0.35 }}
                 >
                   {i + 1}
                 </span>
@@ -204,12 +202,11 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
       )}
       {overflow && (
         <button
-          className="text-[12px] text-[var(--text-dim)] hover:text-[var(--text-primary)] mt-[6px] transition-colors"
+          className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)] mt-2 transition-colors"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded
-            ? `\u25B2 Collapse`
-            : `\u25BC Show all ${lines.length} lines`}
+          <IconChevronDown size={10} className={expanded ? 'rotate-180' : ''} />
+          {expanded ? 'Collapse' : `Show all ${lines.length} lines`}
         </button>
       )}
     </MsgBlock>
@@ -234,14 +231,14 @@ function MessageBubble({ message }: { message: Message }) {
 
   if (role === 'system') {
     return (
-      <div className="text-center text-[var(--text-dim)] text-[13px] py-1">{content}</div>
+      <div className="text-center text-[var(--text-dim)] text-[12px] py-2">{content}</div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-[4px] mb-[4px]">
+    <div className="flex flex-col gap-1.5 mb-1.5">
       {role === 'user' ? (
-        <MsgBlock borderColor="var(--accent)">
+        <MsgBlock accent="var(--accent)">
           <MarkdownBlock content={content} />
         </MsgBlock>
       ) : role === 'error' ? (
@@ -251,7 +248,7 @@ function MessageBubble({ message }: { message: Message }) {
           {thinking && <ThinkingBlock content={thinking} />}
           {tools?.map((tool, i) => <ToolBlock key={i} tool={tool} />)}
           {content && (
-            <MsgBlock borderColor="var(--border)">
+            <MsgBlock>
               <MarkdownBlock content={content} />
             </MsgBlock>
           )}
