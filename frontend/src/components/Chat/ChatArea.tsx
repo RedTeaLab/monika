@@ -13,6 +13,7 @@ function ChatArea() {
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
+  const activeSessionTitle = useStore((s) => s.activeSessionTitle)
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return
@@ -48,7 +49,7 @@ function ChatArea() {
         className="flex items-center justify-between px-3 py-1 border-b border-[var(--border)] flex-shrink-0"
         style={{ background: 'var(--glass-strong)' }}
       >
-        <span className="text-[12px] text-[var(--text-secondary)]">Chat</span>
+        <span className="text-[12px] truncate text-[var(--text-secondary)]">{activeSessionTitle || 'Chat'}</span>
         <button
           onClick={() => { setActiveSessionId(''); clearMessages() }}
           className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] w-6 h-6 flex items-center justify-center rounded transition-colors"

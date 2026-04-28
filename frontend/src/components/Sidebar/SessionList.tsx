@@ -11,6 +11,7 @@ function SessionList() {
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
+  const setActiveSessionTitle = useStore((s) => s.setActiveSessionTitle)
   const setMessages = useStore((s) => s.setMessages)
 
   useEffect(() => {
@@ -34,6 +35,7 @@ function SessionList() {
       const info = await App.NewSession(projectPath)
       setSessions((prev) => [info, ...prev])
       setActiveSessionId(info.id)
+      setActiveSessionTitle(info.title || 'Untitled')
       setMessages([])
     } catch (err) {
       console.error('Failed to create session:', err)
@@ -42,6 +44,8 @@ function SessionList() {
 
   const handleSelect = async (id: string) => {
     setActiveSessionId(id)
+    const session = sessions.find((s) => s.id === id)
+    setActiveSessionTitle(session?.title || 'Untitled')
     if (!projectPath) return
     try {
       const s = await App.LoadSession(projectPath, id)

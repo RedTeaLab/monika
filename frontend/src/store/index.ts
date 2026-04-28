@@ -26,6 +26,7 @@ interface AppState {
   projectPath: string
   branch: string
   activeSessionId: string
+  activeSessionTitle: string
   consoleLines: string[]
   layoutMode: LayoutMode
   splitRatio: number
@@ -44,6 +45,7 @@ interface AppState {
   setProjectPath: (path: string) => void
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
+  setActiveSessionTitle: (title: string) => void
   addConsoleLine: (line: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   setSplitRatio: (ratio: number) => void
@@ -58,6 +60,7 @@ export const useStore = create<AppState>((set) => ({
   projectPath: '',
   branch: '',
   activeSessionId: '',
+  activeSessionTitle: '',
   consoleLines: ['$ ready'],
   layoutMode: 'split',
   splitRatio: 0.5,
@@ -126,6 +129,7 @@ export const useStore = create<AppState>((set) => ({
   setProjectPath: (path) => set({ projectPath: path }),
   setBranch: (branch) => set({ branch }),
   setActiveSessionId: (id) => set({ activeSessionId: id }),
+  setActiveSessionTitle: (title) => set({ activeSessionTitle: title }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   setSplitRatio: (ratio) => set({ splitRatio: ratio }),
