@@ -7,8 +7,8 @@ function FileTree() {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
-  const selectedFilePath = useStore((s) => s.selectedFilePath)
-  const setSelectedFile = useStore((s) => s.setSelectedFile)
+  const openFileTab = useStore((s) => s.openFileTab)
+  const activeFilePath = useStore((s) => s.activeFilePath)
 
   useEffect(() => {
     if (!projectPath) return
@@ -23,9 +23,9 @@ function FileTree() {
     } else {
       try {
         const result = await App.ReadFile(projectPath, node.path)
-        setSelectedFile(node.path, result?.content || '')
+        openFileTab(node.path, result?.content || '')
       } catch {
-        setSelectedFile(node.path, '')
+        openFileTab(node.path, '')
       }
     }
   }
@@ -36,7 +36,7 @@ function FileTree() {
 
   const renderNode = (node: FileNode, depth = 0) => {
     const isExpanded = expanded.has(node.path)
-    const isSelected = selectedFilePath === node.path
+    const isSelected = activeFilePath === node.path
     const gColor = gitColor(node.status)
 
     return (
