@@ -18,6 +18,11 @@
 
 ## 2026-04-28
 
+- **多标签页支持**：ChatArea 支持同时打开多个会话，FileEditor 支持同时打开多个文件，各自通过独立 TabBar 管理。新增 `TabBar` 组件（标签栏、溢出下拉、状态指示、键盘导航、ARIA 无障碍）。Store 重构：新增 `openSessions`、`sessionMessages`、`openFiles`、`activeFilePath`、`generatingSessionId` 等 11 个字段和 14 个操作，移除旧单视图字段。流式事件按 `session_id` 路由到 per-session 缓存。FileEditor 改为多 DOM 容器 + CodeMirror 实例缓存（LRU 淘汰，上限 10）。SessionList 委托 `openSessionTab`，FileTree 委托 `openFileTab`。四轮代码审查修复 8 个 P0/P1 和 7 个 P2/P3 问题。设计文档：`docs/superpowers/specs/2026-04-28-multi-tab-design.md`。
+- **ConfirmModal 增强**：新增 `confirmLabel` prop 支持自定义确认按钮文本，通用错误文案从 "Deletion failed" 改为 "Operation failed"。
+- **FileEditor 滚动条修复**：移除 `overflow-hidden` 添加 `.cm-editor { height: 100% }` 和 `.cm-scroller::-webkit-scrollbar` 显式样式，确保 CodeMirror 滚动条与全局样式一致。
+- **TitleBar 关闭按钮修复**：`Application.Quit()` 替换为 `Window.Close()`，解决 Wails v3 alpha.78 中无法完全关闭窗口的问题。
+- **AGENTS.md 更新**：新增 TabBar、ChatArea、FileEditor 组件规范，更新 Zustand store 状态字段说明，添加中文沟通语言规则。
 - **Split Screen 三栏布局**：重构 App 布局为 ChatGroup / DragDivider / FilesGroup 三区域，支持 chat、split、files 三种模式，TitleBar 布局切换按钮切换。CSS show/hide（不卸载组件）保持状态。Zustand store 新增 `layoutMode`、`splitRatio` 字段。设计文档：`docs/superpowers/specs/2026-04-28-split-screen-layout-design.md`。
 - **DragDivider 可拖拽分割线**：新增 `DragDivider` 组件，4px 宽，mousedown/mousemove/mouseup 处理，splitRatio 范围 0.2–0.8，拖拽时 `user-select: none`。
 - **FileEditor 组件抽离**：从 FileTree 中独立为 FileTree/FileEditor，通过 Zustand store 通信（`selectedFilePath`、`selectedFileContent`），FileTree 写、FileEditor 读。空状态展示 "Preview" 占位。添加一致的 header bar（文件名 + 关闭按钮）。

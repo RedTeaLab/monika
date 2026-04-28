@@ -19,9 +19,9 @@
   - `internal/engines/mcp/` — MCP stdio JSON-RPC transport.
   - `internal/tool/` — tool interface + builtin tools (file, grep, glob, bash).
 - `frontend/` — React + TypeScript + Tailwind CSS v4 + CodeMirror 6 desktop UI.
-  - `src/components/` — TitleBar, SessionList, ChatArea (ChatInput, MessageBubble, ToolCard), FileTree (FileEditor), Console, StatusBar.
-  - `src/store/` — Zustand state management with Wails event listeners.
-  - `src/index.css` — CSS custom properties (design tokens), Tailwind import, global resets, scrollbar styling.
+  - `src/components/` — TitleBar, SessionList, TabBar, ChatArea (ChatInput, MessageBubble, ToolCard), FileTree (FileEditor), Console, StatusBar, ConfirmModal, DragDivider.
+  - `src/store/` — Zustand state management with Wails event listeners. Multi-tab session and file state.
+  - `src/index.css` — CSS custom properties (design tokens), Tailwind import, global resets, scrollbar styling, CodeMirror scrollbar styling.
   - `bindings/` — Wails Go↔JS method bindings (auto-generated).
 - `build/config.yml` — Wails v3 build configuration.
 - Engine registration follows `database/sql` pattern: each engine calls `engine.Register()` in `init()`, binary triggers via blank imports in `main.go`.
@@ -98,6 +98,33 @@ Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts`
 +-- StatusBar (h-[22px])
 ```
 
+**TabBar conventions** (ChatArea, FileEditor):
+- Height 36px (`TAB_BAR_HEIGHT`), background `var(--glass-strong)`, border-b.
+- Tab min-width 120px, max-width 200px, truncate with ellipsis.
+- Active tab: `var(--bg-main)` background, `var(--text-primary)` text.
+- Inactive tabs: transparent background, `var(--text-secondary)` text.
+- Status indicators: generating (yellow pulsing dot), completed (green checkmark), error (red dot).
+- Dirty indicator (file tabs): dim dot after label text.
+- Close button: always visible on active tab, visible on hover for inactive tabs.
+- Overflow: tabs exceeding container width collapse into `▼` dropdown menu (ResizeObserver-driven).
+- ARIA: `role="tablist"`, `role="tab"` with `aria-selected`, `aria-controls`; keyboard nav (Left/Right, Enter/Space, Ctrl+W).
+- Overflow button: `aria-haspopup="menu"`, `aria-expanded`.
+- Drag-and-drop reorder deferred to later phase; `onReorder?` prop reserved.
+
+**ChatArea conventions** (ChatArea, ChatInput, MessageBubble, ToolCard):
+- Message role labels: 12px, uppercase, `tracking-[0.03em]`, semibold. Roles: `You` (user, `--accent`), `Assistant` (`--green`), `System` (`--text-dim`), `Error` (`--red`).
+- Message content: `var(--font-mono)`, 13px, `leading-[1.6]`.
+- Tool cards: 3px left border by status color, monospace output, 11px uppercase status badge.
+- Input field: `--bg-input` background, rounded `[2px]`, focus border `--border-active`.
+- Multi-session: TabBar manages open sessions; messages cached in `sessionMessages[id]`; stream events routed by `session_id`.
+
+**FileEditor conventions** (FileEditor):
+- TabBar manages open files; CodeMirror EditorView instances cached in `useRef<Map>` with LRU eviction (max 10).
+- Each file gets a DOM container (`absolute inset-0`, `display:block`/`none` for visibility).
+- Tab switch: `view.requestMeasure()` + content sync (`view.dispatch`) if store content differs from editor.
+- Dirty close: `ConfirmModal` with `confirmLabel="Discard"` when `isDirty` is true.
+- File content freshness: on tab select, re-read from backend via `App.ReadFile`.
+
 **Sidebar conventions** (SessionList, FileTree):
 - Background `--bg-sidebar`, not `--bg-main`.
 - Section header: 11px, uppercase, `tracking-[0.05em]`, `--text-secondary`.
@@ -128,12 +155,13 @@ Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts`
 
 ### State Management (Zustand)
 - Single store in `src/store/index.ts` — `create<AppState>`.
-- Store holds: `messages`, `generating`, `tokenCount`, `projectPath`, `activeSessionId`.
+- Store holds: `messages` (active session display), `openSessions`, `sessionMessages` (per-session cache), `generatingSessionId`, `openFiles`, `activeFilePath`, `tokenCount`, `projectPath`, `activeSessionId`, `layoutMode`, `splitRatio`.
+- Multi-tab state: `openSessions` tracks session tabs, `sessionMessages: Record<string, Message[]>` caches per-session messages. `openFiles` tracks file tabs with `isDirty` flag.
+- `generatingSessionId` replaces `generating: boolean` — tracks which session is generating.
+- Stream events route by `session_id` via per-session actions (`updateSessionMessage`, `addSessionToolStart`, etc.).
+- Session tab limit: max 8. CodeMirror cache limit: max 10 EditorView instances with LRU eviction.
 - Actions mutate state via `set()`. Always use immutable updates (never mutate in place).
-- Tool events update the last assistant message's `tools[]` array by finding and patching.
-- Wails events hook into store via `Events.On('stream', ...)` in `setupWailsEvents()`.
 - Components read state with selectors: `useStore((s) => s.field)` to avoid re-renders.
-- Welcome message: `[{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }]`.
 
 ### Wails Bindings
 - Auto-generated in `frontend/bindings/monika/` (Do not edit manually).
