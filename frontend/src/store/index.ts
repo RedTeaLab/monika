@@ -65,6 +65,12 @@ interface AppState {
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
   switchSessionTab: (id: string) => void
+
+  openFileTab: (path: string, content: string) => void
+  closeFileTab: (path: string) => void
+  switchFileTab: (path: string) => void
+  setFileDirty: (path: string, dirty: boolean) => void
+  updateFileContent: (path: string, content: string) => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -222,6 +228,58 @@ export const useStore = create<AppState>((set) => ({
         messages: restored,
       }
     })
+  },
+
+  openFileTab: (path, content) => {
+    const state = useStore.getState()
+    const existing = state.openFiles.find((f) => f.path === path)
+    if (existing) {
+      state.switchFileTab(path)
+      return
+    }
+    set((s) => ({
+      openFiles: [...s.openFiles, { path, content, isDirty: false }],
+      activeFilePath: path,
+    }))
+  },
+
+  closeFileTab: (path) => {
+    set((s) => {
+      const idx = s.openFiles.findIndex((f) => f.path === path)
+      if (idx === -1) return {}
+
+      const next = [...s.openFiles]
+      next.splice(idx, 1)
+
+      let newActive = s.activeFilePath
+      if (path === s.activeFilePath) {
+        if (idx < next.length) newActive = next[idx].path
+        else if (next.length > 0) newActive = next[next.length - 1].path
+        else newActive = ''
+      }
+
+      return { openFiles: next, activeFilePath: newActive }
+    })
+  },
+
+  switchFileTab: (path) => {
+    set((s) => {
+      if (path === s.activeFilePath) return {}
+      if (!s.openFiles.some((f) => f.path === path)) return {}
+      return { activeFilePath: path }
+    })
+  },
+
+  setFileDirty: (path, dirty) => {
+    set((s) => ({
+      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, isDirty: dirty } : f),
+    }))
+  },
+
+  updateFileContent: (path, content) => {
+    set((s) => ({
+      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, content } : f),
+    }))
   },
 
 }))
