@@ -55,6 +55,8 @@ function ChatArea() {
     }
   }
 
+  const hasActiveSession = activeSessionId !== ''
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-main)]">
       <TabBar
@@ -62,10 +64,14 @@ function ChatArea() {
         activeKey={activeSessionId}
         onSelect={(key) => switchSessionTab(key)}
         onClose={(key) => closeSessionTab(key)}
-        emptyLabel="No sessions open. Create one from the sidebar."
+        emptyLabel="Chat"
       />
       <div className="flex-1 overflow-y-auto p-[5px]">
-        {messages.length === 0 ? (
+        {!hasActiveSession ? (
+          <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
+            Start a session to chat.
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
             No messages yet. Start a conversation.
           </div>
@@ -75,11 +81,13 @@ function ChatArea() {
           ))
         )}
       </div>
-      <ChatInput
-        key={activeSessionId}
-        onSend={handleSend}
-        disabled={generatingSessionId !== ''}
-      />
+      {hasActiveSession && (
+        <ChatInput
+          key={activeSessionId}
+          onSend={handleSend}
+          disabled={generatingSessionId !== ''}
+        />
+      )}
     </div>
   )
 }
