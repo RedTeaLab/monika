@@ -1,5 +1,6 @@
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
+import { IconClose } from '../Icons'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 
@@ -47,6 +48,13 @@ function ChatArea() {
         style={{ background: 'var(--glass-strong)' }}
       >
         <span className="text-[12px] text-[var(--text-secondary)]">Chat</span>
+        <button
+          onClick={clearMessages}
+          className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] w-6 h-6 flex items-center justify-center rounded transition-colors"
+          aria-label="Clear chat"
+        >
+          <IconClose size={12} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-[5px]">
         {messages.length === 0 ? (
