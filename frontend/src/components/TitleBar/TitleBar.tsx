@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Window, Events, Application } from '@wailsio/runtime'
+import { Window, Events } from '@wailsio/runtime'
 import { useStore, LayoutMode } from '../../store'
 import { IconMinimize, IconMaximize, IconClose, IconRestore, IconChatLayout, IconSplitLayout, IconFilesLayout } from '../Icons'
 
@@ -73,7 +73,7 @@ function TitleBar() {
           {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}
         </button>
         <button
-          onClick={() => Application.Quit()}
+          onClick={() => Window.Close()}
           className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-white hover:bg-[var(--red)] transition-colors"
           aria-label="Close"
         >
