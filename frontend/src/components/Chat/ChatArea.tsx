@@ -12,6 +12,7 @@ function ChatArea() {
   const clearMessages = useStore((s) => s.clearMessages)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
+  const setActiveSessionId = useStore((s) => s.setActiveSessionId)
 
   const handleSend = async (text: string) => {
     if (!text.trim()) return
@@ -49,9 +50,9 @@ function ChatArea() {
       >
         <span className="text-[12px] text-[var(--text-secondary)]">Chat</span>
         <button
-          onClick={clearMessages}
+          onClick={() => { setActiveSessionId(''); clearMessages() }}
           className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] w-6 h-6 flex items-center justify-center rounded transition-colors"
-          aria-label="Clear chat"
+          aria-label="Close session"
         >
           <IconClose size={12} />
         </button>
