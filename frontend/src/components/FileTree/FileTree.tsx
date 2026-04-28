@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
 import { App, FileNode } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import FileEditor from './FileEditor'
 import { IconChevronRight, IconChevronDown, IconFile } from '../Icons'
 
 function FileTree() {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [selectedFile, setSelectedFile] = useState<string>()
-  const [fileContent, setFileContent] = useState<string>()
   const projectPath = useStore((s) => s.projectPath)
+  const selectedFilePath = useStore((s) => s.selectedFilePath)
+  const setSelectedFile = useStore((s) => s.setSelectedFile)
 
   useEffect(() => {
     if (!projectPath) return
@@ -22,12 +21,11 @@ function FileTree() {
       next.has(node.path) ? next.delete(node.path) : next.add(node.path)
       setExpanded(next)
     } else {
-      setSelectedFile(node.path)
       try {
-        const content = await App.ReadFile(projectPath, node.path)
-        setFileContent(content?.content || '')
+        const result = await App.ReadFile(projectPath, node.path)
+        setSelectedFile(node.path, result?.content || '')
       } catch {
-        setFileContent('')
+        setSelectedFile(node.path, '')
       }
     }
   }
@@ -38,7 +36,7 @@ function FileTree() {
 
   const renderNode = (node: FileNode, depth = 0) => {
     const isExpanded = expanded.has(node.path)
-    const isSelected = selectedFile === node.path
+    const isSelected = selectedFilePath === node.path
     const gColor = gitColor(node.status)
 
     return (
@@ -84,9 +82,6 @@ function FileTree() {
           tree.map(node => renderNode(node))
         )}
       </div>
-      {selectedFile && (
-        <FileEditor filePath={selectedFile} content={fileContent} onClose={() => { setSelectedFile(undefined); setFileContent(undefined) }} />
-      )}
     </div>
   )
 }
