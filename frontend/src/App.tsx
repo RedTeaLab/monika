@@ -31,7 +31,7 @@ function App() {
           <div
             className="flex flex-shrink-0 overflow-hidden"
             style={{
-              width: layoutMode === 'split' ? `${splitRatio * 100}%` : '100%',
+              width: layoutMode === 'split' ? `calc(${splitRatio * 100}% - 2px)` : '100%',
               minWidth: 0,
             }}
           >
@@ -52,7 +52,7 @@ function App() {
           <div
             className="flex flex-shrink-0 overflow-hidden"
             style={{
-              width: layoutMode === 'split' ? `${(1 - splitRatio) * 100}%` : '100%',
+              width: layoutMode === 'split' ? `calc(${(1 - splitRatio) * 100}% - 2px)` : '100%',
               minWidth: 0,
             }}
           >
