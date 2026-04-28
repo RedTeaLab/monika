@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { IconClose, IconChevronDown } from '../Icons'
 
+const MIN_TAB_WIDTH = 120
+const MAX_TAB_WIDTH = 200
+const MORE_BUTTON_WIDTH = 28
+const TAB_BAR_HEIGHT = 36
+
 interface TabData {
   key: string
   label: string
@@ -49,14 +54,14 @@ function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps)
 
     const calc = () => {
       const containerWidth = el.clientWidth
-      const moreBtnWidth = 28
+      const moreBtnWidth = MORE_BUTTON_WIDTH
       let used = 0
       const overflow: string[] = []
 
       // First pass: count visible tabs at min width
       tabs.forEach((tab) => {
-        if (used + 120 + (overflow.length > 0 ? moreBtnWidth : 0) <= containerWidth) {
-          used += 120
+        if (used + MIN_TAB_WIDTH + (overflow.length > 0 ? moreBtnWidth : 0) <= containerWidth) {
+          used += MIN_TAB_WIDTH
         } else {
           overflow.push(tab.key)
         }
@@ -90,7 +95,7 @@ function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps)
   if (tabs.length === 0) {
     return (
       <div className="flex items-center px-3 py-1 border-b border-[var(--border)] flex-shrink-0"
-        style={{ background: 'var(--glass-strong)', height: 36 }}>
+        style={{ background: 'var(--glass-strong)', height: TAB_BAR_HEIGHT }}>
         <span className="text-[12px] text-[var(--text-dim)]">{emptyLabel}</span>
       </div>
     )
@@ -99,7 +104,7 @@ function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps)
   return (
     <div ref={containerRef}
       className="flex items-end border-b border-[var(--border)] flex-shrink-0 overflow-x-hidden"
-      style={{ background: 'var(--glass-strong)', height: 36 }}>
+      style={{ background: 'var(--glass-strong)', height: TAB_BAR_HEIGHT }}>
       <div className="flex items-end overflow-hidden" role="tablist" aria-orientation="horizontal">
         {tabs.filter(t => !overflowKeys.includes(t.key)).map((tab) => {
           const isActive = tab.key === activeKey
@@ -116,7 +121,7 @@ function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps)
               }}
               className="flex items-center gap-1 px-2 cursor-pointer transition-colors border-r border-[var(--border)] select-none flex-shrink-0"
               style={{
-                minWidth: 120, maxWidth: 200, height: 35,
+                minWidth: MIN_TAB_WIDTH, maxWidth: MAX_TAB_WIDTH, height: TAB_BAR_HEIGHT - 1,
                 background: isActive ? 'var(--bg-main)' : 'transparent',
                 color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
               }}>
@@ -144,7 +149,8 @@ function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps)
             onClick={() => setMenuOpen(!menuOpen)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="flex items-center justify-center w-[28px] h-full text-[var(--text-dim)] hover:text-[var(--text-primary)] transition-colors"
+            className="flex items-center justify-center h-full text-[var(--text-dim)] hover:text-[var(--text-primary)] transition-colors"
+            style={{ width: MORE_BUTTON_WIDTH }}
           >
             <IconChevronDown size={12} />
           </button>

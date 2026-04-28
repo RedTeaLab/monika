@@ -70,22 +70,11 @@ function SessionList() {
     })
 
     if (deletedId === activeSessionId) {
-      const sorted = [...remaining].sort((a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      )
-      if (sorted.length > 0) {
-        const nearest = sorted[0]
-        try {
-          await openSessionTab(nearest.id, nearest.title || 'Untitled')
-          document.getElementById(`session-${nearest.id}`)?.focus()
-        } catch {
-          setMessages([])
-          setActiveSessionId('')
-          document.getElementById('new-session-btn')?.focus()
-        }
+      const newActiveId = useStore.getState().activeSessionId
+      if (newActiveId) {
+        document.getElementById(`session-${newActiveId}`)?.focus()
       } else {
         setMessages([])
-        setActiveSessionId('')
         document.getElementById('new-session-btn')?.focus()
       }
     }

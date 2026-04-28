@@ -70,9 +70,15 @@ function FileEditor() {
       }
       editorCache.current.set(activeFilePath, view)
     } else {
-      // Re-attach DOM and remeasure
+      // Re-attach DOM, sync content, and remeasure
       if (view.dom.parentElement !== container) {
         container.appendChild(view.dom)
+      }
+      const file = openFiles.find((f) => f.path === activeFilePath)
+      if (file && view.state.doc.toString() !== file.content) {
+        view.dispatch({
+          changes: { from: 0, to: view.state.doc.length, insert: file.content }
+        })
       }
       view.requestMeasure()
     }
@@ -81,6 +87,15 @@ function FileEditor() {
     lruOrder.current = lruOrder.current.filter((p) => p !== activeFilePath)
     lruOrder.current.push(activeFilePath)
   }, [activeFilePath, openFiles])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      editorCache.current.forEach((view) => view.destroy())
+      editorCache.current.clear()
+      lruOrder.current = []
+    }
+  }, [])
 
   const handleClose = useCallback((path: string) => {
     const file = openFiles.find((f) => f.path === path)

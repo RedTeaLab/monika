@@ -54,6 +54,7 @@ interface AppState {
   updateSessionMessage: (id: string, delta: string) => void
   updateSessionThinking: (id: string, delta: string) => void
   addSessionToolStart: (id: string, tool: ToolCall) => void
+  addSessionError: (id: string, content: string) => void
   updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
   setGeneratingSessionId: (sessionId: string) => void
   addTokens: (tokens: number) => void
@@ -205,6 +206,7 @@ export const useStore = create<AppState>((set) => ({
   updateSessionToolDone: (id, name, output, status) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
+      let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant' && msgs[i].tools) {
           msgs[i] = {
@@ -213,11 +215,21 @@ export const useStore = create<AppState>((set) => ({
               t.name === name && t.status === 'running' ? { ...t, output, status } : t
             ),
           }
+          found = true
           break
         }
       }
+      if (!found) {
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', tools: [{ name, input: '', output, status }] })
+      }
       return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
     })
+  },
+
+  addSessionError: (id, content) => {
+    set((s) => ({
+      sessionMessages: { ...s.sessionMessages, [id]: [...(s.sessionMessages[id] || []), { id: crypto.randomUUID(), role: 'error' as const, content }] },
+    }))
   },
 
   setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
@@ -259,12 +271,16 @@ export const useStore = create<AppState>((set) => ({
         ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0])
         : []
       set((s) => {
+        const streamMsgs = s.sessionMessages[id] || []
+        const merged = msgs.length > 0
+          ? [...msgs, ...streamMsgs.filter((sm) => !msgs.some((lm) => lm.id === sm.id))]
+          : streamMsgs
         if (s.activeSessionId !== id) {
-          return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+          return { sessionMessages: { ...s.sessionMessages, [id]: merged } }
         }
         return {
-          sessionMessages: { ...s.sessionMessages, [id]: msgs },
-          messages: msgs,
+          sessionMessages: { ...s.sessionMessages, [id]: merged },
+          messages: merged,
         }
       })
     } catch {
@@ -486,6 +502,7 @@ export function setupWailsEvents() {
 
       case 'error':
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
+        store.addSessionError(sid, data.content || 'Unknown error')
         if (sid === store.activeSessionId) {
           store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         }
