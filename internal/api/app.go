@@ -72,6 +72,10 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 	return nil
 }
 
+func (a *App) QuitApp() {
+	application.Get().Quit()
+}
+
 func (a *App) GetCurrentProject() *ProjectInfo {
 	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject called, startupCwd=%q projects=%v\n", a.startupCwd, func() []string {
 		var keys []string

@@ -89,6 +89,9 @@ export const App = {
   SendMessage(projectPath: string, sessionID: string, text: string): Promise<void> {
     return Call.ByName(`${serviceName}.SendMessage`, projectPath, sessionID, text);
   },
+  QuitApp(): Promise<void> {
+    return Call.ByName(`${serviceName}.QuitApp`);
+  },
   CancelGeneration(sessionID: string): Promise<void> {
     return Call.ByName(`${serviceName}.CancelGeneration`, sessionID);
   },
