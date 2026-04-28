@@ -14,9 +14,9 @@ type LayoutMode = 'chat' | 'split' | 'files'
 interface AppState {
   layoutMode: LayoutMode      // default: 'split'
   splitRatio: number          // 0.2 ~ 0.8, default: 0.5 (chat group share)
-  // FileEditor state lifted to store
-  selectedFilePath?: string
-  selectedFileContent?: string
+  selectedFilePath: string
+  selectedFileContent: string
+  activeSessionTitle: string  // current session title for ChatArea header
 }
 ```
 
@@ -40,6 +40,15 @@ App
 - **ChatGroup**: `flex row` — Sessions (w-56, independently collapsible via StatusBar toggle) + ChatArea (flex-1)
 - **FilesGroup**: `flex row` — FileEditor (flex-1) + FileTree (w-56, independently collapsible via StatusBar toggle)
 
+### Panel Headers
+
+Both ChatArea and FileEditor have a consistent header bar for visual unity:
+
+- **Style**: `px-3 py-1 border-b border-[var(--border)]` with `background: var(--glass-strong)`
+- **ChatArea header**: Shows session title (or "Chat" when no session). Close button closes the current session (`setActiveSessionId('')` + `clearMessages()`).
+- **FileEditor header (file open)**: Shows filename. Close button clears the selected file (`clearSelectedFile()`).
+- **FileEditor header (empty)**: Shows "Preview" label. No close button.
+
 ### Visibility (CSS display, no unmount)
 
 | Mode  | ChatGroup | DragDivider | FilesGroup | Console |
@@ -54,7 +63,7 @@ Console always visible unless manually toggled via StatusBar.
 
 - **chat**: ChatGroup 100%
 - **files**: FilesGroup 100%
-- **split**: ChatGroup `splitRatio`%, FilesGroup `(1 - splitRatio)`%, DragDivider 4px
+- **split**: ChatGroup `calc(splitRatio * 100% - 2px)`, FilesGroup `calc((1 - splitRatio) * 100% - 2px)`, DragDivider 4px
 
 ## TitleBar Layout Switcher
 
@@ -102,16 +111,18 @@ FileEditor is extracted from FileTree into a standalone component in FilesGroup.
 
 ### Empty State
 
-When no file is selected, FileEditor shows a centered placeholder: "Select a file to preview" in `--text-dim`, 13px, on `--bg-main` background.
+When no file is selected, FileEditor shows a header bar with "Preview" label plus a centered placeholder: "Select a file to preview" in `--text-dim`, 13px, on `--bg-main` background.
 
 ## Files Changed
 
 | File | Change |
 |------|--------|
-| `frontend/src/App.tsx` | Restructure to ChatGroup/FilesGroup/DragDivider, visibility logic |
-| `frontend/src/store/index.ts` | Add `layoutMode`, `splitRatio`, `selectedFilePath`, `selectedFileContent` |
+| `frontend/src/App.tsx` | Restructure to ChatGroup/FilesGroup/DragDivider, visibility logic, calc() widths |
+| `frontend/src/store/index.ts` | Add `layoutMode`, `splitRatio`, `selectedFilePath`, `selectedFileContent`, `activeSessionTitle` |
 | `frontend/src/components/TitleBar/TitleBar.tsx` | Add 3 layout mode icons |
 | `frontend/src/components/FileTree/FileTree.tsx` | Remove FileEditor, write to store instead of local state, width changes w-64 → w-56 |
-| `frontend/src/components/FileTree/FileEditor.tsx` | Read from store, add empty placeholder |
+| `frontend/src/components/FileTree/FileEditor.tsx` | Read from store, add consistent header bar with empty placeholder |
+| `frontend/src/components/Chat/ChatArea.tsx` | Add header bar with session title and close button (closes session) |
+| `frontend/src/components/Sidebar/SessionList.tsx` | Set activeSessionTitle on session select and new session |
 | `frontend/src/components/Icons.tsx` | Add split/column icon if needed |
 | `frontend/src/components/StatusBar/StatusBar.tsx` | Keep sidebar toggle and file tree toggle (both now independent within their groups), keep console toggle |
