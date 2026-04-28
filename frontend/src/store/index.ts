@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 
+export type LayoutMode = 'chat' | 'split' | 'files'
+
 interface ToolCall {
   name: string
   input: string
@@ -25,6 +27,10 @@ interface AppState {
   branch: string
   activeSessionId: string
   consoleLines: string[]
+  layoutMode: LayoutMode
+  splitRatio: number
+  selectedFilePath: string
+  selectedFileContent: string
 
   addMessage: (msg: Message) => void
   updateLastAssistant: (content: string) => void
@@ -39,6 +45,10 @@ interface AppState {
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
   addConsoleLine: (line: string) => void
+  setLayoutMode: (mode: LayoutMode) => void
+  setSplitRatio: (ratio: number) => void
+  setSelectedFile: (path: string, content: string) => void
+  clearSelectedFile: () => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -49,6 +59,10 @@ export const useStore = create<AppState>((set) => ({
   branch: '',
   activeSessionId: '',
   consoleLines: ['$ ready'],
+  layoutMode: 'split',
+  splitRatio: 0.5,
+  selectedFilePath: '',
+  selectedFileContent: '',
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -113,6 +127,10 @@ export const useStore = create<AppState>((set) => ({
   setBranch: (branch) => set({ branch }),
   setActiveSessionId: (id) => set({ activeSessionId: id }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
+  setLayoutMode: (mode) => set({ layoutMode: mode }),
+  setSplitRatio: (ratio) => set({ splitRatio: ratio }),
+  setSelectedFile: (path, content) => set({ selectedFilePath: path, selectedFileContent: content }),
+  clearSelectedFile: () => set({ selectedFilePath: '', selectedFileContent: '' }),
 }))
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[]): Message[] {
