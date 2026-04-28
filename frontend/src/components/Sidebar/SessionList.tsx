@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { App, SessionInfo } from '../../../bindings/monika'
-import { useStore, loadSessionMessages } from '../../store'
+import { useStore } from '../../store'
 import { IconPlus, IconTrash } from '../Icons'
 import ConfirmModal from '../Chat/ConfirmModal'
 
@@ -11,8 +11,8 @@ function SessionList() {
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
-  const setActiveSessionTitle = useStore((s) => s.setActiveSessionTitle)
   const setMessages = useStore((s) => s.setMessages)
+  const openSessionTab = useStore((s) => s.openSessionTab)
 
   useEffect(() => {
     if (!projectPath) return
@@ -34,29 +34,16 @@ function SessionList() {
     try {
       const info = await App.NewSession(projectPath)
       setSessions((prev) => [info, ...prev])
-      setActiveSessionId(info.id)
-      setActiveSessionTitle(info.title || 'Untitled')
-      setMessages([])
+      await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {
       console.error('Failed to create session:', err)
     }
   }
 
   const handleSelect = async (id: string) => {
-    setActiveSessionId(id)
     const session = sessions.find((s) => s.id === id)
-    setActiveSessionTitle(session?.title || 'Untitled')
-    if (!projectPath) return
-    try {
-      const s = await App.LoadSession(projectPath, id)
-      if (s.messages && s.messages.length > 0) {
-        setMessages(loadSessionMessages(s.messages as any[]))
-      } else {
-        setMessages([])
-      }
-    } catch (err) {
-      console.error('Failed to load session:', err)
-    }
+    const title = session?.title || 'Untitled'
+    await openSessionTab(id, title)
   }
 
   const handleDeleteClick = (s: SessionInfo, e: React.MouseEvent) => {
@@ -87,14 +74,8 @@ function SessionList() {
       )
       if (sorted.length > 0) {
         const nearest = sorted[0]
-        setActiveSessionId(nearest.id)
         try {
-          const s = await App.LoadSession(projectPath, nearest.id)
-          if (s.messages && s.messages.length > 0) {
-            setMessages(loadSessionMessages(s.messages as any[]))
-          } else {
-            setMessages([])
-          }
+          await openSessionTab(nearest.id, nearest.title || 'Untitled')
           document.getElementById(`session-${nearest.id}`)?.focus()
         } catch {
           setMessages([])
