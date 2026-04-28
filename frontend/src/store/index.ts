@@ -151,11 +151,16 @@ export const useStore = create<AppState>((set) => ({
   updateSessionMessage: (id, delta) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
+      let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
           msgs[i] = { ...msgs[i], content: msgs[i].content + delta }
+          found = true
           break
         }
+      }
+      if (!found) {
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
       }
       return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
     })
@@ -164,11 +169,16 @@ export const useStore = create<AppState>((set) => ({
   updateSessionThinking: (id, delta) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
+      let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
           msgs[i] = { ...msgs[i], thinking: (msgs[i].thinking || '') + delta }
+          found = true
           break
         }
+      }
+      if (!found) {
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
       }
       return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
     })
@@ -177,11 +187,16 @@ export const useStore = create<AppState>((set) => ({
   addSessionToolStart: (id, tool) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
+      let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
           msgs[i] = { ...msgs[i], tools: [...(msgs[i].tools || []), tool] }
+          found = true
           break
         }
+      }
+      if (!found) {
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', tools: [tool] })
       }
       return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
     })
@@ -229,17 +244,25 @@ export const useStore = create<AppState>((set) => ({
     }
     set((s) => ({
       openSessions: [...s.openSessions, { id, title }],
+      sessionMessages: s.activeSessionId
+        ? { ...s.sessionMessages, [s.activeSessionId]: s.messages }
+        : s.sessionMessages,
       activeSessionId: id,
       messages: [],
     }))
     try {
       const project = useStore.getState().projectPath
       const session = await App.LoadSession(project, id)
-      const msgs = session.messages ? loadSessionMessages(session.messages as any[]) : []
-      set((s) => ({
-        sessionMessages: { ...s.sessionMessages, [id]: msgs },
-        messages: msgs,
-      }))
+      const msgs = session.messages
+        ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0])
+        : []
+      set((s) => {
+        if (s.activeSessionId !== id) return {}
+        return {
+          sessionMessages: { ...s.sessionMessages, [id]: msgs },
+          messages: msgs,
+        }
+      })
     } catch {
       set((s) => ({
         sessionMessages: { ...s.sessionMessages, [id]: [] },
@@ -271,6 +294,7 @@ export const useStore = create<AppState>((set) => ({
         sessionMessages: msgCache,
         activeSessionId: newActive,
         messages: newMessages,
+        generatingSessionId: s.generatingSessionId === id ? '' : s.generatingSessionId,
       }
     })
   },
@@ -436,7 +460,7 @@ export function setupWailsEvents() {
 
       case 'tool_done':
         if (data.tool) {
-          const status = (data.tool.status as 'done' | 'error') || 'done'
+          const status = (data.tool.status === 'done' || data.tool.status === 'error') ? data.tool.status : 'done'
           store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', status)
           store.addConsoleLine(`[${status}] ${data.tool.name}`)
           if (sid === store.activeSessionId) {

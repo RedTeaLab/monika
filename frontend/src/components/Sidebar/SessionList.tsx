@@ -59,6 +59,7 @@ function SessionList() {
     if (!projectPath || !sessionToDelete) return
     await App.DeleteSession(projectPath, sessionToDelete.id)
     const deletedId = sessionToDelete.id
+    useStore.getState().closeSessionTab(deletedId)
     setSessionToDelete(null)
 
     // Compute remaining sessions

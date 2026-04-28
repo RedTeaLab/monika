@@ -57,7 +57,7 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
     try {
       await onConfirm()
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Deletion failed. Please try again.'
+      const message = err instanceof Error ? err.message : 'Operation failed. Please try again.'
       setError(message)
     } finally {
       setIsLoading(false)
