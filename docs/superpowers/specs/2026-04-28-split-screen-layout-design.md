@@ -37,7 +37,7 @@ App
 
 ### Group Internals
 
-- **ChatGroup**: `flex row` — Sessions (w-56) + ChatArea (flex-1)
+- **ChatGroup**: `flex row` — Sessions (w-56, independently collapsible via StatusBar toggle) + ChatArea (flex-1)
 - **FilesGroup**: `flex row` — FileEditor (flex-1) + FileTree (w-56)
 
 ### Visibility (CSS display, no unmount)
@@ -72,6 +72,7 @@ Three icon buttons grouped together, placed left of the window controls (minimiz
 - Inactive icons: `--text-dim`, hover `--text-primary`
 - Same size as window controls, `no-drag` region
 - Each button has `aria-label`
+- Keyboard: `role="group"`, Tab enters group, Arrow keys switch between modes, visible focus ring on active button
 
 ### Icons
 
@@ -110,7 +111,7 @@ When no file is selected, FileEditor shows a centered placeholder: "Select a fil
 | `frontend/src/App.tsx` | Restructure to ChatGroup/FilesGroup/DragDivider, visibility logic |
 | `frontend/src/store/index.ts` | Add `layoutMode`, `splitRatio`, `selectedFilePath`, `selectedFileContent` |
 | `frontend/src/components/TitleBar/TitleBar.tsx` | Add 3 layout mode icons |
-| `frontend/src/components/FileTree/FileTree.tsx` | Remove FileEditor, write to store instead of local state |
+| `frontend/src/components/FileTree/FileTree.tsx` | Remove FileEditor, write to store instead of local state, width changes w-64 → w-56 |
 | `frontend/src/components/FileTree/FileEditor.tsx` | Read from store, add empty placeholder |
 | `frontend/src/components/Icons.tsx` | Add split/column icon if needed |
-| `frontend/src/components/StatusBar/StatusBar.tsx` | Remove file tree toggle (layout modes replace it) |
+| `frontend/src/components/StatusBar/StatusBar.tsx` | Remove file tree toggle (layout modes replace it), keep sidebar toggle and console toggle |
