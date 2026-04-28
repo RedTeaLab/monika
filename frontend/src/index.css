@@ -65,6 +65,11 @@
   /* ---- CodeMirror editor ---- */
   .cm-editor { height: 100%; }
 
+  .cm-scroller::-webkit-scrollbar { width: 8px; height: 8px; }
+  .cm-scroller::-webkit-scrollbar-track { background: transparent; }
+  .cm-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  .cm-scroller::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+
   /* ---- GitHub-style Markdown ---- */
   .markdown-body {
     color: var(--text-primary);
