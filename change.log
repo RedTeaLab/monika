@@ -13,15 +13,36 @@
 - 每条记录一行，以 `- ` 开头，加粗简短标题，冒号后详细说明。
 - 按日期分组，日期格式 `## YYYY-MM-DD`。
 - 变更涉及多个模块时，在说明中分别提及。
-- 设计文档存在于 `docs/plans/` 时，在相应记录中引用。
 
 ---
 
+## 2026-04-28
+
+- **Split Screen 三栏布局**：重构 App 布局为 ChatGroup / DragDivider / FilesGroup 三区域，支持 chat、split、files 三种模式，TitleBar 布局切换按钮切换。CSS show/hide（不卸载组件）保持状态。Zustand store 新增 `layoutMode`、`splitRatio` 字段。设计文档：`docs/superpowers/specs/2026-04-28-split-screen-layout-design.md`。
+- **DragDivider 可拖拽分割线**：新增 `DragDivider` 组件，4px 宽，mousedown/mousemove/mouseup 处理，splitRatio 范围 0.2–0.8，拖拽时 `user-select: none`。
+- **FileEditor 组件抽离**：从 FileTree 中独立为 FileTree/FileEditor，通过 Zustand store 通信（`selectedFilePath`、`selectedFileContent`），FileTree 写、FileEditor 读。空状态展示 "Preview" 占位。添加一致的 header bar（文件名 + 关闭按钮）。
+- **ChatArea header bar**：顶部显示 session title（从 Zustand `activeSessionTitle` 读取），关闭按钮关闭当前 session（`setActiveSessionId('')`）。样式与 FileEditor header bar 一致。
+- **SessionList session title 同步**：选择或新建 session 时同步写入 `activeSessionTitle` 到 store。
+- **Session 删除功能**：SessionList 每行 hover/focus 时显示删除图标，点击触发 `ConfirmModal` 确认弹窗。删除后自动切换到最近更新的剩余 session（按 `updated_at` 降序），无剩余时清空消息。支持键盘 Delete/Backspace 触发删除。设计文档：`docs/superpowers/specs/2026-04-27-session-delete-and-collapse-design.md`。
+- **ConfirmModal 确认弹窗**：新增 `ConfirmModal` 组件（`role="alertdialog"`），支持 loading / error 状态、焦点陷阱（Tab/Shift+Tab 在 Cancel/Delete 间循环）、Escape 关闭、backdrop 点击关闭。loading 期间禁用所有关闭操作。Portal 渲染到 document.body。
+- **StatusBar 图标化**：文本标签替换为 `<IconConsole>`、`<IconFile>`、`<IconSidebar>` 图标按钮，侧边栏和文件树可独立切换显示。新增状态指示器图标。
+- **ChatInput session 切换清空**：通过 React `key={activeSessionId}` prop 在 session 切换时卸载/重新挂载 ChatInput，自动清除输入草稿。
+- **Glassmorphism 设计系统**：全面替换 opaque 主题为 glass 面板效果，新增 `--glass-*` 和 `--glass-rgb` CSS 自定义属性，应用至 ChatArea 输入框、消息气泡、FileTree、FileEditor、Console。TitleBar 窗口控制按钮改为 icon-only。
+- **Taskfile 构建流水线**：新增 `Taskfile.yml`，支持 `task build`（跨平台构建）、`task dev`（wails3 dev）、`task check`（go test + go vet + tsc --noEmit）。
+- **自动切换副作用修复**：将 auto-switch 副作用从 Zustand setter 中提取到事件处理层，消除 state updater 中的不可预期行为。
+- **图标扩展**：新增 `IconTrash`、`IconSidebar`、`IconConsole`、`IconChatLayout`、`IconSplitLayout`、`IconFilesLayout`。
+
 ## 2026-04-27
 
-- **从 TUI 迁移到 Wails v3 桌面 GUI**：新增 `internal/api/`（App、EventBus、SessionManager、FileService）、React 前端（TitleBar、SessionList、ChatArea、FileTree、Console、StatusBar）、CodeMirror 6 编辑器、Zustand 状态管理、`internal/bootstrap/` provider 初始化。移除 `cmd/monika/`（CLI/REPL/TUI）、`internal/session/`（旧 session）、Bubble Tea/cobra/go-prompt 依赖。入口改为根目录 `main.go`。设计文档：`docs/plans/2026-04-26-agentic-editor-gui-design.md`、`docs/plans/2026-04-26-agentic-editor-gui-implementation.md`。
+- **从 TUI 迁移到 Wails v3 桌面 GUI**：新增 `internal/api/`（App、EventBus、SessionManager、FileService）、React 前端（TitleBar、SessionList、ChatArea、FileTree、Console、StatusBar）、CodeMirror 6 编辑器、Zustand 状态管理、`internal/bootstrap/` provider 初始化。移除 `cmd/monika/`（CLI/REPL/TUI）、`internal/session/`（旧 session）、Bubble Tea/cobra/go-prompt 依赖。入口改为根目录 `main.go`。
+- **前端设计系统 Cool Dark**：基于 VS Code Dark+ 风格，建立完整 CSS 自定义属性设计 token（`--bg-main`、`--bg-sidebar`、`--text-primary`、`--accent` 等 20+ 变量）、字体系统（`--font-ui` / `--font-mono`）、z-index 规范。写入 `AGENTS.md` Frontend Conventions。
+- **ChatArea 卡片重设计**：消息列表改为 card 样式、thinking 内容折叠展示、session 历史消息通过 Go API 加载、MessageBubble 和 ToolCard 组件化。
+- **GitHub 风格 Markdown 渲染**：新增 markdown 渲染（代码块语法高亮、表格、列表），ToolCard 输出改进（折叠长输出、状态颜色编码）。
 - **代码审查修复**：修复 session 并发竞态（SessionManager mutex）、cancelFuncs 并发访问（cancelMu）、JSON 序列化字段名不匹配（ToolEvent/UsageEvent json tags）、App map 并发访问（sync.RWMutex）、前端空白参数传递、SessionList 接入 Go API、StatusBar 接入 Zustand、Console 事件监听器泄漏修复、窗口控制按钮接入 Wails runtime。
 - **工具注册入口统一**：工具注册移入 `internal/tool/builtin/register.go`，`internal/tool/tool.go` 保持纯接口定义。
+- **移除 CLI/REPL 模式**：清理 `cmd/monika/` 目录，仅保留 Wails 桌面应用入口，`main.go` 直接嵌入前端 dist。
+- **dev 模式修复**：`//go:embed` 改为 `os.DirFS`，解决 dev 模式下 `frontend/dist` 不存在的构建失败问题。
+- **Session 删除设计文档**：新增 session delete + sidebar collapse 设计 spec 及三轮 review 修复（loading/error 状态、无障碍、键盘访问、焦点管理）。设计文档：`docs/superpowers/specs/2026-04-27-session-delete-and-collapse-design.md`。
 
 ## 2026-04-26
 
@@ -31,11 +52,16 @@
 - **ChatMessage 扩展**：增加 ToolCalls、ToolCallID、Name、ReasoningContent 字段。
 - **CLI 增强**：chat 命令自动加载 AGENTS.md 作为 system prompt，注册内置工具。
 - **测试覆盖**：新增 internal/tool、builtin、agent loop、SSE tool_calls 全套测试。
-- **交互模式与会话持久化**：新增 REPL 模式支持多轮对话、会话保存与恢复。设计文档：`docs/plans/2026-04-26-interactive-mode-session-design.md`、`docs/plans/2026-04-26-interactive-mode-session-implementation.md`。
-- **引擎插件架构**：新增 `pkg/engine` 接口定义 + registry、provider adapter 抽象层、deepseek/openai 引擎适配器、skill/MCP 引擎。设计文档：`docs/plans/2026-04-26-engine-plugin-architecture-design.md`、`docs/plans/2026-04-26-engine-plugin-implementation.md`。
-- **TUI REPL**：新增 Bubble Tea TUI 提供交互式聊天界面。设计文档：`docs/plans/2026-04-26-tui-repl-design.md`、`docs/plans/2026-04-26-tui-repl-implementation.md`。
+- **交互模式与会话持久化**：新增 REPL 模式支持多轮对话、会话保存与恢复（后续已迁移至 Wails GUI）。
+- **引擎插件架构**：新增 `pkg/engine` 接口定义 + registry、provider adapter 抽象层、deepseek/openai 引擎适配器、skill/MCP 引擎。
+- **TUI REPL**：新增 Bubble Tea TUI 提供交互式聊天界面（后续已迁移至 Wails GUI）。
+- **Wails v3 前端 scaffold**：新增 React + TypeScript + Tailwind CSS v4 + Vite 前端脚手架，Wails App/EventBus/SessionManager/FileService Go 服务绑定。
+- **单模块回退**：从 go.work 多模块实验回退到单模块 `go.mod` + `pkg/` + `internal/` 布局。
 
 ## 2026-04-25
 
-- 新增 `AGENTS.md`：记录仓库结构、常用验证命令和注意事项，帮助后续 OpenCode 会话快速了解项目。
-- 新增 `change.log`：建立变更记录文件，用于持续记录后续功能变更和审查要点。
+- **Provider 引擎插件体系**：建立 `internal/engines/provider/` 适配器层 + `pkg/engine/` 公共接口 + 注册表，支持 deepseek/openai 后端。废弃 go-plugin/gRPC，采用 `database/sql` 风格 `init()` 自注册。
+- **分层 YAML 配置**：实现 `internal/config/` 全局（`~/.monika/config.yaml`）+ 项目（`.monika/config.yaml`）深度合并加载，支持 `model_providers` / `skill` / `mcp` / `tools` 配置段。
+- **项目结构重组**：目录重构为 `internal/`（agent、config、engines、tool）+ `pkg/`（engine、openai）+ `cmd/monika/`（CLI 入口），遵循 Go 标准布局。
+- **AGENTS.md 初始化**：创建仓库文档，记录结构、验证命令和注意事项。
+- **change.log 初始化**：建立变更记录文件。

@@ -151,7 +151,7 @@ function FileEditor() {
         onClose={handleClose}
         emptyLabel="Preview"
       />
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative">
         {openFiles.map((f) => (
           <div
             key={f.path}

@@ -1,5 +1,8 @@
 # AGENTS.md
 
+## 沟通语言
+- 使用中文进行所有对话和交流。
+
 ## Repo Shape
 - Single Go module (`go.mod`, module name `monika`), no go.work.
 - Entry point: `main.go` at repo root — Wails v3 desktop application.
@@ -177,4 +180,4 @@ Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts`
 - The internal `openai` adapter uses an import alias (`oaiclient`) to avoid name collision with `pkg/openai`.
 - `//go:embed all:frontend/dist` in `main.go` requires frontend built before Go compilation.
 - Wails v3 uses `app.Window.NewWithOptions()` for window creation (alpha API, may change).
-- No README, CI workflow, task runner, or linter config is present; prefer executable Go sources over assumptions.
+- No CI workflow or linter config is present; prefer executable Go sources over assumptions.

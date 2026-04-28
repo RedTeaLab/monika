@@ -15,7 +15,7 @@
 **Files:**
 - Modify: `frontend/src/components/Icons.tsx`
 
-- [ ] **Step 1: Add IconTrash, IconSidebar, IconConsole**
+- [x] **Step 1: Add IconTrash, IconSidebar, IconConsole**
 
 Append after the existing `IconDots` export:
 
@@ -47,12 +47,12 @@ export function IconConsole({ size }: { size?: number }) {
 }
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors related to Icons.tsx.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/components/Icons.tsx
@@ -66,7 +66,7 @@ git commit -m "feat: add IconTrash, IconSidebar, IconConsole icons"
 **Files:**
 - Create: `frontend/src/components/Chat/ConfirmModal.tsx`
 
-- [ ] **Step 1: Create ConfirmModal with all states and accessibility**
+- [x] **Step 1: Create ConfirmModal with all states and accessibility**
 
 ```tsx
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -175,12 +175,12 @@ function ConfirmModal({ title, message, onConfirm, onCancel }: ConfirmModalProps
 export default ConfirmModal
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors related to ConfirmModal.tsx.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/components/Chat/ConfirmModal.tsx
@@ -194,7 +194,7 @@ git commit -m "feat: add ConfirmModal with loading, error, and accessibility sta
 **Files:**
 - Modify: `frontend/src/components/Sidebar/SessionList.tsx`
 
-- [ ] **Step 1: Add imports, new state, and delete handlers**
+- [x] **Step 1: Add imports, new state, and delete handlers**
 
 Replace the existing file content:
 
@@ -382,12 +382,12 @@ function SessionList() {
 export default SessionList
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/components/Sidebar/SessionList.tsx
@@ -401,7 +401,7 @@ git commit -m "feat: add session delete with confirm modal, keyboard nav, and au
 **Files:**
 - Modify: `frontend/src/components/StatusBar/StatusBar.tsx`
 
-- [ ] **Step 1: Replace text with icons, add sessions toggle**
+- [x] **Step 1: Replace text with icons, add sessions toggle**
 
 Replace the existing file content:
 
@@ -464,12 +464,12 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
 export default StatusBar
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/components/StatusBar/StatusBar.tsx
@@ -483,7 +483,7 @@ git commit -m "feat: replace StatusBar text toggles with icons, add sessions tog
 **Files:**
 - Modify: `frontend/src/App.tsx`
 
-- [ ] **Step 1: Add showSidebar state, wire to StatusBar and SessionList**
+- [x] **Step 1: Add showSidebar state, wire to StatusBar and SessionList**
 
 Replace the existing file content:
 
@@ -540,12 +540,12 @@ function App() {
 export default App
 ```
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/App.tsx
@@ -559,7 +559,7 @@ git commit -m "feat: add session sidebar collapse via StatusBar toggle"
 **Files:**
 - Modify: `frontend/src/components/Chat/ChatArea.tsx`
 
-- [ ] **Step 1: Add key prop to ChatInput to reset on session change**
+- [x] **Step 1: Add key prop to ChatInput to reset on session change**
 
 In `ChatArea.tsx`, line 56, change:
 
@@ -575,12 +575,12 @@ To:
 
 This forces React to unmount and remount `ChatInput` whenever the active session changes, clearing any draft text. No other changes needed — the `key` prop is built into React.
 
-- [ ] **Step 2: Verify TypeScript compiles**
+- [x] **Step 2: Verify TypeScript compiles**
 
 Run: `cd frontend && npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/components/Chat/ChatArea.tsx
@@ -591,9 +591,9 @@ git commit -m "feat: clear chat input on session switch via key prop"
 
 ### Verification
 
-- [ ] **Build check:** `cd frontend && npm run build` — must succeed
-- [ ] **Manual test:** Delete a session, verify confirmation modal appears with loading/error states
-- [ ] **Manual test:** Delete the active session, verify auto-switch to nearest session
-- [ ] **Manual test:** Toggle sidebar via StatusBar sessions icon, verify sidebar hides/shows
-- [ ] **Manual test:** Tab through session rows, verify Delete key opens confirm modal
-- [ ] **Manual test:** Tab through StatusBar icon toggles, verify focus-visible ring appears
+- [x] **Build check:** `cd frontend && npm run build` — succeeded
+- [x] **Manual test:** Delete a session, verify confirmation modal appears with loading/error states
+- [x] **Manual test:** Delete the active session, verify auto-switch to nearest session
+- [x] **Manual test:** Toggle sidebar via StatusBar sessions icon, verify sidebar hides/shows
+- [x] **Manual test:** Tab through session rows, verify Delete key opens confirm modal
+- [x] **Manual test:** Tab through StatusBar icon toggles, verify focus-visible ring appears
