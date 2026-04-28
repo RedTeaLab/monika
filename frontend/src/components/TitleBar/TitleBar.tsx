@@ -1,11 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Window, Events, Application } from '@wailsio/runtime'
-import { useStore } from '../../store'
-import { IconMinimize, IconMaximize, IconClose, IconRestore } from '../Icons'
+import { useStore, LayoutMode } from '../../store'
+import { IconMinimize, IconMaximize, IconClose, IconRestore, IconChatLayout, IconSplitLayout, IconFilesLayout } from '../Icons'
+
+const layoutModes: { mode: LayoutMode; icon: typeof IconChatLayout; label: string }[] = [
+  { mode: 'chat', icon: IconChatLayout, label: 'Chat mode' },
+  { mode: 'split', icon: IconSplitLayout, label: 'Split mode' },
+  { mode: 'files', icon: IconFilesLayout, label: 'Files mode' },
+]
 
 function TitleBar() {
   const projectPath = useStore((s) => s.projectPath)
   const branch = useStore((s) => s.branch)
+  const layoutMode = useStore((s) => s.layoutMode)
+  const setLayoutMode = useStore((s) => s.setLayoutMode)
   const [isMaximised, setIsMaximised] = useState(false)
 
   useEffect(() => {
@@ -31,6 +39,24 @@ function TitleBar() {
       <span className="text-[11px] text-[var(--text-dim)] ml-3">{projectName || 'project'}</span>
       <span className="text-[11px] text-[var(--text-dim)] ml-1.5">{branch || 'branch'}</span>
       <div className="flex-1" />
+      <div
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+        className="flex h-full"
+        role="group"
+        aria-label="Layout modes"
+      >
+        {layoutModes.map(({ mode, icon: IconComp, label }) => (
+          <button
+            key={mode}
+            onClick={() => setLayoutMode(mode)}
+            className={`w-[32px] h-full flex items-center justify-center transition-colors ${layoutMode === mode ? 'text-[var(--accent)]' : 'text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)]'}`}
+            aria-label={label}
+            aria-pressed={layoutMode === mode}
+          >
+            <IconComp size={14} />
+          </button>
+        ))}
+      </div>
       <div style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties} className="flex h-full">
         <button
           onClick={() => Window.Minimise()}
