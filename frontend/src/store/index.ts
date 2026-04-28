@@ -19,53 +19,65 @@ interface Message {
   tools?: ToolCall[]
 }
 
+interface SessionTabInfo {
+  id: string
+  title: string
+}
+
+interface FileTabInfo {
+  path: string
+  content: string
+  isDirty: boolean
+}
+
 interface AppState {
   messages: Message[]
-  generating: boolean
+  generatingSessionId: string
   tokenCount: number
   projectPath: string
   branch: string
   activeSessionId: string
-  activeSessionTitle: string
   consoleLines: string[]
   layoutMode: LayoutMode
   splitRatio: number
-  selectedFilePath: string
-  selectedFileContent: string
+  activeFilePath: string
+
+  openSessions: SessionTabInfo[]
+  sessionMessages: Record<string, Message[]>
+  openFiles: FileTabInfo[]
 
   addMessage: (msg: Message) => void
   updateLastAssistant: (content: string) => void
   updateLastAssistantThinking: (content: string) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
-  setGenerating: (v: boolean) => void
+  setGenerating: (sessionId: string) => void
   addTokens: (tokens: number) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
   setProjectPath: (path: string) => void
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
-  setActiveSessionTitle: (title: string) => void
   addConsoleLine: (line: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   setSplitRatio: (ratio: number) => void
-  setSelectedFile: (path: string, content: string) => void
-  clearSelectedFile: () => void
 }
 
 export const useStore = create<AppState>((set) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
-  generating: false,
+  generatingSessionId: '',
   tokenCount: 0,
   projectPath: '',
   branch: '',
   activeSessionId: '',
-  activeSessionTitle: '',
   consoleLines: ['$ ready'],
   layoutMode: 'split',
   splitRatio: 0.5,
-  selectedFilePath: '',
-  selectedFileContent: '',
+  activeFilePath: '',
+
+  openSessions: [],
+  sessionMessages: {},
+  openFiles: [],
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -122,19 +134,16 @@ export const useStore = create<AppState>((set) => ({
       return { messages: msgs }
     }),
 
-  setGenerating: (v) => set({ generating: v }),
+  setGenerating: (sessionId) => set({ generatingSessionId: sessionId }),
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
   setProjectPath: (path) => set({ projectPath: path }),
   setBranch: (branch) => set({ branch }),
   setActiveSessionId: (id) => set({ activeSessionId: id }),
-  setActiveSessionTitle: (title) => set({ activeSessionTitle: title }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   setSplitRatio: (ratio) => set({ splitRatio: ratio }),
-  setSelectedFile: (path, content) => set({ selectedFilePath: path, selectedFileContent: content }),
-  clearSelectedFile: () => set({ selectedFilePath: '', selectedFileContent: '' }),
 }))
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[]): Message[] {
@@ -222,7 +231,7 @@ export function setupWailsEvents() {
       case 'error':
         store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
-        store.setGenerating(false)
+        store.setGenerating('')
         break
       case 'file_changed':
         if (data.file_change) {
@@ -230,7 +239,7 @@ export function setupWailsEvents() {
         }
         break
       case 'done':
-        store.setGenerating(false)
+        store.setGenerating('')
         break
     }
   })
