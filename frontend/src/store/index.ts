@@ -51,6 +51,10 @@ interface AppState {
   updateLastAssistantThinking: (content: string) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
+  updateSessionMessage: (id: string, delta: string) => void
+  updateSessionThinking: (id: string, delta: string) => void
+  addSessionToolStart: (id: string, tool: ToolCall) => void
+  updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
   setGeneratingSessionId: (sessionId: string) => void
   addTokens: (tokens: number) => void
   clearMessages: () => void
@@ -143,6 +147,63 @@ export const useStore = create<AppState>((set) => ({
       }
       return { messages: msgs }
     }),
+
+  updateSessionMessage: (id, delta) => {
+    set((s) => {
+      const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = { ...msgs[i], content: msgs[i].content + delta }
+          break
+        }
+      }
+      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+    })
+  },
+
+  updateSessionThinking: (id, delta) => {
+    set((s) => {
+      const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = { ...msgs[i], thinking: (msgs[i].thinking || '') + delta }
+          break
+        }
+      }
+      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+    })
+  },
+
+  addSessionToolStart: (id, tool) => {
+    set((s) => {
+      const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant') {
+          msgs[i] = { ...msgs[i], tools: [...(msgs[i].tools || []), tool] }
+          break
+        }
+      }
+      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+    })
+  },
+
+  updateSessionToolDone: (id, name, output, status) => {
+    set((s) => {
+      const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant' && msgs[i].tools) {
+          msgs[i] = {
+            ...msgs[i],
+            tools: msgs[i].tools!.map((t) =>
+              t.name === name && t.status === 'running' ? { ...t, output, status } : t
+            ),
+          }
+          break
+        }
+      }
+      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+    })
+  },
 
   setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
@@ -332,52 +393,84 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
 export function setupWailsEvents() {
   console.log('[monika] setupWailsEvents: subscribing to stream')
   Events.On('stream', (ev) => {
-    console.log('[monika] stream event received:', ev)
     const store = useStore.getState()
     const data = ev.data as StreamEvent
-    console.log('[monika] stream event type:', data.type)
+    const sid = data.session_id
+
+    // Shadow path: 无 session_id 或 session 已关闭
+    if (!sid || !store.sessionMessages[sid]) {
+      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
+      return
+    }
+
     switch (data.type) {
       case 'text_delta':
-        store.updateLastAssistant(data.content || '')
-        break
-      case 'thinking':
-        store.updateLastAssistantThinking(data.content || '')
-        break
-      case 'tool_start':
-        if (data.tool) {
-          store.addToolStart({ name: data.tool.name, input: data.tool.input || '', status: 'running' })
-          store.addConsoleLine(`$ ${data.tool.name} ${data.tool.input || ''}`)
+        store.updateSessionMessage(sid, data.content || '')
+        if (sid === store.activeSessionId) {
+          store.updateLastAssistant(data.content || '')
         }
         break
+
+      case 'thinking':
+        store.updateSessionThinking(sid, data.content || '')
+        if (sid === store.activeSessionId) {
+          store.updateLastAssistantThinking(data.content || '')
+        }
+        break
+
+      case 'tool_start':
+        if (data.tool) {
+          store.addSessionToolStart(sid, { name: data.tool.name, input: data.tool.input || '', status: 'running' })
+          store.addConsoleLine(`$ ${data.tool.name} ${data.tool.input || ''}`)
+          if (sid === store.activeSessionId) {
+            store.addToolStart({ name: data.tool.name, input: data.tool.input || '', status: 'running' })
+          }
+        }
+        break
+
       case 'tool_output':
         if (data.tool) {
           store.addConsoleLine(data.tool.output || '')
         }
         break
+
       case 'tool_done':
         if (data.tool) {
-          const status = data.tool.status || 'done'
-          store.updateToolDone(data.tool.name, data.tool.output || '', status as 'done' | 'error')
+          const status = (data.tool.status as 'done' | 'error') || 'done'
+          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', status)
           store.addConsoleLine(`[${status}] ${data.tool.name}`)
+          if (sid === store.activeSessionId) {
+            store.updateToolDone(data.tool.name, data.tool.output || '', status)
+          }
         }
         break
+
       case 'usage':
         if (data.usage) {
           store.addTokens(data.usage.total_tokens || 0)
         }
         break
+
       case 'error':
-        store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
-        store.setGeneratingSessionId('')
+        if (sid === store.activeSessionId) {
+          store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
+        }
+        if (sid === store.generatingSessionId) {
+          store.setGeneratingSessionId('')
+        }
         break
+
       case 'file_changed':
         if (data.file_change) {
           store.addConsoleLine(`[file] ${data.file_change.path} ${data.file_change.status}`)
         }
         break
+
       case 'done':
-        store.setGeneratingSessionId('')
+        if (sid === store.generatingSessionId) {
+          store.setGeneratingSessionId('')
+        }
         break
     }
   })
