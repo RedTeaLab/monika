@@ -156,7 +156,7 @@ function FileEditor() {
           <div
             key={f.path}
             ref={(el) => registerContainer(f.path, el)}
-            style={{ display: f.path === activeFilePath ? 'block' : 'none' }}
+            style={{ display: f.path === activeFilePath ? 'block' : 'none', height: '100%' }}
             className="absolute inset-0"
           />
         ))}
