@@ -244,9 +244,11 @@ export const useStore = create<AppState>((set) => ({
     }
     set((s) => ({
       openSessions: [...s.openSessions, { id, title }],
-      sessionMessages: s.activeSessionId
-        ? { ...s.sessionMessages, [s.activeSessionId]: s.messages }
-        : s.sessionMessages,
+      sessionMessages: {
+        ...s.sessionMessages,
+        ...(s.activeSessionId ? { [s.activeSessionId]: s.messages } : {}),
+        [id]: s.sessionMessages[id] || [],
+      },
       activeSessionId: id,
       messages: [],
     }))
@@ -257,17 +259,24 @@ export const useStore = create<AppState>((set) => ({
         ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0])
         : []
       set((s) => {
-        if (s.activeSessionId !== id) return {}
+        if (s.activeSessionId !== id) {
+          return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+        }
         return {
           sessionMessages: { ...s.sessionMessages, [id]: msgs },
           messages: msgs,
         }
       })
     } catch {
-      set((s) => ({
-        sessionMessages: { ...s.sessionMessages, [id]: [] },
-        messages: [],
-      }))
+      set((s) => {
+        if (s.activeSessionId !== id) {
+          return { sessionMessages: { ...s.sessionMessages, [id]: [] } }
+        }
+        return {
+          sessionMessages: { ...s.sessionMessages, [id]: [] },
+          messages: [{ id: crypto.randomUUID(), role: 'error' as const, content: 'Failed to load session messages.' }],
+        }
+      })
     }
   },
 
