@@ -42,6 +42,12 @@ function ChatArea() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-main)]">
+      <div
+        className="flex items-center justify-between px-3 py-1 border-b border-[var(--border)] flex-shrink-0"
+        style={{ background: 'var(--glass-strong)' }}
+      >
+        <span className="text-[12px] text-[var(--text-secondary)]">Chat</span>
+      </div>
       <div className="flex-1 overflow-y-auto p-[5px]">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">

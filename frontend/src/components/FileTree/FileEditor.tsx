@@ -50,8 +50,16 @@ function FileEditor() {
 
   if (!filePath) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[var(--bg-main)]">
-        <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
+      <div className="flex-1 flex flex-col min-w-0">
+        <div
+          className="flex items-center justify-between px-3 py-1 border-b border-[var(--border)] flex-shrink-0"
+          style={{ background: 'var(--glass-strong)' }}
+        >
+          <span className="text-[12px] text-[var(--text-secondary)]">Preview</span>
+        </div>
+        <div className="flex-1 flex items-center justify-center bg-[var(--bg-main)]">
+          <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
+        </div>
       </div>
     )
   }
