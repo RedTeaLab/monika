@@ -184,6 +184,7 @@ export const useStore = create<AppState>((set) => ({
   closeSessionTab: (id) => {
     set((s) => {
       const idx = s.openSessions.findIndex((t) => t.id === id)
+      if (idx === -1) return {}
       const next = [...s.openSessions]
       next.splice(idx, 1)
       const msgCache = { ...s.sessionMessages }
@@ -210,6 +211,7 @@ export const useStore = create<AppState>((set) => ({
   switchSessionTab: (id) => {
     set((s) => {
       if (id === s.activeSessionId) return {}
+      if (!s.openSessions.some((t) => t.id === id)) return {}
       const msgCache = { ...s.sessionMessages, [s.activeSessionId]: s.messages }
       const restored = msgCache[id] || []
       return {
