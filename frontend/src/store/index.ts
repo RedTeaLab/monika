@@ -464,17 +464,17 @@ export function setupWailsEvents() {
       case 'tool_output':
         if (data.tool) {
           store.addConsoleLine(data.tool.output || '')
+          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', 'done')
+          if (sid === store.activeSessionId) {
+            store.updateToolDone(data.tool.name, data.tool.output || '', 'done')
+          }
         }
         break
 
       case 'tool_done':
         if (data.tool) {
           const status = (data.tool.status === 'done' || data.tool.status === 'error') ? data.tool.status : 'done'
-          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', status)
           store.addConsoleLine(`[${status}] ${data.tool.name}`)
-          if (sid === store.activeSessionId) {
-            store.updateToolDone(data.tool.name, data.tool.output || '', status)
-          }
         }
         break
 
