@@ -61,6 +61,12 @@ interface AppState {
   addConsoleLine: (line: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   setSplitRatio: (ratio: number) => void
+
+  openSessionTab: (id: string, title: string) => Promise<void>
+  closeSessionTab: (id: string) => void
+  switchSessionTab: (id: string) => void
+  setGeneratingSessionId: (id: string) => void
+  clearGeneratingSessionId: () => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -144,6 +150,78 @@ export const useStore = create<AppState>((set) => ({
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   setSplitRatio: (ratio) => set({ splitRatio: ratio }),
+
+  openSessionTab: async (id, title) => {
+    const state = useStore.getState()
+    const existing = state.openSessions.find((s) => s.id === id)
+    if (existing) {
+      state.switchSessionTab(id)
+      return
+    }
+    if (state.openSessions.length >= 8) {
+      state.addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Too many sessions open. Close one first.' })
+      return
+    }
+    set((s) => ({
+      openSessions: [...s.openSessions, { id, title }],
+      activeSessionId: id,
+    }))
+    try {
+      const session = await App.LoadSession(state.projectPath, id)
+      const msgs = session.messages ? loadSessionMessages(session.messages as any[]) : []
+      set((s) => ({
+        sessionMessages: { ...s.sessionMessages, [id]: msgs },
+        messages: msgs,
+      }))
+    } catch {
+      set((s) => ({
+        sessionMessages: { ...s.sessionMessages, [id]: [] },
+        messages: [],
+      }))
+    }
+  },
+
+  closeSessionTab: (id) => {
+    set((s) => {
+      const idx = s.openSessions.findIndex((t) => t.id === id)
+      const next = [...s.openSessions]
+      next.splice(idx, 1)
+      const msgCache = { ...s.sessionMessages }
+      delete msgCache[id]
+
+      let newActive = s.activeSessionId
+      if (id === s.activeSessionId) {
+        if (idx < next.length) newActive = next[idx].id
+        else if (next.length > 0) newActive = next[next.length - 1].id
+        else newActive = ''
+      }
+
+      const newMessages: Message[] = newActive ? (msgCache[newActive] || []) : [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika.' }]
+
+      return {
+        openSessions: next,
+        sessionMessages: msgCache,
+        activeSessionId: newActive,
+        messages: newMessages,
+      }
+    })
+  },
+
+  switchSessionTab: (id) => {
+    set((s) => {
+      if (id === s.activeSessionId) return {}
+      const msgCache = { ...s.sessionMessages, [s.activeSessionId]: s.messages }
+      const restored = msgCache[id] || []
+      return {
+        activeSessionId: id,
+        sessionMessages: msgCache,
+        messages: restored,
+      }
+    })
+  },
+
+  setGeneratingSessionId: (id) => set({ generatingSessionId: id }),
+  clearGeneratingSessionId: () => set({ generatingSessionId: '' }),
 }))
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[]): Message[] {
