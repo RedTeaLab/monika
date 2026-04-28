@@ -7,7 +7,7 @@ interface StatusBarProps {
 }
 
 function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, onToggleFileTree, onToggleSidebar }: StatusBarProps) {
-  const generating = useStore((s) => s.generating)
+  const generating = useStore((s) => s.generatingSessionId !== '')
   const tokenCount = useStore((s) => s.tokenCount)
 
   const iconClass = (active: boolean) =>
