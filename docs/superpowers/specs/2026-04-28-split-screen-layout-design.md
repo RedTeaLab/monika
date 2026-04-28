@@ -38,7 +38,7 @@ App
 ### Group Internals
 
 - **ChatGroup**: `flex row` — Sessions (w-56, independently collapsible via StatusBar toggle) + ChatArea (flex-1)
-- **FilesGroup**: `flex row` — FileEditor (flex-1) + FileTree (w-56)
+- **FilesGroup**: `flex row` — FileEditor (flex-1) + FileTree (w-56, independently collapsible via StatusBar toggle)
 
 ### Visibility (CSS display, no unmount)
 
@@ -114,4 +114,4 @@ When no file is selected, FileEditor shows a centered placeholder: "Select a fil
 | `frontend/src/components/FileTree/FileTree.tsx` | Remove FileEditor, write to store instead of local state, width changes w-64 → w-56 |
 | `frontend/src/components/FileTree/FileEditor.tsx` | Read from store, add empty placeholder |
 | `frontend/src/components/Icons.tsx` | Add split/column icon if needed |
-| `frontend/src/components/StatusBar/StatusBar.tsx` | Remove file tree toggle (layout modes replace it), keep sidebar toggle and console toggle |
+| `frontend/src/components/StatusBar/StatusBar.tsx` | Keep sidebar toggle and file tree toggle (both now independent within their groups), keep console toggle |
