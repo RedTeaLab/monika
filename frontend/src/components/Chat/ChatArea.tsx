@@ -7,7 +7,7 @@ import ChatInput from './ChatInput'
 function ChatArea() {
   const messages = useStore((s) => s.messages)
   const generating = useStore((s) => s.generating)
-  const setGenerating = useStore((s) => s.setGenerating)
+  const setGenerating = useStore((s) => s.setGeneratingSessionId)
   const addMessage = useStore((s) => s.addMessage)
   const clearMessages = useStore((s) => s.clearMessages)
   const projectPath = useStore((s) => s.projectPath)

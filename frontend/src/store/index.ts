@@ -51,7 +51,7 @@ interface AppState {
   updateLastAssistantThinking: (content: string) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
-  setGenerating: (sessionId: string) => void
+  setGeneratingSessionId: (sessionId: string) => void
   addTokens: (tokens: number) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
@@ -65,8 +65,6 @@ interface AppState {
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
   switchSessionTab: (id: string) => void
-  setGeneratingSessionId: (id: string) => void
-  clearGeneratingSessionId: () => void
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -140,7 +138,7 @@ export const useStore = create<AppState>((set) => ({
       return { messages: msgs }
     }),
 
-  setGenerating: (sessionId) => set({ generatingSessionId: sessionId }),
+  setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
@@ -165,9 +163,11 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       openSessions: [...s.openSessions, { id, title }],
       activeSessionId: id,
+      messages: [],
     }))
     try {
-      const session = await App.LoadSession(state.projectPath, id)
+      const project = useStore.getState().projectPath
+      const session = await App.LoadSession(project, id)
       const msgs = session.messages ? loadSessionMessages(session.messages as any[]) : []
       set((s) => ({
         sessionMessages: { ...s.sessionMessages, [id]: msgs },
@@ -187,7 +187,7 @@ export const useStore = create<AppState>((set) => ({
       if (idx === -1) return {}
       const next = [...s.openSessions]
       next.splice(idx, 1)
-      const msgCache = { ...s.sessionMessages }
+      const msgCache = { ...s.sessionMessages, [s.activeSessionId]: s.messages }
       delete msgCache[id]
 
       let newActive = s.activeSessionId
@@ -212,7 +212,9 @@ export const useStore = create<AppState>((set) => ({
     set((s) => {
       if (id === s.activeSessionId) return {}
       if (!s.openSessions.some((t) => t.id === id)) return {}
-      const msgCache = { ...s.sessionMessages, [s.activeSessionId]: s.messages }
+      const msgCache = s.activeSessionId
+        ? { ...s.sessionMessages, [s.activeSessionId]: s.messages }
+        : { ...s.sessionMessages }
       const restored = msgCache[id] || []
       return {
         activeSessionId: id,
@@ -222,8 +224,6 @@ export const useStore = create<AppState>((set) => ({
     })
   },
 
-  setGeneratingSessionId: (id) => set({ generatingSessionId: id }),
-  clearGeneratingSessionId: () => set({ generatingSessionId: '' }),
 }))
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[]): Message[] {
@@ -311,7 +311,7 @@ export function setupWailsEvents() {
       case 'error':
         store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
-        store.setGenerating('')
+        store.setGeneratingSessionId('')
         break
       case 'file_changed':
         if (data.file_change) {
@@ -319,7 +319,7 @@ export function setupWailsEvents() {
         }
         break
       case 'done':
-        store.setGenerating('')
+        store.setGeneratingSessionId('')
         break
     }
   })
