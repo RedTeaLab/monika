@@ -109,3 +109,30 @@ export function IconConsole({ size }: { size?: number }) {
     </Icon>
   )
 }
+
+export function IconChatLayout({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9z" />
+      <path d="M5 6h6M5 8.5h4" />
+    </Icon>
+  )
+}
+
+export function IconSplitLayout({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <rect x="2" y="2" width="5" height="12" rx="1" />
+      <rect x="9" y="2" width="5" height="12" rx="1" />
+    </Icon>
+  )
+}
+
+export function IconFilesLayout({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M2 3.5A1.5 1.5 0 013.5 2h2l1.2 1.2h5.8a1.5 1.5 0 011.5 1.5v7.8a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9z" />
+      <path d="M5 8h3M5 10.5h2" />
+    </Icon>
+  )
+}
