@@ -9,9 +9,20 @@ interface StatusBarProps {
 const togClass = (active: boolean) =>
   `flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] outline-none transition-colors ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'} hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:shadow-[0_0_0_3px_var(--accent-muted)]`
 
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
+  return String(n)
+}
+
 function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, onToggleFileTree, onToggleSidebar }: StatusBarProps) {
   const generating = useStore((s) => s.generatingSessionId !== '')
   const tokenCount = useStore((s) => s.tokenCount)
+  const tokenMax = useStore((s) => s.tokenMax)
+
+  const tokenText = tokenMax > 0
+    ? `${formatTokens(tokenCount)} / ${formatTokens(tokenMax)}`
+    : formatTokens(tokenCount)
 
   return (
     <div
@@ -41,7 +52,7 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
         <button onClick={onToggleFileTree} title="Files" className={togClass(showFileTree)} aria-label="Toggle file tree">
           <IconFolder size={13} />
         </button>
-        <span className="text-[var(--text-dim)] ml-2" style={{ fontFamily: 'var(--font-mono)' }}>tok: {tokenCount}</span>
+        <span className="text-[var(--text-dim)] ml-2" style={{ fontFamily: 'var(--font-mono)' }} title={tokenMax > 0 ? `${tokenCount} / ${tokenMax} tokens` : `${tokenCount} tokens`}>tok: {tokenText}</span>
       </div>
     </div>
   )

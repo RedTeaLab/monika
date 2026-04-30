@@ -51,9 +51,20 @@ type ToolCallFunc struct {
 }
 
 type Usage struct {
-	InputTokens  int64
-	OutputTokens int64
-	TotalTokens  int64
+	InputTokens      int64
+	OutputTokens     int64
+	TotalTokens      int64
+	ReasoningTokens  int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+}
+
+// ContextTokens returns the effective context usage (input minus cache reads).
+func (u Usage) ContextTokens() int64 {
+	if u.CacheReadTokens > u.InputTokens {
+		return 0
+	}
+	return u.InputTokens - u.CacheReadTokens
 }
 
 type ProviderError struct {

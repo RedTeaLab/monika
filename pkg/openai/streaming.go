@@ -18,6 +18,11 @@ type chatRequest struct {
 	Messages []engine.ChatMessage `json:"messages"`
 	Stream   bool                 `json:"stream"`
 	Tools    []engine.ToolDef     `json:"tools,omitempty"`
+	StreamOptions *streamOptions  `json:"stream_options,omitempty"`
+}
+
+type streamOptions struct {
+	IncludeUsage bool `json:"include_usage"`
 }
 
 type chatChunk struct {
@@ -31,10 +36,20 @@ type chatChunk struct {
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens     int64 `json:"prompt_tokens"`
-		CompletionTokens int64 `json:"completion_tokens"`
-		TotalTokens      int64 `json:"total_tokens"`
+		PromptTokens           int64                   `json:"prompt_tokens"`
+		CompletionTokens       int64                   `json:"completion_tokens"`
+		TotalTokens            int64                   `json:"total_tokens"`
+		CompletionTokenDetails *completionTokenDetails `json:"completion_tokens_details"`
+		PromptTokenDetails     *promptTokenDetails     `json:"prompt_tokens_details"`
 	} `json:"usage"`
+}
+
+type completionTokenDetails struct {
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+}
+
+type promptTokenDetails struct {
+	CachedTokens int64 `json:"cached_tokens"`
 }
 
 type toolCallChunk struct {
@@ -53,6 +68,7 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 		Messages: messages,
 		Stream:   true,
 		Tools:    tools,
+		StreamOptions: &streamOptions{IncludeUsage: true},
 	}
 
 	data, err := json.Marshal(body)
@@ -220,12 +236,23 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 		}
 
 		if chunk.Usage.TotalTokens > 0 {
+			reasoning := int64(0)
+			if chunk.Usage.CompletionTokenDetails != nil {
+				reasoning = chunk.Usage.CompletionTokenDetails.ReasoningTokens
+			}
+			cached := int64(0)
+			if chunk.Usage.PromptTokenDetails != nil {
+				cached = chunk.Usage.PromptTokenDetails.CachedTokens
+			}
 			if err := send(engine.ChatEvent{
 				Kind: engine.EventUsage,
 				Usage: engine.Usage{
-					InputTokens:  chunk.Usage.PromptTokens,
-					OutputTokens: chunk.Usage.CompletionTokens,
-					TotalTokens:  chunk.Usage.TotalTokens,
+					InputTokens:      chunk.Usage.PromptTokens,
+					OutputTokens:     chunk.Usage.CompletionTokens,
+					TotalTokens:      chunk.Usage.TotalTokens,
+					ReasoningTokens:  reasoning,
+					CacheReadTokens:  cached,
+					CacheWriteTokens: 0,
 				},
 			}); err != nil {
 				return err

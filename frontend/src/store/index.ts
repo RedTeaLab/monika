@@ -38,6 +38,7 @@ interface AppState {
   messages: Message[]
   generatingSessionId: string
   tokenCount: number
+  tokenMax: number
   projectPath: string
   branch: string
   activeSessionId: string
@@ -69,7 +70,7 @@ interface AppState {
   updateSessionToolInput: (id: string, name: string, input: string) => void
   setGeneratingSessionId: (sessionId: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
-  addTokens: (tokens: number) => void
+  addTokens: (tokens: number, max?: number) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
   setProjectPath: (path: string) => void
@@ -101,6 +102,7 @@ export const useStore = create<AppState>((set, get) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
   generatingSessionId: '',
   tokenCount: 0,
+  tokenMax: 0,
   projectPath: '',
   branch: '',
   activeSessionId: '',
@@ -325,7 +327,10 @@ export const useStore = create<AppState>((set, get) => ({
       return updates
     })
   },
-  addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
+  addTokens: (t, max) => set((s) => ({
+    tokenCount: t, // backend sends cumulative total across turns
+    tokenMax: Math.max(s.tokenMax, max ?? 0),
+  })),
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
   updateSessionTitle: (id, title) =>
@@ -363,6 +368,8 @@ export const useStore = create<AppState>((set, get) => ({
       },
       activeSessionId: id,
       messages: [],
+      tokenCount: 0,
+      tokenMax: 0,
     }))
     try {
       const project = useStore.getState().projectPath
@@ -438,6 +445,8 @@ export const useStore = create<AppState>((set, get) => ({
         activeSessionId: id,
         sessionMessages: currentCache,
         messages: restored,
+        tokenCount: 0,
+        tokenMax: 0,
       }
     })
   },
@@ -516,6 +525,7 @@ export const useStore = create<AppState>((set, get) => ({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
       generatingSessionId: '',
       tokenCount: 0,
+      tokenMax: 0,
       activeSessionId: '',
       activeFilePath: '',
       consoleLines: ['$ ready'],
@@ -652,7 +662,7 @@ export function setupWailsEvents() {
 
       case 'usage':
         if (data.usage) {
-          store.addTokens(data.usage.total_tokens || 0)
+          store.addTokens(data.usage.total_tokens || 0, data.usage.max_context)
         }
         break
 

@@ -7,7 +7,30 @@ import (
 
 	"monika/internal/tool"
 	"monika/pkg/engine"
+	"monika/pkg/tokenizer"
 )
+
+// Model context window limits (in tokens). These are conservative defaults
+// used for client-side estimation; the API response usage is authoritative.
+var modelContextLimits = map[string]int64{
+	"gpt-4o":              128000,
+	"gpt-4o-mini":         128000,
+	"gpt-4":               8192,
+	"gpt-4-turbo":         128000,
+	"gpt-3.5-turbo":       16385,
+	"deepseek-chat":       131072,
+	"deepseek-reasoner":   131072,
+	"claude-3-opus":       200000,
+	"claude-3.5-sonnet":   200000,
+	"claude-3.7-sonnet":   200000,
+}
+
+func contextLimit(model string) int64 {
+	if limit, ok := modelContextLimits[model]; ok {
+		return limit
+	}
+	return 128000
+}
 
 type Conversation struct {
 	ID       string
@@ -114,6 +137,9 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 		totalUsage.InputTokens += result.Usage.InputTokens
 		totalUsage.OutputTokens += result.Usage.OutputTokens
 		totalUsage.TotalTokens += result.Usage.TotalTokens
+		totalUsage.ReasoningTokens += result.Usage.ReasoningTokens
+		totalUsage.CacheReadTokens += result.Usage.CacheReadTokens
+		totalUsage.CacheWriteTokens += result.Usage.CacheWriteTokens
 
 		if len(result.ToolCalls) == 0 {
 			conv.Messages = append(conv.Messages, engine.ChatMessage{
@@ -219,6 +245,19 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			Tools:    tools,
 		}
 
+		if turn == 0 {
+			estimated := a.estimateContextTokens(conv)
+			limit := contextLimit(a.model)
+			ch <- Event{
+				Type: EventUsage,
+				Usage: UsageEvent{
+					TotalTokens: estimated,
+					ContextTokens: estimated,
+					MaxContext:  limit,
+				},
+			}
+		}
+
 		events, err := a.provider.StreamChat(ctx, req)
 		if err != nil {
 			ch <- Event{Type: EventError, Content: fmt.Sprintf("stream chat: %v", err)}
@@ -261,12 +300,20 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				totalUsage.InputTokens += ev.Usage.InputTokens
 				totalUsage.OutputTokens += ev.Usage.OutputTokens
 				totalUsage.TotalTokens += ev.Usage.TotalTokens
+				totalUsage.ReasoningTokens += ev.Usage.ReasoningTokens
+				totalUsage.CacheReadTokens += ev.Usage.CacheReadTokens
+				totalUsage.CacheWriteTokens += ev.Usage.CacheWriteTokens
 				ch <- Event{
 					Type: EventUsage,
 					Usage: UsageEvent{
-						InputTokens:  totalUsage.InputTokens,
-						OutputTokens: totalUsage.OutputTokens,
-						TotalTokens:  totalUsage.TotalTokens,
+						InputTokens:      totalUsage.InputTokens,
+						OutputTokens:     totalUsage.OutputTokens,
+						TotalTokens:      totalUsage.TotalTokens,
+						ReasoningTokens:  totalUsage.ReasoningTokens,
+						CacheReadTokens:  totalUsage.CacheReadTokens,
+						CacheWriteTokens: totalUsage.CacheWriteTokens,
+						ContextTokens:    totalUsage.ContextTokens(),
+						MaxContext:       contextLimit(a.model),
 					},
 				}
 			case engine.EventError:
@@ -389,6 +436,22 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 	}
 
 	ch <- Event{Type: EventError, Content: fmt.Sprintf("agent: exceeded maximum turns (%d)", a.maxTurns)}
+}
+
+// estimateContextTokens runs a client-side tiktoken estimate over all messages
+// that will be sent to the model. This is the pre-flight estimate used when the
+// API doesn't return usage data, or for context overflow warnings.
+func (a *AgentLoop) estimateContextTokens(conv *Conversation) int64 {
+	msgs := a.buildMessages(conv)
+	tokenMsgs := make([]tokenizer.Message, len(msgs))
+	for i, m := range msgs {
+		tokenMsgs[i] = tokenizer.Message{
+			Role:             m.Role,
+			Content:          m.Content,
+			ReasoningContent: m.ReasoningContent,
+		}
+	}
+	return int64(tokenizer.CountMessages(tokenMsgs))
 }
 
 func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {

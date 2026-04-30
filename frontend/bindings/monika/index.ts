@@ -68,7 +68,16 @@ export interface StreamEvent {
   session_id?: string;
   model?: string;
   tool?: { id: string; name: string; input: string; output: string; status: string };
-  usage?: { input_tokens: number; output_tokens: number; total_tokens: number };
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    reasoning_tokens: number;
+    cache_read_tokens: number;
+    cache_write_tokens: number;
+    context_tokens: number;
+    max_context: number;
+  };
   file_change?: { path: string; status: string };
 }
 
