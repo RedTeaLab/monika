@@ -22,22 +22,24 @@ interface Message {
 function MsgBlock({
   accent,
   header,
+  background,
   children,
 }: {
   accent?: string
   header?: React.ReactNode
+  background?: string
   children: React.ReactNode
 }) {
   return (
     <div
-      className="backdrop-blur-sm rounded-lg border px-4 py-3"
+      className="rounded-lg border px-[14px] py-[10px] w-full"
       style={{
-        background: 'var(--glass-medium)',
+        background: background || 'var(--bg-card)',
         borderColor: 'var(--border)',
         ...(accent ? { borderLeftColor: accent, borderLeftWidth: '2px' } : {}),
       }}
     >
-      {header && <div className="mb-2">{header}</div>}
+      {header && <div className={children ? 'mb-2' : ''}>{header}</div>}
       {children}
     </div>
   )
@@ -46,15 +48,28 @@ function MsgBlock({
 /* ---- thinking block ---- */
 
 function ThinkingBlock({ content }: { content: string }) {
+  const [open, setOpen] = useState(false)
   return (
     <MsgBlock
+      accent="#a68432"
+      background="var(--bg-sidebar)"
       header={
-        <span className="text-[10px] font-semibold uppercase tracking-[0.05em] text-[var(--yellow)]">
-          Thinking
-        </span>
+        <button
+          className="flex items-center gap-1.5 cursor-pointer w-full text-left"
+          onClick={() => setOpen(!open)}
+        >
+          <IconChevronDown
+            size={10}
+            className="transition-transform duration-200"
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: '#a68432' }}
+          />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: '#a68432' }}>
+            Thinking
+          </span>
+        </button>
       }
     >
-      <MarkdownBlock content={content} muted />
+      {open && <MarkdownBlock content={content} muted />}
     </MsgBlock>
   )
 }
@@ -77,13 +92,13 @@ function TextBlock({ content, borderColor }: { content: string; borderColor: str
 /* ---- tool block ---- */
 
 const TOOL_STYLES: Record<string, { color: string }> = {
-  bash:   { color: 'var(--yellow)' },
-  file:   { color: 'var(--blue)' },
-  grep:   { color: 'var(--green)' },
-  glob:   { color: 'var(--purple)' },
-  write:  { color: 'var(--orange)' },
-  edit:   { color: 'var(--orange)' },
-  default:{ color: 'var(--green)' },
+  bash:   { color: '#a68432' },
+  file:   { color: '#5a82b8' },
+  grep:   { color: '#449970' },
+  glob:   { color: '#7e70a8' },
+  write:  { color: '#a86e3a' },
+  edit:   { color: '#a86e3a' },
+  default:{ color: '#449970' },
 }
 
 function toolStyle(name: string) {
@@ -113,7 +128,8 @@ function statusStyle(status: string): { color: string; label: string } {
 }
 
 function ToolBlock({ tool }: { tool: ToolCall }) {
-  const [expanded, setExpanded] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [linesExpanded, setLinesExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const isJson = useMemo(() => {
@@ -130,12 +146,13 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const hasOutput = lines.length > 1 || (lines.length === 1 && lines[0])
   const MAX_PREVIEW = 12
   const overflow = lines.length > MAX_PREVIEW
-  const displayLines = expanded || !overflow ? lines : lines.slice(0, MAX_PREVIEW)
+  const displayLines = linesExpanded || !overflow ? lines : lines.slice(0, MAX_PREVIEW)
   const inputInfo = formatToolInput(tool.name, tool.input)
   const ts = toolStyle(tool.name)
   const ss = statusStyle(tool.status)
 
-  const handleCopy = () => {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (tool.output) {
       navigator.clipboard.writeText(tool.output)
       setCopied(true)
@@ -144,7 +161,15 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   }
 
   const header = (
-    <div className="flex items-center gap-2 min-w-0">
+    <button
+      className="flex items-center gap-2 min-w-0 w-full cursor-pointer text-left"
+      onClick={() => setOpen(!open)}
+    >
+      <IconChevronDown
+        size={10}
+        className="transition-transform duration-200"
+        style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)' }}
+      />
       <span
         className="text-[10px] font-semibold shrink-0 rounded px-1.5 py-0.5 border"
         style={{ color: ts.color, borderColor: ts.color, fontFamily: 'var(--font-mono)' }}
@@ -165,17 +190,17 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
       >
         {ss.label}
       </span>
-    </div>
+    </button>
   )
 
   return (
-    <MsgBlock header={header}>
-      {hasOutput && (
+    <MsgBlock header={header} background="var(--bg-sidebar)">
+      {open && hasOutput && (
         <div className="relative group/output">
           <button
             className="absolute top-0 right-0 opacity-0 group-hover/output:opacity-100 transition-opacity z-10
                        text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
-                       hover:bg-[var(--glass-hover)] cursor-pointer"
+                       hover:bg-[var(--bg-hover)] cursor-pointer"
             style={{ color: 'var(--text-dim)' }}
             onClick={handleCopy}
             aria-label="Copy output"
@@ -200,13 +225,13 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
           </div>
         </div>
       )}
-      {overflow && (
+      {open && overflow && (
         <button
           className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)] mt-2 transition-colors"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => setLinesExpanded(!linesExpanded)}
         >
-          <IconChevronDown size={10} className={expanded ? 'rotate-180' : ''} />
-          {expanded ? 'Collapse' : `Show all ${lines.length} lines`}
+          <IconChevronDown size={10} className={linesExpanded ? 'rotate-180' : ''} />
+          {linesExpanded ? 'Collapse' : `Show all ${lines.length} lines`}
         </button>
       )}
     </MsgBlock>
@@ -219,7 +244,7 @@ function formatJsonLine(line: string): React.ReactNode {
   if (!m) return line
   return (
     <>
-      {m[1]}<span style={{ color: 'var(--text-link)' }}>&quot;{m[2]}&quot;</span>{m[3]}{line.slice(m[0].length)}
+      {m[1]}<span style={{ color: 'var(--accent)' }}>&quot;{m[2]}&quot;</span>{m[3]}{line.slice(m[0].length)}
     </>
   )
 }

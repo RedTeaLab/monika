@@ -1,4 +1,4 @@
-function Icon({ children, size = 16, className }: { children: React.ReactNode; size?: number; className?: string }) {
+function Icon({ children, size = 16, className, style }: { children: React.ReactNode; size?: number; className?: string; style?: React.CSSProperties }) {
   return (
     <svg
       width={size}
@@ -10,6 +10,7 @@ function Icon({ children, size = 16, className }: { children: React.ReactNode; s
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={style}
     >
       {children}
     </svg>
@@ -36,7 +37,7 @@ export function IconChevronRight({ size }: { size?: number }) {
   return <Icon size={size}><path d="M6 4l4 4-4 4" /></Icon>
 }
 
-export function IconChevronDown({ size, className }: { size?: number; className?: string }) {
+export function IconChevronDown({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return <Icon size={size} className={className}><path d="M4 6l4 4 4-4" /></Icon>
 }
 

@@ -1,80 +1,94 @@
 @import "tailwindcss";
 
-:root {
-  /* Base backgrounds — deeper for glass contrast */
-  --bg-main: #060609;
-  --bg-sidebar: #09090d;
-  --bg-panel: #09090d;
-  --bg-titlebar: #0b0b10;
-
-  /* Glass surfaces */
-  --glass-strong: rgba(255, 255, 255, 0.07);
-  --glass-medium: rgba(255, 255, 255, 0.05);
-  --glass-light: rgba(255, 255, 255, 0.03);
-  --glass-hover: rgba(255, 255, 255, 0.08);
-  --glass-active: rgba(255, 255, 255, 0.10);
-
-  /* Borders */
-  --border: rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.05);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-active: #5b8def;
-
-  /* Text */
-  --text-primary: #d0d0d8;
-  --text-secondary: #9d9db0;
-  --text-dim: #78788a;
-  --text-link: #7cb8ff;
-
-  /* Accent */
-  --accent: #5b8def;
-  --accent-hover: #7aa2f5;
-  --accent-glass: rgba(91, 141, 239, 0.10);
-
-  /* Semantic */
-  --green: #4ade80;
-  --red: #f87171;
-  --yellow: #facc15;
-  --orange: #fb923c;
-  --blue: #7cb8ff;
-  --purple: #a78bfa;
-
-  /* Typography */
-  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+@font-face {
+  font-family: 'Maple Mono NF';
+  src: url('./assets/fonts/MapleMono-NF-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
+
+@font-face {
+  font-family: 'LXGW WenKai';
+  src: url('./assets/fonts/LXGWWenKai-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ── Surface Hierarchy (Linear-inspired solid depth) ── */
+  --bg-root:     #08090d;
+  --bg-sidebar:  #0c0d12;
+  --bg-card:     #111318;
+  --bg-elevated: #161820;
+  --bg-hover:    rgba(255,255,255,0.04);
+  --bg-active:   rgba(255,255,255,0.06);
+
+  /* ── Borders ── */
+  --border:        rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.10);
+
+  /* ── Text ── */
+  --text-primary:   #d4d4dc;
+  --text-secondary: #8b8b9e;
+  --text-dim:       #5e5e6e;
+
+  /* ── Accent (single, restrained) ── */
+  --accent:        #5b8def;
+  --accent-hover:  #739df2;
+  --accent-muted:  rgba(91,141,239,0.12);
+
+  /* ── Semantic ── */
+  --green:  #54c08a;
+  --red:    #e06060;
+  --yellow: #d4a843;
+  --orange: #d4844a;
+  --purple: #9b8ecc;
+  --blue:   #6b9ee6;
+
+  /* ── Typography ── */
+  --font-ui:   'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
+  --font-mono: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
+
+  /* ── Radii ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+@keyframes pulse { 50% { opacity: 0.4; } }
 
 @layer base {
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body, #root {
     height: 100%; width: 100%; overflow: hidden;
-    background: var(--bg-main);
+    background: var(--bg-root);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    font-size: 13px; line-height: 1.5;
+    font-size: 14px; line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
   ::-webkit-scrollbar-corner { background: transparent; }
 
   /* ---- CodeMirror editor ---- */
   .cm-editor { height: 100%; }
 
-  .cm-scroller::-webkit-scrollbar { width: 8px; height: 8px; }
+  .cm-scroller::-webkit-scrollbar { width: 5px; height: 5px; }
   .cm-scroller::-webkit-scrollbar-track { background: transparent; }
-  .cm-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
-  .cm-scroller::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+  .cm-scroller::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
   /* ---- GitHub-style Markdown ---- */
   .markdown-body {
     color: var(--text-primary);
     font-family: var(--font-ui);
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1.6;
     word-wrap: break-word;
   }
@@ -97,21 +111,19 @@
 
   .markdown-body h1 {
     font-size: 1.6em;
-    color: var(--blue);
     padding-bottom: 0.35em;
     border-bottom: 1px solid var(--border);
   }
 
   .markdown-body h2 {
     font-size: 1.35em;
-    color: var(--blue);
     padding-bottom: 0.25em;
     border-bottom: 1px solid var(--border);
   }
 
-  .markdown-body h3 { font-size: 1.15em; color: var(--blue); }
-  .markdown-body h4 { font-size: 1.05em; color: var(--blue); }
-  .markdown-body h5 { font-size: 0.95em; color: var(--blue); }
+  .markdown-body h3 { font-size: 1.15em; }
+  .markdown-body h4 { font-size: 1.05em; }
+  .markdown-body h5 { font-size: 0.95em; }
 
   .markdown-body h6 {
     font-size: 0.9em;
@@ -125,13 +137,13 @@
   }
 
   .markdown-body a {
-    color: var(--text-link);
+    color: var(--accent);
     text-decoration: none;
     border-bottom: 1px solid transparent;
     transition: border-color 0.15s;
   }
   .markdown-body a:hover {
-    border-bottom-color: var(--text-link);
+    border-bottom-color: var(--accent);
   }
 
   .markdown-body strong {
@@ -159,7 +171,7 @@
   .markdown-body ul { list-style: disc; }
   .markdown-body ol { list-style: decimal; }
 
-  .markdown-body ul ::marker { color: var(--blue); }
+  .markdown-body ul ::marker { color: var(--accent); }
   .markdown-body ol ::marker { color: var(--text-dim); }
 
   .markdown-body li { margin-bottom: 3px; }
@@ -187,9 +199,9 @@
     margin: 0 0 12px 0;
     padding: 8px 16px;
     color: var(--text-secondary);
-    background: var(--glass-light);
+    background: var(--bg-hover);
     border-left: 2px solid var(--accent);
-    border-radius: 0 4px 4px 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   }
 
   .markdown-body blockquote > *:first-child { margin-top: 0; }
@@ -199,10 +211,10 @@
     font-family: var(--font-mono);
     font-size: 0.9em;
     padding: 0.15em 0.45em;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     color: var(--orange);
     word-break: break-word;
-    background: var(--glass-light);
+    background: var(--bg-hover);
   }
 
   .markdown-body pre {
@@ -210,8 +222,8 @@
     margin-bottom: 12px;
     padding: 14px;
     overflow-x: auto;
-    border-radius: 6px;
-    background: var(--glass-medium);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
     border: 1px solid var(--border);
   }
 
@@ -231,7 +243,7 @@
     border-collapse: collapse;
     width: 100%;
     overflow: auto;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
   }
 
   .markdown-body table th,
@@ -245,11 +257,11 @@
   .markdown-body table th {
     font-weight: 600;
     color: var(--text-primary);
-    background: var(--glass-hover);
+    background: var(--bg-hover);
   }
 
   .markdown-body table tr:nth-child(even) {
-    background: var(--glass-light);
+    background: rgba(255,255,255,0.02);
   }
 
   .markdown-body hr {
@@ -262,7 +274,7 @@
 
   .markdown-body img {
     max-width: 100%;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     border: 1px solid var(--border);
   }
 
@@ -299,7 +311,7 @@
   .markdown-body--muted ul ul ul ::marker { color: var(--text-dim); }
   .markdown-body--muted hr { background: var(--border); }
   .markdown-body--muted pre { border-color: var(--border); }
-  .markdown-body--muted table th { background: var(--glass-light); }
+  .markdown-body--muted table th { background: transparent; }
 
   /* ---- Highlight.js theme overrides ---- */
   .markdown-body .hljs {
@@ -325,7 +337,7 @@
 
   .markdown-body .hljs-attr,
   .markdown-body .hljs-attribute,
-  .markdown-body .hljs-variable { color: var(--text-link); }
+  .markdown-body .hljs-variable { color: var(--accent); }
 
   .markdown-body .hljs-function,
   .markdown-body .hljs-title { color: var(--yellow); }

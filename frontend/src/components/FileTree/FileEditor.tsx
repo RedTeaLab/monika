@@ -12,6 +12,19 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import ConfirmModal from '../Chat/ConfirmModal'
 
+const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
+
+const monoTheme = EditorView.theme({
+  '&': { fontFamily: monoFont },
+  '.cm-content': { fontFamily: monoFont },
+  '.cm-gutters': { fontFamily: monoFont },
+  '.cm-cursor': { fontFamily: monoFont },
+  '.cm-activeLine': { fontFamily: monoFont },
+  '.cm-selectionBackground': { fontFamily: monoFont },
+  '.cm-line': { fontFamily: monoFont },
+  '.cm-selectionMatch': { fontFamily: monoFont },
+}, { dark: true })
+
 const MAX_CACHED_EDITORS = 10
 
 function getLangExtension(filePath: string) {
@@ -53,6 +66,7 @@ function FileEditor() {
         doc: content,
         extensions: [
           oneDark,
+          monoTheme,
           keymap.of(defaultKeymap),
           getLangExtension(activeFilePath),
           EditorView.editable.of(false),
@@ -135,7 +149,7 @@ function FileEditor() {
     return (
       <div className="flex-1 flex flex-col min-w-0">
         <TabBar tabs={[]} activeKey="" onSelect={() => {}} onClose={() => {}} emptyLabel="Preview" />
-        <div className="flex-1 flex items-center justify-center bg-[var(--bg-main)]">
+        <div className="flex-1 flex items-center justify-center bg-[var(--bg-root)]">
           <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
         </div>
       </div>
