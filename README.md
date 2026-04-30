@@ -39,7 +39,7 @@ monika/
 ├── main.go              # Wails entry point, embeds frontend
 ├── build/config.yml     # Wails build configuration
 ├── frontend/            # React + TypeScript + Tailwind CSS
-│   └── src/components/  # TitleBar, SessionList, ChatArea, FileTree, Console, StatusBar
+│   └── src/components/  # TitleBar, SessionList, TabBar, ChatArea, FileTree, FileEditor, Console, StatusBar, DragDivider
 ├── internal/
 │   ├── agent/           # Agent loop, event streaming, conversation
 │   ├── api/             # Wails service: App, EventBus, SessionManager, FileService
@@ -62,10 +62,14 @@ monika/
 ## Features
 
 - **Multi-panel GUI** — Session list, chat area, file tree with CodeMirror 6 editor, console, status bar
+- **Layout modes** — Chat, split (chat + files), and files-only views with draggable divider
+- **Project management** — Open recent projects, switch projects with dirty-file guards
+- **Branch switching** — List local/remote branches, create and switch branches, worktree-aware
+- **Multi-tab sessions** — Up to 8 concurrent session tabs, per-session message caching
 - **Streaming agent loop** — Real-time text deltas, tool execution cards, token usage tracking
 - **Tool calling** — file_read, file_write, file_list, glob, grep, bash (multi-platform)
 - **Session persistence** — JSON-backed session history per project
-- **Git integration** — File change tracking, diff viewing
+- **Git integration** — File change tracking, diff viewing, worktree support
 - **Skills** — Agent Skills standard (SKILL.md loader)
 - **MCP** — Model Context Protocol (stdio JSON-RPC transport)
 

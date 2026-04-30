@@ -54,49 +54,58 @@ All tokens live as CSS custom properties in `:root` in `index.css`. Never hardco
 **Color tokens** (see `frontend/src/index.css` for exact values):
 | Token | Role |
 |---|---|
-| `--bg-main` | Editor/chat area (`#10141c`) |
-| `--bg-sidebar` | Side panels (`#161922`) |
-| `--bg-titlebar` | Title bar only (`#1a1d26`) |
-| `--bg-statusbar` | Status bar left side (`#2563eb`) |
-| `--bg-input` | Text input background (`#1e2231`) |
-| `--bg-hover` | List item hover (`#1c2030`) |
-| `--bg-active` | Selected list item (`#232839`) |
-| `--bg-badge` | Badge/chip background (`#2a2f40`) |
-| `--border` | Divider lines (`#252a38`) |
-| `--border-light` | Lighter dividers (`#2f3443`) |
-| `--border-active` | Focus ring on inputs (`#3b82f6`) |
-| `--text-primary` | Main content text (`#d2d6e0`) |
-| `--text-secondary` | Section headers (`#8d92a3`) |
-| `--text-dim` | Placeholder/muted (`#5a5f73`) |
-| `--text-link` | Hyperlinks (`#5da3f5`) |
-| `--accent` | Primary action blue (`#3b82f6`) |
-| `--accent-hover` | Accent hover state (`#609af7`) |
-| `--green` | Success (`#34d399`) |
+| `--bg-main` | Root background (`#060609`) |
+| `--bg-sidebar` | Side panels (`#09090d`) |
+| `--bg-panel` | Panel backgrounds (`#09090d`) |
+| `--bg-titlebar` | Title bar only (`#0b0b10`) |
+| `--glass-strong` | Glass surface, strong (`rgba(255,255,255,0.07)`) |
+| `--glass-medium` | Glass surface, medium (`rgba(255,255,255,0.05)`) |
+| `--glass-light` | Glass surface, light (`rgba(255,255,255,0.03)`) |
+| `--glass-hover` | Glass hover state (`rgba(255,255,255,0.08)`) |
+| `--glass-active` | Glass active state (`rgba(255,255,255,0.10)`) |
+| `--border` | Divider lines (`rgba(255,255,255,0.08)`) |
+| `--border-light` | Lighter dividers (`rgba(255,255,255,0.05)`) |
+| `--border-strong` | Strong borders (`rgba(255,255,255,0.12)`) |
+| `--border-active` | Focus/border active (`#5b8def`) |
+| `--text-primary` | Main content text (`#d0d0d8`) |
+| `--text-secondary` | Secondary text (`#9d9db0`) |
+| `--text-dim` | Placeholder/muted (`#78788a`) |
+| `--text-link` | Hyperlinks (`#7cb8ff`) |
+| `--accent` | Primary action blue (`#5b8def`) |
+| `--accent-hover` | Accent hover state (`#7aa2f5`) |
+| `--accent-glass` | Accent glass overlay (`rgba(91,141,239,0.10)`) |
+| `--green` | Success (`#4ade80`) |
 | `--red` | Error (`#f87171`) |
-| `--yellow` | Warning/running (`#fbbf24`) |
+| `--yellow` | Warning/running (`#facc15`) |
 | `--orange` | Highlights / inline code (`#fb923c`) |
-| `--blue` | Headings / keywords (`#60a5fa`) |
+| `--blue` | Headings / keywords (`#7cb8ff`) |
 | `--purple` | Secondary accent (`#a78bfa`) |
 
 **Typography tokens**:
 - `--font-ui`: `system-ui, -apple-system, 'Segoe UI', sans-serif` — all chrome/controls.
 - `--font-mono`: `'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace` — code blocks, messages, console output.
 
-**Z-index scale**: UI elements share the same stacking context. When a new stacking layer is needed (dropdowns, overlays), align with the team first — no `z-[9999]` hacks.
+**Z-index scale**: `position: fixed` dropdowns/overlays use z-1000 (TitleBar dropdowns) or z-2000 (FileDialog). ConfirmModal uses z-50 (portal to body). TitleBar establishes a stacking context via `backdrop-filter`; popups rendered inside it need the TitleBar itself to have `position: relative; z-index: N` to lift the stacking context above the main content area. When adding a new stacking layer, prefer portal to `document.body` (see `BranchDropdown`, `ProjectDropdown`, `ConfirmModal`).
 
 ### Component Structure
 Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts` re-export files. Keep one component per file; co-locate sub-components only when tightly coupled (e.g., `FileEditor` inside `FileTree/`).
 
 **Layout (App.tsx)**:
 ```
-+-- TitleBar (h-[30px], draggable region)
-+-- Main flex row
-|   +-- SessionList (left sidebar, w-56)
-|   +-- ChatArea (center, flex-1)
-|   +-- FileTree (right sidebar, w-64, togglable)
++-- TitleBar (h-[32px], draggable region)
++-- Main flex row (flex-1)
+|   +-- [Chat pane] (layoutMode: chat|split)
+|   |   +-- SessionList (left sidebar, w-56, togglable)
+|   |   +-- ChatArea (center, flex-1)
+|   +-- [DragDivider] (layoutMode: split only, draggable ratio)
+|   +-- [Files pane] (layoutMode: split|files)
+|   |   +-- FileEditor (center, flex-1)
+|   |   +-- FileTree (right sidebar, w-56, togglable)
 +-- Console (bottom panel, resizable, togglable)
 +-- StatusBar (h-[22px])
 ```
+
+Layout modes: `chat` (chat-only), `split` (chat + files with draggable divider), `files` (files-only). Controlled by `layoutMode` in Zustand store.
 
 **TabBar conventions** (ChatArea, FileEditor):
 - Height 36px (`TAB_BAR_HEIGHT`), background `var(--glass-strong)`, border-b.
@@ -144,8 +153,12 @@ Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts`
 - Resize handle: 1px height, `cursor-ns-resize`, hover `--accent`.
 
 **TitleBar conventions**:
-- Height 30px, `--bg-titlebar`, `WebkitAppRegion: drag`.
-- Window controls: 46px wide, no-drag region, normal hover `#3e3e40`, close hover `#e81123`.
+- Height 32px, `--glass-strong` background, `backdrop-blur-md`, border-b.
+- Left: app name ("Monika"), project dropdown (recent projects, open folder), branch dropdown (switch/create branches, git repos only).
+- Center: empty (drag region).
+- Right: layout mode toggles (chat/split/files), window controls (minimize/maximize/close).
+- Dropdowns: `ProjectDropdown` and `BranchDropdown` use `createPortal` to `document.body`. `CreateBranchPanel` renders inline with `position: fixed`.
+- Window controls: no-drag region, hover uses `--glass-hover`, close hover uses `--red`.
 
 **StatusBar conventions**:
 - Height 22px, 12px text.
