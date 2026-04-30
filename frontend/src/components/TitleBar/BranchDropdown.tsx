@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
+import ConfirmModal from '../Chat/ConfirmModal';
 
 interface BranchDropdownProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const loadBranches = useStore(s => s.loadBranches);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dirtyConfirm, setDirtyConfirm] = useState<{ branchName: string; remote: string } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,6 +53,20 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   }, [isOpen, onClose]);
 
   const handleSwitch = async (branchName: string, remote: string) => {
+    setError(null);
+
+    // Guard: check for dirty files or active generation before switching.
+    const { openFiles, generatingSessionId } = useStore.getState();
+    const dirtyCount = openFiles.filter(f => f.isDirty).length;
+    if (dirtyCount > 0 || generatingSessionId) {
+      setDirtyConfirm({ branchName, remote });
+      return;
+    }
+
+    await doSwitch(branchName, remote);
+  };
+
+  const doSwitch = async (branchName: string, remote: string) => {
     setError(null);
     const { App } = await import('../../../bindings/monika');
     try {
@@ -88,7 +104,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const top = triggerEl ? triggerEl.getBoundingClientRect().bottom + 4 : 0;
   const left = triggerEl ? triggerEl.getBoundingClientRect().left : 0;
 
-  return createPortal(
+  const portal = createPortal(
     <div
       ref={dropdownRef}
       style={{
@@ -194,5 +210,33 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
       </div>
     </div>,
     document.body,
+  );
+
+  const dirtyCount = useStore(s => s.openFiles.filter(f => f.isDirty).length);
+  const isGenerating = useStore(s => s.generatingSessionId !== '');
+
+  return (
+    <>
+      {portal}
+      {dirtyConfirm && (
+        <ConfirmModal
+          title="Switch Branch"
+          message={
+            dirtyCount > 0 && isGenerating
+              ? `You have ${dirtyCount} unsaved files and a session is generating. Switching branches will discard changes and interrupt generation.`
+              : dirtyCount > 0
+                ? `You have ${dirtyCount} unsaved files. Switching branches will lose unsaved changes.`
+                : 'A session is generating a response. Switching branches will interrupt it.'
+          }
+          confirmLabel="Discard"
+          onConfirm={async () => {
+            const { branchName, remote } = dirtyConfirm;
+            setDirtyConfirm(null);
+            await doSwitch(branchName, remote);
+          }}
+          onCancel={() => setDirtyConfirm(null)}
+        />
+      )}
+    </>
   );
 }

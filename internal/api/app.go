@@ -373,14 +373,14 @@ func (a *App) GetRecentProjects() []RecentProject {
 	data, err := os.ReadFile(recentPath)
 	if err != nil {
 		// File doesn't exist or can't be read — return empty list.
-		return nil
+		return []RecentProject{}
 	}
 
 	var projects []RecentProject
 	if err := json.Unmarshal(data, &projects); err != nil {
 		// Corrupted file — log warning, return empty list.
 		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to parse recent.json: %v\n", err)
-		return nil
+		return []RecentProject{}
 	}
 
 	// Filter out entries whose path no longer exists or is not a directory.
@@ -497,6 +497,11 @@ func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
 		line = strings.TrimPrefix(line, "* ")
 		line = strings.TrimSpace(line)
 
+		// Skip detached HEAD indicator and symbolic refs.
+		if strings.HasPrefix(line, "(HEAD") || strings.Contains(line, "->") {
+			continue
+		}
+
 		// Detect remote branches: "remotes/origin/xxx".
 		remotePrefix := "remotes/"
 		if strings.HasPrefix(line, remotePrefix) {
@@ -549,14 +554,28 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		return err
 	}
 
+	// Detect remote branch pattern: "remoteName/branchName" where remoteName
+	// matches a known git remote. Fall back to plain checkout if not a remote branch.
 	var cmd *exec.Cmd
-	if strings.HasPrefix(name, "origin/") {
-		localName := strings.TrimPrefix(name, "origin/")
-		if err := validateBranchName(localName); err != nil {
-			return err
+	if idx := strings.Index(name, "/"); idx > 0 {
+		remoteName := name[:idx]
+		localName := name[idx+1:]
+		// Verify remoteName is a real remote.
+		remoteCmd := exec.Command("git", "remote")
+		remoteCmd.Dir = projectPath
+		if remoteOut, err := remoteCmd.Output(); err == nil {
+			for _, r := range strings.Split(strings.TrimSpace(string(remoteOut)), "\n") {
+				if strings.TrimSpace(r) == remoteName {
+					if err := validateBranchName(localName); err != nil {
+						return err
+					}
+					cmd = exec.Command("git", "checkout", "-b", localName, name)
+					break
+				}
+			}
 		}
-		cmd = exec.Command("git", "checkout", "-b", localName, name)
-	} else {
+	}
+	if cmd == nil {
 		cmd = exec.Command("git", "checkout", name)
 	}
 	cmd.Dir = projectPath
@@ -565,14 +584,17 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
+	// Determine the actual branch name for the in-memory update.
+	// For local checkout: name is the branch. For remote: localName from checkout -b.
+	displayBranch := name
+	if cmd.Args[1] == "checkout" && cmd.Args[2] == "-b" {
+		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
+	}
+
 	// Update in-memory branch info.
 	a.mu.Lock()
 	if info, ok := a.projects[projectPath]; ok {
-		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-		branchCmd.Dir = projectPath
-		if branchOut, bErr := branchCmd.Output(); bErr == nil {
-			info.Branch = strings.TrimSpace(string(branchOut))
-		}
+		info.Branch = displayBranch
 	}
 	a.mu.Unlock()
 

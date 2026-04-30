@@ -414,8 +414,9 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const branches = await App.ListBranches(projectPath);
       set({ allBranches: branches });
-    } catch {
+    } catch (e) {
       set({ allBranches: [] });
+      throw e;
     }
   },
 
@@ -430,6 +431,8 @@ export const useStore = create<AppState>((set, get) => ({
       openSessions: [],
       sessionMessages: {},
       openFiles: [],
+      allBranches: [],
+      recentProjects: [],
     });
   },
 

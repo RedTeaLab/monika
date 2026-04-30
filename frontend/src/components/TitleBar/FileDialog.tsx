@@ -35,8 +35,8 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
     setError(null);
     import('../../../bindings/monika').then(({ App }) => {
       App.ListDirectory(currentPath)
-        .then((noddos: FileNode[]) => {
-          setEntries(noddos);
+        .then((nodes: FileNode[]) => {
+          setEntries(nodes);
           setLoading(false);
         })
         .catch((e: Error) => {

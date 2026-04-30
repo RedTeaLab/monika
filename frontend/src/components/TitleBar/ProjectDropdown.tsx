@@ -71,7 +71,7 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectPro
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, recentProjects, focusIndex, projectPath, onClose]);
+  }, [isOpen, recentProjects, focusIndex, projectPath, onClose, onSelectProject]);
 
   if (!isOpen) return null;
 

@@ -82,7 +82,7 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
         }}
       >
         {allBranches.map(b => (
-          <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.name}>
+          <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.remote ? `${b.remote}/${b.name}` : b.name}>
             {b.remote ? `${b.remote}/${b.name}` : b.name}{b.name === branch && !b.remote ? ' (current)' : ''}
           </option>
         ))}
