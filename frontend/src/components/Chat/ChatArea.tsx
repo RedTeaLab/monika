@@ -8,6 +8,7 @@ import ChatInput from './ChatInput'
 function ChatArea() {
   const messages = useStore((s) => s.messages)
   const generatingSessionId = useStore((s) => s.generatingSessionId)
+  const selectedModel = useStore((s) => s.selectedModel)
   const addMessage = useStore((s) => s.addMessage)
   const appendToSession = useStore((s) => s.appendToSession)
   const clearMessages = useStore((s) => s.clearMessages)
@@ -57,7 +58,7 @@ function ChatArea() {
     setGeneratingSessionId(activeSessionId)
 
     try {
-      await App.SendMessage(projectPath, activeSessionId, text)
+      await App.SendMessage(projectPath, activeSessionId, text, selectedModel)
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGeneratingSessionId('')
