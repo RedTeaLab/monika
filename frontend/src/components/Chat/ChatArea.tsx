@@ -4,6 +4,7 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
+import ChatInputToolbar from './ChatInputToolbar'
 
 function ChatArea() {
   const messages = useStore((s) => s.messages)
@@ -119,12 +120,15 @@ function ChatArea() {
         )}
       </div>
       {hasActiveSession && (
-        <ChatInput
-          key={activeSessionId}
-          onSend={handleSend}
-          onStop={handleStop}
-          disabled={generatingSessionId !== ''}
-        />
+        <>
+          <ChatInput
+            key={activeSessionId}
+            onSend={handleSend}
+            onStop={handleStop}
+            disabled={generatingSessionId !== ''}
+          />
+          <ChatInputToolbar />
+        </>
       )}
     </div>
   )
