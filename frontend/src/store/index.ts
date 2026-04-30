@@ -37,6 +37,8 @@ interface FileTabInfo {
 interface AppState {
   messages: Message[]
   generatingSessionId: string
+  sessionStatuses: Record<string, string>
+  sessionErrors: Record<string, string>
   tokenCount: number
   tokenMax: number
   projectPath: string
@@ -71,6 +73,8 @@ interface AppState {
   updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
   updateSessionToolInput: (id: string, name: string, input: string) => void
   setGeneratingSessionId: (sessionId: string) => void
+  setSessionStatus: (sessionId: string, status: string) => void
+  setSessionError: (sessionId: string, error: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
   addTokens: (tokens: number, max?: number) => void
   clearMessages: () => void
@@ -104,6 +108,8 @@ interface AppState {
 export const useStore = create<AppState>((set, get) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
   generatingSessionId: '',
+  sessionStatuses: {},
+  sessionErrors: {},
   tokenCount: 0,
   tokenMax: 0,
   projectPath: '',
@@ -309,6 +315,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
+  setSessionStatus: (sessionId, status) =>
+    set((s) => ({ sessionStatuses: { ...s.sessionStatuses, [sessionId]: status } })),
+  setSessionError: (sessionId, error) =>
+    set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -543,6 +553,8 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
       generatingSessionId: '',
+      sessionStatuses: {},
+      sessionErrors: {},
       tokenCount: 0,
       tokenMax: 0,
       activeSessionId: '',
