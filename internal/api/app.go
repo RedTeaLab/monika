@@ -451,7 +451,16 @@ func (a *App) writeRecentProject(path, name string) {
 
 // ListDirectory returns the non-recursive contents of a directory.
 func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
-	entries, err := os.ReadDir(parentPath)
+	// Canonicalize and validate: reject empty, resolve, and verify existence.
+	clean := filepath.Clean(parentPath)
+	if clean == "." || clean == ".." {
+		return nil, fmt.Errorf("invalid path: %s", parentPath)
+	}
+	if info, err := os.Stat(clean); err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("not a directory: %s", parentPath)
+	}
+
+	entries, err := os.ReadDir(clean)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +469,7 @@ func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
 	for _, entry := range entries {
 		nodes = append(nodes, FileNode{
 			Name:  entry.Name(),
-			Path:  filepath.Join(parentPath, entry.Name()),
+			Path:  filepath.Join(clean, entry.Name()),
 			IsDir: entry.IsDir(),
 		})
 	}
