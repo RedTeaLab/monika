@@ -11,6 +11,7 @@ export interface ProjectInfo {
 export interface SessionInfo {
   id: string;
   title: string;
+  status: string;
   updated_at: string;
 }
 
@@ -21,6 +22,7 @@ export interface Session {
   messages: { role: string; content: string; tool_calls?: any[] }[];
   model: string;
   provider: string;
+  status: string;
   created_at: string;
   updated_at: string;
 }
