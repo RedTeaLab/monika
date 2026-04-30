@@ -215,6 +215,11 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 	ctx, cancel := context.WithCancel(a.ctx)
 	a.cancelMu.Lock()
+	if _, exists := a.cancelFuncs[sessionID]; exists {
+		a.cancelMu.Unlock()
+		cancel()
+		return fmt.Errorf("session %s is already generating", sessionID)
+	}
 	a.cancelFuncs[sessionID] = cancel
 	a.cancelMu.Unlock()
 
@@ -237,18 +242,38 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 			a.cancelMu.Unlock()
 		}()
 
+		// Set generating status
+		sm.Lock()
+		sm.SetStatus(s, "generating")
+		sm.Save(s)
+		sm.Unlock()
+
+		hadError := false
+
 		events := loop.RunStreaming(ctx, conv, text)
 		for ev := range events {
+			if ev.Type == agent2.EventError {
+				hadError = true
+			}
 			a.handleAgentEvent(sessionID, model, ev)
 		}
 
 		s.Messages = conv.Messages
 		sm.SetTitle(s)
+
+		sm.Lock()
+		if hadError {
+			sm.SetStatus(s, "failure")
+		} else {
+			sm.SetStatus(s, "success")
+		}
 		sm.Save(s)
-			a.handleAgentEvent(sessionID, model, agent2.Event{
-				Type:    agent2.EventSessionUpdated,
-				Content: s.Title,
-			})
+		sm.Unlock()
+
+		a.handleAgentEvent(sessionID, model, agent2.Event{
+			Type:    agent2.EventSessionUpdated,
+			Content: s.Title,
+		})
 	}()
 
 	return nil
