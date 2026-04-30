@@ -54,8 +54,7 @@ function TitleBar() {
     resetProjectState()
     setProjectPath(info.path)
     setBranch(info.branch)
-    await loadBranches()
-    await loadRecentProjects()
+    await Promise.all([loadBranches(), loadRecentProjects()])
   }
 
   const handleProjectSelect = useCallback(async (targetPath: string) => {

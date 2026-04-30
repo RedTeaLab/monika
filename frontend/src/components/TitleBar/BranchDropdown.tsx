@@ -73,9 +73,9 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
       const name = remote ? `${remote}/${branchName}` : branchName;
       await App.SwitchBranch(projectPath, name);
 
-      // Refresh open file tabs.
+      // Refresh open file tabs in parallel.
       const { openFiles, updateFileContent, closeFileTab } = useStore.getState();
-      for (const file of openFiles) {
+      await Promise.all(openFiles.map(async (file) => {
         try {
           const content = await App.ReadFile(projectPath, file.path);
           if (content.exist) {
@@ -86,7 +86,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
         } catch {
           closeFileTab(file.path);
         }
-      }
+      }));
       useStore.getState().setBranch(branchName);
       await loadBranches();
       onClose();

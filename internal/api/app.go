@@ -404,9 +404,6 @@ func (a *App) GetRecentProjects() []RecentProject {
 
 // writeRecentProject appends or updates a project entry in recent.json.
 func (a *App) writeRecentProject(path, name string) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	recentDir := filepath.Join(a.home, ".monika")
 	if err := os.MkdirAll(recentDir, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] failed to create recent dir: %v\n", err)
@@ -451,13 +448,10 @@ func (a *App) writeRecentProject(path, name string) {
 
 // ListDirectory returns the non-recursive contents of a directory.
 func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
-	// Canonicalize and validate: reject empty, resolve, and verify existence.
+	// Canonicalize and reject obviously invalid paths.
 	clean := filepath.Clean(parentPath)
 	if clean == "." || clean == ".." {
 		return nil, fmt.Errorf("invalid path: %s", parentPath)
-	}
-	if info, err := os.Stat(clean); err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("not a directory: %s", parentPath)
 	}
 
 	entries, err := os.ReadDir(clean)
