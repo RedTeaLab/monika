@@ -25,7 +25,9 @@ function ChatArea() {
   }))
 
   const handleStop = () => {
-    setGeneratingSessionId('')
+    if (generatingSessionId !== '') {
+      App.CancelGeneration(generatingSessionId)
+    }
   }
 
   const handleSend = async (text: string) => {
