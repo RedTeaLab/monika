@@ -285,6 +285,14 @@ func (a *App) CancelGeneration(sessionID string) {
 	a.cancelMu.Unlock()
 	if ok {
 		cancel()
+		if sm := a.getSessionManagerForSession(sessionID); sm != nil {
+			if s, err := sm.Load(sessionID); err == nil {
+				sm.Lock()
+				sm.SetStatus(s, "idle")
+				sm.Save(s)
+				sm.Unlock()
+			}
+		}
 	}
 }
 
