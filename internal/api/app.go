@@ -158,6 +158,8 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	a.mu.Unlock()
 
 	a.getSessionManager(path)
+	// Reset any sessions left in "generating" status from a previous crash
+	a.resetStaleSessions(path)
 	a.getFileService(path)
 	a.writeRecentProject(info.Path, info.Name)
 
@@ -362,6 +364,37 @@ func (a *App) getSessionManager(projectPath string) *SessionManager {
 	sm := NewSessionManager(a.home, projectPath)
 	a.sessions[projectPath] = sm
 	return sm
+}
+
+func (a *App) resetStaleSessions(projectPath string) {
+	sm := a.getSessionManager(projectPath)
+	sessions, err := sm.List()
+	if err != nil {
+		return
+	}
+	for _, info := range sessions {
+		if info.Status == "generating" {
+			s, err := sm.Load(info.ID)
+			if err != nil {
+				continue
+			}
+			sm.Lock()
+			sm.SetStatus(s, "idle")
+			sm.Save(s)
+			sm.Unlock()
+		}
+	}
+}
+
+func (a *App) getSessionManagerForSession(sessionID string) *SessionManager {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, sm := range a.sessions {
+		if _, err := sm.Load(sessionID); err == nil {
+			return sm
+		}
+	}
+	return nil
 }
 
 func (a *App) getFileService(projectPath string) *FileService {
