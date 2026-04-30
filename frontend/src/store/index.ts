@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
-import type { RecentProject, BranchInfo } from '../../bindings/monika'
+import type { RecentProject, BranchInfo, ModelInfo } from '../../bindings/monika'
 
 export type LayoutMode = 'chat' | 'split' | 'files'
 
@@ -54,6 +54,8 @@ interface AppState {
   openFiles: FileTabInfo[]
   recentProjects: RecentProject[]
   allBranches: BranchInfo[]
+  availableModels: ModelInfo[]
+  selectedModel: string
 
   addMessage: (msg: Message) => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
@@ -95,6 +97,7 @@ interface AppState {
 
   loadRecentProjects: () => Promise<void>
   loadBranches: () => Promise<void>
+  loadModels: () => Promise<void>
   resetProjectState: () => void
 }
 
@@ -118,6 +121,8 @@ export const useStore = create<AppState>((set, get) => ({
   openFiles: [],
   recentProjects: [],
   allBranches: [],
+  availableModels: [],
+  selectedModel: '',
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -667,6 +672,12 @@ export function setupWailsEvents() {
         break
 
       case 'error':
+        if (data.content === 'cancelled') {
+          if (sid === store.generatingSessionId) {
+            store.setGeneratingSessionId('')
+          }
+          break
+        }
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
         store.addSessionError(sid, data.content || 'Unknown error')
         if (sid === store.activeSessionId) {
