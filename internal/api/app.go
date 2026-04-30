@@ -200,7 +200,7 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	return sm.Load(sessionID)
 }
 
-func (a *App) SendMessage(projectPath, sessionID, text string) error {
+func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	sm := a.getSessionManager(projectPath)
 	sm.Lock()
 	defer sm.Unlock()
@@ -221,7 +221,7 @@ func (a *App) SendMessage(projectPath, sessionID, text string) error {
 	}
 
 	opts := append([]agent2.LoopOption{
-		agent2.WithModel(a.model),
+		agent2.WithModel(model),
 		agent2.WithProjectDir(projectPath),
 	}, a.loopOpts...)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
@@ -236,7 +236,7 @@ func (a *App) SendMessage(projectPath, sessionID, text string) error {
 
 		events := loop.RunStreaming(ctx, conv, text)
 		for ev := range events {
-			a.handleAgentEvent(sessionID, ev)
+			a.handleAgentEvent(sessionID, model, ev)
 		}
 
 		s.Messages = conv.Messages
