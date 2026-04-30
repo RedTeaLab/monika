@@ -20,7 +20,9 @@ func NewFileWrite(projectDir string) tool.Tool {
 }
 
 func (f *fileWrite) Name() string        { return "file_write" }
-func (f *fileWrite) Description() string { return "Write a file to the local filesystem." }
+func (f *fileWrite) Description() string {
+	return "Write a file to the local filesystem. Overwrites existing files at the target path. Creates parent directories automatically. Always use absolute paths within the project directory."
+}
 
 func (f *fileWrite) Parameters() map[string]any {
 	return map[string]any{

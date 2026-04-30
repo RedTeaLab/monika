@@ -19,7 +19,9 @@ func NewGlob(projectDir string) tool.Tool {
 }
 
 func (g *globTool) Name() string        { return "glob" }
-func (g *globTool) Description() string { return "Find files matching a glob pattern." }
+func (g *globTool) Description() string {
+	return "Find files matching a glob pattern. Use to discover project structure before targeting specific files with grep or file_read. Supports standard glob syntax (e.g., '**/*.go', 'src/**/*.tsx')."
+}
 
 func (g *globTool) Parameters() map[string]any {
 	return map[string]any{

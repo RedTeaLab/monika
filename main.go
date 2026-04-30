@@ -47,7 +47,12 @@ func main() {
 
 	systemParts := []string{
 		fmt.Sprintf("OS Version: %s\nWorking directory: %s", runtime.GOOS, cwd),
-		agent.BuiltinSystemPrompt,
+		agent.PromptIdentity,
+		agent.PromptToolUsage,
+		agent.PromptCodeQuality,
+		agent.PromptResponseStyle,
+		agent.PromptSafetyBoundaries,
+		agent.PromptRemember,
 	}
 	if p := loadSystemPrompt(cwd); p != "" {
 		systemParts = append(systemParts, p)

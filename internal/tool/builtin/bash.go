@@ -55,7 +55,9 @@ func resolveShell() (string, string) {
 }
 
 func (b *bashTool) Name() string        { return "bash" }
-func (b *bashTool) Description() string { return "Execute a shell command." }
+func (b *bashTool) Description() string {
+	return "Execute a shell command. Prefer dedicated tools (grep, glob, file_read, file_write) for file operations. Use bash only when no dedicated tool exists. Commands timeout after 120 seconds."
+}
 
 func (b *bashTool) Parameters() map[string]any {
 	return map[string]any{

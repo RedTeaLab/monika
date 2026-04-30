@@ -22,7 +22,9 @@ func NewGrep(projectDir string) tool.Tool {
 }
 
 func (g *grepTool) Name() string        { return "grep" }
-func (g *grepTool) Description() string { return "Search file contents using regular expressions." }
+func (g *grepTool) Description() string {
+	return "Search file contents using regular expressions. Returns file path, line number, and matching line content. Filter by file pattern using the include parameter. Capped at 200 results."
+}
 
 func (g *grepTool) Parameters() map[string]any {
 	return map[string]any{
