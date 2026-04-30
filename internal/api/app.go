@@ -524,9 +524,9 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		if err := validateBranchName(localName); err != nil {
 			return err
 		}
-		cmd = exec.Command("git", "checkout", "-b", localName, "--", name)
+		cmd = exec.Command("git", "checkout", "-b", localName, name)
 	} else {
-		cmd = exec.Command("git", "checkout", "--", name)
+		cmd = exec.Command("git", "checkout", name)
 	}
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
@@ -557,7 +557,7 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		return err
 	}
 
-	cmd := exec.Command("git", "checkout", "-b", name, "--", baseBranch)
+	cmd := exec.Command("git", "checkout", "-b", name, baseBranch)
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
