@@ -444,3 +444,47 @@ func (a *App) writeRecentProject(path, name string) {
 		fmt.Fprintf(os.Stderr, "[monika] failed to rename recent.json: %v\n", err)
 	}
 }
+
+// ListBranches returns local and remote git branches for the given project.
+func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
+	cmd := exec.Command("git", "branch", "-a", "--no-color")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var branches []BranchInfo
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Remove leading "* " (current branch marker) or "  " (regular branch).
+		line = strings.TrimPrefix(line, "* ")
+		line = strings.TrimSpace(line)
+
+		// Detect remote branches: "remotes/origin/xxx".
+		remotePrefix := "remotes/"
+		if strings.HasPrefix(line, remotePrefix) {
+			remoteAndName := strings.TrimPrefix(line, remotePrefix)
+			// Split into remote name and branch name: "origin/feat/x" -> remote="origin", name="feat/x"
+			slashIdx := strings.Index(remoteAndName, "/")
+			if slashIdx >= 0 {
+				branches = append(branches, BranchInfo{
+					Name:   remoteAndName[slashIdx+1:],
+					Remote: remoteAndName[:slashIdx],
+				})
+			}
+		} else {
+			// Local branch.
+			branches = append(branches, BranchInfo{
+				Name:   line,
+				Remote: "",
+			})
+		}
+	}
+	return branches, nil
+}
