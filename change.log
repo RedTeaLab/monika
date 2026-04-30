@@ -24,6 +24,7 @@
 - **消息气泡响应式宽度**：MsgBlock 宽度改为 `w-full`、移除 `max-w` 上限，适配不同窗口尺寸。
 - **标签颜色微调**：降低 thinking 和 tool 标签文字亮度，减少视觉干扰。
 - **Icon 组件增强**：`Icon` 和 `IconChevronDown` 支持 `style` prop，允许调用方覆盖尺寸/颜色等内联样式。
+- **模块化 System Prompt**：将 `BuiltinSystemPrompt`（24 行，仅 tool usage）替换为 6 个模块常量（`PromptIdentity`、`PromptToolUsage`、`PromptCodeQuality`、`PromptResponseStyle`、`PromptSafetyBoundaries`、`PromptRemember`），遵循 U 型注意力曲线排列（关键规则在首尾，近因效应强化）。参考 Claude Code 和 OpenCode 的 prompt engineering 模式，增加代码质量原则（YAGNI、精简注释、系统边界验证）、安全边界（路径安全、破坏性操作确认、git 保护）、响应风格（简洁输出、无 emoji、语言匹配）等通用规则。工具描述增强（bash/grep/glob/file_write），增加安全约束和专用工具偏好引导。新增 `system_prompt_test.go` 守卫测试（常量非空、token 预算 < 8000 字符）。设计文档：`docs/superpowers/specs/2026-05-01-system-prompt-optimization-design.md`、`docs/superpowers/plans/2026-05-01-system-prompt-optimization.md`。
 
 ## 2026-04-30
 
