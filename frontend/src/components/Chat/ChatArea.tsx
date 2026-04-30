@@ -24,6 +24,10 @@ function ChatArea() {
     status: (generatingSessionId === s.id ? 'generating' as const : 'idle' as const),
   }))
 
+  const handleStop = () => {
+    setGeneratingSessionId('')
+  }
+
   const handleSend = async (text: string) => {
     if (!text.trim()) return
 
@@ -115,6 +119,7 @@ function ChatArea() {
         <ChatInput
           key={activeSessionId}
           onSend={handleSend}
+          onStop={handleStop}
           disabled={generatingSessionId !== ''}
         />
       )}
