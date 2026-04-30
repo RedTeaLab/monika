@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store';
+import { getErrorMessage, sectionHeaderStyle } from './dropdownHelpers';
 
 interface CreateBranchPanelProps {
   onCancel: () => void;
@@ -27,20 +28,14 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
       await loadBranches();
       onCreated();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to create branch');
+      setError(getErrorMessage(e, 'Failed to create branch'));
     }
     setCreating(false);
   };
 
   return (
     <div style={{ padding: 12 }}>
-      <div style={{
-        fontSize: 11,
-        color: 'var(--text-dim)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em',
-        marginBottom: 8,
-      }}>
+      <div style={{ ...sectionHeaderStyle, marginBottom: 8, borderBottom: 'none' }}>
         Create New Branch
       </div>
 

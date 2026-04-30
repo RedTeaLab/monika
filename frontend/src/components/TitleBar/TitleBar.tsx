@@ -12,6 +12,7 @@ import { BranchDropdown } from './BranchDropdown'
 import { CreateBranchPanel } from './CreateBranchPanel'
 import { FileDialog } from './FileDialog'
 import ConfirmModal from '../Chat/ConfirmModal'
+import { buildDirtyGuardMessage } from './dropdownHelpers'
 
 const layoutModes: { mode: LayoutMode; icon: typeof IconChatLayout; label: string }[] = [
   { mode: 'chat', icon: IconChatLayout, label: 'Chat mode' },
@@ -62,14 +63,7 @@ function TitleBar() {
     const isGenerating = generatingSessionId !== ''
 
     if (dirtyCount > 0 || isGenerating) {
-      let message = ''
-      if (dirtyCount > 0 && isGenerating) {
-        message = `You have ${dirtyCount} unsaved files and a session is generating. Switching projects will discard changes and interrupt generation.`
-      } else if (dirtyCount > 0) {
-        message = `You have ${dirtyCount} unsaved files. Switching projects will lose unsaved changes.`
-      } else {
-        message = 'A session is generating a response. Switching projects will interrupt it.'
-      }
+      const message = buildDirtyGuardMessage(dirtyCount, isGenerating, 'projects');
       setConfirmModal({ title: 'Switch Project', message, targetPath })
       return
     }

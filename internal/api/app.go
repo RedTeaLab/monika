@@ -496,7 +496,6 @@ func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
 			continue
 		}
 
-		// Remove leading "* " (current branch marker) or "  " (regular branch).
 		line = strings.TrimPrefix(line, "* ")
 		line = strings.TrimSpace(line)
 
@@ -505,7 +504,6 @@ func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
 			continue
 		}
 
-		// Detect remote branches: "remotes/origin/xxx".
 		remotePrefix := "remotes/"
 		if strings.HasPrefix(line, remotePrefix) {
 			remoteAndName := strings.TrimPrefix(line, remotePrefix)
@@ -587,8 +585,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
-	// Determine the actual branch name for the in-memory update.
-	// For local checkout: name is the branch. For remote: localName from checkout -b.
+	// For remote checkout (checkout -b localName remote/branch), use localName.
 	displayBranch := name
 	if cmd.Args[1] == "checkout" && cmd.Args[2] == "-b" {
 		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
