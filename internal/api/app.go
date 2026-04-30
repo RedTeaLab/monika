@@ -400,39 +400,47 @@ func (a *App) GetRecentProjects() []RecentProject {
 
 // writeRecentProject appends or updates a project entry in recent.json.
 func (a *App) writeRecentProject(path, name string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	recentDir := filepath.Join(a.home, ".monika")
-	os.MkdirAll(recentDir, 0755)
+	if err := os.MkdirAll(recentDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to create recent dir: %v\n", err)
+		return
+	}
 	recentPath := filepath.Join(recentDir, "recent.json")
 
 	projects := a.GetRecentProjects()
 
-	// Remove existing entry for this path.
-	for i, p := range projects {
-		if p.Path == path {
-			projects = append(projects[:i], projects[i+1:]...)
-			break
+	// Remove existing entry for this path (copy-based to avoid backing-array mutation).
+	var updated []RecentProject
+	for _, p := range projects {
+		if p.Path != path {
+			updated = append(updated, p)
 		}
 	}
 
 	// Prepend with current timestamp.
-	projects = append([]RecentProject{{
+	updated = append([]RecentProject{{
 		Path:     path,
 		Name:     name,
 		OpenedAt: time.Now().Unix(),
-	}}, projects...)
+	}}, updated...)
 
-	if len(projects) > 20 {
-		projects = projects[:20]
+	if len(updated) > 20 {
+		updated = updated[:20]
 	}
 
 	// Atomic write: write to temp file first, then rename.
 	tmpPath := recentPath + ".tmp"
-	data, err := json.MarshalIndent(projects, "", "  ")
+	data, err := json.MarshalIndent(updated, "", "  ")
 	if err != nil {
 		return
 	}
 	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
 		return
 	}
-	os.Rename(tmpPath, recentPath)
+	if err := os.Rename(tmpPath, recentPath); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to rename recent.json: %v\n", err)
+	}
 }
