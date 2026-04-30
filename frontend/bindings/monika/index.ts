@@ -44,6 +44,17 @@ export interface FileChange {
   status: string;
 }
 
+export interface RecentProject {
+  path: string;
+  name: string;
+  opened_at: number;
+}
+
+export interface BranchInfo {
+  name: string;
+  remote: string;
+}
+
 export interface DiffResult {
   file_path: string;
   old: string;
@@ -109,5 +120,20 @@ export const App = {
   },
   GetFileDiff(projectPath: string, filePath: string): Promise<DiffResult> {
     return Call.ByName(`${serviceName}.GetFileDiff`, projectPath, filePath);
+  },
+  GetRecentProjects(): Promise<RecentProject[]> {
+    return Call.ByName(`${serviceName}.GetRecentProjects`);
+  },
+  ListBranches(projectPath: string): Promise<BranchInfo[]> {
+    return Call.ByName(`${serviceName}.ListBranches`, [projectPath]);
+  },
+  CreateBranch(projectPath: string, name: string, baseBranch: string): Promise<void> {
+    return Call.ByName(`${serviceName}.CreateBranch`, [projectPath, name, baseBranch]);
+  },
+  SwitchBranch(projectPath: string, name: string): Promise<void> {
+    return Call.ByName(`${serviceName}.SwitchBranch`, [projectPath, name]);
+  },
+  ListDirectory(parentPath: string): Promise<FileNode[]> {
+    return Call.ByName(`${serviceName}.ListDirectory`, [parentPath]);
   },
 };

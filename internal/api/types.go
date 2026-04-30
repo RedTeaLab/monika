@@ -28,6 +28,19 @@ type WorktreeInfo struct {
 	Path   string `json:"path"`
 }
 
+// RecentProject represents a recently opened project.
+type RecentProject struct {
+	Path     string `json:"path"`
+	Name     string `json:"name"`
+	OpenedAt int64  `json:"opened_at"`
+}
+
+// BranchInfo represents a git branch (local or remote).
+type BranchInfo struct {
+	Name   string `json:"name"`
+	Remote string `json:"remote"` // empty = local branch
+}
+
 type SessionInfo struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`

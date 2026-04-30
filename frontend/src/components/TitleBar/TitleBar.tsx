@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Window, Events } from '@wailsio/runtime'
 import { useStore, LayoutMode } from '../../store'
 import { App } from '../../../bindings/monika'
-import { IconMinimize, IconMaximize, IconClose, IconRestore, IconChatLayout, IconSplitLayout, IconFilesLayout } from '../Icons'
+import {
+  IconMinimize, IconMaximize, IconClose, IconRestore,
+  IconChatLayout, IconSplitLayout, IconFilesLayout,
+  IconChevronDown,
+} from '../Icons'
+import { ProjectDropdown } from './ProjectDropdown'
+import { BranchDropdown } from './BranchDropdown'
+import { CreateBranchPanel } from './CreateBranchPanel'
+import { FileDialog } from './FileDialog'
+import ConfirmModal from '../Chat/ConfirmModal'
+import { buildDirtyGuardMessage } from './dropdownHelpers'
 
 const layoutModes: { mode: LayoutMode; icon: typeof IconChatLayout; label: string }[] = [
   { mode: 'chat', icon: IconChatLayout, label: 'Chat mode' },
@@ -11,11 +21,22 @@ const layoutModes: { mode: LayoutMode; icon: typeof IconChatLayout; label: strin
 ]
 
 function TitleBar() {
-  const projectPath = useStore((s) => s.projectPath)
-  const branch = useStore((s) => s.branch)
+  const {
+    projectPath, branch, openFiles, generatingSessionId,
+    resetProjectState, setProjectPath, setBranch,
+    loadBranches, loadRecentProjects,
+  } = useStore()
   const layoutMode = useStore((s) => s.layoutMode)
   const setLayoutMode = useStore((s) => s.setLayoutMode)
   const [isMaximised, setIsMaximised] = useState(false)
+
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false)
+  const [showCreateBranch, setShowCreateBranch] = useState(false)
+  const [fileDialogOpen, setFileDialogOpen] = useState(false)
+  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; targetPath: string } | null>(null)
+  const projectTriggerRef = useRef<HTMLSpanElement>(null)
+  const branchTriggerRef = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
     Window.IsMaximised().then(setIsMaximised)
@@ -26,6 +47,29 @@ function TitleBar() {
   }, [])
 
   const projectName = projectPath ? projectPath.split(/[/\\]/).pop() || projectPath : ''
+  const isGitRepo = projectPath && branch !== '—'
+
+  const doSwitchProject = async (targetPath: string) => {
+    const info = await App.OpenProject(targetPath)
+    if (!info) return
+    resetProjectState()
+    setProjectPath(info.path)
+    setBranch(info.branch)
+    await Promise.all([loadBranches(), loadRecentProjects()])
+  }
+
+  const handleProjectSelect = useCallback(async (targetPath: string) => {
+    const dirtyCount = openFiles.filter(f => f.isDirty).length
+    const isGenerating = generatingSessionId !== ''
+
+    if (dirtyCount > 0 || isGenerating) {
+      const message = buildDirtyGuardMessage(dirtyCount, isGenerating, 'projects');
+      setConfirmModal({ title: 'Switch Project', message, targetPath })
+      return
+    }
+
+    await doSwitchProject(targetPath)
+  }, [openFiles, generatingSessionId])
 
   return (
     <div
@@ -37,8 +81,62 @@ function TitleBar() {
       } as React.CSSProperties}
     >
       <span className="text-[13px] font-semibold text-[var(--text-primary)] tracking-tight">Monika</span>
-      <span className="text-[11px] text-[var(--text-dim)] ml-3">{projectName || 'project'}</span>
-      <span className="text-[11px] text-[var(--text-dim)] ml-1.5">{branch || 'branch'}</span>
+
+      <span
+        ref={projectTriggerRef}
+        onClick={() => { setProjectDropdownOpen(!projectDropdownOpen); setBranchDropdownOpen(false) }}
+        style={{
+          fontSize: 11,
+          color: projectDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 2,
+          padding: '2px 4px',
+          borderRadius: 2,
+          marginLeft: 12,
+          WebkitAppRegion: 'no-drag',
+          background: projectDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
+        } as React.CSSProperties}
+      >
+        {projectName || 'project'}
+        <span style={{ display: 'inline-flex', transform: projectDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+          <IconChevronDown size={10} />
+        </span>
+      </span>
+
+      <span
+        ref={branchTriggerRef}
+        onClick={() => {
+          if (!isGitRepo) return
+          setBranchDropdownOpen(!branchDropdownOpen)
+          setProjectDropdownOpen(false)
+          setShowCreateBranch(false)
+        }}
+        title={isGitRepo ? undefined : 'Not a git repository'}
+        style={{
+          fontSize: 11,
+          color: branchDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
+          cursor: isGitRepo ? 'pointer' : 'default',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 2,
+          padding: '2px 4px',
+          borderRadius: 2,
+          marginLeft: 6,
+          WebkitAppRegion: 'no-drag',
+          background: branchDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
+          opacity: isGitRepo ? 1 : 0.5,
+        } as React.CSSProperties}
+      >
+        {isGitRepo ? branch : '—'}
+        {isGitRepo && (
+          <span style={{ display: 'inline-flex', transform: branchDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+            <IconChevronDown size={10} />
+          </span>
+        )}
+      </span>
+
       <div className="flex-1" />
       <div
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
@@ -81,6 +179,60 @@ function TitleBar() {
           <IconClose size={14} />
         </button>
       </div>
+
+      <ProjectDropdown
+        isOpen={projectDropdownOpen}
+        onClose={() => setProjectDropdownOpen(false)}
+        onOpenFileDialog={() => { setProjectDropdownOpen(false); setFileDialogOpen(true) }}
+        onSelectProject={handleProjectSelect}
+        triggerRef={projectTriggerRef}
+      />
+
+      <BranchDropdown
+        isOpen={branchDropdownOpen && !showCreateBranch}
+        onClose={() => { setBranchDropdownOpen(false); setShowCreateBranch(false) }}
+        onNewBranch={() => setShowCreateBranch(true)}
+        triggerRef={branchTriggerRef}
+      />
+
+      {branchDropdownOpen && showCreateBranch && (
+        <div style={{
+          position: 'fixed',
+          top: (branchTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+          left: branchTriggerRef.current?.getBoundingClientRect().left ?? 0,
+          minWidth: 280,
+          background: 'var(--bg-sidebar)',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          zIndex: 1000,
+        }}>
+          <CreateBranchPanel
+            onCancel={() => setShowCreateBranch(false)}
+            onCreated={() => { setShowCreateBranch(false); setBranchDropdownOpen(true) }}
+          />
+        </div>
+      )}
+
+      <FileDialog
+        isOpen={fileDialogOpen}
+        onClose={() => setFileDialogOpen(false)}
+        onOpen={(dirPath) => { setFileDialogOpen(false); handleProjectSelect(dirPath) }}
+      />
+
+      {confirmModal && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel="Discard"
+          onConfirm={async () => {
+            const target = confirmModal.targetPath
+            setConfirmModal(null)
+            await doSwitchProject(target)
+          }}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   )
 }

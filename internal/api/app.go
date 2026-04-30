@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -122,6 +124,9 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	if err == nil {
 		branch = strings.TrimSpace(string(out))
 	}
+	if branch == "" {
+		branch = "—"
+	}
 
 	var worktrees []WorktreeInfo
 	cmd2 := exec.Command("git", "worktree", "list", "--porcelain")
@@ -154,6 +159,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 
 	a.getSessionManager(path)
 	a.getFileService(path)
+	a.writeRecentProject(info.Path, info.Name)
 
 	return info, nil
 }
@@ -359,4 +365,263 @@ func (a *App) getFileService(projectPath string) *FileService {
 	fs := NewFileService(projectPath)
 	a.fileSvc[projectPath] = fs
 	return fs
+}
+
+// GetRecentProjects returns recently opened projects from ~/.monika/recent.json.
+func (a *App) GetRecentProjects() []RecentProject {
+	recentPath := filepath.Join(a.home, ".monika", "recent.json")
+	data, err := os.ReadFile(recentPath)
+	if err != nil {
+		// File doesn't exist or can't be read — return empty list.
+		return []RecentProject{}
+	}
+
+	var projects []RecentProject
+	if err := json.Unmarshal(data, &projects); err != nil {
+		// Corrupted file — log warning, return empty list.
+		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to parse recent.json: %v\n", err)
+		return []RecentProject{}
+	}
+
+	// Filter out entries whose path no longer exists or is not a directory.
+	filtered := make([]RecentProject, 0, len(projects))
+	for _, p := range projects {
+		if info, err := os.Stat(p.Path); err == nil && info.IsDir() {
+			filtered = append(filtered, p)
+		}
+	}
+
+	// Already sorted by openedAt desc from write logic, but ensure order.
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].OpenedAt > filtered[j].OpenedAt
+	})
+
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+	return filtered
+}
+
+// writeRecentProject appends or updates a project entry in recent.json.
+func (a *App) writeRecentProject(path, name string) {
+	recentDir := filepath.Join(a.home, ".monika")
+	if err := os.MkdirAll(recentDir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to create recent dir: %v\n", err)
+		return
+	}
+	recentPath := filepath.Join(recentDir, "recent.json")
+
+	projects := a.GetRecentProjects()
+
+	// Remove existing entry for this path (copy-based to avoid backing-array mutation).
+	var updated []RecentProject
+	for _, p := range projects {
+		if p.Path != path {
+			updated = append(updated, p)
+		}
+	}
+
+	// Prepend with current timestamp.
+	updated = append([]RecentProject{{
+		Path:     path,
+		Name:     name,
+		OpenedAt: time.Now().Unix(),
+	}}, updated...)
+
+	if len(updated) > 20 {
+		updated = updated[:20]
+	}
+
+	// Atomic write: write to temp file first, then rename.
+	tmpPath := recentPath + ".tmp"
+	data, err := json.MarshalIndent(updated, "", "  ")
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return
+	}
+	if err := os.Rename(tmpPath, recentPath); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to rename recent.json: %v\n", err)
+	}
+}
+
+// ListDirectory returns the non-recursive contents of a directory.
+func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
+	// Canonicalize and reject obviously invalid paths.
+	clean := filepath.Clean(parentPath)
+	if clean == "." || clean == ".." {
+		return nil, fmt.Errorf("invalid path: %s", parentPath)
+	}
+
+	entries, err := os.ReadDir(clean)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []FileNode
+	for _, entry := range entries {
+		nodes = append(nodes, FileNode{
+			Name:  entry.Name(),
+			Path:  filepath.Join(clean, entry.Name()),
+			IsDir: entry.IsDir(),
+		})
+	}
+
+	// Sort: directories first, then alphabetically.
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].IsDir != nodes[j].IsDir {
+			return nodes[i].IsDir
+		}
+		return nodes[i].Name < nodes[j].Name
+	})
+
+	return nodes, nil
+}
+
+// ListBranches returns local and remote git branches for the given project.
+func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
+	cmd := exec.Command("git", "branch", "-a", "--no-color")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	var branches []BranchInfo
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		line = strings.TrimPrefix(line, "* ")
+		line = strings.TrimSpace(line)
+
+		// Skip detached HEAD indicator and symbolic refs.
+		if strings.HasPrefix(line, "(HEAD") || strings.Contains(line, "->") {
+			continue
+		}
+
+		remotePrefix := "remotes/"
+		if strings.HasPrefix(line, remotePrefix) {
+			remoteAndName := strings.TrimPrefix(line, remotePrefix)
+			// Split into remote name and branch name: "origin/feat/x" -> remote="origin", name="feat/x"
+			slashIdx := strings.Index(remoteAndName, "/")
+			if slashIdx >= 0 {
+				branches = append(branches, BranchInfo{
+					Name:   remoteAndName[slashIdx+1:],
+					Remote: remoteAndName[:slashIdx],
+				})
+			}
+		} else {
+			// Local branch.
+			branches = append(branches, BranchInfo{
+				Name:   line,
+				Remote: "",
+			})
+		}
+	}
+	return branches, nil
+}
+
+// validateBranchName checks that a branch name is safe for git command execution.
+func validateBranchName(name string) error {
+	if name == "" {
+		return fmt.Errorf("branch name must not be empty")
+	}
+	if name[0] == '-' {
+		return fmt.Errorf("branch name must not start with '-'")
+	}
+	// Reject names with control characters or shell metacharacters.
+	for _, r := range name {
+		if r <= 0x1F || r == 0x7F {
+			return fmt.Errorf("branch name contains control characters")
+		}
+		switch r {
+		case '`', '$', ';', '|', '&', '<', '>', '\'', '"', '\\', '\n', '\r':
+			return fmt.Errorf("branch name contains invalid character: %q", r)
+		}
+	}
+	return nil
+}
+
+// SwitchBranch checks out the given branch in the project.
+// If name starts with "origin/" (remote branch), creates a local tracking branch via git checkout -b.
+// Branch names are validated by validateBranchName to reject names starting with '-'.
+func (a *App) SwitchBranch(projectPath, name string) error {
+	if err := validateBranchName(name); err != nil {
+		return err
+	}
+
+	// Detect remote branch pattern: "remoteName/branchName" where remoteName
+	// matches a known git remote. Fall back to plain checkout if not a remote branch.
+	var cmd *exec.Cmd
+	if idx := strings.Index(name, "/"); idx > 0 {
+		remoteName := name[:idx]
+		localName := name[idx+1:]
+		// Verify remoteName is a real remote.
+		remoteCmd := exec.Command("git", "remote")
+		remoteCmd.Dir = projectPath
+		if remoteOut, err := remoteCmd.Output(); err == nil {
+			for _, r := range strings.Split(strings.TrimSpace(string(remoteOut)), "\n") {
+				if strings.TrimSpace(r) == remoteName {
+					if err := validateBranchName(localName); err != nil {
+						return err
+					}
+					cmd = exec.Command("git", "checkout", "-b", localName, name)
+					break
+				}
+			}
+		}
+	}
+	if cmd == nil {
+		cmd = exec.Command("git", "checkout", name)
+	}
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	// For remote checkout (checkout -b localName remote/branch), use localName.
+	displayBranch := name
+	if cmd.Args[1] == "checkout" && cmd.Args[2] == "-b" {
+		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
+	}
+
+	a.setProjectBranch(projectPath, displayBranch)
+
+	return nil
+}
+
+// setProjectBranch updates the in-memory branch for a project.
+func (a *App) setProjectBranch(projectPath, branchName string) {
+	a.mu.Lock()
+	if info, ok := a.projects[projectPath]; ok {
+		info.Branch = branchName
+	}
+	a.mu.Unlock()
+}
+
+// CreateBranch creates and checks out a new branch from the given base branch.
+func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
+	if err := validateBranchName(name); err != nil {
+		return err
+	}
+	if err := validateBranchName(baseBranch); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("git", "checkout", "-b", name, baseBranch)
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	a.setProjectBranch(projectPath, name)
+
+	return nil
 }

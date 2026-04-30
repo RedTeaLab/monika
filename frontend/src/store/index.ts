@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
+import type { RecentProject, BranchInfo } from '../../bindings/monika'
 
 export type LayoutMode = 'chat' | 'split' | 'files'
 
@@ -45,6 +46,8 @@ interface AppState {
   openSessions: SessionTabInfo[]
   sessionMessages: Record<string, Message[]>
   openFiles: FileTabInfo[]
+  recentProjects: RecentProject[]
+  allBranches: BranchInfo[]
 
   addMessage: (msg: Message) => void
   updateLastAssistant: (content: string) => void
@@ -76,9 +79,13 @@ interface AppState {
   switchFileTab: (path: string) => void
   setFileDirty: (path: string, dirty: boolean) => void
   updateFileContent: (path: string, content: string) => void
+
+  loadRecentProjects: () => Promise<void>
+  loadBranches: () => Promise<void>
+  resetProjectState: () => void
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
   generatingSessionId: '',
   tokenCount: 0,
@@ -93,6 +100,8 @@ export const useStore = create<AppState>((set) => ({
   openSessions: [],
   sessionMessages: {},
   openFiles: [],
+  recentProjects: [],
+  allBranches: [],
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -390,6 +399,39 @@ export const useStore = create<AppState>((set) => ({
     set((s) => ({
       openFiles: s.openFiles.map((f) => f.path === path ? { ...f, content } : f),
     }))
+  },
+
+  loadRecentProjects: async () => {
+    const projects = await App.GetRecentProjects();
+    set({ recentProjects: projects });
+  },
+
+  loadBranches: async () => {
+    const { projectPath } = get();
+    if (!projectPath) return;
+    try {
+      const branches = await App.ListBranches(projectPath);
+      set({ allBranches: branches });
+    } catch (e) {
+      set({ allBranches: [] });
+      throw e;
+    }
+  },
+
+  resetProjectState: () => {
+    set({
+      messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
+      generatingSessionId: '',
+      tokenCount: 0,
+      activeSessionId: '',
+      activeFilePath: '',
+      consoleLines: ['$ ready'],
+      openSessions: [],
+      sessionMessages: {},
+      openFiles: [],
+      allBranches: [],
+      recentProjects: [],
+    });
   },
 
 }))
