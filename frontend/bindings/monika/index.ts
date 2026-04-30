@@ -81,6 +81,11 @@ export interface StreamEvent {
   file_change?: { path: string; status: string };
 }
 
+export interface ModelInfo {
+  ID: string;
+  DisplayName: string;
+}
+
 // Wails bindings - use the service name based on what Wails generates
 // For a struct in package api, Wails v3 uses the service name from registration
 const serviceName = "monika/internal/api.App";
@@ -92,14 +97,17 @@ export const App = {
   GetCurrentProject(): Promise<ProjectInfo | null> {
     return Call.ByName(`${serviceName}.GetCurrentProject`);
   },
+  GetModels(): Promise<ModelInfo[]> {
+    return Call.ByName(`${serviceName}.GetModels`);
+  },
   OpenProject(path: string): Promise<ProjectInfo> {
     return Call.ByName(`${serviceName}.OpenProject`, path);
   },
   ListSessions(projectPath: string): Promise<SessionInfo[]> {
     return Call.ByName(`${serviceName}.ListSessions`, projectPath);
   },
-  NewSession(projectPath: string): Promise<SessionInfo> {
-    return Call.ByName(`${serviceName}.NewSession`, projectPath);
+  NewSession(projectPath: string, model: string): Promise<SessionInfo> {
+    return Call.ByName(`${serviceName}.NewSession`, projectPath, model);
   },
   DeleteSession(projectPath: string, sessionID: string): Promise<void> {
     return Call.ByName(`${serviceName}.DeleteSession`, projectPath, sessionID);
@@ -107,8 +115,8 @@ export const App = {
   LoadSession(projectPath: string, sessionID: string): Promise<Session> {
     return Call.ByName(`${serviceName}.LoadSession`, projectPath, sessionID);
   },
-  SendMessage(projectPath: string, sessionID: string, text: string): Promise<void> {
-    return Call.ByName(`${serviceName}.SendMessage`, projectPath, sessionID, text);
+  SendMessage(projectPath: string, sessionID: string, text: string, model: string): Promise<void> {
+    return Call.ByName(`${serviceName}.SendMessage`, projectPath, sessionID, text, model);
   },
   QuitApp(): Promise<void> {
     return Call.ByName(`${serviceName}.QuitApp`);
