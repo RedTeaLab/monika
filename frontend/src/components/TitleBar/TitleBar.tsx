@@ -191,6 +191,7 @@ function TitleBar() {
         isOpen={projectDropdownOpen}
         onClose={() => setProjectDropdownOpen(false)}
         onOpenFileDialog={() => { setProjectDropdownOpen(false); setFileDialogOpen(true) }}
+        onSelectProject={handleProjectSelect}
         triggerRef={projectTriggerRef}
       />
 

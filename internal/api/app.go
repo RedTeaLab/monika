@@ -124,6 +124,9 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	if err == nil {
 		branch = strings.TrimSpace(string(out))
 	}
+	if branch == "" {
+		branch = "—"
+	}
 
 	var worktrees []WorktreeInfo
 	cmd2 := exec.Command("git", "worktree", "list", "--porcelain")
@@ -540,7 +543,7 @@ func validateBranchName(name string) error {
 
 // SwitchBranch checks out the given branch in the project.
 // If name starts with "origin/" (remote branch), creates a local tracking branch via git checkout -b.
-// Uses -- separator for safety against branch names that look like options.
+// Branch names are validated by validateBranchName to reject names starting with '-'.
 func (a *App) SwitchBranch(projectPath, name string) error {
 	if err := validateBranchName(name); err != nil {
 		return err

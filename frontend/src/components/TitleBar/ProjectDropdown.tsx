@@ -6,10 +6,11 @@ interface ProjectDropdownProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenFileDialog: () => void;
+  onSelectProject: (path: string) => void;
   triggerRef: React.RefObject<HTMLElement | null>;
 }
 
-export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, triggerRef }: ProjectDropdownProps) {
+export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectProject, triggerRef }: ProjectDropdownProps) {
   const recentProjects = useStore(s => s.recentProjects);
   const projectPath = useStore(s => s.projectPath);
   const loadRecentProjects = useStore(s => s.loadRecentProjects);
@@ -63,8 +64,8 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, triggerRef 
         e.preventDefault();
         const target = recentProjects[focusIndex];
         if (target && target.path !== projectPath) {
+          onSelectProject(target.path);
           onClose();
-          useStore.getState().setProjectPath(target.path);
         }
       }
     };
@@ -135,10 +136,10 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, triggerRef 
         <div
           key={p.path}
           onClick={() => {
-            onClose();
             if (p.path !== projectPath) {
-              useStore.getState().setProjectPath(p.path);
+              onSelectProject(p.path);
             }
+            onClose();
           }}
           onMouseEnter={() => setFocusIndex(i)}
           style={{
