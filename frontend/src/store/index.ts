@@ -525,6 +525,20 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  loadModels: async () => {
+    let models: ModelInfo[] = [];
+    try {
+      models = await App.GetModels();
+    } catch {
+      // Keep models empty on failure — dropdown will show "No models"
+    }
+    const state = get();
+    set({
+      availableModels: models,
+      selectedModel: state.selectedModel || (models.length > 0 ? models[0].ID : ''),
+    });
+  },
+
   resetProjectState: () => {
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
@@ -735,6 +749,7 @@ export async function initProject() {
     if (info) {
       useStore.getState().setProjectPath(info.path)
       useStore.getState().setBranch(info.branch)
+      useStore.getState().loadModels()
       console.log('[monika] projectPath set to:', info.path, 'branch:', info.branch)
     } else {
       console.log('[monika] GetCurrentProject returned null/undefined')
