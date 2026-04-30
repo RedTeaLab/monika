@@ -488,3 +488,88 @@ func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
 	}
 	return branches, nil
 }
+
+// validateBranchName checks that a branch name is safe for git command execution.
+func validateBranchName(name string) error {
+	if name == "" {
+		return fmt.Errorf("branch name must not be empty")
+	}
+	if name[0] == '-' {
+		return fmt.Errorf("branch name must not start with '-'")
+	}
+	// Reject names with control characters or shell metacharacters.
+	for _, r := range name {
+		if r <= 0x1F || r == 0x7F {
+			return fmt.Errorf("branch name contains control characters")
+		}
+		switch r {
+		case '`', '$', ';', '|', '&', '<', '>', '\'', '"', '\\', '\n', '\r':
+			return fmt.Errorf("branch name contains invalid character: %q", r)
+		}
+	}
+	return nil
+}
+
+// SwitchBranch checks out the given branch in the project.
+// If name starts with "origin/" (remote branch), creates a local tracking branch via git checkout -b.
+// Uses -- separator for safety against branch names that look like options.
+func (a *App) SwitchBranch(projectPath, name string) error {
+	if err := validateBranchName(name); err != nil {
+		return err
+	}
+
+	var cmd *exec.Cmd
+	if strings.HasPrefix(name, "origin/") {
+		localName := strings.TrimPrefix(name, "origin/")
+		if err := validateBranchName(localName); err != nil {
+			return err
+		}
+		cmd = exec.Command("git", "checkout", "-b", localName, "--", name)
+	} else {
+		cmd = exec.Command("git", "checkout", "--", name)
+	}
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	// Update in-memory branch info.
+	a.mu.Lock()
+	if info, ok := a.projects[projectPath]; ok {
+		branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+		branchCmd.Dir = projectPath
+		if branchOut, bErr := branchCmd.Output(); bErr == nil {
+			info.Branch = strings.TrimSpace(string(branchOut))
+		}
+	}
+	a.mu.Unlock()
+
+	return nil
+}
+
+// CreateBranch creates and checks out a new branch from the given base branch.
+func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
+	if err := validateBranchName(name); err != nil {
+		return err
+	}
+	if err := validateBranchName(baseBranch); err != nil {
+		return err
+	}
+
+	cmd := exec.Command("git", "checkout", "-b", name, "--", baseBranch)
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	// Update in-memory branch info.
+	a.mu.Lock()
+	if info, ok := a.projects[projectPath]; ok {
+		info.Branch = name
+	}
+	a.mu.Unlock()
+
+	return nil
+}
