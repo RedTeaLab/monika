@@ -182,6 +182,7 @@ func (a *App) NewSession(projectPath string) (*SessionInfo, error) {
 	return &SessionInfo{
 		ID:        s.ID,
 		Title:     s.Title,
+		Status:    s.Status,
 		UpdatedAt: s.UpdatedAt.Format(time.RFC3339),
 	}, nil
 }
@@ -242,7 +243,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 		s.Messages = conv.Messages
 		sm.SetTitle(s)
 		sm.Save(s)
-			a.handleAgentEvent(sessionID, agent2.Event{
+			a.handleAgentEvent(sessionID, model, agent2.Event{
 				Type:    agent2.EventSessionUpdated,
 				Content: s.Title,
 			})
@@ -303,10 +304,10 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 	return &dr, nil
 }
 
-func (a *App) handleAgentEvent(sessionID string, ev agent2.Event) {
+func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 	se := StreamEvent{
 		SessionID: sessionID,
-		Model:     a.model,
+		Model:     model,
 	}
 
 	switch ev.Type {
