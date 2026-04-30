@@ -16,6 +16,20 @@
 
 ---
 
+## 2026-04-30
+
+- **CreateBranchPanel z-index 修复**：TitleBar 的 `backdrop-blur-md`（`backdrop-filter`）创建了新的 CSS stacking context，导致 `position: fixed` 的 CreateBranchPanel 被侧边栏遮盖。修复：给 TitleBar 添加 `position: relative; z-index: 10`，将其 stacking context 提升到主内容区之上。同时记录 z-index 规范和 portal 优先原则到 AGENTS.md。
+- **Wails API 参数修复**：`bindings/monika/index.ts` 中 `Call.ByName` 的参数传递从数组包裹改为位置参数（`Call.ByName(name, arg1, arg2, ...)` 而非 `Call.ByName(name, [arg1, arg2, ...])`），修复 `ListBranches`、`CreateBranch`、`SwitchBranch`、`ListDirectory` 调用失败。
+- **前端防御性修复**：SessionList 和 FileTree 的 `useEffect` 添加 cancelled 标志防止卸载后 setState；`useMemo` 中添加 `Array.isArray` 守卫防止 `undefined.sort()` 崩溃。
+- **Go 返回值安全修复**：`FileService.ListDir` 和 `SessionManager.List` 在目录不存在或为空时返回 `[]T{}` 而非 `nil`；`FileService.ListChanges` 预分配 `make([]FileChange, 0)`。
+- **文档同步**：README.md 更新 features（layout modes、project/branch management、multi-tab sessions、worktree）；AGENTS.md 设计令牌表、布局图、z-index 规则、TitleBar 规范全部与当前代码对齐。
+
+## 2026-04-29
+
+- **项目/分支切换功能**：新增 `ProjectDropdown`（最近项目列表、打开文件夹入口）、`BranchDropdown`（本地/远程分支列表、分支切换）、`CreateBranchPanel`（从指定分支创建并切换新分支）、`FileDialog`（应用内文件夹选择器）。全部集成到 TitleBar。后端新增 `OpenProject`（扫描 git worktrees）、`ListBranches`、`SwitchBranch`、`CreateBranch`（含分支名校验）、`GetRecentProjects`（原子 JSON 读写）。设计文档：`docs/superpowers/specs/2026-04-28-project-branch-switching-design.md`。
+- **代码审查修复**：P0/P1/P2 问题修复 — 路径规范化、并发安全、错误处理增强。提取共享 helper（`SectionHeader`、dropdown 样式、错误/脏文件提示消息）。
+- **性能优化**：移除冗余锁、并行化 I/O 操作、去重逻辑简化。
+
 ## 2026-04-28
 
 - **多标签页支持**：ChatArea 支持同时打开多个会话，FileEditor 支持同时打开多个文件，各自通过独立 TabBar 管理。新增 `TabBar` 组件（标签栏、溢出下拉、状态指示、键盘导航、ARIA 无障碍）。Store 重构：新增 `openSessions`、`sessionMessages`、`openFiles`、`activeFilePath`、`generatingSessionId` 等 11 个字段和 14 个操作，移除旧单视图字段。流式事件按 `session_id` 路由到 per-session 缓存。FileEditor 改为多 DOM 容器 + CodeMirror 实例缓存（LRU 淘汰，上限 10）。SessionList 委托 `openSessionTab`，FileTree 委托 `openFileTab`。四轮代码审查修复 8 个 P0/P1 和 7 个 P2/P3 问题。设计文档：`docs/superpowers/specs/2026-04-28-multi-tab-design.md`。
