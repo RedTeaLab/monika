@@ -38,6 +38,14 @@ func (a *App) GetModels() ([]engine.Model, error) {
 Replaces the hardcoded `WithModel(a.model)` with `WithModel(model)` from the parameter.
 The `WithModel` option already exists in agent loop, no changes needed there.
 
+**`handleAgentEvent`** — must pass the per-message model instead of `a.model` (line 305).
+The model is already available in the agent loop via `WithModel(model)`; events carry it implicitly.
+Change `handleAgentEvent` to accept a `model` parameter: `func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event)`.
+Set `se.Model = model` instead of `se.Model = a.model`.
+
+**`NewSession`** — currently uses `a.model` to stamp sessions with the config model.
+Add a `model` parameter so the frontend can pass `selectedModel` when creating sessions.
+
 ### Frontend Bindings
 
 `frontend/bindings/monika/index.ts`:
@@ -75,8 +83,8 @@ ChatArea
 
 ### Default Model Strategy
 
-1. `GetModels()` returns both the model list and the config's current model: `{models: Model[], default: string}`
-2. On project load, `selectedModel` initializes from `default` in the response
+1. `GetModels()` returns the model list (`[]engine.Model`), sourced from `provider.ListModels()`
+2. On project load, `loadModels()` calls `GetModels()` and sets `selectedModel` from the config's `model` field (read via `App.GetCurrentProject()` or similar)
 3. If config doesn't specify a model, default to the first model in the list
 4. User's last selection persists in store for the session lifetime
 
@@ -84,6 +92,7 @@ ChatArea
 
 | Scenario | Behavior |
 |---|---|
+| Models loading (async fetch pending) | Dropdown disabled, shows "Loading models..." placeholder |
 | `ListModels` API fails | Dropdown shows "No models" placeholder; previous selection preserved |
 | Only one model available | Dropdown shows single option, still functional |
 | No model selected on send | Default to first available model |
@@ -93,7 +102,7 @@ ChatArea
 
 | File | Change |
 |---|---|
-| `internal/api/app.go` | Add `GetModels`, modify `SendMessage` signature |
+| `internal/api/app.go` | Add `GetModels`, modify `SendMessage`/`handleAgentEvent`/`NewSession` signatures |
 | `frontend/bindings/monika/index.ts` | Add `GetModels` binding, update `SendMessage` |
 | `frontend/src/store/index.ts` | Add `availableModels`, `selectedModel`, `loadModels` |
 | `frontend/src/components/Chat/ChatArea.tsx` | Pass model in `handleSend` |
