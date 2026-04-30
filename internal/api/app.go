@@ -156,6 +156,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 
 	a.getSessionManager(path)
 	a.getFileService(path)
+	a.writeRecentProject(info.Path, info.Name)
 
 	return info, nil
 }
@@ -443,6 +444,33 @@ func (a *App) writeRecentProject(path, name string) {
 	if err := os.Rename(tmpPath, recentPath); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] failed to rename recent.json: %v\n", err)
 	}
+}
+
+// ListDirectory returns the non-recursive contents of a directory.
+func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
+	entries, err := os.ReadDir(parentPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var nodes []FileNode
+	for _, entry := range entries {
+		nodes = append(nodes, FileNode{
+			Name:  entry.Name(),
+			Path:  filepath.Join(parentPath, entry.Name()),
+			IsDir: entry.IsDir(),
+		})
+	}
+
+	// Sort: directories first, then alphabetically.
+	sort.Slice(nodes, func(i, j int) bool {
+		if nodes[i].IsDir != nodes[j].IsDir {
+			return nodes[i].IsDir
+		}
+		return nodes[i].Name < nodes[j].Name
+	})
+
+	return nodes, nil
 }
 
 // ListBranches returns local and remote git branches for the given project.
