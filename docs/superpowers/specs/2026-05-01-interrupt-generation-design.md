@@ -35,7 +35,7 @@ disabled: boolean
 
 **File:** `frontend/src/components/Chat/ChatArea.tsx`
 
-- Pass `onStop` to `ChatInput` — calls `App.CancelGeneration(activeSessionId)`
+- Pass `onStop` to `ChatInput` — calls `App.CancelGeneration(generatingSessionId)`
 - Everything else unchanged — `handleSend` and `disabled` logic stay as-is
 
 ## Store: Event Handling
@@ -74,7 +74,7 @@ The cancellation chain already works:
 ```
 User presses ESC / clicks stop button
   → ChatInput.onStop()
-    → App.CancelGeneration(activeSessionId)
+    → App.CancelGeneration(generatingSessionId)
       → context.CancelFunc()
         → agent loop: emits EventError{cancelled}, returns
         → SSE stream: aborted
