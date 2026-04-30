@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -359,4 +361,78 @@ func (a *App) getFileService(projectPath string) *FileService {
 	fs := NewFileService(projectPath)
 	a.fileSvc[projectPath] = fs
 	return fs
+}
+
+// GetRecentProjects returns recently opened projects from ~/.monika/recent.json.
+func (a *App) GetRecentProjects() []RecentProject {
+	recentPath := filepath.Join(a.home, ".monika", "recent.json")
+	data, err := os.ReadFile(recentPath)
+	if err != nil {
+		// File doesn't exist or can't be read — return empty list.
+		return nil
+	}
+
+	var projects []RecentProject
+	if err := json.Unmarshal(data, &projects); err != nil {
+		// Corrupted file — log warning, return empty list.
+		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to parse recent.json: %v\n", err)
+		return nil
+	}
+
+	// Filter out entries whose path no longer exists or is not a directory.
+	filtered := make([]RecentProject, 0, len(projects))
+	for _, p := range projects {
+		if info, err := os.Stat(p.Path); err == nil && info.IsDir() {
+			filtered = append(filtered, p)
+		}
+	}
+
+	// Already sorted by openedAt desc from write logic, but ensure order.
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].OpenedAt > filtered[j].OpenedAt
+	})
+
+	if len(filtered) > 20 {
+		filtered = filtered[:20]
+	}
+	return filtered
+}
+
+// writeRecentProject appends or updates a project entry in recent.json.
+func (a *App) writeRecentProject(path, name string) {
+	recentDir := filepath.Join(a.home, ".monika")
+	os.MkdirAll(recentDir, 0755)
+	recentPath := filepath.Join(recentDir, "recent.json")
+
+	projects := a.GetRecentProjects()
+
+	// Remove existing entry for this path.
+	for i, p := range projects {
+		if p.Path == path {
+			projects = append(projects[:i], projects[i+1:]...)
+			break
+		}
+	}
+
+	// Prepend with current timestamp.
+	projects = append([]RecentProject{{
+		Path:     path,
+		Name:     name,
+		OpenedAt: time.Now().Unix(),
+	}}, projects...)
+
+	if len(projects) > 20 {
+		projects = projects[:20]
+	}
+
+	// Atomic write: write to temp file first, then rename.
+	tmpPath := recentPath + ".tmp"
+	data, err := json.MarshalIndent(projects, "", "  ")
+	if err != nil {
+		return
+	}
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return
+	}
+	os.Rename(tmpPath, recentPath)
 }
