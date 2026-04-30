@@ -10,6 +10,7 @@ function SessionList() {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
+  const sessionListVersion = useStore((s) => s.sessionListVersion)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
   const openSessionTab = useStore((s) => s.openSessionTab)
@@ -17,7 +18,7 @@ function SessionList() {
   useEffect(() => {
     if (!projectPath) return
     App.ListSessions(projectPath).then(setSessions).catch(() => setSessions([]))
-  }, [projectPath])
+  }, [projectPath, sessionListVersion])
 
   // Dismiss modal when project changes
   useEffect(() => {
@@ -91,14 +92,14 @@ function SessionList() {
 
   return (
     <div
-      className="flex flex-col h-full backdrop-blur-md"
-      style={{ background: 'var(--glass-light)', padding: '0 12px' }}
+      className="flex flex-col h-full"
+      style={{ background: 'var(--bg-sidebar)', padding: '0 14px' }}
     >
       <div className="flex items-center justify-between pt-5 pb-2">
         <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Sessions</span>
         <button
           onClick={handleNewSession}
-          className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
           aria-label="New session"
           id="new-session-btn"
         >
@@ -121,10 +122,10 @@ function SessionList() {
               tabIndex={0}
               role="button"
               aria-label={`Select ${s.title || 'session'}`}
-              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:shadow-[0_0_0_3px_var(--accent-muted)] outline-none"
               style={{
                 color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeSessionId === s.id ? 'var(--glass-active)' : hoveredId === s.id ? 'var(--glass-hover)' : 'transparent',
+                background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
               }}
               onMouseEnter={() => setHoveredId(s.id)}
               onMouseLeave={() => setHoveredId(null)}
@@ -133,9 +134,9 @@ function SessionList() {
               <button
                 onClick={(e) => handleDeleteClick(s, e)}
                 aria-label={`Delete ${s.title || 'session'}`}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors flex-shrink-0 ml-2"
+                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 w-5 h-5 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--red)] hover:bg-[rgba(224,96,96,0.12)] transition-all flex-shrink-0 ml-2"
               >
-                <IconTrash size={14} />
+                <IconTrash size={13} />
               </button>
             </div>
           ))

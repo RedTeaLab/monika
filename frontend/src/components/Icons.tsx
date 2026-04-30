@@ -88,7 +88,10 @@ export function IconDots({ size }: { size?: number }) {
 export function IconTrash({ size }: { size?: number }) {
   return (
     <Icon size={size}>
-      <path d="M3 4h10M5.5 4V3a1 1 0 011-1h3a1 1 0 011 1v1M6 4v9.5a1 1 0 001 1h2a1 1 0 001-1V4" />
+      <path d="M6 3V2.5a.5.5 0 01.5-.5h3a.5.5 0 01.5.5V3" />
+      <path d="M3 4h10" />
+      <path d="M5 4l.5 8.5a1 1 0 001 .9h3a1 1 0 001-.9L11 4" />
+      <path d="M7 6v4M9 6v4" />
     </Icon>
   )
 }
