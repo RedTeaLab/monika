@@ -169,9 +169,9 @@ func (a *App) ListSessions(projectPath string) ([]SessionInfo, error) {
 	return sm.List()
 }
 
-func (a *App) NewSession(projectPath string) (*SessionInfo, error) {
+func (a *App) NewSession(projectPath, model string) (*SessionInfo, error) {
 	sm := a.getSessionManager(projectPath)
-	s, err := sm.New(a.model, a.cfg.ModelProvider)
+	s, err := sm.New(model, a.cfg.ModelProvider)
 	if err != nil {
 		return nil, err
 	}
