@@ -68,6 +68,7 @@ func (sm *SessionManager) New(model, provider string) (*Session, error) {
 		ProjectDir: sm.projectDir,
 		Model:      model,
 		Provider:   provider,
+		Status:     "idle",
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}, nil
@@ -83,6 +84,9 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, err
 	}
+	if s.Status == "" {
+		s.Status = "idle"
+	}
 	return &s, nil
 }
 
@@ -97,6 +101,10 @@ func (sm *SessionManager) Save(s *Session) error {
 		return err
 	}
 	return os.WriteFile(p, data, 0o644)
+}
+
+func (sm *SessionManager) SetStatus(s *Session, status string) {
+	s.Status = status
 }
 
 func (sm *SessionManager) Delete(id string) error {
@@ -124,6 +132,7 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 		infos = append(infos, SessionInfo{
 			ID:        s.ID,
 			Title:     s.Title,
+			Status:    s.Status,
 			UpdatedAt: s.UpdatedAt.Format(time.RFC3339),
 		})
 	}
