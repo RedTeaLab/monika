@@ -186,6 +186,10 @@ func (a *App) NewSession(projectPath string) (*SessionInfo, error) {
 	}, nil
 }
 
+func (a *App) GetModels() ([]engine2.Model, error) {
+	return a.provider.ListModels(a.ctx)
+}
+
 func (a *App) DeleteSession(projectPath, sessionID string) error {
 	sm := a.getSessionManager(projectPath)
 	return sm.Delete(sessionID)
