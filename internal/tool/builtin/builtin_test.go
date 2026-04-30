@@ -3,8 +3,10 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"monika/internal/tool"
@@ -39,8 +41,31 @@ func TestFileReadReadsFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Content != "line1\nline2\nline3\n" {
+	if result.Content != "line1\nline2\nline3" {
 		t.Fatalf("content = %q", result.Content)
+	}
+}
+
+func TestFileReadDefaultLimit(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.txt")
+	var lines []string
+	for i := 1; i <= 300; i++ {
+		lines = append(lines, fmt.Sprintf("line%d", i))
+	}
+	if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileRead(dir)
+	args, _ := json.Marshal(map[string]any{"filePath": path})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultLines := strings.Count(result.Content, "\n") + 1
+	if resultLines != 200 {
+		t.Fatalf("expected 200 lines with default limit, got %d", resultLines)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"monika/internal/agent"
 	"monika/internal/api"
@@ -44,14 +45,17 @@ func main() {
 
 	application.RegisterEvent[api.StreamEvent]("stream")
 
+	systemParts := []string{
+		fmt.Sprintf("OS Version: %s\nWorking directory: %s", runtime.GOOS, cwd),
+		agent.BuiltinSystemPrompt,
+	}
+	if p := loadSystemPrompt(cwd); p != "" {
+		systemParts = append(systemParts, p)
+	}
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
-	}
-	if p := loadSystemPrompt(cwd); p != "" {
-		loopOpts = append(loopOpts, agent.WithSystemPrompt(
-			fmt.Sprintf("OS Version: %s\nWorking directory: %s\n\n%s", runtime.GOOS, cwd, p),
-		))
+		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
 	}
 
 	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts)

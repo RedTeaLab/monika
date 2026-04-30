@@ -1,6 +1,7 @@
 package builtin
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"monika/internal/tool"
 )
 
+const defaultReadLimit = 200
+
 type fileRead struct {
 	projectDir string
 }
@@ -19,8 +22,10 @@ func NewFileRead(projectDir string) tool.Tool {
 	return &fileRead{projectDir: projectDir}
 }
 
-func (f *fileRead) Name() string        { return "file_read" }
-func (f *fileRead) Description() string { return "Read a file from the local filesystem." }
+func (f *fileRead) Name() string { return "file_read" }
+func (f *fileRead) Description() string {
+	return "Read a section of a file from the local filesystem. Use grep first to find the relevant file and line range, then read only the section you need using offset and limit."
+}
 
 func (f *fileRead) Parameters() map[string]any {
 	return map[string]any{
@@ -32,11 +37,11 @@ func (f *fileRead) Parameters() map[string]any {
 			},
 			"offset": map[string]any{
 				"type":        "integer",
-				"description": "The line number to start reading from (1-indexed)",
+				"description": "The line number to start reading from (1-indexed). Defaults to 1.",
 			},
 			"limit": map[string]any{
 				"type":        "integer",
-				"description": "The maximum number of lines to read",
+				"description": fmt.Sprintf("Maximum number of lines to read. Defaults to %d.", defaultReadLimit),
 			},
 		},
 		"required": []string{"filePath"},
@@ -58,7 +63,16 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	return readFile(safePath, params.Offset, params.Limit)
+	offset := params.Offset
+	if offset <= 0 {
+		offset = 1
+	}
+	limit := params.Limit
+	if limit <= 0 {
+		limit = defaultReadLimit
+	}
+
+	return readFileLines(safePath, offset, limit)
 }
 
 func (f *fileRead) resolvePath(p string) (string, error) {
@@ -80,23 +94,31 @@ func (f *fileRead) resolvePath(p string) (string, error) {
 	return absPath, nil
 }
 
-func readFile(path string, offset, limit int) (tool.ExecutionResult, error) {
-	data, err := os.ReadFile(path)
+func readFileLines(path string, offset, limit int) (tool.ExecutionResult, error) {
+	f, err := os.Open(path)
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
+	defer f.Close()
 
-	content := string(data)
-	lines := strings.Split(content, "\n")
+	scanner := bufio.NewScanner(f)
+	var lines []string
+	lineNum := 0
+	collected := 0
 
-	if offset > 0 {
-		if offset > len(lines) {
-			return tool.ExecutionResult{Content: ""}, nil
+	for scanner.Scan() {
+		lineNum++
+		if lineNum < offset {
+			continue
 		}
-		lines = lines[offset-1:]
+		if collected >= limit {
+			break
+		}
+		lines = append(lines, scanner.Text())
+		collected++
 	}
-	if limit > 0 && limit < len(lines) {
-		lines = lines[:limit]
+	if err := scanner.Err(); err != nil {
+		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
 	return tool.ExecutionResult{Content: strings.Join(lines, "\n")}, nil
