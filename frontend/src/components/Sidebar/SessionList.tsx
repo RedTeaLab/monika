@@ -4,6 +4,64 @@ import { useStore } from '../../store'
 import { IconPlus, IconTrash } from '../Icons'
 import ConfirmModal from '../Chat/ConfirmModal'
 
+function StatusDot({ status, errorMsg }: { status: string; errorMsg?: string }) {
+  if (status === 'idle' || !status) return null
+
+  if (status === 'generating') {
+    return (
+      <span
+        role="status"
+        aria-label="Generating..."
+        className="flex-shrink-0 ml-1.5 transition-opacity duration-200"
+      >
+        <span
+          className="block rounded-full border-2"
+          style={{
+            width: 12,
+            height: 12,
+            borderColor: 'var(--yellow)',
+            borderTopColor: 'transparent',
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+      </span>
+    )
+  }
+
+  if (status === 'success') {
+    return (
+      <span
+        role="status"
+        aria-label="Generation succeeded"
+        className="flex-shrink-0 ml-1.5 transition-opacity duration-200"
+      >
+        <span
+          className="block rounded-full"
+          style={{ width: 6, height: 6, backgroundColor: 'var(--green)' }}
+        />
+      </span>
+    )
+  }
+
+  if (status === 'failure') {
+    return (
+      <span
+        role="status"
+        aria-label={`Generation failed: ${errorMsg || 'Unknown error'}`}
+        title={errorMsg || 'Unknown error'}
+        className="flex-shrink-0 ml-1.5 transition-opacity duration-200"
+      >
+        <span
+          className="block rounded-full"
+          style={{ width: 6, height: 6, backgroundColor: 'var(--red)' }}
+        />
+      </span>
+    )
+  }
+
+  return null
+}
+
 function SessionList() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
@@ -11,6 +69,8 @@ function SessionList() {
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const sessionListVersion = useStore((s) => s.sessionListVersion)
+  const sessionStatuses = useStore((s) => s.sessionStatuses)
+  const sessionErrors = useStore((s) => s.sessionErrors)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
   const openSessionTab = useStore((s) => s.openSessionTab)
@@ -29,6 +89,12 @@ function SessionList() {
     [...sessions].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
     [sessions]
   )
+
+  // Resolve effective status: in-memory wins over persisted
+  const getStatus = useCallback((s: SessionInfo) => {
+    if (sessionStatuses[s.id]) return sessionStatuses[s.id]
+    return s.status || 'idle'
+  }, [sessionStatuses])
 
   const handleNewSession = async () => {
     if (!projectPath) return
@@ -114,33 +180,39 @@ function SessionList() {
             <div className="text-[12px] text-[var(--text-dim)] mt-0.5">Click + to create one</div>
           </div>
         ) : (
-          sortedSessions.map((s) => (
-            <div
-              key={s.id}
-              id={`session-${s.id}`}
-              onClick={() => handleSelect(s.id)}
-              onKeyDown={(e) => handleRowKeyDown(s, e)}
-              tabIndex={0}
-              role="button"
-              aria-label={`Select ${s.title || 'session'}`}
-              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:shadow-[0_0_0_3px_var(--accent-muted)] outline-none"
-              style={{
-                color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
-              }}
-              onMouseEnter={() => setHoveredId(s.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <span className="truncate">{s.title || 'Untitled'}</span>
-              <button
-                onClick={(e) => handleDeleteClick(s, e)}
-                aria-label={`Delete ${s.title || 'session'}`}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 w-5 h-5 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--red)] hover:bg-[rgba(224,96,96,0.12)] transition-all flex-shrink-0 ml-2"
+          sortedSessions.map((s) => {
+            const effectiveStatus = getStatus(s)
+            return (
+              <div
+                key={s.id}
+                id={`session-${s.id}`}
+                onClick={() => handleSelect(s.id)}
+                onKeyDown={(e) => handleRowKeyDown(s, e)}
+                tabIndex={0}
+                role="button"
+                aria-label={`Select ${s.title || 'session'}`}
+                className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:shadow-[0_0_0_3px_var(--accent-muted)] outline-none"
+                style={{
+                  color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
+                }}
+                onMouseEnter={() => setHoveredId(s.id)}
+                onMouseLeave={() => setHoveredId(null)}
               >
-                <IconTrash size={13} />
-              </button>
-            </div>
-          ))
+                <div className="flex items-center min-w-0 flex-1">
+                  <span className="truncate">{s.title || 'Untitled'}</span>
+                  <StatusDot status={effectiveStatus} errorMsg={sessionErrors[s.id]} />
+                </div>
+                <button
+                  onClick={(e) => handleDeleteClick(s, e)}
+                  aria-label={`Delete ${s.title || 'session'}`}
+                  className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 w-5 h-5 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--red)] hover:bg-[rgba(224,96,96,0.12)] transition-all flex-shrink-0 ml-2"
+                >
+                  <IconTrash size={13} />
+                </button>
+              </div>
+            )
+          })
         )}
       </div>
       {sessionToDelete && (
