@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
+import { useClickOutside } from '../../hooks/useClickOutside';
 import ConfirmModal from '../Chat/ConfirmModal';
 
 interface BranchDropdownProps {
@@ -30,17 +31,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   }, [isOpen, loadBranches]);
 
   // Close on outside click.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen, onClose, triggerRef]);
+  useClickOutside(dropdownRef, triggerRef, onClose, isOpen);
 
   // Close on Escape.
   useEffect(() => {
@@ -212,8 +203,19 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
     document.body,
   );
 
-  const dirtyCount = useStore(s => s.openFiles.filter(f => f.isDirty).length);
-  const isGenerating = useStore(s => s.generatingSessionId !== '');
+  const confirmMessage = dirtyConfirm
+    ? (() => {
+        const { openFiles, generatingSessionId } = useStore.getState();
+        const dirty = openFiles.filter(f => f.isDirty).length;
+        if (dirty > 0 && generatingSessionId) {
+          return `You have ${dirty} unsaved files and a session is generating. Switching branches will discard changes and interrupt generation.`;
+        }
+        if (dirty > 0) {
+          return `You have ${dirty} unsaved files. Switching branches will lose unsaved changes.`;
+        }
+        return 'A session is generating a response. Switching branches will interrupt it.';
+      })()
+    : '';
 
   return (
     <>
@@ -221,13 +223,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
       {dirtyConfirm && (
         <ConfirmModal
           title="Switch Branch"
-          message={
-            dirtyCount > 0 && isGenerating
-              ? `You have ${dirtyCount} unsaved files and a session is generating. Switching branches will discard changes and interrupt generation.`
-              : dirtyCount > 0
-                ? `You have ${dirtyCount} unsaved files. Switching branches will lose unsaved changes.`
-                : 'A session is generating a response. Switching branches will interrupt it.'
-          }
+          message={confirmMessage}
           confirmLabel="Discard"
           onConfirm={async () => {
             const { branchName, remote } = dirtyConfirm;

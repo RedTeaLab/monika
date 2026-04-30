@@ -594,14 +594,18 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
 	}
 
-	// Update in-memory branch info.
-	a.mu.Lock()
-	if info, ok := a.projects[projectPath]; ok {
-		info.Branch = displayBranch
-	}
-	a.mu.Unlock()
+	a.setProjectBranch(projectPath, displayBranch)
 
 	return nil
+}
+
+// setProjectBranch updates the in-memory branch for a project.
+func (a *App) setProjectBranch(projectPath, branchName string) {
+	a.mu.Lock()
+	if info, ok := a.projects[projectPath]; ok {
+		info.Branch = branchName
+	}
+	a.mu.Unlock()
 }
 
 // CreateBranch creates and checks out a new branch from the given base branch.
@@ -620,12 +624,7 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
-	// Update in-memory branch info.
-	a.mu.Lock()
-	if info, ok := a.projects[projectPath]; ok {
-		info.Branch = name
-	}
-	a.mu.Unlock()
+	a.setProjectBranch(projectPath, name)
 
 	return nil
 }

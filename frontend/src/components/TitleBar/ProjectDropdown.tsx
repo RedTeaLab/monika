@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
+import { useClickOutside } from '../../hooks/useClickOutside';
 
 interface ProjectDropdownProps {
   isOpen: boolean;
@@ -29,18 +30,7 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectPro
       .catch((e: Error) => { setError(e.message); setLoading(false); });
   }, [isOpen, loadRecentProjects]);
 
-  // Close on outside click.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [isOpen, onClose, triggerRef]);
+  useClickOutside(dropdownRef, triggerRef, onClose, isOpen);
 
   // Close on Escape. Keyboard nav.
   useEffect(() => {

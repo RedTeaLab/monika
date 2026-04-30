@@ -402,13 +402,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadRecentProjects: async () => {
-    const { App } = await import('../../bindings/monika');
     const projects = await App.GetRecentProjects();
     set({ recentProjects: projects });
   },
 
   loadBranches: async () => {
-    const { App } = await import('../../bindings/monika');
     const { projectPath } = get();
     if (!projectPath) return;
     try {
