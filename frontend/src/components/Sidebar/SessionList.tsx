@@ -33,7 +33,8 @@ function SessionList() {
   const handleNewSession = async () => {
     if (!projectPath) return
     try {
-      const info = await App.NewSession(projectPath)
+      const model = useStore.getState().selectedModel || ''
+      const info = await App.NewSession(projectPath, model)
       setSessions((prev) => [info, ...prev])
       await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {
