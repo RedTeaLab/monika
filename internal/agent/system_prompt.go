@@ -100,6 +100,8 @@ const PromptSafetyBoundaries = `## Safety Boundaries
 - The user may configure certain tools to require confirmation (e.g., bash)
 - If a tool call is denied by the user, don't re-attempt it — find an alternative approach`
 
+// PromptRemember repeats the most critical rules at the end of the prompt for recency effect (U-shaped attention curve).
+// The duplication with earlier modules is intentional — do not DRY it up.
 const PromptRemember = `## Remember
 
 - NEVER read entire files blindly — grep first, then read with offset/limit
