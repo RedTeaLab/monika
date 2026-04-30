@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
@@ -8,6 +9,7 @@ function ChatArea() {
   const messages = useStore((s) => s.messages)
   const generatingSessionId = useStore((s) => s.generatingSessionId)
   const addMessage = useStore((s) => s.addMessage)
+  const appendToSession = useStore((s) => s.appendToSession)
   const clearMessages = useStore((s) => s.clearMessages)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
@@ -43,8 +45,9 @@ function ChatArea() {
       return
     }
 
-    addMessage({ id: crypto.randomUUID(), role: 'user', content: text })
-    addMessage({ id: crypto.randomUUID(), role: 'assistant', content: '' })
+    const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
+    const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
+    appendToSession(activeSessionId, [userMsg, assistantMsg])
     setGeneratingSessionId(activeSessionId)
 
     try {
@@ -57,8 +60,31 @@ function ChatArea() {
 
   const hasActiveSession = activeSessionId !== ''
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
+    if (nearBottom) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [messages])
+
+  // Last assistant message index in the active display — so we can flag it as generating
+  const isGenerating = generatingSessionId !== '' && generatingSessionId === activeSessionId
+  let generatingIdx = -1
+  if (isGenerating) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        generatingIdx = i
+        break
+      }
+    }
+  }
+
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-main)]">
+    <div className="flex flex-col h-full bg-[var(--bg-root)]">
       <TabBar
         tabs={sessionTabs}
         activeKey={activeSessionId}
@@ -66,7 +92,7 @@ function ChatArea() {
         onClose={(key) => closeSessionTab(key)}
         emptyLabel="Chat"
       />
-      <div className="flex-1 overflow-y-auto p-[5px]">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {!hasActiveSession ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
             Start a session to chat
@@ -76,8 +102,12 @@ function ChatArea() {
             No messages yet. Start a conversation.
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+          messages.map((msg, idx) => (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              isGenerating={idx === generatingIdx}
+            />
           ))
         )}
       </div>

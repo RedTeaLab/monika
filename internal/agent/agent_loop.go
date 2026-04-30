@@ -101,7 +101,12 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 			return nil, fmt.Errorf("stream chat: %w", err)
 		}
 
-		result := parseResult(events)
+		var collected []engine.ChatEvent
+		for ev := range events {
+			collected = append(collected, ev)
+		}
+
+		result := parseResult(collected)
 		if result.Error != nil {
 			return nil, result.Error
 		}
@@ -220,7 +225,9 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			return
 		}
 
-		for _, ev := range events {
+		var collected []engine.ChatEvent
+		for ev := range events {
+			collected = append(collected, ev)
 			switch ev.Kind {
 			case engine.EventContentDelta:
 				if ev.ReasoningContent != "" {
@@ -267,7 +274,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			}
 		}
 
-		result := parseResult(events)
+		result := parseResult(collected)
 		if result.Error != nil {
 			return
 		}
@@ -302,6 +309,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					Tool: &ToolEvent{
 						ID:     tc.ID,
 						Name:   tc.Function.Name,
+						Input:  tc.Function.Arguments,
 						Output: fmt.Sprintf("tool %s not found", tc.Function.Name),
 						Status: "error",
 					},
@@ -320,6 +328,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					Tool: &ToolEvent{
 						ID:     tc.ID,
 						Name:   tc.Function.Name,
+						Input:  tc.Function.Arguments,
 						Output: "execution denied by user",
 						Status: "denied",
 					},
@@ -338,7 +347,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					Type: EventToolOutput,
 					Tool: &ToolEvent{
 						ID:     tc.ID,
-						Name:   tc.Function.Name,
+						Input:  tc.Function.Arguments,
 						Output: err.Error(),
 						Status: "error",
 					},
@@ -362,6 +371,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				Tool: &ToolEvent{
 					ID:     tc.ID,
 					Name:   tc.Function.Name,
+					Input:  tc.Function.Arguments,
 					Output: execResult.Content,
 					Status: "done",
 				},
@@ -374,6 +384,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				Name:       tc.Function.Name,
 			})
 		}
+
+		ch <- Event{Type: EventTurnStart}
 	}
 
 	ch <- Event{Type: EventError, Content: fmt.Sprintf("agent: exceeded maximum turns (%d)", a.maxTurns)}

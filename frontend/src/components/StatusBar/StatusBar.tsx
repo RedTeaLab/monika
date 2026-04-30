@@ -1,53 +1,47 @@
 import { useStore } from '../../store'
-import { IconCircle, IconSidebar, IconConsole, IconFile } from '../Icons'
+import { IconSidebar, IconConsole, IconFolder } from '../Icons'
 
 interface StatusBarProps {
   showConsole: boolean; showFileTree: boolean; showSidebar: boolean
   onToggleConsole: () => void; onToggleFileTree: () => void; onToggleSidebar: () => void
 }
 
+const togClass = (active: boolean) =>
+  `flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] outline-none transition-colors ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'} hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:shadow-[0_0_0_3px_var(--accent-muted)]`
+
 function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, onToggleFileTree, onToggleSidebar }: StatusBarProps) {
   const generating = useStore((s) => s.generatingSessionId !== '')
   const tokenCount = useStore((s) => s.tokenCount)
 
-  const iconClass = (active: boolean) =>
-    `transition-colors hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)] ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'}`
-
   return (
     <div
-      className="flex items-center h-[24px] text-[11px] select-none border-t border-[var(--border)] backdrop-blur-md"
-      style={{ background: 'var(--glass-strong)', padding: '0 12px' }}
+      className="flex items-center h-[28px] text-[11px] select-none border-t border-[var(--border)]"
+      style={{ background: 'var(--bg-elevated)', padding: '0 14px' }}
     >
-      <div className="flex items-center gap-1.5">
-        <span style={{ color: generating ? 'var(--yellow)' : 'var(--green)' }}>
-          <IconCircle size={10} filled={!generating} />
-        </span>
+      <div className="flex items-center gap-2">
+        <span
+          className="block rounded-full"
+          style={{
+            width: 7, height: 7,
+            background: generating ? 'var(--yellow)' : 'var(--green)',
+            boxShadow: generating ? '0 0 6px rgba(212,168,67,0.5)' : '0 0 6px rgba(84,192,138,0.5)',
+            animation: generating ? 'pulse 1.2s ease-in-out infinite' : undefined,
+          }}
+        />
         <span className="text-[var(--text-secondary)]">{generating ? 'generating...' : 'ready'}</span>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleSidebar}
-          className={iconClass(showSidebar)}
-          aria-label="Toggle session sidebar"
-        >
-          <IconSidebar size={14} />
+      <div className="flex items-center gap-1">
+        <button onClick={onToggleSidebar} title="Sidebar" className={togClass(showSidebar)} aria-label="Toggle session sidebar">
+          <IconSidebar size={13} />
         </button>
-        <button
-          onClick={onToggleConsole}
-          className={iconClass(showConsole)}
-          aria-label="Toggle console"
-        >
-          <IconConsole size={14} />
+        <button onClick={onToggleConsole} title="Console" className={togClass(showConsole)} aria-label="Toggle console">
+          <IconConsole size={13} />
         </button>
-        <button
-          onClick={onToggleFileTree}
-          className={iconClass(showFileTree)}
-          aria-label="Toggle file tree"
-        >
-          <IconFile size={14} />
+        <button onClick={onToggleFileTree} title="Files" className={togClass(showFileTree)} aria-label="Toggle file tree">
+          <IconFolder size={13} />
         </button>
-        <span className="text-[var(--text-dim)]">tok: {tokenCount}</span>
+        <span className="text-[var(--text-dim)] ml-2" style={{ fontFamily: 'var(--font-mono)' }}>tok: {tokenCount}</span>
       </div>
     </div>
   )

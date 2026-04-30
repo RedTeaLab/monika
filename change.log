@@ -16,6 +16,15 @@
 
 ---
 
+## 2026-05-01
+
+- **字体打包**：将 Maple Mono NF（等宽编程字体）和 LXGW WenKai（霞鹜文楷，UI 字体）打包进前端 `src/assets/fonts/`，添加 `@font-face` 声明（`font-display: swap`），确保开箱即用无需系统安装。CodeMirror 编辑器通过 `EditorView.theme` 应用 Maple Mono NF。
+- **Thinking 块可折叠**：MessageBubble 中 thinking 内容默认折叠，点击标题栏展开/收起，精简长推理内容的展示。
+- **Tool 块可折叠**：Tool 卡片新增 chevron 折叠/展开切换，默认展开，便于查看或隐藏工具调用详情。
+- **消息气泡响应式宽度**：MsgBlock 宽度改为 `w-full`、移除 `max-w` 上限，适配不同窗口尺寸。
+- **标签颜色微调**：降低 thinking 和 tool 标签文字亮度，减少视觉干扰。
+- **Icon 组件增强**：`Icon` 和 `IconChevronDown` 支持 `style` prop，允许调用方覆盖尺寸/颜色等内联样式。
+
 ## 2026-04-30
 
 - **CreateBranchPanel z-index 修复**：TitleBar 的 `backdrop-blur-md`（`backdrop-filter`）创建了新的 CSS stacking context，导致 `position: fixed` 的 CreateBranchPanel 被侧边栏遮盖。修复：给 TitleBar 添加 `position: relative; z-index: 10`，将其 stacking context 提升到主内容区之上。同时记录 z-index 规范和 portal 优先原则到 AGENTS.md。

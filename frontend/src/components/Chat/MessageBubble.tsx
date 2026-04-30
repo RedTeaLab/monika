@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
 
@@ -15,6 +15,75 @@ interface Message {
   content: string
   thinking?: string
   tools?: ToolCall[]
+  model?: string
+  duration?: number
+  startedAt?: number
+}
+
+/* ---- role label ---- */
+
+const ROLE_LABEL: Record<string, { text: string; color: string }> = {
+  user:      { text: 'You',       color: 'var(--text-dim)' },
+  assistant: { text: 'Assistant', color: 'var(--text-dim)' },
+  error:     { text: 'Error',     color: 'var(--red)' },
+}
+
+function RoleLabel({ role, isGenerating, model, duration }: {
+  role: string
+  isGenerating?: boolean
+  model?: string
+  duration?: number
+}) {
+  const info = ROLE_LABEL[role]
+  if (!info) return null
+
+  const metaParts: string[] = []
+  if (model) metaParts.push(formatModel(model))
+  if (duration != null && duration > 0) metaParts.push(formatDuration(duration))
+
+  if (isGenerating) {
+    return (
+      <div
+        className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-1 select-none flex items-center gap-1.5"
+        style={{ color: 'var(--accent)' }}
+      >
+        <span className="motion-safe:animate-label-blink" style={{ animation: 'label-blink 1.4s ease-in-out infinite' }}>
+          {info.text}
+        </span>
+        {model && <span style={{ color: 'var(--text-dim)' }}>· {formatModel(model)}</span>}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-1 select-none flex items-center gap-1.5"
+      style={{ color: info.color }}
+    >
+      <span>{info.text}</span>
+      {metaParts.length > 0 && (
+        <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>
+          · {metaParts.join(' · ')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60)
+    const s = Math.round(seconds % 60)
+    return `${m}m ${s}s`
+  }
+  return `${seconds.toFixed(1)}s`
+}
+
+function formatModel(model: string): string {
+  return model
+    .replace(/^(claude-|deepseek-|openai-|gpt-)/, '')
+    .replace(/-\d{8}$/, '')
+    .replace(/-preview$/, '')
 }
 
 /* ---- shared glass card shell ---- */
@@ -47,8 +116,13 @@ function MsgBlock({
 
 /* ---- thinking block ---- */
 
-function ThinkingBlock({ content }: { content: string }) {
+function ThinkingBlock({ content, isGenerating }: { content: string; isGenerating?: boolean }) {
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    setOpen(!!isGenerating)
+  }, [isGenerating])
+
   return (
     <MsgBlock
       accent="#a68432"
@@ -251,8 +325,13 @@ function formatJsonLine(line: string): React.ReactNode {
 
 /* ---- message bubble (router) ---- */
 
-function MessageBubble({ message }: { message: Message }) {
-  const { role, content, thinking, tools } = message
+interface MessageBubbleProps {
+  message: Message
+  isGenerating?: boolean
+}
+
+function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
+  const { role, content, thinking, tools, model, duration } = message
 
   if (role === 'system') {
     return (
@@ -263,16 +342,23 @@ function MessageBubble({ message }: { message: Message }) {
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
       {role === 'user' ? (
-        <MsgBlock accent="var(--accent)">
-          <MarkdownBlock content={content} />
-        </MsgBlock>
+        <div>
+          <RoleLabel role="user" />
+          <MsgBlock accent="var(--accent)">
+            <MarkdownBlock content={content} />
+          </MsgBlock>
+        </div>
       ) : role === 'error' ? (
-        <TextBlock content={content} borderColor="var(--red)" />
+        <div>
+          <RoleLabel role="error" />
+          <TextBlock content={content} borderColor="var(--red)" />
+        </div>
       ) : (
         <>
-          {thinking && <ThinkingBlock content={thinking} />}
+          <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
+          {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
           {tools?.map((tool, i) => <ToolBlock key={i} tool={tool} />)}
-          {content && (
+          {(content || isGenerating) && (
             <MsgBlock>
               <MarkdownBlock content={content} />
             </MsgBlock>

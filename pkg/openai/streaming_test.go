@@ -31,7 +31,7 @@ func TestStreamChatStreaming(t *testing.T) {
 	}
 
 	var text string
-	for _, ev := range events {
+	for ev := range events {
 		if ev.Kind == engine.EventContentDelta {
 			text += ev.Text
 		}
@@ -46,13 +46,14 @@ func TestParseSSEStreamToolCalls(t *testing.T) {
 		`data: {"id":"test","choices":[{"finish_reason":"tool_calls"}]}` + "\n\n" +
 		`data: [DONE]` + "\n\n"
 
-	events, err := parseSSEStream(strings.NewReader(input))
-	if err != nil {
+	ch := make(chan engine.ChatEvent, 16)
+	if err := parseSSEStream(context.Background(), strings.NewReader(input), ch); err != nil {
 		t.Fatal(err)
 	}
+	close(ch)
 
 	var toolCalls []engine.ToolCall
-	for _, ev := range events {
+	for ev := range ch {
 		if ev.Kind == engine.EventToolCallEnd {
 			toolCalls = append(toolCalls, *ev.ToolCall)
 		}
@@ -80,7 +81,7 @@ func TestStreamChatToolCalls(t *testing.T) {
 	}
 
 	var toolCalls []engine.ToolCall
-	for _, ev := range events {
+	for ev := range events {
 		if ev.Kind == engine.EventToolCallEnd {
 			toolCalls = append(toolCalls, *ev.ToolCall)
 		}
@@ -113,7 +114,7 @@ func TestStreamChatToolCallsAccumulatesArguments(t *testing.T) {
 	}
 
 	var toolCalls []engine.ToolCall
-	for _, ev := range events {
+	for ev := range events {
 		if ev.Kind == engine.EventToolCallEnd {
 			toolCalls = append(toolCalls, *ev.ToolCall)
 		}
@@ -141,7 +142,7 @@ func TestStreamChatToolCallsMultipleTools(t *testing.T) {
 	}
 
 	var toolCalls []engine.ToolCall
-	for _, ev := range events {
+	for ev := range events {
 		if ev.Kind == engine.EventToolCallEnd {
 			toolCalls = append(toolCalls, *ev.ToolCall)
 		}

@@ -105,7 +105,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
 
       {loading && [1, 2, 3].map(i => (
         <div key={i} style={{ padding: '8px 12px' }}>
-          <div style={{ height: 10, background: 'var(--glass-medium)', borderRadius: 2, marginBottom: 6 }} />
+          <div style={{ height: 10, background: 'var(--bg-card)', borderRadius: 2, marginBottom: 6 }} />
         </div>
       ))}
 
@@ -120,7 +120,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
             justifyContent: 'space-between',
             color: b.name === branch ? 'var(--text-primary)' : 'var(--text-dim)',
             fontSize: 12,
-            background: b.name === branch ? 'var(--glass-active)' : 'transparent',
+            background: b.name === branch ? 'var(--bg-active)' : 'transparent',
           }}
         >
           <span>{b.name}</span>

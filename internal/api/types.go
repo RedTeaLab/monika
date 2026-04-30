@@ -6,6 +6,7 @@ type StreamEvent struct {
 	Type       string            `json:"type"`
 	Content    string            `json:"content,omitempty"`
 	SessionID  string            `json:"session_id,omitempty"`
+	Model      string            `json:"model,omitempty"`
 	Tool       *agent.ToolEvent  `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent `json:"usage,omitempty"`
 	FileChange *FileChangeEvent  `json:"file_change,omitempty"`

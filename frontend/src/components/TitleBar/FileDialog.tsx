@@ -121,7 +121,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
             placeholder="Filter or type path..."
             style={{
               width: '100%',
-              background: 'var(--glass-medium)',
+              background: 'var(--bg-card)',
               border: '1px solid var(--border)',
               borderRadius: 2,
               padding: '6px 8px',
@@ -136,7 +136,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
         <div style={{ height: 240, overflowY: 'auto', padding: '4px 0' }}>
           {loading && [1, 2, 3, 4].map(i => (
             <div key={i} style={{ padding: '5px 14px' }}>
-              <div style={{ height: 10, background: 'var(--glass-medium)', borderRadius: 2, marginBottom: 4 }} />
+              <div style={{ height: 10, background: 'var(--bg-card)', borderRadius: 2, marginBottom: 4 }} />
             </div>
           ))}
 
@@ -174,7 +174,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
                     alignItems: 'center',
                     gap: 8,
                     cursor: 'pointer',
-                    background: d.path === selectedPath ? 'var(--glass-active)' : 'transparent',
+                    background: d.path === selectedPath ? 'var(--bg-active)' : 'transparent',
                   }}
                 >
                   <span>📁</span> {d.name}

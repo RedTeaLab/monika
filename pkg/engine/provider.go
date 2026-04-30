@@ -11,8 +11,8 @@ type ChatRequest struct {
 
 type ChatMessage struct {
 	Role             string     `json:"role"`
-	Content          string     `json:"content,omitempty"`
-	ReasoningContent string     `json:"reasoning_content,omitempty"`
+	Content          string     `json:"content"`
+	ReasoningContent string     `json:"reasoning_content"`
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string     `json:"tool_call_id,omitempty"`
 	Name             string     `json:"name,omitempty"`
@@ -79,6 +79,6 @@ type ToolFunction struct {
 
 type ProviderEngine interface {
 	Engine
-	StreamChat(ctx context.Context, req ChatRequest) ([]ChatEvent, error)
+	StreamChat(ctx context.Context, req ChatRequest) (<-chan ChatEvent, error)
 	ListModels(ctx context.Context) ([]Model, error)
 }

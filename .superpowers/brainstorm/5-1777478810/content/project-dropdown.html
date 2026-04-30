@@ -1,0 +1,98 @@
+<h2>Project Dropdown — 三种布局方案</h2>
+<p class="subtitle">标题栏左侧，点击项目名弹出下拉菜单</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>简洁列表</h3>
+      <p>类似 VS Code 的 Recent 列表：项目名 + 路径，hover 高亮，底部固定"Open Project..."按钮。最简实现。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>分组列表</h3>
+      <p>列表按时间分组（Today / Yesterday / This Week / Older），便于查找。适合列表较长时。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>搜索 + 列表</h3>
+      <p>顶部带搜索输入框，输入过滤列表。列表项右侧有移除按钮（X）。项目极多时最实用。</p>
+    </div>
+  </div>
+</div>
+
+<hr style="border-color: var(--border); margin: 28px 0;">
+
+<h2>Branch Dropdown — 同样三种方案</h2>
+<p class="subtitle">标题栏分支名点击弹出，额外包含创建分支入口</p>
+
+<div class="options">
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>简洁列表</h3>
+      <p>分支名列表，当前分支高亮 + checkmark，底部 "New Branch..." + 输入框弹出。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="e" onclick="toggleSelect(this)">
+    <div class="letter">E</div>
+    <div class="content">
+      <h3>分组列表</h3>
+      <p>分支按类型分组（Local Branches / Recent Branches），创建分支入口在每组上方。</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="f" onclick="toggleSelect(this)">
+    <div class="letter">F</div>
+    <div class="content">
+      <h3>搜索 + 列表</h3>
+      <p>顶部搜索输入框过滤分支名，新建分支入口在底部。适合分支较多的项目。</p>
+    </div>
+  </div>
+</div>
+
+<hr style="border-color: var(--border); margin: 28px 0;">
+
+<h2>Mockup — 点击后的下拉效果</h2>
+<p class="subtitle">以下模拟方案 A + D（简洁列表）在 TitleBar 中的实际外观</p>
+
+<div class="mockup">
+  <div class="mockup-header">TitleBar 左侧</div>
+  <div class="mockup-body">
+    <div style="background: var(--glass-strong); padding: 10px 12px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: relative;">
+      <span style="font-size:13px; font-weight:600; color: var(--text-primary);">Monika</span>
+      <span style="font-size:11px; color: var(--text-dim); cursor:pointer; position: relative;">
+        my-project ▾
+        <!-- Dropdown -->
+        <div style="position:absolute; top:100%; left:0; margin-top:8px; width:260px; background: var(--bg-sidebar); border:1px solid var(--border); border-radius: 4px; z-index:100; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+          <div style="padding:8px 12px; font-size:11px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.05em;">Recent Projects</div>
+          <div style="padding:6px 12px; font-size:12px; color: var(--text-primary); cursor:pointer; hover-bg: var(--bg-hover); display:flex; justify-content:space-between;">
+            <span>my-project</span>
+            <span style="color: var(--text-dim); font-size:10px;">✓</span>
+          </div>
+          <div style="padding:6px 12px; font-size:12px; color: var(--text-dim); cursor:pointer;">
+            <span>other-project</span>
+            <span style="display:block; font-size:10px; color: var(--text-dim);">D:\git\other-project</span>
+          </div>
+          <div style="padding:6px 12px; font-size:12px; color: var(--text-dim); cursor:pointer;">
+            <span>playground</span>
+            <span style="display:block; font-size:10px; color: var(--text-dim);">D:\code\playground</span>
+          </div>
+          <div style="border-top:1px solid var(--border); padding:6px 12px; font-size:12px; color: var(--accent); cursor:pointer;">
+            + Open New Project...
+          </div>
+        </div>
+      </span>
+      <span style="font-size:11px; color: var(--text-dim); cursor:pointer;">
+        main ▾
+      </span>
+    </div>
+  </div>
+</div>

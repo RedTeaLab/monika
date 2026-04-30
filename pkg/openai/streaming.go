@@ -47,7 +47,7 @@ type toolCallChunk struct {
 	} `json:"function"`
 }
 
-func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage, tools []engine.ToolDef) ([]engine.ChatEvent, error) {
+func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage, tools []engine.ToolDef) (<-chan engine.ChatEvent, error) {
 	body := chatRequest{
 		Model:    model,
 		Messages: messages,
@@ -73,19 +73,39 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		return nil, fmt.Errorf("provider returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	return parseSSEStream(resp.Body)
+	ch := make(chan engine.ChatEvent, 64)
+	go func() {
+		defer close(ch)
+		defer resp.Body.Close()
+		if err := parseSSEStream(ctx, resp.Body, ch); err != nil {
+			select {
+			case ch <- engine.ChatEvent{Kind: engine.EventError, Error: engine.ProviderError{Code: "stream_error", Message: err.Error()}}:
+			default:
+			}
+		}
+	}()
+	return ch, nil
 }
 
-func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
-	var events []engine.ChatEvent
+func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent) error {
+	send := func(ev engine.ChatEvent) error {
+		select {
+		case ch <- ev:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	toolCallBuf := make(map[int]*engine.ToolCall)
 
 	for scanner.Scan() {
@@ -95,7 +115,9 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 		}
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
-			events = append(events, engine.ChatEvent{Kind: engine.EventMessageEnd, Text: "stop"})
+			if err := send(engine.ChatEvent{Kind: engine.EventMessageEnd, Text: "stop"}); err != nil {
+				return err
+			}
 			break
 		}
 
@@ -106,17 +128,21 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 
 		for _, choice := range chunk.Choices {
 			if choice.Delta.Content != "" {
-				events = append(events, engine.ChatEvent{
+				if err := send(engine.ChatEvent{
 					Kind: engine.EventContentDelta,
 					Text: choice.Delta.Content,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 
 			if choice.Delta.ReasoningContent != "" {
-				events = append(events, engine.ChatEvent{
+				if err := send(engine.ChatEvent{
 					Kind:             engine.EventContentDelta,
 					ReasoningContent: choice.Delta.ReasoningContent,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 
 			for _, tc := range choice.Delta.ToolCalls {
@@ -134,7 +160,7 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 				}
 
 				if tc.Function.Name != "" && buf.Function.Name == tc.Function.Name {
-					events = append(events, engine.ChatEvent{
+					if err := send(engine.ChatEvent{
 						Kind: engine.EventToolCallStart,
 						ToolCall: &engine.ToolCall{
 							ID:   buf.ID,
@@ -143,12 +169,14 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 								Name: tc.Function.Name,
 							},
 						},
-					})
+					}); err != nil {
+						return err
+					}
 				}
 
 				if tc.Function.Arguments != "" {
 					buf.Function.Arguments += tc.Function.Arguments
-					events = append(events, engine.ChatEvent{
+					if err := send(engine.ChatEvent{
 						Kind: engine.EventToolCallDelta,
 						ToolCall: &engine.ToolCall{
 							ID:   buf.ID,
@@ -158,14 +186,16 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 								Arguments: tc.Function.Arguments,
 							},
 						},
-					})
+					}); err != nil {
+						return err
+					}
 				}
 			}
 
 			if choice.FinishReason != nil && *choice.FinishReason != "" {
 				for _, buf := range toolCallBuf {
 					if buf.Function.Name != "" {
-						events = append(events, engine.ChatEvent{
+						if err := send(engine.ChatEvent{
 							Kind: engine.EventToolCallEnd,
 							ToolCall: &engine.ToolCall{
 								ID:   buf.ID,
@@ -175,27 +205,33 @@ func parseSSEStream(r io.Reader) ([]engine.ChatEvent, error) {
 									Arguments: buf.Function.Arguments,
 								},
 							},
-						})
+						}); err != nil {
+							return err
+						}
 					}
 				}
-				events = append(events, engine.ChatEvent{
+				if err := send(engine.ChatEvent{
 					Kind: engine.EventMessageEnd,
 					Text: *choice.FinishReason,
-				})
+				}); err != nil {
+					return err
+				}
 			}
 		}
 
 		if chunk.Usage.TotalTokens > 0 {
-			events = append(events, engine.ChatEvent{
+			if err := send(engine.ChatEvent{
 				Kind: engine.EventUsage,
 				Usage: engine.Usage{
 					InputTokens:  chunk.Usage.PromptTokens,
 					OutputTokens: chunk.Usage.CompletionTokens,
 					TotalTokens:  chunk.Usage.TotalTokens,
 				},
-			})
+			}); err != nil {
+				return err
+			}
 		}
 	}
 
-	return events, scanner.Err()
+	return scanner.Err()
 }

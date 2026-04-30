@@ -18,6 +18,9 @@ interface Message {
   content: string
   thinking?: string
   tools?: ToolCall[]
+  model?: string
+  duration?: number
+  startedAt?: number
 }
 
 interface SessionTabInfo {
@@ -42,6 +45,8 @@ interface AppState {
   layoutMode: LayoutMode
   splitRatio: number
   activeFilePath: string
+  fileTreeVersion: number
+  sessionListVersion: number
 
   openSessions: SessionTabInfo[]
   sessionMessages: Record<string, Message[]>
@@ -50,16 +55,20 @@ interface AppState {
   allBranches: BranchInfo[]
 
   addMessage: (msg: Message) => void
+  appendToSession: (sessionId: string, msgs: Message[]) => void
   updateLastAssistant: (content: string) => void
   updateLastAssistantThinking: (content: string) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
+  updateToolInput: (name: string, input: string) => void
   updateSessionMessage: (id: string, delta: string) => void
   updateSessionThinking: (id: string, delta: string) => void
   addSessionToolStart: (id: string, tool: ToolCall) => void
   addSessionError: (id: string, content: string) => void
   updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
+  updateSessionToolInput: (id: string, name: string, input: string) => void
   setGeneratingSessionId: (sessionId: string) => void
+  setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
   addTokens: (tokens: number) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
@@ -69,6 +78,9 @@ interface AppState {
   addConsoleLine: (line: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   setSplitRatio: (ratio: number) => void
+  bumpFileTreeVersion: () => void
+  bumpSessionListVersion: () => void
+  updateSessionTitle: (id: string, title: string) => void
 
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
@@ -96,6 +108,8 @@ export const useStore = create<AppState>((set, get) => ({
   layoutMode: 'split',
   splitRatio: 0.5,
   activeFilePath: '',
+  fileTreeVersion: 0,
+  sessionListVersion: 0,
 
   openSessions: [],
   sessionMessages: {},
@@ -104,6 +118,17 @@ export const useStore = create<AppState>((set, get) => ({
   allBranches: [],
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+
+  appendToSession: (sessionId, msgs) => set((s) => {
+    const sessionMsgs = [...(s.sessionMessages[sessionId] || []), ...msgs]
+    const activeMsgs = s.activeSessionId === sessionId
+      ? [...s.messages, ...msgs]
+      : s.messages
+    return {
+      messages: activeMsgs,
+      sessionMessages: { ...s.sessionMessages, [sessionId]: sessionMsgs },
+    }
+  }),
 
   updateLastAssistant: (content) =>
     set((s) => {
@@ -150,6 +175,23 @@ export const useStore = create<AppState>((set, get) => ({
             ...msgs[i],
             tools: msgs[i].tools!.map((t) =>
               t.name === name && t.status === 'running' ? { ...t, output, status } : t
+            ),
+          }
+          break
+        }
+      }
+      return { messages: msgs }
+    }),
+
+  updateToolInput: (name, input) =>
+    set((s) => {
+      const msgs = [...s.messages]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant' && msgs[i].tools) {
+          msgs[i] = {
+            ...msgs[i],
+            tools: msgs[i].tools!.map((t) =>
+              t.name === name && !t.input ? { ...t, input } : t
             ),
           }
           break
@@ -235,6 +277,24 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+  updateSessionToolInput: (id, name, input) => {
+    set((s) => {
+      const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant' && msgs[i].tools) {
+          msgs[i] = {
+            ...msgs[i],
+            tools: msgs[i].tools!.map((t) =>
+              t.name === name && !t.input ? { ...t, input } : t
+            ),
+          }
+          break
+        }
+      }
+      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+    })
+  },
+
   addSessionError: (id, content) => {
     set((s) => ({
       sessionMessages: { ...s.sessionMessages, [id]: [...(s.sessionMessages[id] || []), { id: crypto.randomUUID(), role: 'error' as const, content }] },
@@ -242,7 +302,38 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
+  setLastAssistantMeta: (sessionId, meta) => {
+    set((s) => {
+      const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
+      for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+        if (sessionMsgs[i].role === 'assistant') {
+          sessionMsgs[i] = { ...sessionMsgs[i], ...meta }
+          break
+        }
+      }
+      const updates: Partial<AppState> = { sessionMessages: { ...s.sessionMessages, [sessionId]: sessionMsgs } }
+      if (sessionId === s.activeSessionId) {
+        const msgs = [...s.messages]
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i].role === 'assistant') {
+            msgs[i] = { ...msgs[i], ...meta }
+            break
+          }
+        }
+        updates.messages = msgs
+      }
+      return updates
+    })
+  },
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
+  bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
+  bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
+  updateSessionTitle: (id, title) =>
+    set((s) => ({
+      openSessions: s.openSessions.map((sess) =>
+        sess.id === id ? { ...sess, title } : sess
+      ),
+    })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
   setProjectPath: (path) => set({ projectPath: path }),
@@ -277,7 +368,7 @@ export const useStore = create<AppState>((set, get) => ({
       const project = useStore.getState().projectPath
       const session = await App.LoadSession(project, id)
       const msgs = session.messages
-        ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0])
+        ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
         : []
       set((s) => {
         const streamMsgs = s.sessionMessages[id] || []
@@ -337,13 +428,15 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => {
       if (id === s.activeSessionId) return {}
       if (!s.openSessions.some((t) => t.id === id)) return {}
-      const msgCache = s.activeSessionId
-        ? { ...s.sessionMessages, [s.activeSessionId]: s.messages }
-        : { ...s.sessionMessages }
-      const restored = msgCache[id] || []
+      const currentCache = { ...s.sessionMessages }
+      if (s.activeSessionId) {
+        const bgUpdated = s.sessionMessages[s.activeSessionId]
+        currentCache[s.activeSessionId] = bgUpdated || s.messages
+      }
+      const restored = currentCache[id] || []
       return {
         activeSessionId: id,
-        sessionMessages: msgCache,
+        sessionMessages: currentCache,
         messages: restored,
       }
     })
@@ -431,12 +524,14 @@ export const useStore = create<AppState>((set, get) => ({
       openFiles: [],
       allBranches: [],
       recentProjects: [],
+      fileTreeVersion: 0,
+      sessionListVersion: 0,
     });
   },
 
 }))
 
-export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[]): Message[] {
+export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[], model?: string): Message[] {
   const result: Message[] = []
   let i = 0
   while (i < raw.length) {
@@ -467,6 +562,7 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
         content: m.content || '',
         thinking: m.reasoning_content || undefined,
         tools: tools.length > 0 ? tools : undefined,
+        model,
       })
       i++
     } else if (m.role === 'tool') {
@@ -500,12 +596,18 @@ export function setupWailsEvents() {
         if (sid === store.activeSessionId) {
           store.updateLastAssistant(data.content || '')
         }
+        if (data.model) {
+          store.setLastAssistantMeta(sid, { model: data.model })
+        }
         break
 
       case 'thinking':
         store.updateSessionThinking(sid, data.content || '')
         if (sid === store.activeSessionId) {
           store.updateLastAssistantThinking(data.content || '')
+        }
+        if (data.model) {
+          store.setLastAssistantMeta(sid, { model: data.model })
         }
         break
 
@@ -522,9 +624,15 @@ export function setupWailsEvents() {
       case 'tool_output':
         if (data.tool) {
           store.addConsoleLine(data.tool.output || '')
-          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', 'done')
+          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+          if (data.tool.input) {
+            store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
+          }
           if (sid === store.activeSessionId) {
-            store.updateToolDone(data.tool.name, data.tool.output || '', 'done')
+            store.updateToolDone(data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+            if (data.tool.input) {
+              store.updateToolInput(data.tool.name, data.tool.input)
+            }
           }
         }
         break
@@ -533,6 +641,12 @@ export function setupWailsEvents() {
         if (data.tool) {
           const status = (data.tool.status === 'done' || data.tool.status === 'error') ? data.tool.status : 'done'
           store.addConsoleLine(`[${status}] ${data.tool.name}`)
+          if (data.tool.input) {
+            store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
+            if (sid === store.activeSessionId) {
+              store.updateToolInput(data.tool.name, data.tool.input)
+            }
+          }
         }
         break
 
@@ -557,13 +671,37 @@ export function setupWailsEvents() {
         if (data.file_change) {
           store.addConsoleLine(`[file] ${data.file_change.path} ${data.file_change.status}`)
         }
+        store.bumpFileTreeVersion()
         break
 
-      case 'done':
+      case 'done': {
         if (sid === store.generatingSessionId) {
           store.setGeneratingSessionId('')
         }
+        const sessionMsgs = store.sessionMessages[sid] || []
+        for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+          if (sessionMsgs[i].role === 'assistant' && sessionMsgs[i].startedAt) {
+            store.setLastAssistantMeta(sid, { duration: Math.round((Date.now() - sessionMsgs[i].startedAt!) / 100) / 10 })
+            break
+          }
+        }
+        store.bumpFileTreeVersion()
+        store.bumpSessionListVersion()
         break
+      }
+
+      case 'session_updated':
+        if (data.content) {
+          store.updateSessionTitle(sid, data.content)
+        }
+        store.bumpSessionListVersion()
+        break
+
+      case 'turn_start': {
+        const newMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now(), model: data.model || undefined }
+        store.appendToSession(sid, [newMsg])
+        break
+      }
     }
   })
 }

@@ -79,8 +79,8 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectPro
 
       {loading && [1, 2, 3].map(i => (
         <div key={i} style={{ padding: '6px 12px' }}>
-          <div style={{ height: 12, width: '60%', background: 'var(--glass-medium)', borderRadius: 2, marginBottom: 4 }} />
-          <div style={{ height: 8, width: '40%', background: 'var(--glass-light)', borderRadius: 2 }} />
+          <div style={{ height: 12, width: '60%', background: 'var(--bg-card)', borderRadius: 2, marginBottom: 4 }} />
+          <div style={{ height: 8, width: '40%', background: 'var(--bg-sidebar)', borderRadius: 2 }} />
         </div>
       ))}
 
@@ -118,7 +118,7 @@ export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectPro
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
-            background: i === focusIndex ? 'var(--glass-hover)' : p.path === projectPath ? 'var(--glass-active)' : 'transparent',
+            background: i === focusIndex ? 'var(--bg-hover)' : p.path === projectPath ? 'var(--bg-active)' : 'transparent',
           }}
         >
           <div>

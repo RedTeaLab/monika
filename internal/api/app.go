@@ -238,6 +238,10 @@ func (a *App) SendMessage(projectPath, sessionID, text string) error {
 		s.Messages = conv.Messages
 		sm.SetTitle(s)
 		sm.Save(s)
+			a.handleAgentEvent(sessionID, agent2.Event{
+				Type:    agent2.EventSessionUpdated,
+				Content: s.Title,
+			})
 	}()
 
 	return nil
@@ -298,6 +302,7 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 func (a *App) handleAgentEvent(sessionID string, ev agent2.Event) {
 	se := StreamEvent{
 		SessionID: sessionID,
+		Model:     a.model,
 	}
 
 	switch ev.Type {
@@ -324,6 +329,11 @@ func (a *App) handleAgentEvent(sessionID string, ev agent2.Event) {
 		se.Content = ev.Content
 	case agent2.EventDone:
 		se.Type = "done"
+	case agent2.EventSessionUpdated:
+		se.Type = "session_updated"
+		se.Content = ev.Content
+	case agent2.EventTurnStart:
+		se.Type = "turn_start"
 	}
 
 	fmt.Fprintf(os.Stderr, "[monika] emit stream event: type=%s session=%s\n", se.Type, sessionID)

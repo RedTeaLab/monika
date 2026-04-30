@@ -31,7 +31,7 @@ func (p *DeepSeekProvider) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (p *DeepSeekProvider) StreamChat(ctx context.Context, req engine.ChatRequest) ([]engine.ChatEvent, error) {
+func (p *DeepSeekProvider) StreamChat(ctx context.Context, req engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 	cfg := p.resolveConfig(req)
 	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("deepseek: base_url not configured")

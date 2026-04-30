@@ -1,0 +1,153 @@
+<h2>Part 2 — 前端组件结构 & UI Mockup</h2>
+<p class="subtitle">标题栏新增 ProjectDropdown、BranchDropdown、FileDialog 三个组件</p>
+
+<div class="mockup">
+  <div class="mockup-header">TitleBar — 项目名和分支名均变为可点击的下拉触发器</div>
+  <div class="mockup-body">
+    <div style="background: var(--glass-strong); padding: 8px 12px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); position: relative; font-family: system-ui, sans-serif;">
+      <span style="font-size:13px; font-weight:600; color: var(--text-primary);">Monika</span>
+
+      <!-- Project Trigger -->
+      <span style="font-size:11px; color: var(--accent); cursor:pointer; display:inline-flex; align-items:center; gap:2px; padding:2px 4px; border-radius:2px; background: rgba(59,130,246,0.08);">
+        my-project
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>
+      </span>
+
+      <!-- Branch Trigger -->
+      <span style="font-size:11px; color: var(--text-dim); cursor:pointer; display:inline-flex; align-items:center; gap:2px; padding:2px 4px;">
+        main
+        <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6l4 4 4-4"/></svg>
+      </span>
+
+      <div style="flex:1;"></div>
+
+      <!-- Layout modes placeholder -->
+      <span style="font-size:10px; color: var(--text-dim);">[layout]</span>
+      <span style="font-size:10px; color: var(--text-dim);">[_] [□] [X]</span>
+    </div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Project Dropdown（展开态）</div>
+    <div class="mockup-body">
+      <div style="background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 4px; padding: 4px 0; width: 280px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+        <div style="padding: 8px 12px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border);">Recent Projects</div>
+
+        <div style="padding: 6px 10px; background: var(--bg-active); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 12px; color: var(--text-primary);">my-project</span>
+            <span style="display: block; font-size: 10px; color: var(--text-dim);">D:\git\monika</span>
+          </div>
+          <span style="font-size: 10px; color: var(--accent);">✓ active</span>
+        </div>
+
+        <div style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 12px; color: var(--text-primary);">other-project</span>
+            <span style="display: block; font-size: 10px; color: var(--text-dim);">D:\git\other-project</span>
+          </div>
+        </div>
+
+        <div style="padding: 6px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <span style="font-size: 12px; color: var(--text-primary);">playground</span>
+            <span style="display: block; font-size: 10px; color: var(--text-dim);">D:\code\playground</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid var(--border); margin-top: 4px;">
+          <div style="padding: 6px 10px; font-size: 12px; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            + Open New Project...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Branch Dropdown（展开态）</div>
+    <div class="mockup-body">
+      <div style="background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 4px; padding: 4px 0; width: 260px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+        <div style="padding: 8px 12px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border);">Local Branches</div>
+
+        <div style="padding: 5px 10px; background: var(--bg-active); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; color: var(--text-primary);">main</span>
+          <span style="font-size: 10px; color: var(--accent);">✓</span>
+        </div>
+        <div style="padding: 5px 10px; color: var(--text-dim); font-size: 12px; cursor: pointer;">feat/multi-tab</div>
+        <div style="padding: 5px 10px; color: var(--text-dim); font-size: 12px; cursor: pointer;">fix/scrollbar</div>
+
+        <div style="padding: 8px 12px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); border-top: 1px solid var(--border);">Remote Branches</div>
+        <div style="padding: 5px 10px; color: var(--text-dim); font-size: 12px; cursor: pointer;">origin/main</div>
+        <div style="padding: 5px 10px; color: var(--text-dim); font-size: 12px; cursor: pointer;">origin/feat/multi-tab</div>
+        <div style="padding: 5px 10px; color: var(--text-dim); font-size: 12px; cursor: pointer;">origin/fix/scrollbar</div>
+
+        <div style="border-top: 1px solid var(--border); margin-top: 4px;">
+          <div style="padding: 6px 10px; font-size: 12px; color: var(--accent); cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            + New Branch...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top: 28px;">
+  <div class="mockup-header">Create Branch 面板（点击 New Branch 后弹出）</div>
+  <div class="mockup-body">
+    <div style="background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 4px; padding: 12px; width: 280px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+      <div style="font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Create New Branch</div>
+
+      <input style="width:100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; font-size: 12px; color: var(--text-primary); margin-bottom: 8px; box-sizing:border-box;" placeholder="Branch name">
+
+      <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 4px;">From branch</div>
+      <select style="width:100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; font-size: 12px; color: var(--text-primary); margin-bottom: 10px;">
+        <option>main (current)</option>
+        <option>feat/multi-tab</option>
+        <option>fix/scrollbar</option>
+        <option>origin/main</option>
+        <option>origin/feat/other</option>
+      </select>
+
+      <div style="display:flex; gap: 8px; justify-content: flex-end;">
+        <div style="padding: 4px 12px; font-size: 11px; color: var(--text-dim); cursor: pointer;">Cancel</div>
+        <div style="padding: 4px 16px; font-size: 11px; background: var(--accent); color: white; border-radius: 2px; cursor: pointer;">Create & Switch</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mockup" style="margin-top: 28px;">
+  <div class="mockup-header">FileDialog — 应用内文件夹选择器</div>
+  <div class="mockup-body">
+    <div style="background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; width: 480px; box-shadow: 0 16px 48px rgba(0,0,0,0.5);">
+      <div style="padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text-primary); font-weight: 600;">Open Project</div>
+      <div style="padding: 8px 12px; border-bottom: 1px solid var(--border);">
+        <input style="width:100%; background: var(--bg-input); border: 1px solid var(--border); border-radius: 2px; padding: 6px 8px; font-size: 12px; color: var(--text-primary); box-sizing:border-box;" placeholder="Filter or type path...">
+      </div>
+      <div style="height: 240px; overflow-y: auto; padding: 4px 0;">
+        <div style="padding: 5px 14px; font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 8px;">
+          <span>📁</span> ..
+        </div>
+        <div style="padding: 5px 14px; font-size: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>📁</span> monika
+        </div>
+        <div style="padding: 5px 14px; font-size: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>📁</span> other-project
+        </div>
+        <div style="padding: 5px 14px; font-size: 12px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+          <span>📁</span> playground
+        </div>
+        <div style="padding: 5px 14px; font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 8px;">
+          <span>📄</span> README.md
+        </div>
+      </div>
+      <div style="padding: 8px 12px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px;">
+        <div style="padding: 4px 16px; font-size: 11px; color: var(--text-dim); cursor: pointer; border-radius: 2px;">Cancel</div>
+        <div style="padding: 4px 16px; font-size: 11px; background: var(--accent); color: white; border-radius: 2px; cursor: pointer;">Open</div>
+      </div>
+    </div>
+  </div>
+</div>

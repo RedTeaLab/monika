@@ -48,7 +48,7 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
         onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onCancel(); }}
         style={{
           width: '100%',
-          background: 'var(--glass-medium)',
+          background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: 2,
           padding: '6px 8px',
@@ -66,7 +66,7 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
         onChange={e => setBaseBranch(e.target.value)}
         style={{
           width: '100%',
-          background: 'var(--glass-medium)',
+          background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           borderRadius: 2,
           padding: '6px 8px',
@@ -108,7 +108,7 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
           style={{
             padding: '4px 16px',
             fontSize: 11,
-            background: name.trim() && !creating ? 'var(--accent)' : 'var(--glass-medium)',
+            background: name.trim() && !creating ? 'var(--accent)' : 'var(--bg-card)',
             color: name.trim() && !creating ? 'white' : 'var(--text-dim)',
             border: 'none',
             borderRadius: 2,

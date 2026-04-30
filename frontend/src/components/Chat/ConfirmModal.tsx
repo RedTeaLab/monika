@@ -66,7 +66,8 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
       onClick={isLoading ? undefined : onCancel}
     >
       <div
@@ -74,7 +75,7 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
         aria-describedby="confirm-modal-desc"
-        className="bg-[var(--bg-titlebar)] rounded-[6px] max-w-[360px] p-5"
+        className="bg-[var(--bg-elevated)] rounded-[var(--radius-lg)] max-w-[360px] p-5"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >

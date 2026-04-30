@@ -11,6 +11,8 @@ const (
 	EventUsage
 	EventError
 	EventDone
+	EventSessionUpdated
+	EventTurnStart
 )
 
 type Event struct {

@@ -13,16 +13,16 @@ type adapterConfig struct {
 }
 
 type Adapter interface {
-	StreamChat(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) ([]engine.ChatEvent, error)
+	StreamChat(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) (<-chan engine.ChatEvent, error)
 	ListModels(ctx context.Context, cfg adapterConfig) ([]engine.Model, error)
 }
 
 type baseAdapter struct {
-	call func(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) ([]engine.ChatEvent, error)
+	call func(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) (<-chan engine.ChatEvent, error)
 	list func(ctx context.Context, cfg adapterConfig) ([]engine.Model, error)
 }
 
-func (a baseAdapter) StreamChat(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) ([]engine.ChatEvent, error) {
+func (a baseAdapter) StreamChat(ctx context.Context, cfg adapterConfig, messages []engine.ChatMessage) (<-chan engine.ChatEvent, error) {
 	return a.call(ctx, cfg, messages)
 }
 

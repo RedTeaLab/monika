@@ -5,10 +5,11 @@ export const dropdownContainerStyle = {
   minWidth: 260,
   maxHeight: 360,
   overflowY: 'auto' as const,
-  background: 'var(--bg-sidebar)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+  background: 'var(--bg-elevated)',
+  border: '1px solid var(--border-strong)',
+  borderRadius: 'var(--radius-md)',
+  boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+  backdropFilter: 'blur(12px)',
   zIndex: 1000,
 };
 

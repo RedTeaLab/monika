@@ -50,8 +50,8 @@ function Console({ onResize }: { onResize: (h: number) => void }) {
 
   return (
     <div
-      className="flex flex-col h-full backdrop-blur-md"
-      style={{ background: 'var(--glass-light)' }}
+      className="flex flex-col h-full"
+      style={{ background: '#080a10' }}
     >
       <div
         className="h-[3px] cursor-ns-resize flex-shrink-0 transition-colors"
@@ -62,7 +62,7 @@ function Console({ onResize }: { onResize: (h: number) => void }) {
       />
       <div
         className="py-1 border-b border-[var(--border)] flex items-center"
-        style={{ padding: '2px 12px', background: 'var(--glass-strong)' }}
+        style={{ padding: '2px 14px', background: 'var(--bg-elevated)' }}
       >
         <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Console</span>
       </div>

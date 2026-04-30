@@ -30,7 +30,7 @@ func (p *OpenAIProvider) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (p *OpenAIProvider) StreamChat(ctx context.Context, req engine.ChatRequest) ([]engine.ChatEvent, error) {
+func (p *OpenAIProvider) StreamChat(ctx context.Context, req engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 	cfg := p.resolveConfig(req)
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "https://api.openai.com/v1"

@@ -23,6 +23,7 @@
   - `src/store/` — Zustand state management with Wails event listeners. Multi-tab session and file state.
   - `src/index.css` — CSS custom properties (design tokens), Tailwind import, global resets, scrollbar styling, CodeMirror scrollbar styling.
   - `bindings/` — Wails Go↔JS method bindings (auto-generated).
+  - `design-preview.html` — single source of truth for all visual design.
 - `build/config.yml` — Wails v3 build configuration.
 - Engine registration follows `database/sql` pattern: each engine calls `engine.Register()` in `init()`, binary triggers via blank imports in `main.go`.
 
@@ -48,123 +49,42 @@
 - Zustand v5 for global state (single store, `create<AppState>`).
 - `@wailsio/runtime` for Go↔JS: `App.*` for RPC calls, `Events.On(...)` for push events.
 
-### Design System (Cool Dark)
-All tokens live as CSS custom properties in `:root` in `index.css`. Never hardcode colors in components — always reference `var(--token)` or Tailwind `[var(--token)]` syntax.
+### Design System
+All visual design — colors, typography, spacing, component states, motion — is defined in **`frontend/design-preview.html`**. Open it in a browser. It is the single source of truth. No style values belong in this file.
 
-**Color tokens** (see `frontend/src/index.css` for exact values):
-| Token | Role |
-|---|---|
-| `--bg-main` | Root background (`#060609`) |
-| `--bg-sidebar` | Side panels (`#09090d`) |
-| `--bg-panel` | Panel backgrounds (`#09090d`) |
-| `--bg-titlebar` | Title bar only (`#0b0b10`) |
-| `--glass-strong` | Glass surface, strong (`rgba(255,255,255,0.07)`) |
-| `--glass-medium` | Glass surface, medium (`rgba(255,255,255,0.05)`) |
-| `--glass-light` | Glass surface, light (`rgba(255,255,255,0.03)`) |
-| `--glass-hover` | Glass hover state (`rgba(255,255,255,0.08)`) |
-| `--glass-active` | Glass active state (`rgba(255,255,255,0.10)`) |
-| `--border` | Divider lines (`rgba(255,255,255,0.08)`) |
-| `--border-light` | Lighter dividers (`rgba(255,255,255,0.05)`) |
-| `--border-strong` | Strong borders (`rgba(255,255,255,0.12)`) |
-| `--border-active` | Focus/border active (`#5b8def`) |
-| `--text-primary` | Main content text (`#d0d0d8`) |
-| `--text-secondary` | Secondary text (`#9d9db0`) |
-| `--text-dim` | Placeholder/muted (`#78788a`) |
-| `--text-link` | Hyperlinks (`#7cb8ff`) |
-| `--accent` | Primary action blue (`#5b8def`) |
-| `--accent-hover` | Accent hover state (`#7aa2f5`) |
-| `--accent-glass` | Accent glass overlay (`rgba(91,141,239,0.10)`) |
-| `--green` | Success (`#4ade80`) |
-| `--red` | Error (`#f87171`) |
-| `--yellow` | Warning/running (`#facc15`) |
-| `--orange` | Highlights / inline code (`#fb923c`) |
-| `--blue` | Headings / keywords (`#7cb8ff`) |
-| `--purple` | Secondary accent (`#a78bfa`) |
-
-**Typography tokens**:
-- `--font-ui`: `system-ui, -apple-system, 'Segoe UI', sans-serif` — all chrome/controls.
-- `--font-mono`: `'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace` — code blocks, messages, console output.
-
-**Z-index scale**: `position: fixed` dropdowns/overlays use z-1000 (TitleBar dropdowns) or z-2000 (FileDialog). ConfirmModal uses z-50 (portal to body). TitleBar establishes a stacking context via `backdrop-filter`; popups rendered inside it need the TitleBar itself to have `position: relative; z-index: N` to lift the stacking context above the main content area. When adding a new stacking layer, prefer portal to `document.body` (see `BranchDropdown`, `ProjectDropdown`, `ConfirmModal`).
+Hard rules (non-negotiable):
+- All colors via CSS custom properties: `var(--token)` or Tailwind `[var(--token)]`. Never hardcode.
+- Focus ring on every interactive element. Never `outline-none` alone.
+- Respect `prefers-reduced-motion`.
+- Z-index: dropdowns/overlays at z-1000 (TitleBar) or z-2000 (FileDialog). ConfirmModal at z-50. Prefer portal to `document.body` for overlays.
 
 ### Component Structure
-Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts` re-export files. Keep one component per file; co-locate sub-components only when tightly coupled (e.g., `FileEditor` inside `FileTree/`).
+Each component lives in `src/components/<Name>/<Name>.tsx`. No barrel `index.ts` re-export files. Co-locate sub-components only when tightly coupled (e.g., `FileEditor` inside `FileTree/`). All visual details belong in `design-preview.html`.
 
 **Layout (App.tsx)**:
 ```
-+-- TitleBar (h-[32px], draggable region)
++-- TitleBar (draggable region)
 +-- Main flex row (flex-1)
 |   +-- [Chat pane] (layoutMode: chat|split)
-|   |   +-- SessionList (left sidebar, w-56, togglable)
+|   |   +-- SessionList (left sidebar, togglable)
 |   |   +-- ChatArea (center, flex-1)
 |   +-- [DragDivider] (layoutMode: split only, draggable ratio)
 |   +-- [Files pane] (layoutMode: split|files)
 |   |   +-- FileEditor (center, flex-1)
-|   |   +-- FileTree (right sidebar, w-56, togglable)
+|   |   +-- FileTree (right sidebar, togglable)
 +-- Console (bottom panel, resizable, togglable)
-+-- StatusBar (h-[22px])
++-- StatusBar
 ```
+Layout modes: `chat`, `split`, `files`. Controlled by `layoutMode` in Zustand store.
 
-Layout modes: `chat` (chat-only), `split` (chat + files with draggable divider), `files` (files-only). Controlled by `layoutMode` in Zustand store.
-
-**TabBar conventions** (ChatArea, FileEditor):
-- Height 36px (`TAB_BAR_HEIGHT`), background `var(--glass-strong)`, border-b.
-- Tab min-width 120px, max-width 200px, truncate with ellipsis.
-- Active tab: `var(--bg-main)` background, `var(--text-primary)` text.
-- Inactive tabs: transparent background, `var(--text-secondary)` text.
-- Status indicators: generating (yellow pulsing dot), completed (green checkmark), error (red dot).
-- Dirty indicator (file tabs): dim dot after label text.
-- Close button: always visible on active tab, visible on hover for inactive tabs.
-- Overflow: tabs exceeding container width collapse into `▼` dropdown menu (ResizeObserver-driven).
-- ARIA: `role="tablist"`, `role="tab"` with `aria-selected`, `aria-controls`; keyboard nav (Left/Right, Enter/Space, Ctrl+W).
-- Overflow button: `aria-haspopup="menu"`, `aria-expanded`.
-- Drag-and-drop reorder deferred to later phase; `onReorder?` prop reserved.
-
-**ChatArea conventions** (ChatArea, ChatInput, MessageBubble, ToolCard):
-- Message role labels: 12px, uppercase, `tracking-[0.03em]`, semibold. Roles: `You` (user, `--accent`), `Assistant` (`--green`), `System` (`--text-dim`), `Error` (`--red`).
-- Message content: `var(--font-mono)`, 13px, `leading-[1.6]`.
-- Tool cards: 3px left border by status color, monospace output, 11px uppercase status badge.
-- Input field: `--bg-input` background, rounded `[2px]`, focus border `--border-active`.
-- Multi-session: TabBar manages open sessions; messages cached in `sessionMessages[id]`; stream events routed by `session_id`.
-
-**FileEditor conventions** (FileEditor):
-- TabBar manages open files; CodeMirror EditorView instances cached in `useRef<Map>` with LRU eviction (max 10).
-- Each file gets a DOM container (`absolute inset-0`, `display:block`/`none` for visibility).
-- Tab switch: `view.requestMeasure()` + content sync (`view.dispatch`) if store content differs from editor.
-- Dirty close: `ConfirmModal` with `confirmLabel="Discard"` when `isDirty` is true.
-- File content freshness: on tab select, re-read from backend via `App.ReadFile`.
-
-**Sidebar conventions** (SessionList, FileTree):
-- Background `--bg-sidebar`, not `--bg-main`.
-- Section header: 11px, uppercase, `tracking-[0.05em]`, `--text-secondary`.
-- Row: 13px, `leading-[22px]`, hover `--bg-hover`, active `--bg-active`.
-- Indentation for tree: `depth * 16px + 8px` padding-left.
-- Directory expand/collapse: unicode `\u25B6` / `\u25BC` (not ASCII `>` / `v`).
-
-**Chat conventions** (ChatArea, ChatInput, MessageBubble, ToolCard):
-- Message role labels: 12px, uppercase, `tracking-[0.03em]`, semibold. Roles: `You` (user, `--accent`), `Assistant` (`--green`), `System` (`--text-dim`), `Error` (`--red`).
-- Message content: `var(--font-mono)`, 13px, `leading-[1.6]`.
-- Tool cards: 3px left border by status color, monospace output, 11px uppercase status badge.
-- Input field: `--bg-input` background, rounded `[2px]`, focus border `--border-active`.
-
-**Panel conventions** (Console):
-- Header bar: `--bg-sidebar` background, border-b, 11px uppercase section header.
-- Content: `var(--font-mono)`, `--text-dim` color.
-- Resize handle: 1px height, `cursor-ns-resize`, hover `--accent`.
-
-**TitleBar conventions**:
-- Height 32px, `--glass-strong` background, `backdrop-blur-md`, border-b.
-- Left: app name ("Monika"), project dropdown (recent projects, open folder), branch dropdown (switch/create branches, git repos only).
-- Center: empty (drag region).
-- Right: layout mode toggles (chat/split/files), window controls (minimize/maximize/close).
-- Dropdowns: `ProjectDropdown` and `BranchDropdown` use `createPortal` to `document.body`. `CreateBranchPanel` renders inline with `position: fixed`.
-- Window controls: no-drag region, hover uses `--glass-hover`, close hover uses `--red`.
-
-**StatusBar conventions**:
-- Height 22px, 12px text.
-- Left side: `--bg-statusbar` (`#007acc`) background, white text, status indicator.
-- Right side: `#a78bfa`/`var(--purple)` blended background, white text, toggle buttons with 50% opacity when inactive.
-- Middle: stretched `--bg-statusbar` to fill gap.
+**Component behavior** (see `design-preview.html` for all visual spec):
+- **TabBar**: min-width 120px, max-width 200px, truncate. Status indicators (dot/checkmark). Close on active always, hover-revealed on inactive. Overflow via dropdown (ResizeObserver). ARIA: `role="tablist"`, `role="tab"`, keyboard nav.
+- **ChatArea**: Multi-session via TabBar; messages cached in `sessionMessages[id]`; stream events routed by `session_id`. Variants: user, assistant, thinking, error, tool block, system.
+- **FileEditor**: CodeMirror EditorView LRU cache (max 10). Each file: `absolute inset-0`, `display:block`/`none`. Tab switch: `view.requestMeasure()` + content sync. Dirty close: `ConfirmModal`.
+- **Sidebar** (SessionList, FileTree): Tree indentation `depth * 16px + 8px`. Directory expand/collapse: unicode arrows.
+- **TitleBar**: Left: app name, project/branch dropdowns. Center: drag region. Right: layout toggles, window controls. Dropdowns via `createPortal` to `document.body`.
+- **Console**: Resize handle with `cursor-ns-resize`.
+- **StatusBar**: Status indicator, branch name, token count, panel toggle buttons.
 
 ### State Management (Zustand)
 - Single store in `src/store/index.ts` — `create<AppState>`.
@@ -182,20 +102,11 @@ Layout modes: `chat` (chat-only), `split` (chat + files with draggable divider),
 - RPC calls: `App.SendMessage(projectPath, sessionId, text)` returns a Promise.
 - Events: `Events.On('stream', (ev) => { ... })` receives typed `StreamEvent` payloads.
 
-### CSS / Styling Rules
-- Use Tailwind utility classes for layout, spacing, borders. Never write custom CSS rules in component files.
-- Colors always via CSS custom properties: `bg-[var(--bg-main)]`, `text-[var(--text-primary)]`, `border-[var(--border)]`.
-- Never use Tailwind v3 color classes (e.g., `bg-gray-800`) — they don't exist in v4 without a config and don't match our design tokens.
+### Styling & Accessibility
+- Use Tailwind utility classes for layout/spacing. Colors via CSS custom properties only. No Tailwind v3 color classes.
 - No `transition-all` — specify properties (e.g., `transition-colors`).
-- Focus states: always provide visible focus rings. Use `focus:border-[var(--border-active)]` on inputs, never `outline-none` alone.
-- Scrollbar styling in `index.css` — WebKit-only, 10px width, `#424242` thumb.
-
-### Accessibility Baseline
-- All icon-only buttons need `aria-label` (applies to title bar window controls, close buttons).
-- Interactive elements must have hover states (`bg-[var(--bg-hover)]`).
-- Focus indicators must remain visible — never use `outline-none` without a replacement ring/border.
-- Color is never the sole indicator of state; pair with text labels (e.g., tool status text alongside colored border).
-- Scrollable regions use `overflow-y-auto` (not `overflow-hidden` that clips content).
+- All icon-only buttons need `aria-label`. Focus indicators always visible. Color never the sole indicator of state.
+- Scrollable regions use `overflow-y-auto`.
 
 ## Commands
 - Run full verification: `go test ./...`

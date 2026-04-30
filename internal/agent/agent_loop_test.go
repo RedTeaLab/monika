@@ -11,7 +11,7 @@ import (
 )
 
 type fakeProvider struct {
-	streamFn func(context.Context, engine.ChatRequest) ([]engine.ChatEvent, error)
+	streamFn func(context.Context, engine.ChatRequest) (<-chan engine.ChatEvent, error)
 }
 
 func (f *fakeProvider) ID() string                                     { return "fake" }
@@ -24,17 +24,29 @@ func (f *fakeProvider) ListModels(_ context.Context) ([]engine.Model, error) {
 	return nil, nil
 }
 
-func (f *fakeProvider) StreamChat(ctx context.Context, req engine.ChatRequest) ([]engine.ChatEvent, error) {
+func (f *fakeProvider) StreamChat(ctx context.Context, req engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 	if f.streamFn != nil {
 		return f.streamFn(ctx, req)
 	}
-	return nil, nil
+	ch := make(chan engine.ChatEvent)
+	close(ch)
+	return ch, nil
 }
 
-func staticProvider(events []engine.ChatEvent, err error) *fakeProvider {
+func staticProvider(events []engine.ChatEvent, provErr error) *fakeProvider {
 	return &fakeProvider{
-		streamFn: func(context.Context, engine.ChatRequest) ([]engine.ChatEvent, error) {
-			return events, err
+		streamFn: func(context.Context, engine.ChatRequest) (<-chan engine.ChatEvent, error) {
+			if provErr != nil {
+				ch := make(chan engine.ChatEvent)
+				close(ch)
+				return ch, provErr
+			}
+			ch := make(chan engine.ChatEvent, len(events))
+			for _, ev := range events {
+				ch <- ev
+			}
+			close(ch)
+			return ch, nil
 		},
 	}
 }
@@ -98,13 +110,20 @@ func TestLoopRunToolCallLoop(t *testing.T) {
 	}
 	callCount := 0
 	provider := &fakeProvider{
-		streamFn: func(_ context.Context, _ engine.ChatRequest) ([]engine.ChatEvent, error) {
+		streamFn: func(_ context.Context, _ engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 			idx := callCount
 			callCount++
 			if idx >= len(events) {
-				return nil, errors.New("too many calls")
+				ch := make(chan engine.ChatEvent)
+				close(ch)
+				return ch, errors.New("too many calls")
 			}
-			return events[idx], nil
+			ch := make(chan engine.ChatEvent, len(events[idx]))
+			for _, ev := range events[idx] {
+				ch <- ev
+			}
+			close(ch)
+			return ch, nil
 		},
 	}
 
@@ -132,11 +151,12 @@ func TestLoopRunToolCallLoop(t *testing.T) {
 
 func TestLoopRunExceedsMaxTurns(t *testing.T) {
 	provider := &fakeProvider{
-		streamFn: func(_ context.Context, _ engine.ChatRequest) ([]engine.ChatEvent, error) {
-			return []engine.ChatEvent{
-				{Kind: engine.EventToolCallEnd, ToolCall: &engine.ToolCall{ID: "1", Type: "function", Function: engine.ToolCallFunc{Name: "test_tool", Arguments: "{}"}}},
-				{Kind: engine.EventMessageEnd, Text: "tool_calls"},
-			}, nil
+		streamFn: func(_ context.Context, _ engine.ChatRequest) (<-chan engine.ChatEvent, error) {
+			ch := make(chan engine.ChatEvent, 2)
+			ch <- engine.ChatEvent{Kind: engine.EventToolCallEnd, ToolCall: &engine.ToolCall{ID: "1", Type: "function", Function: engine.ToolCallFunc{Name: "test_tool", Arguments: "{}"}}}
+			ch <- engine.ChatEvent{Kind: engine.EventMessageEnd, Text: "tool_calls"}
+			close(ch)
+			return ch, nil
 		},
 	}
 
@@ -168,13 +188,20 @@ func TestLoopRunToolNotFound(t *testing.T) {
 	}
 	callCount := 0
 	provider := &fakeProvider{
-		streamFn: func(_ context.Context, _ engine.ChatRequest) ([]engine.ChatEvent, error) {
+		streamFn: func(_ context.Context, _ engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 			idx := callCount
 			callCount++
 			if idx >= len(events) {
-				return nil, nil
+				ch := make(chan engine.ChatEvent)
+				close(ch)
+				return ch, nil
 			}
-			return events[idx], nil
+			ch := make(chan engine.ChatEvent, len(events[idx]))
+			for _, ev := range events[idx] {
+				ch <- ev
+			}
+			close(ch)
+			return ch, nil
 		},
 	}
 
