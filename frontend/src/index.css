@@ -64,6 +64,10 @@
   50% { opacity: 0.35; }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .motion-safe\:animate-label-blink { animation: none; }
 }
