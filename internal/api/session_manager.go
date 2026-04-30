@@ -20,6 +20,7 @@ type Session struct {
 	Messages   []engine.ChatMessage `json:"messages"`
 	Model      string               `json:"model"`
 	Provider   string               `json:"provider"`
+	Status     string               `json:"status"`
 	CreatedAt  time.Time            `json:"created_at"`
 	UpdatedAt  time.Time            `json:"updated_at"`
 }

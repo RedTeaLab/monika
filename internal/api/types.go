@@ -45,6 +45,7 @@ type BranchInfo struct {
 type SessionInfo struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
+	Status    string `json:"status"`
 	UpdatedAt string `json:"updated_at"`
 }
 
