@@ -712,6 +712,8 @@ export function setupWailsEvents() {
         if (sid === store.generatingSessionId) {
           store.setGeneratingSessionId('')
         }
+        store.setSessionStatus(sid, 'failure')
+        store.setSessionError(sid, data.content || 'Unknown error')
         break
 
       case 'file_changed':
@@ -732,6 +734,7 @@ export function setupWailsEvents() {
             break
           }
         }
+        store.setSessionStatus(sid, 'success')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
         break
@@ -747,6 +750,8 @@ export function setupWailsEvents() {
       case 'turn_start': {
         const newMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now(), model: data.model || undefined }
         store.appendToSession(sid, [newMsg])
+        store.setSessionStatus(sid, 'generating')
+        store.setGeneratingSessionId(sid)
         break
       }
     }
