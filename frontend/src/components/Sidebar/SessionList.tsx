@@ -16,7 +16,15 @@ function SessionList() {
 
   useEffect(() => {
     if (!projectPath) return
-    App.ListSessions(projectPath).then(setSessions).catch(() => setSessions([]))
+    let cancelled = false
+    App.ListSessions(projectPath)
+      .then((result) => {
+        if (!cancelled) setSessions(Array.isArray(result) ? result : [])
+      })
+      .catch(() => {
+        if (!cancelled) setSessions([])
+      })
+    return () => { cancelled = true }
   }, [projectPath])
 
   // Dismiss modal when project changes
@@ -24,10 +32,10 @@ function SessionList() {
     setSessionToDelete(null)
   }, [projectPath])
 
-  const sortedSessions = useMemo(() =>
-    [...sessions].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()),
-    [sessions]
-  )
+  const sortedSessions = useMemo(() => {
+    const list = Array.isArray(sessions) ? sessions : []
+    return [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  }, [sessions])
 
   const handleNewSession = async () => {
     if (!projectPath) return

@@ -52,10 +52,10 @@ func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
 	absPath := filepath.Join(f.projectDir, relPath)
 	entries, err := os.ReadDir(absPath)
 	if err != nil {
-		return nil, err
+		return []FileNode{}, err
 	}
 
-	var nodes []FileNode
+	nodes := make([]FileNode, 0)
 	for _, entry := range entries {
 		name := entry.Name()
 		if strings.HasPrefix(name, ".") || name == "node_modules" {
@@ -98,7 +98,7 @@ func (f *FileService) ListChanges() ([]FileChange, error) {
 		return []FileChange{}, nil
 	}
 
-	var changes []FileChange
+	changes := make([]FileChange, 0)
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if len(line) < 4 {
 			continue

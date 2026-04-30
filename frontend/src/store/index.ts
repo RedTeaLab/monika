@@ -245,8 +245,14 @@ export const useStore = create<AppState>((set, get) => ({
   addTokens: (t) => set((s) => ({ tokenCount: s.tokenCount + t })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
-  setProjectPath: (path) => set({ projectPath: path }),
-  setBranch: (branch) => set({ branch }),
+  setProjectPath: (path) => {
+    console.log('[monika] store.setProjectPath:', path);
+    set({ projectPath: path });
+  },
+  setBranch: (branch) => {
+    console.log('[monika] store.setBranch:', branch);
+    set({ branch });
+  },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
@@ -402,23 +408,29 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadRecentProjects: async () => {
+    console.log('[monika] loadRecentProjects called');
     const projects = await App.GetRecentProjects();
+    console.log('[monika] loadRecentProjects got', projects.length, 'projects:', projects.map(p => p.path));
     set({ recentProjects: projects });
   },
 
   loadBranches: async () => {
     const { projectPath } = get();
+    console.log('[monika] loadBranches called, projectPath:', projectPath);
     if (!projectPath) return;
     try {
       const branches = await App.ListBranches(projectPath);
+      console.log('[monika] loadBranches got', branches.length, 'branches');
       set({ allBranches: branches });
     } catch (e) {
+      console.error('[monika] loadBranches failed:', e);
       set({ allBranches: [] });
       throw e;
     }
   },
 
   resetProjectState: () => {
+    console.log('[monika] resetProjectState called');
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
       generatingSessionId: '',

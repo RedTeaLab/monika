@@ -80,6 +80,8 @@ func (a *App) QuitApp() {
 
 func (a *App) GetCurrentProject() *ProjectInfo {
 	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject called, startupCwd=%q projects=%v\n", a.startupCwd, func() []string {
+		a.mu.RLock()
+		defer a.mu.RUnlock()
 		var keys []string
 		for k := range a.projects {
 			keys = append(keys, k)
@@ -89,7 +91,7 @@ func (a *App) GetCurrentProject() *ProjectInfo {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	if info, ok := a.projects[a.startupCwd]; ok {
-		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning: path=%s branch=%s\n", info.Path, info.Branch)
+		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
 		return info
 	}
 	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject: no project found for key=%q\n", a.startupCwd)
@@ -117,6 +119,7 @@ func (a *App) ListProjects() []ProjectInfo {
 }
 
 func (a *App) OpenProject(path string) (*ProjectInfo, error) {
+	fmt.Fprintf(os.Stderr, "[monika] OpenProject called: path=%s\n", path)
 	branch := ""
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = path
@@ -127,6 +130,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	if branch == "" {
 		branch = "—"
 	}
+	fmt.Fprintf(os.Stderr, "[monika] OpenProject: branch=%s\n", branch)
 
 	var worktrees []WorktreeInfo
 	cmd2 := exec.Command("git", "worktree", "list", "--porcelain")
@@ -146,6 +150,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 			}
 		}
 	}
+	fmt.Fprintf(os.Stderr, "[monika] OpenProject: worktrees=%d\n", len(worktrees))
 
 	info := &ProjectInfo{
 		Path:      path,
@@ -161,6 +166,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	a.getFileService(path)
 	a.writeRecentProject(info.Path, info.Name)
 
+	fmt.Fprintf(os.Stderr, "[monika] OpenProject: returning info: path=%s name=%s branch=%s worktrees=%d\n", info.Path, info.Name, info.Branch, len(info.Worktrees))
 	return info, nil
 }
 
@@ -481,10 +487,12 @@ func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
 
 // ListBranches returns local and remote git branches for the given project.
 func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
+	fmt.Fprintf(os.Stderr, "[monika] ListBranches called: projectPath=%s\n", projectPath)
 	cmd := exec.Command("git", "branch", "-a", "--no-color")
 	cmd.Dir = projectPath
 	out, err := cmd.Output()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] ListBranches git branch failed: %v\n", err)
 		return nil, err
 	}
 
@@ -551,7 +559,9 @@ func validateBranchName(name string) error {
 // If name starts with "origin/" (remote branch), creates a local tracking branch via git checkout -b.
 // Branch names are validated by validateBranchName to reject names starting with '-'.
 func (a *App) SwitchBranch(projectPath, name string) error {
+	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch called: projectPath=%s name=%s\n", projectPath, name)
 	if err := validateBranchName(name); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch validateBranchName failed: %v\n", err)
 		return err
 	}
 
@@ -571,6 +581,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 						return err
 					}
 					cmd = exec.Command("git", "checkout", "-b", localName, name)
+					fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: creating local tracking branch: checkout -b %s %s\n", localName, name)
 					break
 				}
 			}
@@ -578,10 +589,12 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 	}
 	if cmd == nil {
 		cmd = exec.Command("git", "checkout", name)
+		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: checkout %s\n", name)
 	}
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch git checkout failed: %v output=%s\n", err, strings.TrimSpace(string(out)))
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
@@ -591,6 +604,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
 	}
 
+	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: success, setting branch to %s\n", displayBranch)
 	a.setProjectBranch(projectPath, displayBranch)
 
 	return nil
@@ -598,6 +612,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 
 // setProjectBranch updates the in-memory branch for a project.
 func (a *App) setProjectBranch(projectPath, branchName string) {
+	fmt.Fprintf(os.Stderr, "[monika] setProjectBranch: projectPath=%s branchName=%s\n", projectPath, branchName)
 	a.mu.Lock()
 	if info, ok := a.projects[projectPath]; ok {
 		info.Branch = branchName
@@ -607,10 +622,13 @@ func (a *App) setProjectBranch(projectPath, branchName string) {
 
 // CreateBranch creates and checks out a new branch from the given base branch.
 func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
+	fmt.Fprintf(os.Stderr, "[monika] CreateBranch called: projectPath=%s name=%s baseBranch=%s\n", projectPath, name, baseBranch)
 	if err := validateBranchName(name); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] CreateBranch validateBranchName failed: %v\n", err)
 		return err
 	}
 	if err := validateBranchName(baseBranch); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] CreateBranch validateBranchName(baseBranch) failed: %v\n", err)
 		return err
 	}
 
@@ -618,9 +636,11 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] CreateBranch git checkout -b failed: %v output=%s\n", err, strings.TrimSpace(string(out)))
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
+	fmt.Fprintf(os.Stderr, "[monika] CreateBranch: success, setting branch to %s\n", name)
 	a.setProjectBranch(projectPath, name)
 
 	return nil

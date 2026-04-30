@@ -12,7 +12,15 @@ function FileTree() {
 
   useEffect(() => {
     if (!projectPath) return
-    App.ListFileTree(projectPath).then(setTree).catch(() => {})
+    let cancelled = false
+    App.ListFileTree(projectPath)
+      .then((result) => {
+        if (!cancelled) setTree(Array.isArray(result) ? result : [])
+      })
+      .catch(() => {
+        if (!cancelled) setTree([])
+      })
+    return () => { cancelled = true }
   }, [projectPath])
 
   const handleFileClick = async (node: FileNode) => {
@@ -76,7 +84,7 @@ function FileTree() {
         <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Files</span>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {tree.length === 0 ? (
+        {(!tree || tree.length === 0) ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No project opened</div>
         ) : (
           tree.map(node => renderNode(node))

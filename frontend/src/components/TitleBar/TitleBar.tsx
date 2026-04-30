@@ -50,19 +50,31 @@ function TitleBar() {
   const isGitRepo = projectPath && branch !== '—'
 
   const doSwitchProject = async (targetPath: string) => {
+    console.log('[monika] doSwitchProject: starting, targetPath:', targetPath)
     const info = await App.OpenProject(targetPath)
-    if (!info) return
+    console.log('[monika] doSwitchProject: OpenProject returned:', JSON.stringify(info))
+    if (!info) {
+      console.warn('[monika] doSwitchProject: OpenProject returned null/undefined, aborting')
+      return
+    }
+    console.log('[monika] doSwitchProject: calling resetProjectState')
     resetProjectState()
+    console.log('[monika] doSwitchProject: setting projectPath:', info.path, 'branch:', info.branch)
     setProjectPath(info.path)
     setBranch(info.branch)
+    console.log('[monika] doSwitchProject: loading branches and recent projects')
     await Promise.all([loadBranches(), loadRecentProjects()])
+    console.log('[monika] doSwitchProject: complete')
   }
 
   const handleProjectSelect = useCallback(async (targetPath: string) => {
+    console.log('[monika] handleProjectSelect: targetPath:', targetPath)
     const dirtyCount = openFiles.filter(f => f.isDirty).length
     const isGenerating = generatingSessionId !== ''
+    console.log('[monika] handleProjectSelect: dirtyCount:', dirtyCount, 'isGenerating:', isGenerating)
 
     if (dirtyCount > 0 || isGenerating) {
+      console.log('[monika] handleProjectSelect: showing confirm modal (dirty/generating)')
       const message = buildDirtyGuardMessage(dirtyCount, isGenerating, 'projects');
       setConfirmModal({ title: 'Switch Project', message, targetPath })
       return
@@ -78,6 +90,8 @@ function TitleBar() {
         '--wails-draggable': 'drag' as string,
         background: 'var(--glass-strong)',
         paddingLeft: '12px',
+        position: 'relative',
+        zIndex: 10,
       } as React.CSSProperties}
     >
       <span className="text-[13px] font-semibold text-[var(--text-primary)] tracking-tight">Monika</span>

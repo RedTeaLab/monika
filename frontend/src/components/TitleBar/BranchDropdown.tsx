@@ -45,12 +45,14 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   }, [isOpen, onClose]);
 
   const handleSwitch = async (branchName: string, remote: string) => {
+    console.log('[monika] BranchDropdown.handleSwitch: branchName:', branchName, 'remote:', remote);
     setError(null);
 
     // Guard: check for dirty files or active generation before switching.
     const { openFiles, generatingSessionId } = useStore.getState();
     const dirtyCount = openFiles.filter(f => f.isDirty).length;
     if (dirtyCount > 0 || generatingSessionId) {
+      console.log('[monika] BranchDropdown.handleSwitch: showing dirty confirm');
       setDirtyConfirm({ branchName, remote });
       return;
     }
@@ -59,14 +61,18 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   };
 
   const doSwitch = async (branchName: string, remote: string) => {
+    console.log('[monika] BranchDropdown.doSwitch: branchName:', branchName, 'remote:', remote);
     setError(null);
     const { App } = await import('../../../bindings/monika');
     try {
       const name = remote ? `${remote}/${branchName}` : branchName;
+      console.log('[monika] BranchDropdown.doSwitch: calling App.SwitchBranch with name:', name);
       await App.SwitchBranch(projectPath, name);
+      console.log('[monika] BranchDropdown.doSwitch: SwitchBranch succeeded');
 
       // Refresh open file tabs in parallel.
       const { openFiles, updateFileContent, closeFileTab } = useStore.getState();
+      console.log('[monika] BranchDropdown.doSwitch: refreshing', openFiles.length, 'open files');
       await Promise.all(openFiles.map(async (file) => {
         try {
           const content = await App.ReadFile(projectPath, file.path);
@@ -80,9 +86,12 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
         }
       }));
       useStore.getState().setBranch(branchName);
+      console.log('[monika] BranchDropdown.doSwitch: reloading branches');
       await loadBranches();
+      console.log('[monika] BranchDropdown.doSwitch: complete, closing dropdown');
       onClose();
     } catch (e: unknown) {
+      console.error('[monika] BranchDropdown.doSwitch failed:', e);
       setError(getErrorMessage(e, 'Failed to switch branch'));
     }
   };

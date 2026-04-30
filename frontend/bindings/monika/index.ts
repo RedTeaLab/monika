@@ -83,7 +83,14 @@ export const App = {
     return Call.ByName(`${serviceName}.GetCurrentProject`);
   },
   OpenProject(path: string): Promise<ProjectInfo> {
-    return Call.ByName(`${serviceName}.OpenProject`, path);
+    console.log('[monika] App.OpenProject called with path:', path);
+    const result = Call.ByName(`${serviceName}.OpenProject`, path);
+    result.then((info: ProjectInfo) => {
+      console.log('[monika] App.OpenProject resolved:', JSON.stringify(info));
+    }).catch((err: unknown) => {
+      console.error('[monika] App.OpenProject failed:', err);
+    });
+    return result;
   },
   ListSessions(projectPath: string): Promise<SessionInfo[]> {
     return Call.ByName(`${serviceName}.ListSessions`, projectPath);
@@ -125,15 +132,15 @@ export const App = {
     return Call.ByName(`${serviceName}.GetRecentProjects`);
   },
   ListBranches(projectPath: string): Promise<BranchInfo[]> {
-    return Call.ByName(`${serviceName}.ListBranches`, [projectPath]);
+    return Call.ByName(`${serviceName}.ListBranches`, projectPath);
   },
   CreateBranch(projectPath: string, name: string, baseBranch: string): Promise<void> {
-    return Call.ByName(`${serviceName}.CreateBranch`, [projectPath, name, baseBranch]);
+    return Call.ByName(`${serviceName}.CreateBranch`, projectPath, name, baseBranch);
   },
   SwitchBranch(projectPath: string, name: string): Promise<void> {
-    return Call.ByName(`${serviceName}.SwitchBranch`, [projectPath, name]);
+    return Call.ByName(`${serviceName}.SwitchBranch`, projectPath, name);
   },
   ListDirectory(parentPath: string): Promise<FileNode[]> {
-    return Call.ByName(`${serviceName}.ListDirectory`, [parentPath]);
+    return Call.ByName(`${serviceName}.ListDirectory`, parentPath);
   },
 };
