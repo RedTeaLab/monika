@@ -21,6 +21,15 @@ const (
 	StatusFailure    = "failure"
 )
 
+// Task represents a single task in a session's task planning list.
+type Task struct {
+	ID          string   `json:"id"`
+	Subject     string   `json:"subject"`
+	Description string   `json:"description,omitempty"`
+	Status      string   `json:"status"`
+	BlockedBy   []string `json:"blockedBy,omitempty"`
+}
+
 type Session struct {
 	ID         string               `json:"id"`
 	Title      string               `json:"title"`
@@ -31,6 +40,13 @@ type Session struct {
 	Status     string               `json:"status"`
 	CreatedAt  time.Time            `json:"created_at"`
 	UpdatedAt  time.Time            `json:"updated_at"`
+	Tasks      []Task               `json:"tasks,omitempty"`
+}
+
+// TaskStoreAccessor provides snapshot/restore for persistence bridging.
+type TaskStoreAccessor interface {
+	Snapshot() map[string][]Task
+	Restore(sessionID string, tasks []Task)
 }
 
 type SessionManager struct {
@@ -38,6 +54,7 @@ type SessionManager struct {
 	home        string
 	projectDir  string
 	sessionsDir string
+	taskStore   TaskStoreAccessor
 }
 
 func projectSlug(projectDir string) string {
@@ -82,6 +99,11 @@ func (sm *SessionManager) New(model, provider string) (*Session, error) {
 	}, nil
 }
 
+// SetTaskStore sets the TaskStore accessor for persistence bridging.
+func (sm *SessionManager) SetTaskStore(ts TaskStoreAccessor) {
+	sm.taskStore = ts
+}
+
 func (sm *SessionManager) Load(id string) (*Session, error) {
 	p := filepath.Join(sm.sessionsDir, id+".json")
 	data, err := os.ReadFile(p)
@@ -95,11 +117,26 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 	if s.Status == "" {
 		s.Status = StatusIdle
 	}
+
+	// Restore persisted tasks to TaskStore
+	if sm.taskStore != nil && len(s.Tasks) > 0 {
+		sm.taskStore.Restore(s.ID, s.Tasks)
+	}
+
 	return &s, nil
 }
 
 func (sm *SessionManager) Save(s *Session) error {
 	s.UpdatedAt = time.Now()
+
+	// Sync tasks from TaskStore into session for persistence
+	if sm.taskStore != nil {
+		snapshot := sm.taskStore.Snapshot()
+		if tasks, ok := snapshot[s.ID]; ok {
+			s.Tasks = tasks
+		}
+	}
+
 	p := filepath.Join(sm.sessionsDir, s.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
