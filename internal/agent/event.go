@@ -13,6 +13,7 @@ const (
 	EventDone
 	EventSessionUpdated
 	EventTurnStart
+	EventTaskUpdated
 )
 
 type Event struct {
@@ -20,6 +21,7 @@ type Event struct {
 	Content string
 	Tool    *ToolEvent
 	Usage   UsageEvent
+	Tasks   []TaskItem
 }
 
 type ToolEvent struct {
@@ -39,4 +41,12 @@ type UsageEvent struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens"`
 	ContextTokens    int64 `json:"context_tokens"`
 	MaxContext       int64 `json:"max_context"`
+}
+
+type TaskItem struct {
+	ID          string   `json:"id"`
+	Subject     string   `json:"subject"`
+	Description string   `json:"description,omitempty"`
+	Status      string   `json:"status"`
+	BlockedBy   []string `json:"blockedBy,omitempty"`
 }
