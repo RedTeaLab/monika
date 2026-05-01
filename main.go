@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +22,9 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+//go:embed frontend/dist
+var embeddedAssets embed.FS
 
 func main() {
 	home, err := os.UserHomeDir()
@@ -65,6 +70,12 @@ func main() {
 
 	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
 
+	assets, err := fs.Sub(embeddedAssets, "frontend/dist")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "failed to extract embedded assets:", err)
+		os.Exit(1)
+	}
+
 	app := application.New(application.Options{
 		Name:        "monika",
 		Description: "Agentic coding editor",
@@ -72,7 +83,7 @@ func main() {
 			application.NewService(appService),
 		},
 		Assets: application.AssetOptions{
-			Handler: application.AssetFileServerFS(os.DirFS("frontend/dist")),
+			Handler: application.AssetFileServerFS(assets),
 		},
 	})
 
