@@ -185,9 +185,20 @@ function formatToolInput(name: string, input: string): { label: string; detail: 
     const obj = JSON.parse(input)
     const keys = Object.keys(obj).filter(k => k !== 'description')
     if (keys.length === 0) return { label: name, detail: '' }
-    if (keys.length === 1) return { label: name, detail: String(obj[keys[0]]) }
-    const firstTwo = keys.slice(0, 2).map(k => `${k}: ${String(obj[k]).slice(0, 40)}`).join(', ')
-    return { label: name, detail: firstTwo }
+    if (keys.length === 1) {
+      const k = keys[0]
+      const val = String(obj[k])
+      const maxLen = 80
+      const truncated = val.length > maxLen ? val.slice(0, maxLen) + '...' : val
+      return { label: name, detail: `${k}: ${truncated}` }
+    }
+    const shown = keys.slice(0, 2).map(k => {
+      const val = String(obj[k])
+      const truncated = val.length > 30 ? val.slice(0, 30) + '...' : val
+      return `${k}: ${truncated}`
+    }).join(', ')
+    const more = keys.length > 2 ? `, +${keys.length - 2} more` : ''
+    return { label: name, detail: shown + more }
   } catch {
     return { label: name, detail: input.length > 120 ? input.slice(0, 120) + '...' : input }
   }
@@ -211,16 +222,23 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
     try { JSON.parse(tool.output); return true } catch { return false }
   }, [tool.output])
 
+  const formattedInput = useMemo(() => {
+    if (!tool.input) return ''
+    try { return JSON.stringify(JSON.parse(tool.input), null, 2) } catch { return tool.input }
+  }, [tool.input])
+
   const formattedOutput = useMemo(() => {
     if (!tool.output) return ''
     return isJson ? JSON.stringify(JSON.parse(tool.output), null, 2) : tool.output
   }, [tool.output, isJson])
 
-  const lines = formattedOutput.split('\n')
-  const hasOutput = lines.length > 1 || (lines.length === 1 && lines[0])
+  const inputLines = formattedInput.split('\n')
+  const outputLines = formattedOutput.split('\n')
+  const hasInput = inputLines.length > 1 || (inputLines.length === 1 && inputLines[0])
+  const hasOutput = outputLines.length > 1 || (outputLines.length === 1 && outputLines[0])
   const MAX_PREVIEW = 12
-  const overflow = lines.length > MAX_PREVIEW
-  const displayLines = linesExpanded || !overflow ? lines : lines.slice(0, MAX_PREVIEW)
+  const overflow = outputLines.length > MAX_PREVIEW
+  const displayLines = linesExpanded || !overflow ? outputLines : outputLines.slice(0, MAX_PREVIEW)
   const inputInfo = formatToolInput(tool.name, tool.input)
   const ts = toolStyle(tool.name)
   const ss = statusStyle(tool.status)
@@ -269,6 +287,32 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
 
   return (
     <MsgBlock header={header} background="var(--bg-sidebar)">
+      {open && hasInput && (
+        <div className="mb-2">
+          <div
+            className="text-[10px] font-semibold uppercase tracking-[0.04em] mb-1"
+            style={{ color: 'var(--text-dim)' }}
+          >
+            Input
+          </div>
+          <div
+            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto"
+            style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
+          >
+            {inputLines.map((line, i) => (
+              <span key={i} className="block min-h-[1.55em]">
+                <span
+                  className="inline-block w-[2.8em] mr-[1.2em] text-right select-none shrink-0"
+                  style={{ color: 'var(--text-dim)', opacity: 0.35 }}
+                >
+                  {i + 1}
+                </span>
+                <span>{formatJsonLine(line)}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {open && hasOutput && (
         <div className="relative group/output">
           <button
@@ -281,6 +325,14 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
           >
             {copied ? 'Copied' : 'Copy'}
           </button>
+          {hasInput && (
+            <div
+              className="text-[10px] font-semibold uppercase tracking-[0.04em] mb-1"
+              style={{ color: 'var(--text-dim)' }}
+            >
+              Output
+            </div>
+          )}
           <div
             className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto mt-1"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
@@ -305,7 +357,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
           onClick={() => setLinesExpanded(!linesExpanded)}
         >
           <IconChevronDown size={10} className={linesExpanded ? 'rotate-180' : ''} />
-          {linesExpanded ? 'Collapse' : `Show all ${lines.length} lines`}
+          {linesExpanded ? 'Collapse' : `Show all ${outputLines.length} lines`}
         </button>
       )}
     </MsgBlock>
