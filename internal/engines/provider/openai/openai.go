@@ -3,6 +3,7 @@ package openai
 import (
 	"context"
 
+	"monika/internal/config"
 	"monika/pkg/engine"
 	oaiclient "monika/pkg/openai"
 )
@@ -39,6 +40,19 @@ func (p *OpenAIProvider) StreamChat(ctx context.Context, req engine.ChatRequest)
 }
 
 func (p *OpenAIProvider) ListModels(ctx context.Context) ([]engine.Model, error) {
+	if p.config != nil {
+		if raw, ok := p.config["models"]; ok {
+			entries, ok := raw.([]config.ModelEntry)
+			if ok && len(entries) > 0 {
+				models := make([]engine.Model, len(entries))
+				for i, e := range entries {
+					models[i] = engine.Model{ID: e.ID, DisplayName: e.DisplayName}
+				}
+				return models, nil
+			}
+		}
+	}
+	// Fallback for backward compatibility
 	return []engine.Model{
 		{ID: "gpt-4o", DisplayName: "GPT-4o"},
 		{ID: "gpt-4o-mini", DisplayName: "GPT-4o Mini"},
