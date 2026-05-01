@@ -28,8 +28,12 @@ type Session struct {
 	Messages   []engine.ChatMessage `json:"messages"`
 	Model      string               `json:"model"`
 	Provider   string               `json:"provider"`
-	Status     string               `json:"status"`
-	CreatedAt  time.Time            `json:"created_at"`
+	Status           string               `json:"status"`
+	TokenCount       int64                `json:"token_count,omitempty"`
+	TokenMax         int64                `json:"token_max,omitempty"`
+	CompactionCount  int                  `json:"compaction_count,omitempty"`
+	ArchivedMessages []engine.ChatMessage `json:"archived_messages,omitempty"`
+	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt  time.Time            `json:"updated_at"`
 }
 
@@ -138,10 +142,12 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 			continue
 		}
 		infos = append(infos, SessionInfo{
-			ID:        s.ID,
-			Title:     s.Title,
-			Status:    s.Status,
-			UpdatedAt: s.UpdatedAt.Format(time.RFC3339),
+			ID:         s.ID,
+			Title:      s.Title,
+			Status:     s.Status,
+			UpdatedAt:  s.UpdatedAt.Format(time.RFC3339),
+			TokenCount: s.TokenCount,
+			TokenMax:   s.TokenMax,
 		})
 	}
 	return infos, nil

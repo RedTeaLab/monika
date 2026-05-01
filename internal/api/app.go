@@ -256,6 +256,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 		}
 
 		s.Messages = conv.Messages
+		s.TokenCount = conv.TokenCount
+		s.TokenMax = conv.TokenMax
+		s.CompactionCount = conv.CompactionCount
 		sm.SetTitle(s)
 
 			sm.Lock()
@@ -377,6 +380,12 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Content = ev.Content
 	case agent2.EventTurnStart:
 		se.Type = "turn_start"
+	case agent2.EventCompacting:
+		se.Type = "compacting"
+		se.Compacting = ev.Compacting
+	case agent2.EventCompaction:
+		se.Type = "compaction"
+		se.Compaction = ev.Compaction
 	}
 
 	a.eventBus.Emit(se)
