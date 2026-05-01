@@ -12,8 +12,6 @@ import (
 	"monika/internal/tool"
 )
 
-const defaultReadLimit = 200
-
 type fileRead struct {
 	projectDir string
 }
@@ -24,7 +22,7 @@ func NewFileRead(projectDir string) tool.Tool {
 
 func (f *fileRead) Name() string { return "file_read" }
 func (f *fileRead) Description() string {
-	return "Read a section of a file from the local filesystem. Use grep first to find the relevant file and line range, then read only the section you need using offset and limit."
+	return "Read a section of a file from the local filesystem. Use grep first to find the relevant file and line range, then read only the section you need using offset and limit. Both offset and limit are required."
 }
 
 func (f *fileRead) Parameters() map[string]any {
@@ -37,14 +35,14 @@ func (f *fileRead) Parameters() map[string]any {
 			},
 			"offset": map[string]any{
 				"type":        "integer",
-				"description": "The line number to start reading from (1-indexed). Defaults to 1.",
+				"description": "The line number to start reading from (1-indexed).",
 			},
 			"limit": map[string]any{
 				"type":        "integer",
-				"description": fmt.Sprintf("Maximum number of lines to read. Defaults to %d.", defaultReadLimit),
+				"description": "Maximum number of lines to read.",
 			},
 		},
-		"required": []string{"filePath"},
+		"required": []string{"filePath", "offset", "limit"},
 	}
 }
 
@@ -63,16 +61,14 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	offset := params.Offset
-	if offset <= 0 {
-		offset = 1
+	if params.Offset < 1 {
+		return tool.ExecutionResult{Content: "offset must be >= 1", IsError: true}, nil
 	}
-	limit := params.Limit
-	if limit <= 0 {
-		limit = defaultReadLimit
+	if params.Limit < 1 {
+		return tool.ExecutionResult{Content: "limit must be >= 1", IsError: true}, nil
 	}
 
-	return readFileLines(safePath, offset, limit)
+	return readFileLines(safePath, params.Offset, params.Limit)
 }
 
 func (f *fileRead) resolvePath(p string) (string, error) {
