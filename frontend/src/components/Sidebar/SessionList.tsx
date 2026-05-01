@@ -12,6 +12,7 @@ function SessionList() {
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
+  const selectedModel = useStore((s) => s.selectedModel)
   const openSessionTab = useStore((s) => s.openSessionTab)
 
   useEffect(() => {
@@ -40,7 +41,7 @@ function SessionList() {
   const handleNewSession = async () => {
     if (!projectPath) return
     try {
-      const info = await App.NewSession(projectPath)
+      const info = await App.NewSession(projectPath, selectedModel)
       setSessions((prev) => [info, ...prev])
       await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {

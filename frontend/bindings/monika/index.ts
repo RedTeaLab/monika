@@ -115,8 +115,8 @@ export const App = {
   ListSessions(projectPath: string): Promise<SessionInfo[]> {
     return Call.ByName(`${serviceName}.ListSessions`, projectPath);
   },
-  NewSession(projectPath: string): Promise<SessionInfo> {
-    return Call.ByName(`${serviceName}.NewSession`, projectPath);
+  NewSession(projectPath: string, model: string): Promise<SessionInfo> {
+    return Call.ByName(`${serviceName}.NewSession`, projectPath, model);
   },
   DeleteSession(projectPath: string, sessionID: string): Promise<void> {
     return Call.ByName(`${serviceName}.DeleteSession`, projectPath, sessionID);

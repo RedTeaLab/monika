@@ -63,14 +63,19 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
 	fmt.Fprintf(os.Stderr, "[monika] ServiceStartup called, startupCwd=%q\n", a.startupCwd)
 	a.ctx = ctx
-	if a.startupCwd != "" {
-		info, err := a.OpenProject(a.startupCwd)
-		fmt.Fprintf(os.Stderr, "[monika] ServiceStartup OpenProject result: info=%+v err=%v\n", info, err)
-		if err != nil {
-			return err
+
+	// Restore the last opened project if one was saved.
+	if lastPath := a.loadLastProjectPath(); lastPath != "" {
+		if stat, err := os.Stat(lastPath); err == nil && stat.IsDir() {
+			fmt.Fprintf(os.Stderr, "[monika] ServiceStartup restoring last project: %s\n", lastPath)
+			if _, err := a.OpenProject(lastPath); err != nil {
+				fmt.Fprintf(os.Stderr, "[monika] ServiceStartup failed to restore last project %s: %v\n", lastPath, err)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "[monika] ServiceStartup last project path no longer exists: %s\n", lastPath)
 		}
-		_ = info
 	}
+
 	return nil
 }
 
@@ -90,11 +95,20 @@ func (a *App) GetCurrentProject() *ProjectInfo {
 	}())
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+
+	// Prefer the last opened project over startup CWD.
+	if lastPath := a.loadLastProjectPath(); lastPath != "" {
+		if info, ok := a.projects[lastPath]; ok {
+			fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning last project: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
+			return info
+		}
+	}
+
 	if info, ok := a.projects[a.startupCwd]; ok {
-		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
+		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning startupCwd: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
 		return info
 	}
-	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject: no project found for key=%q\n", a.startupCwd)
+	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject: no project found\n")
 	return nil
 }
 
@@ -167,6 +181,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	a.resetStaleSessions(path)
 	a.getFileService(path)
 	a.writeRecentProject(info.Path, info.Name)
+	a.saveLastProjectPath(path)
 
 	fmt.Fprintf(os.Stderr, "[monika] OpenProject: returning info: path=%s name=%s branch=%s worktrees=%d\n", info.Path, info.Name, info.Branch, len(info.Worktrees))
 	return info, nil
@@ -334,7 +349,7 @@ func (a *App) WriteFile(projectPath, filePath, content string) error {
 
 func (a *App) ListFileTree(projectPath string) ([]FileNode, error) {
 	fs := a.getFileService(projectPath)
-	return fs.ListDir(".")
+	return fs.ListDir("")
 }
 
 func (a *App) ListFileChanges(projectPath string) ([]FileChange, error) {
@@ -536,6 +551,47 @@ func (a *App) writeRecentProject(path, name string) {
 	}
 	if err := os.Rename(tmpPath, recentPath); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] failed to rename recent.json: %v\n", err)
+	}
+}
+
+func (a *App) statePath() string {
+	return filepath.Join(a.home, ".monika", "state.json")
+}
+
+func (a *App) loadLastProjectPath() string {
+	data, err := os.ReadFile(a.statePath())
+	if err != nil {
+		return ""
+	}
+	var state struct {
+		LastProjectPath string `json:"last_project_path"`
+	}
+	if err := json.Unmarshal(data, &state); err != nil {
+		return ""
+	}
+	return state.LastProjectPath
+}
+
+func (a *App) saveLastProjectPath(path string) {
+	dir := filepath.Join(a.home, ".monika")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to create state dir: %v\n", err)
+		return
+	}
+	state := struct {
+		LastProjectPath string `json:"last_project_path"`
+	}{LastProjectPath: path}
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return
+	}
+	statePath := a.statePath()
+	tmpPath := statePath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return
+	}
+	if err := os.Rename(tmpPath, statePath); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] failed to rename state.json: %v\n", err)
 	}
 }
 
