@@ -43,7 +43,6 @@ type App struct {
 }
 
 func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
-	fmt.Fprintf(os.Stderr, "[monika] NewApp: home=%s cwd=%s\n", home, cwd)
 	return &App{
 		home:        home,
 		cfg:         cfg,
@@ -61,18 +60,14 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
-	fmt.Fprintf(os.Stderr, "[monika] ServiceStartup called, startupCwd=%q\n", a.startupCwd)
 	a.ctx = ctx
 
 	// Restore the last opened project if one was saved.
 	if lastPath := a.loadLastProjectPath(); lastPath != "" {
 		if stat, err := os.Stat(lastPath); err == nil && stat.IsDir() {
-			fmt.Fprintf(os.Stderr, "[monika] ServiceStartup restoring last project: %s\n", lastPath)
 			if _, err := a.OpenProject(lastPath); err != nil {
 				fmt.Fprintf(os.Stderr, "[monika] ServiceStartup failed to restore last project %s: %v\n", lastPath, err)
 			}
-		} else {
-			fmt.Fprintf(os.Stderr, "[monika] ServiceStartup last project path no longer exists: %s\n", lastPath)
 		}
 	}
 
@@ -84,31 +79,19 @@ func (a *App) QuitApp() {
 }
 
 func (a *App) GetCurrentProject() *ProjectInfo {
-	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject called, startupCwd=%q projects=%v\n", a.startupCwd, func() []string {
-		a.mu.RLock()
-		defer a.mu.RUnlock()
-		var keys []string
-		for k := range a.projects {
-			keys = append(keys, k)
-		}
-		return keys
-	}())
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
 	// Prefer the last opened project over startup CWD.
 	if lastPath := a.loadLastProjectPath(); lastPath != "" {
 		if info, ok := a.projects[lastPath]; ok {
-			fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning last project: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
 			return info
 		}
 	}
 
 	if info, ok := a.projects[a.startupCwd]; ok {
-		fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject returning startupCwd: path=%s branch=%s worktrees=%d\n", info.Path, info.Branch, len(info.Worktrees))
 		return info
 	}
-	fmt.Fprintf(os.Stderr, "[monika] GetCurrentProject: no project found\n")
 	return nil
 }
 
@@ -133,9 +116,8 @@ func (a *App) ListProjects() []ProjectInfo {
 }
 
 func (a *App) OpenProject(path string) (*ProjectInfo, error) {
-	fmt.Fprintf(os.Stderr, "[monika] OpenProject called: path=%s\n", path)
 	branch := ""
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd := command("git", "rev-parse", "--abbrev-ref", "HEAD")
 	cmd.Dir = path
 	out, err := cmd.Output()
 	if err == nil {
@@ -144,10 +126,8 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	if branch == "" {
 		branch = "—"
 	}
-	fmt.Fprintf(os.Stderr, "[monika] OpenProject: branch=%s\n", branch)
-
 	var worktrees []WorktreeInfo
-	cmd2 := exec.Command("git", "worktree", "list", "--porcelain")
+	cmd2 := command("git", "worktree", "list", "--porcelain")
 	cmd2.Dir = path
 	out2, err2 := cmd2.Output()
 	if err2 == nil {
@@ -164,8 +144,6 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 			}
 		}
 	}
-	fmt.Fprintf(os.Stderr, "[monika] OpenProject: worktrees=%d\n", len(worktrees))
-
 	info := &ProjectInfo{
 		Path:      path,
 		Name:      filepath.Base(path),
@@ -183,7 +161,6 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	a.writeRecentProject(info.Path, info.Name)
 	a.saveLastProjectPath(path)
 
-	fmt.Fprintf(os.Stderr, "[monika] OpenProject: returning info: path=%s name=%s branch=%s worktrees=%d\n", info.Path, info.Name, info.Branch, len(info.Worktrees))
 	return info, nil
 }
 
@@ -403,7 +380,6 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Type = "turn_start"
 	}
 
-	fmt.Fprintf(os.Stderr, "[monika] emit stream event: type=%s session=%s\n", se.Type, sessionID)
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
 }
@@ -630,8 +606,7 @@ func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
 
 // ListBranches returns local and remote git branches for the given project.
 func (a *App) ListBranches(projectPath string) ([]BranchInfo, error) {
-	fmt.Fprintf(os.Stderr, "[monika] ListBranches called: projectPath=%s\n", projectPath)
-	cmd := exec.Command("git", "branch", "-a", "--no-color")
+	cmd := command("git", "branch", "-a", "--no-color")
 	cmd.Dir = projectPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -703,9 +678,7 @@ func validateBranchName(name string) error {
 // Branch names are validated by validateBranchName to reject names starting with '-'.
 // Automatically stashes tracked changes before checkout and pops them afterward.
 func (a *App) SwitchBranch(projectPath, name string) error {
-	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch called: projectPath=%s name=%s\n", projectPath, name)
 	if err := validateBranchName(name); err != nil {
-		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch validateBranchName failed: %v\n", err)
 		return err
 	}
 
@@ -727,7 +700,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		remoteName := name[:idx]
 		localName := name[idx+1:]
 		// Verify remoteName is a real remote.
-		remoteCmd := exec.Command("git", "remote")
+		remoteCmd := command("git", "remote")
 		remoteCmd.Dir = projectPath
 		if remoteOut, err := remoteCmd.Output(); err == nil {
 			for _, r := range strings.Split(strings.TrimSpace(string(remoteOut)), "\n") {
@@ -735,16 +708,14 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 					if err := validateBranchName(localName); err != nil {
 						return err
 					}
-					cmd = exec.Command("git", "checkout", "-b", localName, name)
-					fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: creating local tracking branch: checkout -b %s %s\n", localName, name)
+					cmd = command("git", "checkout", "-b", localName, name)
 					break
 				}
 			}
 		}
 	}
 	if cmd == nil {
-		cmd = exec.Command("git", "checkout", name)
-		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: checkout %s\n", name)
+		cmd = command("git", "checkout", name)
 	}
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
@@ -763,7 +734,6 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 		displayBranch = cmd.Args[3] // localName from checkout -b localName remote/branch
 	}
 
-	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: success, setting branch to %s\n", displayBranch)
 	a.setProjectBranch(projectPath, displayBranch)
 
 	// Restore stashed changes on the new branch.
@@ -776,7 +746,7 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 
 // hasUnmergedFiles returns a list of unmerged file paths in the project.
 func hasUnmergedFiles(projectPath string) []string {
-	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U")
+	cmd := command("git", "diff", "--name-only", "--diff-filter=U")
 	cmd.Dir = projectPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -797,7 +767,7 @@ func autoStash(projectPath string) (bool, error) {
 	if !hasTrackedChanges(projectPath) {
 		return false, nil
 	}
-	cmd := exec.Command("git", "stash", "push", "-m", "monika: auto-stash before branch switch")
+	cmd := command("git", "stash", "push", "-m", "monika: auto-stash before branch switch")
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -809,7 +779,7 @@ func autoStash(projectPath string) (bool, error) {
 // autoStashPop pops the most recent stash entry. Errors are logged but not returned
 // since the branch switch itself succeeded and the stash is still preserved.
 func autoStashPop(projectPath string) error {
-	cmd := exec.Command("git", "stash", "pop", "--quiet")
+	cmd := command("git", "stash", "pop", "--quiet")
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -822,7 +792,7 @@ func autoStashPop(projectPath string) error {
 // hasTrackedChanges returns true if there are any uncommitted tracked changes
 // (staged or unstaged), excluding untracked files which don't block checkout.
 func hasTrackedChanges(projectPath string) bool {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := command("git", "status", "--porcelain")
 	cmd.Dir = projectPath
 	out, err := cmd.Output()
 	if err != nil {
@@ -843,7 +813,6 @@ func hasTrackedChanges(projectPath string) bool {
 
 // setProjectBranch updates the in-memory branch for a project.
 func (a *App) setProjectBranch(projectPath, branchName string) {
-	fmt.Fprintf(os.Stderr, "[monika] setProjectBranch: projectPath=%s branchName=%s\n", projectPath, branchName)
 	a.mu.Lock()
 	if info, ok := a.projects[projectPath]; ok {
 		info.Branch = branchName
@@ -853,13 +822,10 @@ func (a *App) setProjectBranch(projectPath, branchName string) {
 
 // CreateBranch creates and checks out a new branch from the given base branch.
 func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
-	fmt.Fprintf(os.Stderr, "[monika] CreateBranch called: projectPath=%s name=%s baseBranch=%s\n", projectPath, name, baseBranch)
 	if err := validateBranchName(name); err != nil {
-		fmt.Fprintf(os.Stderr, "[monika] CreateBranch validateBranchName failed: %v\n", err)
 		return err
 	}
 	if err := validateBranchName(baseBranch); err != nil {
-		fmt.Fprintf(os.Stderr, "[monika] CreateBranch validateBranchName(baseBranch) failed: %v\n", err)
 		return err
 	}
 
@@ -873,7 +839,7 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		return err
 	}
 
-	cmd := exec.Command("git", "checkout", "-b", name, baseBranch)
+	cmd := command("git", "checkout", "-b", name, baseBranch)
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -884,7 +850,6 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
-	fmt.Fprintf(os.Stderr, "[monika] CreateBranch: success, setting branch to %s\n", name)
 	a.setProjectBranch(projectPath, name)
 
 	if stashed {

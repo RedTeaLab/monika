@@ -49,6 +49,7 @@ func (e *MCPEngine) ConnectServer(ctx context.Context, config engine.MCPServerCo
 	}
 
 	cmd := exec.CommandContext(ctx, config.Command, config.Args...)
+	hideWindow(cmd)
 	for k, v := range config.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}

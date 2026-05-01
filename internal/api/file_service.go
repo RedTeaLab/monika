@@ -2,7 +2,6 @@ package api
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -106,7 +105,7 @@ func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
 }
 
 func (f *FileService) readGitStatus() ([]FileChange, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
+	cmd := command("git", "status", "--porcelain")
 	cmd.Dir = f.projectDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -151,7 +150,7 @@ func (f *FileService) ListChanges() ([]FileChange, error) {
 }
 
 func (f *FileService) GetDiff(filePath string) (DiffResult, error) {
-	cmd := exec.Command("git", "diff", filePath)
+	cmd := command("git", "diff", filePath)
 	cmd.Dir = f.projectDir
 	out, err := cmd.Output()
 	if err != nil {

@@ -110,6 +110,7 @@ func (b *bashTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 
 	cmd := exec.CommandContext(timeoutCtx, b.shell, b.shellArg, params.Command)
 	cmd.Dir = workdir
+	hideWindow(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
