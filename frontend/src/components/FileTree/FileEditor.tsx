@@ -28,11 +28,15 @@ function FileEditor() {
   const closeFileTab = useStore((s) => s.closeFileTab)
   const switchFileTab = useStore((s) => s.switchFileTab)
   const updateFileContent = useStore((s) => s.updateFileContent)
+  const setFileMode = useStore((s) => s.setFileMode)
 
   const editorCache = useRef<Map<string, EditorView>>(new Map())
   const lruOrder = useRef<string[]>([])
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const [dirtyClosePath, setDirtyClosePath] = useState<string | null>(null)
+
+  const activeFile = openFiles.find((f) => f.path === activeFilePath)
+  const currentMode = activeFile?.mode || 'edit'
 
   const registerContainer = useCallback((path: string, el: HTMLDivElement | null) => {
     if (el) containerRefs.current.set(path, el)
@@ -152,6 +156,27 @@ function FileEditor() {
         emptyLabel="Preview"
       />
       <div className="flex-1 relative">
+        {activeFilePath && (
+          <div className="absolute top-2 right-3 z-10 flex rounded-md overflow-hidden shadow-lg"
+            style={{ background: 'var(--glass-strong)', border: '1px solid var(--border)' }}>
+            <button
+              onClick={() => setFileMode(activeFilePath, 'edit')}
+              className="px-3 py-1 text-[11px] font-medium transition-colors"
+              style={{
+                background: currentMode === 'edit' ? 'var(--accent)' : 'transparent',
+                color: currentMode === 'edit' ? '#fff' : 'var(--text-dim)',
+              }}
+            >Edit</button>
+            <button
+              onClick={() => setFileMode(activeFilePath, 'diff')}
+              className="px-3 py-1 text-[11px] font-medium transition-colors"
+              style={{
+                background: currentMode === 'diff' ? 'var(--accent)' : 'transparent',
+                color: currentMode === 'diff' ? '#fff' : 'var(--text-dim)',
+              }}
+            >Diff</button>
+          </div>
+        )}
         {openFiles.map((f) => (
           <div
             key={f.path}
