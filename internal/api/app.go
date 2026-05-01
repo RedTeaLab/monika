@@ -227,7 +227,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	}
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
-	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
+	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model), agent2.WithSessionID(sessionID))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
 
@@ -377,10 +377,21 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Content = ev.Content
 	case agent2.EventTurnStart:
 		se.Type = "turn_start"
+	case agent2.EventTaskUpdated:
+		se.Type = "task_updated"
+		se.Tasks = ev.Tasks
 	}
 
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
+}
+
+// EmitTaskEvent emits a task_updated event to the frontend.
+func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
+	a.handleAgentEvent(sessionID, a.model, agent2.Event{
+		Type:  agent2.EventTaskUpdated,
+		Tasks: tasks,
+	})
 }
 
 func (a *App) getSessionManager(projectPath string) *SessionManager {

@@ -54,6 +54,7 @@ type AgentLoop struct {
 	confirmFn    func(tool.Tool, json.RawMessage) bool
 	projectDir   string
 	model        string
+	sessionID    string
 }
 
 type LoopOption func(*AgentLoop)
@@ -80,6 +81,11 @@ func WithModel(model string) LoopOption {
 	return func(a *AgentLoop) {
 		a.model = model
 	}
+}
+
+// WithSessionID sets the session ID injected into tool context.
+func WithSessionID(id string) LoopOption {
+	return func(a *AgentLoop) { a.sessionID = id }
 }
 
 func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
@@ -178,6 +184,9 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 			}
 
 			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
+			if a.sessionID != "" {
+				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
+			}
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				conv.Messages = append(conv.Messages, engine.ChatMessage{
@@ -432,6 +441,9 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			}
 
 			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
+			if a.sessionID != "" {
+				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
+			}
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				ch <- Event{
