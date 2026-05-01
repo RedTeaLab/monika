@@ -13,13 +13,17 @@ const (
 	EventDone
 	EventSessionUpdated
 	EventTurnStart
+	EventCompacting
+	EventCompaction
 )
 
 type Event struct {
-	Type    EventType
-	Content string
-	Tool    *ToolEvent
-	Usage   UsageEvent
+	Type       EventType
+	Content    string
+	Tool       *ToolEvent
+	Usage      UsageEvent
+	Compacting *CompactingEvent
+	Compaction *CompactionEvent
 }
 
 type ToolEvent struct {
@@ -39,4 +43,15 @@ type UsageEvent struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens"`
 	ContextTokens    int64 `json:"context_tokens"`
 	MaxContext       int64 `json:"max_context"`
+}
+
+type CompactingEvent struct {
+	SessionID string `json:"session_id"`
+}
+
+type CompactionEvent struct {
+	Summary       string `json:"summary"`
+	BeforeTokens  int64  `json:"before_tokens"`
+	AfterTokens   int64  `json:"after_tokens"`
+	CompactionNum int    `json:"compaction_num"`
 }
