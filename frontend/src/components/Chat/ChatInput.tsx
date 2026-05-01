@@ -87,15 +87,19 @@ function formatTokens(n: number): string {
   return String(n)
 }
 
-function ChatInput({ onSend, onStop, disabled }: {
+function ChatInput({ onSend, onStop, disabled, compacting }: {
   onSend: (text: string) => void
   onStop: () => void
   disabled: boolean
+  compacting: boolean
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const tokenCount = useStore((s) => s.tokenCount)
-  const tokenMax = useStore((s) => s.tokenMax)
+  const activeSessionId = useStore((s) => s.activeSessionId)
+  const sessionTokens = useStore((s) => s.sessionTokens)
+  const tokens = sessionTokens[activeSessionId] || { count: 0, max: 0 }
+  const tokenCount = tokens.count
+  const tokenMax = tokens.max
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
@@ -129,12 +133,12 @@ function ChatInput({ onSend, onStop, disabled }: {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (value.trim() && !disabled) { onSend(value); setValue('') }
+      if (value.trim() && !disabled && !compacting) { onSend(value); setValue('') }
     }
   }
 
   const handleSendClick = () => {
-    if (value.trim() && !disabled) { onSend(value); setValue('') }
+    if (value.trim() && !disabled && !compacting) { onSend(value); setValue('') }
   }
 
   const tokenText = tokenMax > 0
@@ -155,8 +159,12 @@ function ChatInput({ onSend, onStop, disabled }: {
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          disabled={disabled}
-          placeholder={disabled ? 'Generating...' : 'Send a message... (Enter to submit, Shift+Enter for newline)'}
+          disabled={disabled || compacting}
+          placeholder={
+            compacting ? 'Compacting...'
+            : disabled ? 'Generating...'
+            : 'Send a message... (Enter to submit, Shift+Enter for newline)'
+          }
           className="text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent"
           rows={2}
         />

@@ -8,6 +8,7 @@ import ChatInput from './ChatInput'
 function ChatArea() {
   const messages = useStore((s) => s.messages)
   const generatingSessionId = useStore((s) => s.generatingSessionId)
+  const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
   const addMessage = useStore((s) => s.addMessage)
   const appendToSession = useStore((s) => s.appendToSession)
@@ -137,6 +138,7 @@ function ChatArea() {
           onSend={handleSend}
           onStop={handleStop}
           disabled={generatingSessionId !== ''}
+          compacting={compactingSessionId !== ''}
         />
       )}
     </div>
