@@ -92,15 +92,15 @@ function SessionList() {
 
   // Resolve effective status: in-memory wins over persisted
   const getStatus = useCallback((s: SessionInfo) => {
-    if (sessionStatuses[s.id]) return sessionStatuses[s.id]
+    const st = sessionStatuses[s.id]
+    if (st != null) return st
     return s.status || 'idle'
   }, [sessionStatuses])
 
   const handleNewSession = async () => {
     if (!projectPath) return
     try {
-      const model = useStore.getState().selectedModel || ''
-      const info = await App.NewSession(projectPath, model)
+      const info = await App.NewSession(projectPath)
       setSessions((prev) => [info, ...prev])
       await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {
