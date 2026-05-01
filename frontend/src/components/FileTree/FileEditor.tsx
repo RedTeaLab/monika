@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -29,11 +29,14 @@ function FileEditor() {
   const switchFileTab = useStore((s) => s.switchFileTab)
   const updateFileContent = useStore((s) => s.updateFileContent)
   const setFileMode = useStore((s) => s.setFileMode)
+  const setFileDirty = useStore((s) => s.setFileDirty)
+  const projectPath = useStore((s) => s.projectPath)
 
   const editorCache = useRef<Map<string, EditorView>>(new Map())
   const lruOrder = useRef<string[]>([])
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const [dirtyClosePath, setDirtyClosePath] = useState<string | null>(null)
+  const editableCompartment = useRef(new Compartment())
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath)
   const currentMode = activeFile?.mode || 'edit'
@@ -49,6 +52,7 @@ function FileEditor() {
     const container = containerRefs.current.get(activeFilePath)
     if (!container) return
 
+    const filePath = activeFilePath
     let view = editorCache.current.get(activeFilePath)
     if (!view) {
       const file = openFiles.find((f) => f.path === activeFilePath)
@@ -59,7 +63,15 @@ function FileEditor() {
           oneDark,
           keymap.of(defaultKeymap),
           getLangExtension(activeFilePath),
-          EditorView.editable.of(false),
+          editableCompartment.current.of(EditorView.editable.of(file?.mode === 'edit')),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              const currentFile = useStore.getState().openFiles.find((f) => f.path === filePath)
+              if (currentFile?.mode === 'edit') {
+                setFileDirty(filePath, true)
+              }
+            }
+          }),
         ],
       })
       view = new EditorView({ state, parent: container })
@@ -91,6 +103,43 @@ function FileEditor() {
     lruOrder.current = lruOrder.current.filter((p) => p !== activeFilePath)
     lruOrder.current.push(activeFilePath)
   }, [activeFilePath, openFiles])
+
+  // Toggle editable when mode changes
+  useEffect(() => {
+    if (!activeFilePath) return
+    const view = editorCache.current.get(activeFilePath)
+    if (!view) return
+    view.dispatch({
+      effects: editableCompartment.current.reconfigure(
+        EditorView.editable.of(currentMode === 'edit')
+      )
+    })
+  }, [currentMode, activeFilePath])
+
+  // Ctrl+S save handler
+  useEffect(() => {
+    if (currentMode !== 'edit') return
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        const file = useStore.getState().openFiles.find((f) => f.path === activeFilePath)
+        if (!file?.isDirty) return
+        const view = editorCache.current.get(activeFilePath)
+        if (!view) return
+        const content = view.state.doc.toString()
+        App.WriteFile(projectPath, activeFilePath, content)
+          .then(() => {
+            updateFileContent(activeFilePath, content)
+            setFileDirty(activeFilePath, false)
+          })
+          .catch(() => {
+            // Write failed — keep dirty state
+          })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [currentMode, activeFilePath, projectPath])
 
   // Cleanup on unmount
   useEffect(() => {
