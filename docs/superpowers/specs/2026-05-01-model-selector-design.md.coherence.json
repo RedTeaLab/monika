@@ -1,0 +1,28 @@
+{
+  "reviewer": "coherence",
+  "findings": [
+    {
+      "title": "GetModels return type mismatch between Default Model Strategy and API definitions",
+      "severity": "P1",
+      "section": "Default Model Strategy (point 1) vs Go Backend vs Frontend Bindings",
+      "why_it_matters": "The Default Model Strategy specifies GetModels returns a composite object containing both the model list and a default model ID. But the Go Backend implements GetModels as returning only []engine.Model (a flat list), and the Frontend Bindings mirror this with a Promise of a flat array. These cannot both be correct. If implemented as-is, either the default model initialization will be broken (because the frontend expects a `default` field that never arrives) or the backend will need rework. Different implementers following different sections will produce incompatible code.",
+      "finding_type": "error",
+      "autofix_class": "gated_auto",
+      "suggested_fix": "Align the GetModels return type across all sections. Either (a) update the Default Model Strategy to source the default model separately (e.g., from a config read or a dedicated config endpoint) rather than from GetModels, or (b) update the Go Backend and Frontend Bindings sections to return a struct containing both the model list and the default model ID.",
+      "confidence": 100,
+      "evidence": [
+        "Default Model Strategy point 1: \"GetModels() returns both the model list and the config's current model: {models: Model[], default: string}\"",
+        "Go Backend: \"func (a *App) GetModels() ([]engine.Model, error) { return a.provider.ListModels(a.ctx) }\"",
+        "Frontend Bindings: \"New: GetModels() → Promise<{ID: string, DisplayName: string}[]>\""
+      ]
+    }
+  ],
+  "residual_risks": [
+    "The loadModels action references \"config default\" as the fallback for selectedModel, but the document does not define how the frontend obtains this config default value if it is not returned by GetModels.",
+    "Nothing ensures loadModels() is called during initialization — the Data Flow shows initProject() → GetModels() → availableModels, but loadModels (which also sets selectedModel) is not wired into that flow in the document."
+  ],
+  "deferred_questions": [
+    "Should GetModels return a composite type with the default model, or should the default model be sourced separately from the config?",
+    "Is the \"config default\" in the loadModels action description the same value as the \"default\" field in the Default Model Strategy point 1, or are they distinct concepts?"
+  ]
+}
