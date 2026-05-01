@@ -49,45 +49,83 @@ func (f *FileService) WriteFile(relPath, content string) error {
 }
 
 func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
-	absPath := filepath.Join(f.projectDir, relPath)
-	entries, err := os.ReadDir(absPath)
-	if err != nil {
-		return []FileNode{}, err
+	// Build git status map once at top level.
+	statusMap := f.gitStatusMap()
+
+	var listDirRecursive func(relPath string) ([]FileNode, error)
+	listDirRecursive = func(relPath string) ([]FileNode, error) {
+		absPath := filepath.Join(f.projectDir, relPath)
+		entries, err := os.ReadDir(absPath)
+		if err != nil {
+			return []FileNode{}, err
+		}
+
+		nodes := make([]FileNode, 0)
+		for _, entry := range entries {
+			name := entry.Name()
+			if strings.HasPrefix(name, ".") || name == "node_modules" {
+				continue
+			}
+
+			entryRelPath := filepath.Join(relPath, name)
+			node := FileNode{
+				Name:  name,
+				Path:  entryRelPath,
+				IsDir: entry.IsDir(),
+			}
+
+			// Populate git status from the status map.
+			if status, ok := statusMap[entryRelPath]; ok {
+				node.Status = status
+			}
+
+			if entry.IsDir() {
+				children, err := listDirRecursive(entryRelPath)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = children
+			}
+
+			nodes = append(nodes, node)
+		}
+
+		sort.Slice(nodes, func(i, j int) bool {
+			if nodes[i].IsDir != nodes[j].IsDir {
+				return nodes[i].IsDir
+			}
+			return nodes[i].Name < nodes[j].Name
+		})
+
+		return nodes, nil
 	}
 
-	nodes := make([]FileNode, 0)
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasPrefix(name, ".") || name == "node_modules" {
+	return listDirRecursive(relPath)
+}
+
+// gitStatusMap returns a map of file path -> git status code for the project.
+func (f *FileService) gitStatusMap() map[string]string {
+	m := make(map[string]string)
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = f.projectDir
+	out, err := cmd.Output()
+	if err != nil {
+		return m // not a git repo, return empty map
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if len(line) < 4 {
 			continue
 		}
-
-		entryRelPath := filepath.Join(relPath, name)
-		node := FileNode{
-			Name:  name,
-			Path:  entryRelPath,
-			IsDir: entry.IsDir(),
+		status := strings.TrimSpace(line[0:2])
+		filename := strings.TrimSpace(line[3:])
+		if idx := strings.Index(filename, " -> "); idx >= 0 {
+			filename = filename[idx+4:]
 		}
-
-		if entry.IsDir() {
-			children, err := f.ListDir(entryRelPath)
-			if err != nil {
-				return nil, err
-			}
-			node.Children = children
+		if status != "" && filename != "" {
+			m[filename] = status
 		}
-
-		nodes = append(nodes, node)
 	}
-
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].IsDir != nodes[j].IsDir {
-			return nodes[i].IsDir
-		}
-		return nodes[i].Name < nodes[j].Name
-	})
-
-	return nodes, nil
+	return m
 }
 
 func (f *FileService) ListChanges() ([]FileChange, error) {

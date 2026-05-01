@@ -16,6 +16,38 @@
 
 ---
 
+## 2026-05-01
+
+- **中断生成**：ChatInput 右下角新增发送/停止切换按钮——发送时显示箭头图标 `IconArrowUp`，生成中切换为方形停止图标 `IconStop`，按 ESC 键停止。ChatArea 通过 `App.CancelGeneration(generatingSessionId)` 调用后端 `context` 取消中断 agent loop。Store `error` 事件识别 `cancelled` 类型时静默清除状态（不追加错误消息），后端取消时重置 session 为 idle，goroutine 检测 `ctx.Err()` 避免覆盖。设计文档：`docs/superpowers/specs/2026-05-01-interrupt-generation-design.md`、`docs/superpowers/plans/2026-05-01-interrupt-generation.md`。
+- **字体打包**：将 Maple Mono NF（等宽编程字体）和 LXGW WenKai（霞鹜文楷，UI 字体）打包进前端 `src/assets/fonts/`，添加 `@font-face` 声明（`font-display: swap`），确保开箱即用无需系统安装。CodeMirror 编辑器通过 `EditorView.theme` 应用 Maple Mono NF。
+- **Thinking 块可折叠**：MessageBubble 中 thinking 内容默认折叠，点击标题栏展开/收起，精简长推理内容的展示。
+- **Tool 块可折叠**：Tool 卡片新增 chevron 折叠/展开切换，默认展开，便于查看或隐藏工具调用详情。
+- **消息气泡响应式宽度**：MsgBlock 宽度改为 `w-full`、移除 `max-w` 上限，适配不同窗口尺寸。
+- **标签颜色微调**：降低 thinking 和 tool 标签文字亮度，减少视觉干扰。
+- **Icon 组件增强**：`Icon` 和 `IconChevronDown` 支持 `style` prop，允许调用方覆盖尺寸/颜色等内联样式。
+- **模块化 System Prompt**：将 `BuiltinSystemPrompt`（24 行，仅 tool usage）替换为 6 个模块常量（`PromptIdentity`、`PromptToolUsage`、`PromptCodeQuality`、`PromptResponseStyle`、`PromptSafetyBoundaries`、`PromptRemember`），遵循 U 型注意力曲线排列（关键规则在首尾，近因效应强化）。参考 Claude Code 和 OpenCode 的 prompt engineering 模式，增加代码质量原则（YAGNI、精简注释、系统边界验证）、安全边界（路径安全、破坏性操作确认、git 保护）、响应风格（简洁输出、无 emoji、语言匹配）等通用规则。工具描述增强（bash/grep/glob/file_write），增加安全约束和专用工具偏好引导。新增 `system_prompt_test.go` 守卫测试（常量非空、token 预算 < 8000 字符）。设计文档：`docs/superpowers/specs/2026-05-01-system-prompt-optimization-design.md`、`docs/superpowers/plans/2026-05-01-system-prompt-optimization.md`。
+- **Tiktoken 精确 Token 计算**：新增 `pkg/tokenizer/` 包，使用 `tiktoken-go`（cl100k_base 编码）进行客户端 token 估算，作为 API 未返回 usage 数据时的 fallback。扩展 `engine.Usage` 新增 `ReasoningTokens`、`CacheReadTokens`、`CacheWriteTokens` 字段和 `ContextTokens()` 方法。`openai.StreamChat` 增加 `stream_options.include_usage` 确保 OpenAI 流式响应返回 usage 数据，并解析 `completion_tokens_details` 和 `prompt_tokens_details`。Agent Loop 新增 `modelContextLimits` context 窗口映射和 `estimateContextTokens()` 预估算方法（首轮发出预估 usage 事件）。前端 StatusBar 改为 `tok: 1.2K / 128K` 格式展示实际值 / 模型上限，session 切换时重置 token 计数。参考 OpenCode 的 `Token.estimate()` 和 `getUsage()` 模式。
+- **Session 状态指示器**：Session 列表每行新增状态指示器——生成中显示黄色旋转圆圈动效 (`@keyframes spin`)，完成后绿色实心圆点，失败时红色实心圆点（悬停 tooltip 显示错误信息），空闲 session 无指示器。后端 `Session`/`SessionInfo` 结构体新增 `Status` 字段（`idle`/`generating`/`success`/`failure`），`SessionManager` 新增 `SetStatus` 方法，`Load()` 内建旧文件兼容（空 status → idle），`SendMessage` goroutine 管理 status 生命周期，`CancelGeneration` 重置为 idle，启动时 `resetStaleSessions` 清理崩溃残留的 generating 状态，新增并发防重入守卫。前端 Zustand store 新增 `sessionStatuses`/`sessionErrors` 实时追踪，`StatusDot` 组件带无障碍支持（`role="status"`、`aria-label`、红色 dot 附带 `title` tooltip）。设计文档：`docs/superpowers/specs/2026-05-01-session-status-indicator-design.md`、`docs/superpowers/plans/2026-05-01-session-status-indicator.md`。
+- **模型选择器**：ChatInput 上方新增 `ChatInputToolbar`，含 `ModelSelector` 下拉菜单，展示可用模型列表并支持切换。后端新增 `GetModels` API 返回 `provider.ListModels()` 结果，`SendMessage` 接受 `model` 参数透传至 agent loop。Zustand store 新增 `availableModels`/`selectedModel`/`loadModels`。设计文档：`docs/superpowers/specs/2026-05-01-model-selector-design.md`、`docs/superpowers/plans/2026-05-01-model-selector.md`。
+- **修复 StatusDot 状态解析和 NewSession 绑定**：`getStatus` 改用 `!= null` 显式检查替代 falsey 判断，防止空字符串绕过内存状态。`NewSession` 的 TS 绑定移除多余的 `model` 参数，与 Go 签名 `NewSession(projectPath string)` 对齐。
+- **审查修复：取消竞态与状态同步**：SendMessage goroutine 取消后分支化 Save（避免覆写 CancelGeneration 的 idle 状态），`ctx.Err() == nil` 守卫 `session_updated` 事件发送。前端 `cancelled` 错误路径补全 `setSessionStatus(idle)` + `clearSessionError` + `bumpSessionListVersion`，防止侧边栏永远显示 spinner。关闭标签页时自动调用 `CancelGeneration` 清理后端 goroutine。
+- **审查修复：模型状态健壮性**：ChatArea 新增 `selectedModel` 空值校验（无模型时不发送）。`loadModels` 验证旧 `selectedModel` 是否仍在新的 `availableModels` 列表中，不在则回退到第一个。`resetProjectState` 清除 `availableModels`/`selectedModel` 防止跨项目残留。新增 `setSelectedModel` store action 替代 `ChatInputToolbar` 中直接 `useStore.setState`。
+- **审查修复：ESC 稳定性与状态常量化**：ChatInput ESC 监听器改用 `useRef(onStop)` 稳定引用，依赖数组简化为 `[disabled]` 消除每次渲染重注册。Go 端新增 `StatusIdle`/`StatusGenerating`/`StatusSuccess`/`StatusFailure` 常量，替换 `app.go` 和 `session_manager.go` 中所有硬编码字符串。
+
+## 2026-04-30
+
+- **CreateBranchPanel z-index 修复**：TitleBar 的 `backdrop-blur-md`（`backdrop-filter`）创建了新的 CSS stacking context，导致 `position: fixed` 的 CreateBranchPanel 被侧边栏遮盖。修复：给 TitleBar 添加 `position: relative; z-index: 10`，将其 stacking context 提升到主内容区之上。同时记录 z-index 规范和 portal 优先原则到 AGENTS.md。
+- **Wails API 参数修复**：`bindings/monika/index.ts` 中 `Call.ByName` 的参数传递从数组包裹改为位置参数（`Call.ByName(name, arg1, arg2, ...)` 而非 `Call.ByName(name, [arg1, arg2, ...])`），修复 `ListBranches`、`CreateBranch`、`SwitchBranch`、`ListDirectory` 调用失败。
+- **前端防御性修复**：SessionList 和 FileTree 的 `useEffect` 添加 cancelled 标志防止卸载后 setState；`useMemo` 中添加 `Array.isArray` 守卫防止 `undefined.sort()` 崩溃。
+- **Go 返回值安全修复**：`FileService.ListDir` 和 `SessionManager.List` 在目录不存在或为空时返回 `[]T{}` 而非 `nil`；`FileService.ListChanges` 预分配 `make([]FileChange, 0)`。
+- **文档同步**：README.md 更新 features（layout modes、project/branch management、multi-tab sessions、worktree）；AGENTS.md 设计令牌表、布局图、z-index 规则、TitleBar 规范全部与当前代码对齐。
+
+## 2026-04-29
+
+- **项目/分支切换功能**：新增 `ProjectDropdown`（最近项目列表、打开文件夹入口）、`BranchDropdown`（本地/远程分支列表、分支切换）、`CreateBranchPanel`（从指定分支创建并切换新分支）、`FileDialog`（应用内文件夹选择器）。全部集成到 TitleBar。后端新增 `OpenProject`（扫描 git worktrees）、`ListBranches`、`SwitchBranch`、`CreateBranch`（含分支名校验）、`GetRecentProjects`（原子 JSON 读写）。设计文档：`docs/superpowers/specs/2026-04-28-project-branch-switching-design.md`。
+- **代码审查修复**：P0/P1/P2 问题修复 — 路径规范化、并发安全、错误处理增强。提取共享 helper（`SectionHeader`、dropdown 样式、错误/脏文件提示消息）。
+- **性能优化**：移除冗余锁、并行化 I/O 操作、去重逻辑简化。
+
 ## 2026-04-28
 
 - **多标签页支持**：ChatArea 支持同时打开多个会话，FileEditor 支持同时打开多个文件，各自通过独立 TabBar 管理。新增 `TabBar` 组件（标签栏、溢出下拉、状态指示、键盘导航、ARIA 无障碍）。Store 重构：新增 `openSessions`、`sessionMessages`、`openFiles`、`activeFilePath`、`generatingSessionId` 等 11 个字段和 14 个操作，移除旧单视图字段。流式事件按 `session_id` 路由到 per-session 缓存。FileEditor 改为多 DOM 容器 + CodeMirror 实例缓存（LRU 淘汰，上限 10）。SessionList 委托 `openSessionTab`，FileTree 委托 `openFileTab`。四轮代码审查修复 8 个 P0/P1 和 7 个 P2/P3 问题。设计文档：`docs/superpowers/specs/2026-04-28-multi-tab-design.md`。

@@ -558,10 +558,22 @@ func validateBranchName(name string) error {
 // SwitchBranch checks out the given branch in the project.
 // If name starts with "origin/" (remote branch), creates a local tracking branch via git checkout -b.
 // Branch names are validated by validateBranchName to reject names starting with '-'.
+// Automatically stashes tracked changes before checkout and pops them afterward.
 func (a *App) SwitchBranch(projectPath, name string) error {
 	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch called: projectPath=%s name=%s\n", projectPath, name)
 	if err := validateBranchName(name); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch validateBranchName failed: %v\n", err)
+		return err
+	}
+
+	// Guard: check for unresolved merge conflicts before attempting stash.
+	if files := hasUnmergedFiles(projectPath); len(files) > 0 {
+		return fmt.Errorf("UNMERGED_FILES:%s", strings.Join(files, ","))
+	}
+
+	// Auto-stash tracked changes so they don't block checkout.
+	stashed, err := autoStash(projectPath)
+	if err != nil {
 		return err
 	}
 
@@ -595,6 +607,10 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] SwitchBranch git checkout failed: %v output=%s\n", err, strings.TrimSpace(string(out)))
+		// If checkout failed, try to restore stashed changes before returning.
+		if stashed {
+			_ = autoStashPop(projectPath)
+		}
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
@@ -607,7 +623,79 @@ func (a *App) SwitchBranch(projectPath, name string) error {
 	fmt.Fprintf(os.Stderr, "[monika] SwitchBranch: success, setting branch to %s\n", displayBranch)
 	a.setProjectBranch(projectPath, displayBranch)
 
+	// Restore stashed changes on the new branch.
+	if stashed {
+		_ = autoStashPop(projectPath)
+	}
+
 	return nil
+}
+
+// hasUnmergedFiles returns a list of unmerged file paths in the project.
+func hasUnmergedFiles(projectPath string) []string {
+	cmd := exec.Command("git", "diff", "--name-only", "--diff-filter=U")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files
+}
+
+// autoStash stashes tracked changes in the project directory.
+// Returns true if a stash entry was created, false if there was nothing to stash.
+func autoStash(projectPath string) (bool, error) {
+	if !hasTrackedChanges(projectPath) {
+		return false, nil
+	}
+	cmd := exec.Command("git", "stash", "push", "-m", "monika: auto-stash before branch switch")
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("auto-stash failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+	return true, nil
+}
+
+// autoStashPop pops the most recent stash entry. Errors are logged but not returned
+// since the branch switch itself succeeded and the stash is still preserved.
+func autoStashPop(projectPath string) error {
+	cmd := exec.Command("git", "stash", "pop", "--quiet")
+	cmd.Dir = projectPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] stash pop after branch switch failed (stash preserved): %s\n", strings.TrimSpace(string(out)))
+		return err
+	}
+	return nil
+}
+
+// hasTrackedChanges returns true if there are any uncommitted tracked changes
+// (staged or unstaged), excluding untracked files which don't block checkout.
+func hasTrackedChanges(projectPath string) bool {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Untracked files (??) don't block checkout; only tracked changes matter.
+		if !strings.HasPrefix(line, "??") {
+			return true
+		}
+	}
+	return false
 }
 
 // setProjectBranch updates the in-memory branch for a project.
@@ -632,16 +720,33 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		return err
 	}
 
+	// Guard: check for unresolved merge conflicts before attempting stash.
+	if files := hasUnmergedFiles(projectPath); len(files) > 0 {
+		return fmt.Errorf("UNMERGED_FILES:%s", strings.Join(files, ","))
+	}
+
+	stashed, err := autoStash(projectPath)
+	if err != nil {
+		return err
+	}
+
 	cmd := exec.Command("git", "checkout", "-b", name, baseBranch)
 	cmd.Dir = projectPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] CreateBranch git checkout -b failed: %v output=%s\n", err, strings.TrimSpace(string(out)))
+		if stashed {
+			_ = autoStashPop(projectPath)
+		}
 		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
 
 	fmt.Fprintf(os.Stderr, "[monika] CreateBranch: success, setting branch to %s\n", name)
 	a.setProjectBranch(projectPath, name)
+
+	if stashed {
+		_ = autoStashPop(projectPath)
+	}
 
 	return nil
 }
