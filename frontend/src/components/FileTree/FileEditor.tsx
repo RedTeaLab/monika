@@ -12,6 +12,19 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import ConfirmModal from '../Chat/ConfirmModal'
 
+const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
+
+const monoTheme = EditorView.theme({
+  '&': { fontFamily: monoFont },
+  '.cm-content': { fontFamily: monoFont },
+  '.cm-gutters': { fontFamily: monoFont },
+  '.cm-cursor': { fontFamily: monoFont },
+  '.cm-activeLine': { fontFamily: monoFont },
+  '.cm-selectionBackground': { fontFamily: monoFont },
+  '.cm-line': { fontFamily: monoFont },
+  '.cm-selectionMatch': { fontFamily: monoFont },
+}, { dark: true })
+
 const MAX_CACHED_EDITORS = 10
 
 function getLangExtension(filePath: string) {
@@ -36,6 +49,8 @@ function FileEditor() {
   const lruOrder = useRef<string[]>([])
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const [dirtyClosePath, setDirtyClosePath] = useState<string | null>(null)
+  const [diffLines, setDiffLines] = useState<string[]>([])
+  const [diffLoading, setDiffLoading] = useState(false)
   const editableCompartment = useRef(new Compartment())
 
   const activeFile = openFiles.find((f) => f.path === activeFilePath)
@@ -61,6 +76,7 @@ function FileEditor() {
         doc: content,
         extensions: [
           oneDark,
+          monoTheme,
           keymap.of(defaultKeymap),
           getLangExtension(activeFilePath),
           editableCompartment.current.of(EditorView.editable.of(file?.mode === 'edit')),
@@ -139,6 +155,29 @@ function FileEditor() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [currentMode, activeFilePath, projectPath])
+
+  // Fetch diff when switching to Diff mode
+  useEffect(() => {
+    if (currentMode !== 'diff' || !activeFilePath) return
+    let cancelled = false
+    setDiffLines([])
+    setDiffLoading(true)
+    App.GetFileDiff(projectPath, activeFilePath)
+      .then((result) => {
+        if (!cancelled) {
+          setDiffLines(result?.lines || [])
+          setDiffLoading(false)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to fetch diff:', err)
+          setDiffLines([])
+          setDiffLoading(false)
+        }
+      })
+    return () => { cancelled = true }
   }, [currentMode, activeFilePath, projectPath])
 
   // Cleanup on unmount
@@ -235,14 +274,52 @@ function FileEditor() {
             >Diff</button>
           </div>
         )}
-        {openFiles.map((f) => (
-          <div
-            key={f.path}
-            ref={(el) => registerContainer(f.path, el)}
-            style={{ display: f.path === activeFilePath ? 'block' : 'none', height: '100%' }}
-            className="absolute inset-0"
-          />
-        ))}
+        {currentMode === 'diff' ? (
+          <div className="absolute inset-0 overflow-auto font-mono text-[13px] leading-relaxed"
+            style={{ background: 'var(--bg-main)' }}>
+            {diffLoading ? (
+              <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[12px]">
+                Loading diff...
+              </div>
+            ) : diffLines.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[12px]">
+                No changes
+              </div>
+            ) : (
+              <div className="py-2">
+                {diffLines.map((line, i) => {
+                  let bg = 'transparent'
+                  let fg = 'var(--text-primary)'
+                  if (line.startsWith('+') && !line.startsWith('+++')) {
+                    bg = 'rgba(74, 222, 128, 0.08)'
+                    fg = 'var(--green)'
+                  } else if (line.startsWith('-') && !line.startsWith('---')) {
+                    bg = 'rgba(248, 113, 113, 0.10)'
+                    fg = 'var(--red)'
+                  } else if (line.startsWith('@@')) {
+                    fg = 'var(--text-dim)'
+                  } else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
+                    fg = 'var(--text-dim)'
+                  }
+                  return (
+                    <div key={i} style={{ background: bg, color: fg, paddingLeft: '16px', paddingRight: '16px', minHeight: '22px', whiteSpace: 'pre' }}>
+                      {line}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          openFiles.map((f) => (
+            <div
+              key={f.path}
+              ref={(el) => registerContainer(f.path, el)}
+              style={{ display: f.path === activeFilePath ? 'block' : 'none', height: '100%' }}
+              className="absolute inset-0"
+            />
+          ))
+        )}
       </div>
       {dirtyClosePath && (
         <ConfirmModal

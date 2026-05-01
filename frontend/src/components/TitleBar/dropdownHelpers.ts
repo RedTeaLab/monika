@@ -3,6 +3,7 @@ import { App } from '../../../bindings/monika';
 
 type StoreForAI = {
   activeSessionId: string;
+  selectedModel: string;
   openSessionTab: (id: string, title: string) => Promise<void>;
   addMessage: (msg: { id: string; role: 'user' | 'assistant' | 'system' | 'error'; content: string }) => void;
   setGeneratingSessionId: (id: string) => void;
@@ -36,7 +37,7 @@ export async function resolveUnmergedWithAI(
   store.setGeneratingSessionId(sid);
 
   try {
-    await App.SendMessage(projectPath, sid, prompt);
+    await App.SendMessage(projectPath, sid, prompt, store.selectedModel);
   } catch (err) {
     store.addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) });
     store.setGeneratingSessionId('');
