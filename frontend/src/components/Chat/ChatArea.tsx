@@ -1,10 +1,9 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
-import ChatInputToolbar from './ChatInputToolbar'
 
 function ChatArea() {
   const messages = useStore((s) => s.messages)
@@ -21,11 +20,11 @@ function ChatArea() {
   const switchSessionTab = useStore((s) => s.switchSessionTab)
   const setGeneratingSessionId = useStore((s) => s.setGeneratingSessionId)
 
-  const sessionTabs = openSessions.map((s) => ({
+  const sessionTabs = useMemo(() => openSessions.map((s) => ({
     key: s.id,
     label: s.title || 'Untitled',
     status: (generatingSessionId === s.id ? 'generating' as const : 'idle' as const),
-  }))
+  })), [openSessions, generatingSessionId])
 
   const handleStop = () => {
     if (generatingSessionId !== '') {
@@ -129,15 +128,12 @@ function ChatArea() {
         )}
       </div>
       {hasActiveSession && (
-        <>
-          <ChatInput
-            key={activeSessionId}
-            onSend={handleSend}
-            onStop={handleStop}
-            disabled={generatingSessionId !== ''}
-          />
-          <ChatInputToolbar />
-        </>
+        <ChatInput
+          key={activeSessionId}
+          onSend={handleSend}
+          onStop={handleStop}
+          disabled={generatingSessionId !== ''}
+        />
       )}
     </div>
   )
