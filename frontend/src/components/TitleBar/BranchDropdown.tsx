@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
+import { App } from '../../../bindings/monika';
 import ConfirmModal from '../Chat/ConfirmModal';
-import { dropdownContainerStyle, sectionHeaderStyle, getErrorMessage, buildDirtyGuardMessage } from './dropdownHelpers';
+import { dropdownContainerStyle, sectionHeaderStyle, getErrorMessage, parseUnmergedError, buildDirtyGuardMessage, resolveUnmergedWithAI } from './dropdownHelpers';
 
 interface BranchDropdownProps {
   isOpen: boolean;
@@ -20,10 +21,15 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirtyConfirm, setDirtyConfirm] = useState<{ branchName: string; remote: string } | null>(null);
+  const [unmergedFiles, setUnmergedFiles] = useState<string[] | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setDirtyConfirm(null);
+      setUnmergedFiles(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     loadBranches()
@@ -45,14 +51,12 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   }, [isOpen, onClose]);
 
   const handleSwitch = async (branchName: string, remote: string) => {
-    console.log('[monika] BranchDropdown.handleSwitch: branchName:', branchName, 'remote:', remote);
     setError(null);
 
     // Guard: check for dirty files or active generation before switching.
     const { openFiles, generatingSessionId } = useStore.getState();
     const dirtyCount = openFiles.filter(f => f.isDirty).length;
     if (dirtyCount > 0 || generatingSessionId) {
-      console.log('[monika] BranchDropdown.handleSwitch: showing dirty confirm');
       setDirtyConfirm({ branchName, remote });
       return;
     }
@@ -61,18 +65,13 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   };
 
   const doSwitch = async (branchName: string, remote: string) => {
-    console.log('[monika] BranchDropdown.doSwitch: branchName:', branchName, 'remote:', remote);
     setError(null);
-    const { App } = await import('../../../bindings/monika');
     try {
       const name = remote ? `${remote}/${branchName}` : branchName;
-      console.log('[monika] BranchDropdown.doSwitch: calling App.SwitchBranch with name:', name);
       await App.SwitchBranch(projectPath, name);
-      console.log('[monika] BranchDropdown.doSwitch: SwitchBranch succeeded');
 
       // Refresh open file tabs in parallel.
       const { openFiles, updateFileContent, closeFileTab } = useStore.getState();
-      console.log('[monika] BranchDropdown.doSwitch: refreshing', openFiles.length, 'open files');
       await Promise.all(openFiles.map(async (file) => {
         try {
           const content = await App.ReadFile(projectPath, file.path);
@@ -86,13 +85,15 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
         }
       }));
       useStore.getState().setBranch(branchName);
-      console.log('[monika] BranchDropdown.doSwitch: reloading branches');
       await loadBranches();
-      console.log('[monika] BranchDropdown.doSwitch: complete, closing dropdown');
       onClose();
     } catch (e: unknown) {
-      console.error('[monika] BranchDropdown.doSwitch failed:', e);
-      setError(getErrorMessage(e, 'Failed to switch branch'));
+      const unmerged = parseUnmergedError(e);
+      if (unmerged) {
+        setUnmergedFiles(unmerged);
+      } else {
+        setError(getErrorMessage(e, 'Failed to switch branch'));
+      }
     }
   };
 
@@ -204,6 +205,21 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
             await doSwitch(branchName, remote);
           }}
           onCancel={() => setDirtyConfirm(null)}
+        />
+      )}
+      {unmergedFiles && (
+        <ConfirmModal
+          title="Cannot Switch Branch"
+          message={`Unresolved merge conflicts detected:\n\n${unmergedFiles.join('\n')}\n\nLet AI resolve them automatically?`}
+          confirmLabel="Let AI Handle"
+          variant="primary"
+          onConfirm={async () => {
+            const files = unmergedFiles;
+            await resolveUnmergedWithAI(projectPath, files, useStore.getState());
+            setUnmergedFiles(null);
+            onClose();
+          }}
+          onCancel={() => setUnmergedFiles(null)}
         />
       )}
     </>

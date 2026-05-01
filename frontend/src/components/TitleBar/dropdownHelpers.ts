@@ -16,7 +16,7 @@ export async function resolveUnmergedWithAI(
 ): Promise<void> {
   let sid = store.activeSessionId;
   if (!sid) {
-    const info = await App.NewSession(projectPath);
+    const info = await App.NewSession(projectPath, store.selectedModel);
     sid = info.id;
     await store.openSessionTab(info.id, info.title || 'Untitled');
   }
