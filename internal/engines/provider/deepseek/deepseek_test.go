@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"monika/internal/config"
 	"monika/pkg/engine"
 )
 
@@ -73,14 +74,33 @@ func TestDeepSeekModelOverride(t *testing.T) {
 }
 
 func TestDeepSeekListModels(t *testing.T) {
-	p := &DeepSeekProvider{}
-	models, err := p.ListModels(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(models) != 2 {
-		t.Fatalf("expected 2 models, got %d", len(models))
-	}
+	t.Run("returns empty without config", func(t *testing.T) {
+		p := &DeepSeekProvider{}
+		models, err := p.ListModels(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(models) != 0 {
+			t.Fatalf("expected 0 models without config, got %d", len(models))
+		}
+	})
+
+	t.Run("returns configured models", func(t *testing.T) {
+		p := &DeepSeekProvider{}
+		_ = p.Init(context.Background(), map[string]any{
+			"models": []config.ModelEntry{
+				{ID: "deepseek-v4-pro", DisplayName: "DeepSeek V4 Pro"},
+				{ID: "deepseek-v4-flash", DisplayName: "DeepSeek V4 Flash"},
+			},
+		})
+		models, err := p.ListModels(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(models) != 2 {
+			t.Fatalf("expected 2 models, got %d", len(models))
+		}
+	})
 }
 
 func TestDeepSeekNoBaseURL(t *testing.T) {

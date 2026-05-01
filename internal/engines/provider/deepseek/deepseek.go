@@ -53,11 +53,7 @@ func (p *DeepSeekProvider) ListModels(ctx context.Context) ([]engine.Model, erro
 			}
 		}
 	}
-	// Fallback for backward compatibility
-	return []engine.Model{
-		{ID: "deepseek-chat", DisplayName: "DeepSeek Chat"},
-		{ID: "deepseek-reasoner", DisplayName: "DeepSeek Reasoner"},
-	}, nil
+	return nil, nil
 }
 
 type resolvedConfig struct {

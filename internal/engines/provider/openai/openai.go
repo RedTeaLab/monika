@@ -52,11 +52,7 @@ func (p *OpenAIProvider) ListModels(ctx context.Context) ([]engine.Model, error)
 			}
 		}
 	}
-	// Fallback for backward compatibility
-	return []engine.Model{
-		{ID: "gpt-4o", DisplayName: "GPT-4o"},
-		{ID: "gpt-4o-mini", DisplayName: "GPT-4o Mini"},
-	}, nil
+	return nil, nil
 }
 
 func (p *OpenAIProvider) resolveConfig(req engine.ChatRequest) resolvedConfig {
