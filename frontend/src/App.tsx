@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import TitleBar from './components/TitleBar/TitleBar'
 import SessionList from './components/Sidebar/SessionList'
+import TodoPanel from './components/TodoPanel/TodoPanel'
 import ChatArea from './components/Chat/ChatArea'
 import FileTree from './components/FileTree/FileTree'
 import FileEditor from './components/FileTree/FileEditor'
@@ -91,6 +92,7 @@ function App() {
               <>
                 <div className="flex-shrink-0 overflow-hidden" style={{ width: sidebarWidth }}>
                   <SessionList />
+                  <TodoPanel />
                 </div>
                 <PanelResizeHandle side="right" width={sidebarWidth} onWidthChange={setSidebarWidth} />
               </>
