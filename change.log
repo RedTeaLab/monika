@@ -18,6 +18,9 @@
 
 ## 2026-05-01
 
+- **中断生成**：ChatInput 新增发送/停止按钮切换——空闲时显示发送按钮（箭头图标），生成中替换为停止按钮（方形图标）。支持 ESC 快捷键中断。ChatArea 通过 `App.CancelGeneration(generatingSessionId)` 调用后端取消链路。Store `error` 事件识别 `cancelled` 类型时静默清除状态，不追加错误消息。后端取消时重置 session 为 idle，goroutine 检测 `ctx.Err()` 避免覆盖。设计文档：`docs/superpowers/specs/2026-05-01-interrupt-generation-design.md`、`docs/superpowers/plans/2026-05-01-interrupt-generation.md`。
+- **模型选择器**：`ChatInputToolbar` 组件显示模型下拉选择器，数据来自 `App.GetModels()`。Store 新增 `availableModels`/`selectedModel`，`initProject` 时加载。`SendMessage`/`NewSession` 传递用户选择的模型。后端新增 in-flight guard 防重复生成。
+- **会话状态指示器**：SessionList 新增 `StatusDot`（生成中黄色 spinner、成功绿点、失败红点）。事件流驱动状态生命周期：`turn_start`→generating，`done`→success，`error`→failure。后端 `resetStaleSessions` 修复崩溃残留。
 - **字体打包**：将 Maple Mono NF（等宽编程字体）和 LXGW WenKai（霞鹜文楷，UI 字体）打包进前端 `src/assets/fonts/`，添加 `@font-face` 声明（`font-display: swap`），确保开箱即用无需系统安装。CodeMirror 编辑器通过 `EditorView.theme` 应用 Maple Mono NF。
 - **Thinking 块可折叠**：MessageBubble 中 thinking 内容默认折叠，点击标题栏展开/收起，精简长推理内容的展示。
 - **Tool 块可折叠**：Tool 卡片新增 chevron 折叠/展开切换，默认展开，便于查看或隐藏工具调用详情。
