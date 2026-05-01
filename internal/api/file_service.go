@@ -103,58 +103,48 @@ func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
 	return listDirRecursive(relPath)
 }
 
-// gitStatusMap returns a map of file path -> git status code for the project.
-func (f *FileService) gitStatusMap() map[string]string {
-	m := make(map[string]string)
+func (f *FileService) readGitStatus() ([]FileChange, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = f.projectDir
 	out, err := cmd.Output()
 	if err != nil {
-		return m // not a git repo, return empty map
+		return nil, err
 	}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		status := strings.TrimSpace(line[0:2])
-		filename := strings.TrimSpace(line[3:])
-		if idx := strings.Index(filename, " -> "); idx >= 0 {
-			filename = filename[idx+4:]
-		}
-		if status != "" && filename != "" {
-			m[filename] = status
-		}
-	}
-	return m
-}
-
-func (f *FileService) ListChanges() ([]FileChange, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = f.projectDir
-	out, err := cmd.Output()
-	if err != nil {
-		return []FileChange{}, nil
-	}
-
 	changes := make([]FileChange, 0)
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if len(line) < 4 {
 			continue
 		}
-		status := strings.TrimSpace(line[0:2])
+		status := line[0:2]
 		filename := strings.TrimSpace(line[3:])
-
 		if idx := strings.Index(filename, " -> "); idx >= 0 {
 			filename = filename[idx+4:]
 		}
-
-		if status == "" || filename == "" {
-			continue
+		if status != "" && filename != "" {
+			changes = append(changes, FileChange{Path: filename, Status: status})
 		}
-
-		changes = append(changes, FileChange{Path: filename, Status: status})
 	}
+	return changes, nil
+}
 
+// gitStatusMap returns a map of file path -> git status code for the project.
+func (f *FileService) gitStatusMap() map[string]string {
+	changes, err := f.readGitStatus()
+	if err != nil {
+		return make(map[string]string)
+	}
+	m := make(map[string]string, len(changes))
+	for _, c := range changes {
+		m[c.Path] = c.Status
+	}
+	return m
+}
+
+func (f *FileService) ListChanges() ([]FileChange, error) {
+	changes, err := f.readGitStatus()
+	if err != nil {
+		return []FileChange{}, nil
+	}
 	return changes, nil
 }
 
