@@ -43,37 +43,53 @@ function StatusIndicator({ status }: { status?: TabData['status'] }) {
 
 function TabBar({ tabs, activeKey, onSelect, onClose, emptyLabel }: TabBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef(tabs)
+  tabsRef.current = tabs
   const [overflowKeys, setOverflowKeys] = useState<string[]>([])
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // ResizeObserver to detect overflow
+  // ResizeObserver — set up once, read latest tabs from ref
+  const calcRef = useRef<() => void>(() => {})
+
   useEffect(() => {
     const el = containerRef.current
-    if (!el || tabs.length === 0) { setOverflowKeys([]); return }
+    if (!el) return
 
     const calc = () => {
+      const current = tabsRef.current
+      if (current.length === 0) {
+        setOverflowKeys((prev) => (prev.length === 0 ? prev : []))
+        return
+      }
       const containerWidth = el.clientWidth
-      const moreBtnWidth = MORE_BUTTON_WIDTH
       let used = 0
       const overflow: string[] = []
 
-      // First pass: count visible tabs at min width
-      tabs.forEach((tab) => {
-        if (used + MIN_TAB_WIDTH + (overflow.length > 0 ? moreBtnWidth : 0) <= containerWidth) {
+      current.forEach((tab) => {
+        if (used + MIN_TAB_WIDTH + (overflow.length > 0 ? MORE_BUTTON_WIDTH : 0) <= containerWidth) {
           used += MIN_TAB_WIDTH
         } else {
           overflow.push(tab.key)
         }
       })
 
-      setOverflowKeys(overflow)
+      setOverflowKeys((prev) => {
+        if (prev.length === overflow.length && prev.every((k, i) => k === overflow[i])) return prev
+        return overflow
+      })
     }
+    calcRef.current = calc
 
     calc()
-    const ro = new ResizeObserver(calc)
+    const ro = new ResizeObserver(() => calcRef.current())
     ro.observe(el)
     return () => ro.disconnect()
+  }, [])
+
+  // Recalculate when tabs change
+  useEffect(() => {
+    calcRef.current()
   }, [tabs])
 
   // Click outside to close
