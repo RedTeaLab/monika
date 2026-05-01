@@ -16,3 +16,11 @@ func RegisterDefaults(r *tool.ToolRegistry, projectDir string) error {
 	r.Register(sh)
 	return nil
 }
+
+// RegisterTasks registers the three task planning tools.
+// Called separately after TaskStore is created in main.
+func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
+	r.Register(NewTaskCreate(store))
+	r.Register(NewTaskUpdate(store))
+	r.Register(NewTaskList(store))
+}
