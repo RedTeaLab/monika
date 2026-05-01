@@ -365,6 +365,7 @@ export class StreamEvent {
     "tool"?: agent$0.ToolEvent | null;
     "usage"?: agent$0.UsageEvent | null;
     "file_change"?: FileChangeEvent | null;
+    "tasks"?: any[];
 
     /** Creates a new StreamEvent instance. */
     constructor($$source: Partial<StreamEvent> = {}) {

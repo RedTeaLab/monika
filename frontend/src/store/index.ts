@@ -3,6 +3,14 @@ import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo } from '../../bindings/monika'
 
+export interface TaskItem {
+  id: string
+  subject: string
+  description?: string
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
+  blockedBy?: string[]
+}
+
 export type LayoutMode = 'chat' | 'split' | 'files'
 
 interface ToolCall {
@@ -54,6 +62,7 @@ interface AppState {
 
   openSessions: SessionTabInfo[]
   sessionMessages: Record<string, Message[]>
+  tasks: Record<string, TaskItem[]>
   openFiles: FileTabInfo[]
   recentProjects: RecentProject[]
   allBranches: BranchInfo[]
@@ -88,6 +97,7 @@ interface AppState {
   bumpFileTreeVersion: () => void
   bumpSessionListVersion: () => void
   updateSessionTitle: (id: string, title: string) => void
+  setSessionTasks: (sessionId: string, tasks: TaskItem[]) => void
 
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
@@ -125,6 +135,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   openSessions: [],
   sessionMessages: {},
+  tasks: {},
   openFiles: [],
   recentProjects: [],
   allBranches: [],
@@ -368,6 +379,9 @@ export const useStore = create<AppState>((set, get) => ({
         sess.id === id ? { ...sess, title } : sess
       ),
     })),
+  setSessionTasks: (sessionId, tasks) => {
+    set((s) => ({ tasks: { ...s.tasks, [sessionId]: tasks } }))
+  },
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
   setProjectPath: (path) => {
@@ -600,6 +614,7 @@ export const useStore = create<AppState>((set, get) => ({
       consoleLines: ['$ ready'],
       openSessions: [],
       sessionMessages: {},
+      tasks: {},
       openFiles: [],
       allBranches: [],
       recentProjects: [],
@@ -791,6 +806,12 @@ export function setupWailsEvents() {
         store.setGeneratingSessionId(sid)
         break
       }
+
+      case 'task_updated':
+        if (data.tasks) {
+          store.setSessionTasks(sid, data.tasks as TaskItem[])
+        }
+        break
     }
   })
 }
