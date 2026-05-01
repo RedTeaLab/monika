@@ -132,8 +132,8 @@ function FileEditor() {
             updateFileContent(activeFilePath, content)
             setFileDirty(activeFilePath, false)
           })
-          .catch(() => {
-            // Write failed — keep dirty state
+          .catch((err) => {
+            console.error('[FileEditor] WriteFile failed:', activeFilePath, err)
           })
       }
     }
