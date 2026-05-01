@@ -158,7 +158,7 @@ func (a *App) OpenProject(path string) (*ProjectInfo, error) {
 	a.mu.Unlock()
 
 	a.getSessionManager(path)
-	// Reset any sessions left in "generating" status from a previous crash
+	// Reset any sessions left in StatusGenerating status from a previous crash
 	a.resetStaleSessions(path)
 	a.getFileService(path)
 	a.writeRecentProject(info.Path, info.Name)
@@ -244,7 +244,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 		// Set generating status
 		sm.Lock()
-		sm.SetStatus(s, "generating")
+		sm.SetStatus(s, StatusGenerating)
 		sm.Save(s)
 		sm.Unlock()
 
@@ -263,13 +263,13 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 			sm.Lock()
 			if ctx.Err() != nil {
-				sm.SetStatus(s, "idle")
+				sm.SetStatus(s, StatusIdle)
 				sm.Save(s)
 			} else if hadError {
-				sm.SetStatus(s, "failure")
+				sm.SetStatus(s, StatusFailure)
 				sm.Save(s)
 			} else {
-				sm.SetStatus(s, "success")
+				sm.SetStatus(s, StatusSuccess)
 				sm.Save(s)
 			}
 			sm.Unlock()
@@ -294,7 +294,7 @@ func (a *App) CancelGeneration(sessionID string) {
 		if sm := a.getSessionManagerForSession(sessionID); sm != nil {
 			if s, err := sm.Load(sessionID); err == nil {
 				sm.Lock()
-				sm.SetStatus(s, "idle")
+				sm.SetStatus(s, StatusIdle)
 				sm.Save(s)
 				sm.Unlock()
 			}
@@ -412,13 +412,13 @@ func (a *App) resetStaleSessions(projectPath string) {
 		return
 	}
 	for _, info := range sessions {
-		if info.Status == "generating" {
+		if info.Status == StatusGenerating {
 			s, err := sm.Load(info.ID)
 			if err != nil {
 				continue
 			}
 			sm.Lock()
-			sm.SetStatus(s, "idle")
+			sm.SetStatus(s, StatusIdle)
 			sm.Save(s)
 			sm.Unlock()
 		}

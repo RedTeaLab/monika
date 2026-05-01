@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent, useEffect } from 'react'
+import { useState, KeyboardEvent, useEffect, useRef } from 'react'
 
 function ChatInput({ onSend, onStop, disabled }: {
   onSend: (text: string) => void
@@ -7,18 +7,22 @@ function ChatInput({ onSend, onStop, disabled }: {
 }) {
   const [value, setValue] = useState('')
 
+  // Stable ref for onStop to avoid re-registering ESC listener every render
+  const onStopRef = useRef(onStop)
+  onStopRef.current = onStop
+
   // ESC key to stop generation
   useEffect(() => {
     if (!disabled) return
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onStop()
+        onStopRef.current()
       }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [disabled, onStop])
+  }, [disabled])
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

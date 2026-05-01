@@ -420,7 +420,11 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  closeSessionTab: (id) => {
+  closeSessionTab: async (id) => {
+    // Cancel backend generation if the closed tab was generating
+    if (get().generatingSessionId === id) {
+      try { await App.CancelGeneration(id) } catch { /* best-effort */ }
+    }
     set((s) => {
       const idx = s.openSessions.findIndex((t) => t.id === id)
       if (idx === -1) return {}

@@ -13,6 +13,14 @@ import (
 	"monika/pkg/engine"
 )
 
+// Session status constants.
+const (
+	StatusIdle       = "idle"
+	StatusGenerating = "generating"
+	StatusSuccess    = "success"
+	StatusFailure    = "failure"
+)
+
 type Session struct {
 	ID         string               `json:"id"`
 	Title      string               `json:"title"`
@@ -68,7 +76,7 @@ func (sm *SessionManager) New(model, provider string) (*Session, error) {
 		ProjectDir: sm.projectDir,
 		Model:      model,
 		Provider:   provider,
-		Status:     "idle",
+		Status:     StatusIdle,
 		CreatedAt:  now,
 		UpdatedAt:  now,
 	}, nil
@@ -85,7 +93,7 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 		return nil, err
 	}
 	if s.Status == "" {
-		s.Status = "idle"
+		s.Status = StatusIdle
 	}
 	return &s, nil
 }
