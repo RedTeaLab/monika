@@ -10,6 +10,7 @@ type StreamEvent struct {
 	Tool       *agent.ToolEvent  `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent `json:"usage,omitempty"`
 	FileChange *FileChangeEvent  `json:"file_change,omitempty"`
+	Tasks      []agent.TaskItem  `json:"tasks,omitempty"`
 }
 
 type FileChangeEvent struct {
