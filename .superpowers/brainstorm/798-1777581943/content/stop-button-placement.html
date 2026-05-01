@@ -1,0 +1,52 @@
+<h2>Where should the stop button appear during generation?</h2>
+<p class="subtitle">The backend already supports cancellation — we're designing the UI affordance</p>
+
+<div class="options" data-multiselect>
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Replace input area</h3>
+      <p>ChatInput transforms into a prominent "Stop generating" button, like ChatGPT/Claude. Clicking it stops generation and restores the input.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>StatusBar button</h3>
+      <p>A stop button in the StatusBar alongside the "generating..." indicator. Input stays disabled during generation.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Floating button near message</h3>
+      <p>A stop icon floats near the streaming message bubble. Input area remains unchanged.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>Both: input + StatusBar</h3>
+      <p>Stop button replaces input AND appears in StatusBar. Redundant but hard to miss.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Current state (no stop button)</h3>
+  <div class="mockup">
+    <div class="mockup-header">Chat UI — during generation</div>
+    <div class="mockup-body">
+      <div style="background:#1a1a2e;border-radius:8px;padding:16px;color:#e0e0e0;font-family:monospace;font-size:13px;">
+        <div style="margin-bottom:8px;color:#888;">assistant:  Thinking about the best approach...</div>
+        <div style="margin-bottom:8px;color:#ddd;">assistant:  Here is the code you requested:</div>
+        <div style="margin-bottom:12px;color:#ddd;">assistant:  <span style="color:#f0c040;">import</span> React <span style="color:#f0c040;">from</span> <span style="color:#7ec699;">'react'</span>; ...</div>
+        <div style="border:1px solid #444;border-radius:6px;padding:10px;background:#111;margin-bottom:12px;">
+          <span style="color:#888;">[Send message...]</span>
+          <span style="float:right;color:#666;">Generating...</span>
+        </div>
+        <div style="text-align:center;color:#f0c040;">⬤ generating...</div>
+      </div>
+    </div>
+  </div>
+</div>
