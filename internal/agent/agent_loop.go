@@ -97,7 +97,13 @@ Important findings, bugs identified, constraints discovered.
 What has been done so far. Files created/modified, tests passing/failing.
 
 ## Next Steps
-What remains to be done. Explicit TODOs mentioned by user.`
+What remains to be done. Explicit TODOs mentioned by user.
+
+## Summary Quality Gate
+- Must preserve all stated user goals
+- Must preserve all agreed design decisions
+- Must preserve all discovered bugs and constraints
+- If these cannot fit, prioritize goals > decisions > discoveries`
 
 	var b strings.Builder
 	for _, m := range conv.Messages {
@@ -218,7 +224,7 @@ func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
 	keepFrom := len(conv.Messages) - 1
 	for i := len(conv.Messages) - 1; i >= 0; i-- {
 		m := conv.Messages[i]
-		running += int64(tokenizer.Count(m.Role) + tokenizer.Count(m.Content) + 4)
+		running += int64(tokenizer.Count(m.Role) + tokenizer.Count(m.Content) + tokenizer.Count(m.ReasoningContent) + 4)
 		if running > budget && i < len(conv.Messages)-1 {
 			keepFrom = i + 1
 			break
