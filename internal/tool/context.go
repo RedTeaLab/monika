@@ -3,8 +3,14 @@ package tool
 import "context"
 
 type projectDirKeyType struct{}
+type sessionIDKeyType struct{}
+type taskStoreKeyType struct{}
 
-var projectDirKey projectDirKeyType
+var (
+	projectDirKey projectDirKeyType
+	sessionIDKey  sessionIDKeyType
+	taskStoreKey  taskStoreKeyType
+)
 
 // WithProjectDir returns a child context carrying the project directory.
 func WithProjectDir(ctx context.Context, dir string) context.Context {
@@ -23,4 +29,51 @@ func ProjectDirOrDefault(ctx context.Context, fallback string) string {
 		return dir
 	}
 	return fallback
+}
+
+// WithSessionID returns a child context carrying the session ID.
+func WithSessionID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, sessionIDKey, id)
+}
+
+// SessionIDFromContext extracts the session ID from context, or empty string.
+func SessionIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(sessionIDKey).(string)
+	return id
+}
+
+// TaskStore is the interface task tools depend on.
+type TaskStore interface {
+	Replace(sessionID string, tasks []Task) error
+	Update(sessionID, taskID string, fields TaskUpdateFields) error
+	List(sessionID string) []Task
+}
+
+// WithTaskStore returns a child context carrying the TaskStore.
+func WithTaskStore(ctx context.Context, ts TaskStore) context.Context {
+	return context.WithValue(ctx, taskStoreKey, ts)
+}
+
+// TaskStoreFromContext extracts the TaskStore from context, or nil.
+func TaskStoreFromContext(ctx context.Context) TaskStore {
+	ts, _ := ctx.Value(taskStoreKey).(TaskStore)
+	return ts
+}
+
+// Task and TaskUpdateFields are defined here so tools can import them
+// without depending on the builtin package.
+
+type Task struct {
+	ID          string   `json:"id"`
+	Subject     string   `json:"subject"`
+	Description string   `json:"description,omitempty"`
+	Status      string   `json:"status"`
+	BlockedBy   []string `json:"blockedBy,omitempty"`
+}
+
+type TaskUpdateFields struct {
+	Status       *string  `json:"status,omitempty"`
+	Subject      *string  `json:"subject,omitempty"`
+	Description  *string  `json:"description,omitempty"`
+	AddBlockedBy []string `json:"addBlockedBy,omitempty"`
 }
