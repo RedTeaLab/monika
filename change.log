@@ -33,6 +33,12 @@
 - **审查修复：取消竞态与状态同步**：SendMessage goroutine 取消后分支化 Save（避免覆写 CancelGeneration 的 idle 状态），`ctx.Err() == nil` 守卫 `session_updated` 事件发送。前端 `cancelled` 错误路径补全 `setSessionStatus(idle)` + `clearSessionError` + `bumpSessionListVersion`，防止侧边栏永远显示 spinner。关闭标签页时自动调用 `CancelGeneration` 清理后端 goroutine。
 - **审查修复：模型状态健壮性**：ChatArea 新增 `selectedModel` 空值校验（无模型时不发送）。`loadModels` 验证旧 `selectedModel` 是否仍在新的 `availableModels` 列表中，不在则回退到第一个。`resetProjectState` 清除 `availableModels`/`selectedModel` 防止跨项目残留。新增 `setSelectedModel` store action 替代 `ChatInputToolbar` 中直接 `useStore.setState`。
 - **审查修复：ESC 稳定性与状态常量化**：ChatInput ESC 监听器改用 `useRef(onStop)` 稳定引用，依赖数组简化为 `[disabled]` 消除每次渲染重注册。Go 端新增 `StatusIdle`/`StatusGenerating`/`StatusSuccess`/`StatusFailure` 常量，替换 `app.go` 和 `session_manager.go` 中所有硬编码字符串。
+- **TabBar ResizeObserver 性能优化**：使用 `tabsRef` + `calcRef` 稳定引用避免每次 tabs 变化重建 ResizeObserver，`setOverflowKeys` 改用函数式更新减少不必要的重渲染。
+- **文件面板改进**：Edit/Diff 切换按钮从 FileEditor 移至 StatusBar（新增 `IconCode` 图标），支持 `Ctrl+/` 快捷键。FileTree git 状态显示优化——`D`(红)/`A`(绿)/`M`(黄)/`R`(紫)/`??`(灰) 颜色区分与简洁标签。新增刷新按钮 + 窗口聚焦自动刷新文件树。修复 `internal/api/file_service.go` 中 Windows 反斜杠路径无法匹配 git status 的问题（`filepath.ToSlash`）。
+- **ChatInput 重构**：`ModelSelect` 下拉和 token 显示内联到 ChatInput 底部栏，移除 `ChatArea` 中 `ChatInputToolbar` 的引用。文本框 `auto-resize`（最大高度 160px）。发送按钮改为纸飞机图标，停止按钮改为无背景方形图标。
+- **Last project 持久化**：`internal/api/app.go` 新增 `~/.monika/state.json` 读写（原子写入 via tmp+rename），启动时自动恢复上次打开的项目。`GetCurrentProject` 优先返回 last project 而非 startupCwd。
+- **NewSession model 参数**：`frontend/bindings/monika/index.ts` 中 `NewSession` 签名新增 `model` 参数，`SessionList` 创建 session 时透传 `selectedModel`。
+- **分支冲突 AI 修复**：`BranchDropdown` 和 `CreateBranchPanel` 切换/创建分支时检测 unmerged 冲突，弹出 `ConfirmModal` 提供"Let AI Handle"选项（`resolveUnmergedWithAI`）。`dropdownHelpers.ts` 新增 `parseUnmergedError` 解析错误信息中的冲突文件列表。移除残留 `console.log` 调试输出。
 
 ## 2026-04-30
 
