@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"monika/internal/tool"
 )
@@ -38,6 +39,9 @@ func (t *taskListTool) Execute(ctx context.Context, _ json.RawMessage) (tool.Exe
 	if list == nil {
 		list = []tool.Task{}
 	}
-	data, _ := json.Marshal(list)
+	data, err := json.Marshal(list)
+	if err != nil {
+		return tool.ExecutionResult{IsError: true, Content: fmt.Sprintf("failed to marshal tasks: %v", err)}, nil
+	}
 	return tool.ExecutionResult{Content: string(data)}, nil
 }

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"monika/internal/tool"
 	"monika/pkg/engine"
 )
 
@@ -21,15 +22,6 @@ const (
 	StatusFailure    = "failure"
 )
 
-// Task represents a single task in a session's task planning list.
-type Task struct {
-	ID          string   `json:"id"`
-	Subject     string   `json:"subject"`
-	Description string   `json:"description,omitempty"`
-	Status      string   `json:"status"`
-	BlockedBy   []string `json:"blockedBy,omitempty"`
-}
-
 type Session struct {
 	ID         string               `json:"id"`
 	Title      string               `json:"title"`
@@ -40,13 +32,13 @@ type Session struct {
 	Status     string               `json:"status"`
 	CreatedAt  time.Time            `json:"created_at"`
 	UpdatedAt  time.Time            `json:"updated_at"`
-	Tasks      []Task               `json:"tasks,omitempty"`
+	Tasks      []tool.Task          `json:"tasks,omitempty"`
 }
 
 // TaskStoreAccessor provides snapshot/restore for persistence bridging.
 type TaskStoreAccessor interface {
-	Snapshot() map[string][]Task
-	Restore(sessionID string, tasks []Task)
+	Snapshot() map[string][]tool.Task
+	Restore(sessionID string, tasks []tool.Task)
 }
 
 type SessionManager struct {
@@ -145,7 +137,11 @@ func (sm *SessionManager) Save(s *Session) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0o644)
+	tmpPath := p + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmpPath, p)
 }
 
 func (sm *SessionManager) SetStatus(s *Session, status string) {

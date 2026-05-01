@@ -72,7 +72,12 @@ func main() {
 		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
+	var taskStoreAccessor api.TaskStoreAccessor
+	if accessor, ok := taskStore.(api.TaskStoreAccessor); ok {
+		taskStoreAccessor = accessor
+	}
+
+	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

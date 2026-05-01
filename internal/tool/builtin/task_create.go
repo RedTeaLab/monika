@@ -66,6 +66,9 @@ func (t *taskCreateTool) Execute(ctx context.Context, args json.RawMessage) (too
 	}
 
 	list := t.store.List(sessionID)
-	data, _ := json.Marshal(list)
+	data, err := json.Marshal(list)
+	if err != nil {
+		return tool.ExecutionResult{IsError: true, Content: fmt.Sprintf("failed to marshal tasks: %v", err)}, nil
+	}
 	return tool.ExecutionResult{Content: string(data)}, nil
 }

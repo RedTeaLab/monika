@@ -36,7 +36,12 @@ var validStatuses = map[string]bool{
 	"cancelled":   true,
 }
 
+const maxTasks = 20
+
 func (ts *taskStore) Replace(sessionID string, tasks []tool.Task) error {
+	if len(tasks) > maxTasks {
+		return fmt.Errorf("validation: too many tasks (%d), max %d", len(tasks), maxTasks)
+	}
 	for i, t := range tasks {
 		if strings.TrimSpace(t.ID) == "" {
 			return fmt.Errorf("validation: task %d: id must not be empty", i)
@@ -50,10 +55,16 @@ func (ts *taskStore) Replace(sessionID string, tasks []tool.Task) error {
 	}
 	ids := make(map[string]bool, len(tasks))
 	for _, t := range tasks {
+		if ids[t.ID] {
+			return fmt.Errorf("validation: duplicate task id %q", t.ID)
+		}
 		ids[t.ID] = true
 	}
 	for i, t := range tasks {
 		for _, dep := range t.BlockedBy {
+			if dep == t.ID {
+				return fmt.Errorf("validation: task %d (%q): blockedBy cannot reference itself", i, t.ID)
+			}
 			if !ids[dep] {
 				return fmt.Errorf("validation: task %d (%q): blockedBy %q does not reference any task in the list", i, t.ID, dep)
 			}

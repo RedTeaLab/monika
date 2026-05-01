@@ -39,10 +39,11 @@ type App struct {
 	cancelFuncs map[string]context.CancelFunc
 	cancelMu    sync.Mutex
 
-	loopOpts []agent2.LoopOption
+	loopOpts  []agent2.LoopOption
+	taskStore TaskStoreAccessor
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStore TaskStoreAccessor) *App {
 	return &App{
 		home:        home,
 		cfg:         cfg,
@@ -56,6 +57,7 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 		eventBus:    NewEventBus(),
 		cancelFuncs: make(map[string]context.CancelFunc),
 		loopOpts:    loopOpts,
+		taskStore:   taskStore,
 	}
 }
 
@@ -408,6 +410,9 @@ func (a *App) getSessionManager(projectPath string) *SessionManager {
 		return sm
 	}
 	sm := NewSessionManager(a.home, projectPath)
+	if a.taskStore != nil {
+		sm.SetTaskStore(a.taskStore)
+	}
 	a.sessions[projectPath] = sm
 	return sm
 }
