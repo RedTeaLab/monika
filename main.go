@@ -48,12 +48,16 @@ func main() {
 	registry := tool.NewRegistry()
 	builtin.RegisterDefaults(registry, cwd)
 
+	taskStore := builtin.NewTaskStore(nil)
+	builtin.RegisterTasks(registry, taskStore)
+
 	application.RegisterEvent[api.StreamEvent]("stream")
 
 	systemParts := []string{
 		fmt.Sprintf("OS Version: %s\nWorking directory: {{WorkingDirectory}}", runtime.GOOS),
 		agent.PromptIdentity,
 		agent.PromptToolUsage,
+		agent.PromptPlanning,
 		agent.PromptCodeQuality,
 		agent.PromptResponseStyle,
 		agent.PromptSafetyBoundaries,
@@ -69,6 +73,18 @@ func main() {
 	}
 
 	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts)
+
+	// Wire task change callback so TaskStore mutations push events to the frontend
+	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {
+		taskItems := make([]agent.TaskItem, len(tasks))
+		for i, t := range tasks {
+			taskItems[i] = agent.TaskItem{
+				ID: t.ID, Subject: t.Subject, Description: t.Description,
+				Status: t.Status, BlockedBy: t.BlockedBy,
+			}
+		}
+		appService.EmitTaskEvent(sessionID, taskItems)
+	})
 
 	assets, err := fs.Sub(embeddedAssets, "frontend/dist")
 	if err != nil {
