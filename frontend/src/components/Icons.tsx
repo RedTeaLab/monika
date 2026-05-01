@@ -132,6 +132,16 @@ export function IconSplitLayout({ size }: { size?: number }) {
   )
 }
 
+export function IconCode({ size }: { size?: number }) {
+  return (
+    <Icon size={size}>
+      <path d="M5.5 3.5L2.5 8l3 4.5" />
+      <path d="M10.5 3.5l3 4.5-3 4.5" />
+      <path d="M10 2l-3 11.5" />
+    </Icon>
+  )
+}
+
 export function IconFilesLayout({ size }: { size?: number }) {
   return (
     <Icon size={size}>

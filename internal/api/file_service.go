@@ -75,7 +75,9 @@ func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
 			}
 
 			// Populate git status from the status map.
-			if status, ok := statusMap[entryRelPath]; ok {
+			// git always uses forward slashes, but filepath.Join may use backslashes.
+			gitPath := filepath.ToSlash(entryRelPath)
+			if status, ok := statusMap[gitPath]; ok {
 				node.Status = status
 			}
 
@@ -111,7 +113,7 @@ func (f *FileService) readGitStatus() ([]FileChange, error) {
 		return nil, err
 	}
 	changes := make([]FileChange, 0)
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+	for _, line := range strings.Split(string(out), "\n") {
 		if len(line) < 4 {
 			continue
 		}

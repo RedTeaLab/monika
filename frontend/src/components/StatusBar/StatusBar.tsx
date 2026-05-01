@@ -1,5 +1,5 @@
 import { useStore } from '../../store'
-import { IconSidebar, IconConsole, IconFolder } from '../Icons'
+import { IconSidebar, IconConsole, IconFolder, IconCode, IconCircle } from '../Icons'
 
 interface StatusBarProps {
   showConsole: boolean; showFileTree: boolean; showSidebar: boolean
@@ -9,20 +9,14 @@ interface StatusBarProps {
 const togClass = (active: boolean) =>
   `flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] outline-none transition-colors ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'} hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:shadow-[0_0_0_3px_var(--accent-muted)]`
 
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-  return String(n)
-}
-
 function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, onToggleFileTree, onToggleSidebar }: StatusBarProps) {
   const generating = useStore((s) => s.generatingSessionId !== '')
-  const tokenCount = useStore((s) => s.tokenCount)
-  const tokenMax = useStore((s) => s.tokenMax)
+  const activeFilePath = useStore((s) => s.activeFilePath)
+  const openFiles = useStore((s) => s.openFiles)
+  const setFileMode = useStore((s) => s.setFileMode)
 
-  const tokenText = tokenMax > 0
-    ? `${formatTokens(tokenCount)} / ${formatTokens(tokenMax)}`
-    : formatTokens(tokenCount)
+  const activeFile = openFiles.find((f) => f.path === activeFilePath)
+  const currentMode = activeFile?.mode || 'edit'
 
   return (
     <div
@@ -42,7 +36,7 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
         <span className="text-[var(--text-secondary)]">{generating ? 'generating...' : 'ready'}</span>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)]" style={{ background: 'var(--bg-main)', padding: '2px 4px' }}>
         <button onClick={onToggleSidebar} title="Sidebar" className={togClass(showSidebar)} aria-label="Toggle session sidebar">
           <IconSidebar size={13} />
         </button>
@@ -52,7 +46,16 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
         <button onClick={onToggleFileTree} title="Files" className={togClass(showFileTree)} aria-label="Toggle file tree">
           <IconFolder size={13} />
         </button>
-        <span className="text-[var(--text-dim)] ml-2" style={{ fontFamily: 'var(--font-mono)' }} title={tokenMax > 0 ? `${tokenCount} / ${tokenMax} tokens` : `${tokenCount} tokens`}>tok: {tokenText}</span>
+        <span className="text-[var(--border)] select-none mx-0.5">|</span>
+        <button
+          type="button"
+          onClick={() => setFileMode(activeFilePath, currentMode === 'edit' ? 'diff' : 'edit')}
+          className={togClass(true)}
+          title={currentMode === 'edit' ? 'Diff mode (Ctrl+/)' : 'Edit mode (Ctrl+/)'}
+          aria-label={currentMode === 'edit' ? 'Switch to diff mode' : 'Switch to edit mode'}
+        >
+          {currentMode === 'edit' ? <IconCode size={13} /> : <IconCircle size={13} />}
+        </button>
       </div>
     </div>
   )

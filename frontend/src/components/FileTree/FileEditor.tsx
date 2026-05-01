@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
@@ -157,6 +157,21 @@ function FileEditor() {
     return () => window.removeEventListener('keydown', handler)
   }, [currentMode, activeFilePath, projectPath])
 
+  // Ctrl+/ toggle edit/diff mode
+  useEffect(() => {
+    if (!activeFilePath) return
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+        e.preventDefault()
+        const file = useStore.getState().openFiles.find((f) => f.path === activeFilePath)
+        if (!file) return
+        setFileMode(activeFilePath, file.mode === 'edit' ? 'diff' : 'edit')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeFilePath, setFileMode])
+
   // Fetch diff when switching to Diff mode
   useEffect(() => {
     if (currentMode !== 'diff' || !activeFilePath) return
@@ -217,11 +232,11 @@ function FileEditor() {
     }
   }, [activeFilePath, switchFileTab, updateFileContent])
 
-  const fileTabs = openFiles.map((f) => ({
+  const fileTabs = useMemo(() => openFiles.map((f) => ({
     key: f.path,
     label: f.path.split('/').pop() || f.path.split('\\').pop() || f.path,
     dirty: f.isDirty,
-  }))
+  })), [openFiles])
 
   if (openFiles.length === 0) {
     return (
@@ -244,36 +259,6 @@ function FileEditor() {
         emptyLabel="Preview"
       />
       <div className="flex-1 relative">
-        {activeFilePath && (
-          <div role="radiogroup" aria-label="Editor mode"
-            className="absolute top-2 right-3 z-10 flex rounded-md overflow-hidden shadow-lg"
-            style={{ background: 'var(--glass-strong)', border: '1px solid var(--border)' }}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={currentMode === 'edit'}
-              aria-label="Edit mode"
-              onClick={() => setFileMode(activeFilePath, 'edit')}
-              className="px-3 py-1 text-[11px] font-medium transition-colors"
-              style={{
-                background: currentMode === 'edit' ? 'var(--accent)' : 'transparent',
-                color: currentMode === 'edit' ? '#fff' : 'var(--text-dim)',
-              }}
-            >Edit</button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={currentMode === 'diff'}
-              aria-label="Diff mode"
-              onClick={() => setFileMode(activeFilePath, 'diff')}
-              className="px-3 py-1 text-[11px] font-medium transition-colors"
-              style={{
-                background: currentMode === 'diff' ? 'var(--accent)' : 'transparent',
-                color: currentMode === 'diff' ? '#fff' : 'var(--text-dim)',
-              }}
-            >Diff</button>
-          </div>
-        )}
         {currentMode === 'diff' ? (
           <div className="absolute inset-0 overflow-auto font-mono text-[13px] leading-relaxed"
             style={{ background: 'var(--bg-main)' }}>

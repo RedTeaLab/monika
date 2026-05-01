@@ -7,6 +7,7 @@ function FileTree() {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
+  const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const openFileTab = useStore((s) => s.openFileTab)
   const activeFilePath = useStore((s) => s.activeFilePath)
 
@@ -21,7 +22,14 @@ function FileTree() {
         if (!cancelled) setTree([])
       })
     return () => { cancelled = true }
-  }, [projectPath])
+  }, [projectPath, fileTreeVersion])
+
+  // Refresh on window focus (catches external git / file changes)
+  useEffect(() => {
+    const onFocus = () => useStore.getState().bumpFileTreeVersion()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const handleFileClick = async (node: FileNode) => {
     if (node.is_dir) {
@@ -38,8 +46,23 @@ function FileTree() {
     }
   }
 
+  const bumpTree = useStore((s) => s.bumpFileTreeVersion)
+
   const gitColor = (status?: string) => {
-    switch (status) { case 'M': return 'var(--yellow)'; case 'A': return 'var(--green)'; case 'D': return 'var(--red)'; default: return undefined; }
+    if (!status) return undefined
+    if (status.includes('D')) return 'var(--red)'
+    if (status.includes('A')) return 'var(--green)'
+    if (status.includes('M')) return 'var(--yellow)'
+    if (status.includes('R')) return 'var(--purple)'
+    if (status === '??') return 'var(--text-dim)'
+    return undefined
+  }
+  const gitLabel = (status?: string) => {
+    if (!status) return undefined
+    if (status === '??') return '?'
+    const s = status.trim()
+    if (s.length === 2) return s[1] !== ' ' ? s[1] : s[0]
+    return s
   }
 
   const renderNode = (node: FileNode, depth = 0) => {
@@ -66,8 +89,8 @@ function FileTree() {
             }
           </span>
           <span className="truncate">{node.name}</span>
-          {node.status && (
-            <span className="text-[10px] font-semibold ml-auto opacity-60">{node.status}</span>
+          {gitLabel(node.status) && (
+            <span className="text-[10px] font-semibold ml-auto opacity-60">{gitLabel(node.status)}</span>
           )}
         </div>
         {node.is_dir && isExpanded && node.children?.map(ch => renderNode(ch, depth + 1))}
@@ -80,8 +103,15 @@ function FileTree() {
       className="flex flex-col h-full backdrop-blur-md"
       style={{ background: 'var(--glass-light)', padding: '0 8px' }}
     >
-      <div className="pt-5 pb-2 px-1">
+      <div className="pt-5 pb-2 px-1 flex items-center justify-between">
         <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Files</span>
+        <button
+          onClick={() => bumpTree()}
+          title="Refresh file tree"
+          className="text-[10px] text-[var(--text-dim)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none px-1 rounded"
+        >
+          ↻
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {(!tree || tree.length === 0) ? (
