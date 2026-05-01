@@ -75,6 +75,7 @@ interface AppState {
   setGeneratingSessionId: (sessionId: string) => void
   setSessionStatus: (sessionId: string, status: string) => void
   setSessionError: (sessionId: string, error: string) => void
+  setSelectedModel: (model: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
   addTokens: (tokens: number, max?: number) => void
   clearMessages: () => void
@@ -319,6 +320,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ sessionStatuses: { ...s.sessionStatuses, [sessionId]: status } })),
   setSessionError: (sessionId, error) =>
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
+  setSelectedModel: (model) => set({ selectedModel: model }),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -543,9 +545,11 @@ export const useStore = create<AppState>((set, get) => ({
       // Keep models empty on failure — dropdown will show "No models"
     }
     const state = get();
+    // Preserve existing selection only if it's still in the new model list
+    const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel)
     set({
       availableModels: models,
-      selectedModel: state.selectedModel || (models.length > 0 ? models[0].ID : ''),
+      selectedModel: valid ? state.selectedModel : (models.length > 0 ? models[0].ID : ''),
     });
   },
 
@@ -565,6 +569,8 @@ export const useStore = create<AppState>((set, get) => ({
       openFiles: [],
       allBranches: [],
       recentProjects: [],
+      availableModels: [],
+      selectedModel: '',
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });

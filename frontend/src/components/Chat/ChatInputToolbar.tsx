@@ -3,6 +3,7 @@ import { useStore } from '../../store'
 function ChatInputToolbar() {
   const availableModels = useStore((s) => s.availableModels)
   const selectedModel = useStore((s) => s.selectedModel)
+  const setSelectedModel = useStore((s) => s.setSelectedModel)
 
   if (availableModels.length === 0) {
     return (
@@ -27,7 +28,7 @@ function ChatInputToolbar() {
     >
       <select
         value={selectedModel || availableModels[0]?.ID || ''}
-        onChange={(e) => useStore.setState({ selectedModel: e.target.value })}
+        onChange={(e) => setSelectedModel(e.target.value)}
         className="text-[12px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] cursor-pointer outline-none"
       >
         {availableModels.map((m) => (

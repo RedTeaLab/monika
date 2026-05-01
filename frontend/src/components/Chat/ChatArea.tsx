@@ -54,6 +54,11 @@ function ChatArea() {
       return
     }
 
+    if (!selectedModel) {
+      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No model selected. Please choose a model from the toolbar.' })
+      return
+    }
+
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
     appendToSession(activeSessionId, [userMsg, assistantMsg])
