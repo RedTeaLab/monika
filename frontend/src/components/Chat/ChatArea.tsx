@@ -13,6 +13,7 @@ function ChatArea() {
   const addMessage = useStore((s) => s.addMessage)
   const appendToSession = useStore((s) => s.appendToSession)
   const clearMessages = useStore((s) => s.clearMessages)
+  const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const openSessions = useStore((s) => s.openSessions)
@@ -63,6 +64,9 @@ function ChatArea() {
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGeneratingSessionId('')
+      // Remove the orphaned assistant placeholder on send failure
+      const currentMsgs = useStore.getState().messages
+      setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
     }
   }
 

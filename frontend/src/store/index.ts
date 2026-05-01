@@ -702,6 +702,9 @@ export function setupWailsEvents() {
           if (sid === store.generatingSessionId) {
             store.setGeneratingSessionId('')
           }
+          store.setSessionStatus(sid, 'idle')
+          store.setSessionError(sid, '')
+          store.bumpSessionListVersion()
           break
         }
         store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)

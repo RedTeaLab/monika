@@ -26,7 +26,7 @@ function ChatInputToolbar() {
       style={{ background: 'transparent' }}
     >
       <select
-        value={selectedModel}
+        value={selectedModel || availableModels[0]?.ID || ''}
         onChange={(e) => useStore.setState({ selectedModel: e.target.value })}
         className="text-[12px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] cursor-pointer outline-none"
       >
