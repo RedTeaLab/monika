@@ -36,7 +36,7 @@ func TestFileReadReadsFile(t *testing.T) {
 	}
 
 	f := NewFileRead(dir)
-	args, _ := json.Marshal(map[string]any{"filePath": path})
+	args, _ := json.Marshal(map[string]any{"filePath": path, "offset": 1, "limit": 200})
 	result, err := f.Execute(context.Background(), args)
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestFileReadReadsFile(t *testing.T) {
 	}
 }
 
-func TestFileReadDefaultLimit(t *testing.T) {
+func TestFileReadExplicitLimit(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "big.txt")
 	var lines []string
@@ -58,14 +58,14 @@ func TestFileReadDefaultLimit(t *testing.T) {
 	}
 
 	f := NewFileRead(dir)
-	args, _ := json.Marshal(map[string]any{"filePath": path})
+	args, _ := json.Marshal(map[string]any{"filePath": path, "offset": 1, "limit": 100})
 	result, err := f.Execute(context.Background(), args)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resultLines := strings.Count(result.Content, "\n") + 1
-	if resultLines != 200 {
-		t.Fatalf("expected 200 lines with default limit, got %d", resultLines)
+	if resultLines != 100 {
+		t.Fatalf("expected 100 lines with explicit limit, got %d", resultLines)
 	}
 }
 
@@ -240,10 +240,178 @@ func TestRegisterDefaultsAll(t *testing.T) {
 	if err := RegisterDefaults(r, t.TempDir()); err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{"file_read", "file_write", "file_list", "glob", "grep", "bash"}
+	expected := []string{"file_read", "file_write", "file_edit", "file_list", "glob", "grep", "bash"}
 	for _, name := range expected {
 		if _, ok := r.Get(name); !ok {
 			t.Fatalf("tool %q not registered", name)
 		}
+	}
+}
+
+func TestFileEdit(t *testing.T) {
+	dir := t.TempDir()
+	f := NewFileEdit(dir)
+
+	if f.Name() != "file_edit" {
+		t.Fatalf("name = %q", f.Name())
+	}
+	if f.Description() == "" {
+		t.Fatal("description empty")
+	}
+	params := f.Parameters()
+	if _, ok := params["properties"]; !ok {
+		t.Fatal("missing properties")
+	}
+}
+
+func TestFileEditSingleReplace(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(path, []byte("hello world\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "hello",
+		"new_string": "goodbye",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "goodbye world\n" {
+		t.Fatalf("content = %q", string(data))
+	}
+}
+
+func TestFileEditReplaceAll(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(path, []byte("foo bar foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":    path,
+		"old_string":  "foo",
+		"new_string":  "baz",
+		"replace_all": true,
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "baz bar baz\n" {
+		t.Fatalf("content = %q", string(data))
+	}
+}
+
+func TestFileEditNonUniqueFails(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(path, []byte("foo bar foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "foo",
+		"new_string": "baz",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error for non-unique old_string")
+	}
+}
+
+func TestFileEditNotFound(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(path, []byte("hello\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "nonexistent",
+		"new_string": "replaced",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error for old_string not found")
+	}
+}
+
+func TestFileEditOutsideProject(t *testing.T) {
+	dir := t.TempDir()
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   "/etc/passwd",
+		"old_string": "a",
+		"new_string": "b",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Fatal("expected error for path outside project")
+	}
+}
+
+func TestFileEditMultiLine(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	if err := os.WriteFile(path, []byte("line1\nline2\nline3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "line1\nline2",
+		"new_string": "alpha\nbeta",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "alpha\nbeta\nline3\n" {
+		t.Fatalf("content = %q", string(data))
 	}
 }

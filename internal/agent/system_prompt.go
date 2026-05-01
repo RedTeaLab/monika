@@ -29,8 +29,15 @@ const PromptToolUsage = `## Tool Usage
 - When multiple independent tool calls are needed, invoke them in a single message
 - Example: reading 3 files in parallel, running git status + git diff together
 
+### Editing files
+- ALWAYS read the file with file_read before editing with file_edit — never edit blind
+- file_edit uses exact string matching: copy the old_string verbatim from file_read output
+- Preserve exact indentation (tabs/spaces) in old_string as it appears in the file
+- The edit fails if old_string is not unique; use a larger string with more surrounding context
+- Use replace_all to replace every occurrence of the same old_string
+
 ### Bash usage
-- Prefer dedicated tools (grep, glob, file_read, file_write) over bash commands
+- Prefer dedicated tools (grep, glob, file_read, file_write, file_edit) over bash commands
 - Use bash only for operations that have no dedicated tool
 - Always specify workdir; defaults to project directory
 - Maximum execution time: 120 seconds
@@ -109,6 +116,7 @@ const PromptRemember = `## Remember
 - NEVER force push to main/master
 - NEVER hardcode secrets (API keys, passwords, tokens)
 - ALWAYS use absolute file paths
+- ALWAYS read with file_read before editing with file_edit — never edit blind
 - ALWAYS prefer editing existing files over creating new ones
 - If unsure about a destructive action, ask first
 - When in doubt, do the smallest thing that works`
