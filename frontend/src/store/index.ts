@@ -29,6 +29,7 @@ interface FileTabInfo {
   path: string
   content: string
   isDirty: boolean
+  mode: 'edit' | 'diff'
 }
 
 interface AppState {
@@ -78,6 +79,7 @@ interface AppState {
   closeFileTab: (path: string) => void
   switchFileTab: (path: string) => void
   setFileDirty: (path: string, dirty: boolean) => void
+  setFileMode: (path: string, mode: 'edit' | 'diff') => void
   updateFileContent: (path: string, content: string) => void
 
   loadRecentProjects: () => Promise<void>
@@ -363,7 +365,7 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
     set((s) => ({
-      openFiles: [...s.openFiles, { path, content, isDirty: false }],
+      openFiles: [...s.openFiles, { path, content, isDirty: false, mode: 'edit' }],
       activeFilePath: path,
     }))
   },
@@ -398,6 +400,12 @@ export const useStore = create<AppState>((set, get) => ({
   setFileDirty: (path, dirty) => {
     set((s) => ({
       openFiles: s.openFiles.map((f) => f.path === path ? { ...f, isDirty: dirty } : f),
+    }))
+  },
+
+  setFileMode: (path, mode) => {
+    set((s) => ({
+      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, mode } : f),
     }))
   },
 
