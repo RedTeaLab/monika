@@ -85,12 +85,12 @@ func (b *bashTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	workdir := b.projectDir
+	workdir := tool.ProjectDirOrDefault(ctx, b.projectDir)
 	if params.Workdir != "" {
 		if !filepath.IsAbs(params.Workdir) {
 			return tool.ExecutionResult{Content: "workdir must be absolute", IsError: true}, nil
 		}
-		absProject, err := filepath.Abs(b.projectDir)
+		absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, b.projectDir))
 		if err != nil {
 			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 		}

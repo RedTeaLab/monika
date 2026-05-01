@@ -9,6 +9,7 @@ function SessionList() {
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const projectPath = useStore((s) => s.projectPath)
+  const sessionListVersion = useStore((s) => s.sessionListVersion)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
@@ -26,7 +27,7 @@ function SessionList() {
         if (!cancelled) setSessions([])
       })
     return () => { cancelled = true }
-  }, [projectPath])
+  }, [projectPath, sessionListVersion])
 
   // Dismiss modal when project changes
   useEffect(() => {

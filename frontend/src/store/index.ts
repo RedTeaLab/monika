@@ -62,8 +62,6 @@ interface AppState {
 
   addMessage: (msg: Message) => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
-  updateLastAssistant: (content: string) => void
-  updateLastAssistantThinking: (content: string) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
   updateToolInput: (name: string, input: string) => void
@@ -146,30 +144,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   }),
 
-  updateLastAssistant: (content) =>
-    set((s) => {
-      const msgs = [...s.messages]
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'assistant') {
-          msgs[i] = { ...msgs[i], content: msgs[i].content + content }
-          break
-        }
-      }
-      return { messages: msgs }
-    }),
-
-  updateLastAssistantThinking: (content) =>
-    set((s) => {
-      const msgs = [...s.messages]
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'assistant') {
-          msgs[i] = { ...msgs[i], thinking: (msgs[i].thinking || '') + content }
-          break
-        }
-      }
-      return { messages: msgs }
-    }),
-
   addToolStart: (tool) =>
     set((s) => {
       const msgs = [...s.messages]
@@ -218,37 +192,73 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateSessionMessage: (id, delta) => {
     set((s) => {
-      const msgs = [...(s.sessionMessages[id] || [])]
+      const sessionMsgs = [...(s.sessionMessages[id] || [])]
       let found = false
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'assistant') {
-          msgs[i] = { ...msgs[i], content: msgs[i].content + delta }
+      for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+        if (sessionMsgs[i].role === 'assistant') {
+          sessionMsgs[i] = { ...sessionMsgs[i], content: sessionMsgs[i].content + delta }
           found = true
           break
         }
       }
       if (!found) {
-        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
+        sessionMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
       }
-      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+      const updates: Partial<AppState> = {
+        sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs },
+      }
+      if (id === s.activeSessionId) {
+        const activeMsgs = [...s.messages]
+        let activeFound = false
+        for (let i = activeMsgs.length - 1; i >= 0; i--) {
+          if (activeMsgs[i].role === 'assistant') {
+            activeMsgs[i] = { ...activeMsgs[i], content: activeMsgs[i].content + delta }
+            activeFound = true
+            break
+          }
+        }
+        if (!activeFound) {
+          activeMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
+        }
+        updates.messages = activeMsgs
+      }
+      return updates
     })
   },
 
   updateSessionThinking: (id, delta) => {
     set((s) => {
-      const msgs = [...(s.sessionMessages[id] || [])]
+      const sessionMsgs = [...(s.sessionMessages[id] || [])]
       let found = false
-      for (let i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'assistant') {
-          msgs[i] = { ...msgs[i], thinking: (msgs[i].thinking || '') + delta }
+      for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+        if (sessionMsgs[i].role === 'assistant') {
+          sessionMsgs[i] = { ...sessionMsgs[i], thinking: (sessionMsgs[i].thinking || '') + delta }
           found = true
           break
         }
       }
       if (!found) {
-        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
+        sessionMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
       }
-      return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
+      const updates: Partial<AppState> = {
+        sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs },
+      }
+      if (id === s.activeSessionId) {
+        const activeMsgs = [...s.messages]
+        let activeFound = false
+        for (let i = activeMsgs.length - 1; i >= 0; i--) {
+          if (activeMsgs[i].role === 'assistant') {
+            activeMsgs[i] = { ...activeMsgs[i], thinking: (activeMsgs[i].thinking || '') + delta }
+            activeFound = true
+            break
+          }
+        }
+        if (!activeFound) {
+          activeMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
+        }
+        updates.messages = activeMsgs
+      }
+      return updates
     })
   },
 
@@ -664,9 +674,6 @@ export function setupWailsEvents() {
     switch (data.type) {
       case 'text_delta':
         store.updateSessionMessage(sid, data.content || '')
-        if (sid === store.activeSessionId) {
-          store.updateLastAssistant(data.content || '')
-        }
         if (data.model) {
           store.setLastAssistantMeta(sid, { model: data.model })
         }
@@ -674,9 +681,6 @@ export function setupWailsEvents() {
 
       case 'thinking':
         store.updateSessionThinking(sid, data.content || '')
-        if (sid === store.activeSessionId) {
-          store.updateLastAssistantThinking(data.content || '')
-        }
         if (data.model) {
           store.setLastAssistantMeta(sid, { model: data.model })
         }

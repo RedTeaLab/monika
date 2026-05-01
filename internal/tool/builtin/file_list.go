@@ -50,7 +50,7 @@ func (f *fileList) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
-	absProject, err := filepath.Abs(f.projectDir)
+	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, f.projectDir))
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}

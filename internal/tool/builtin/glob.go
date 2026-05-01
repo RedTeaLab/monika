@@ -49,7 +49,7 @@ func (g *globTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	searchDir := g.projectDir
+	searchDir := tool.ProjectDirOrDefault(ctx, g.projectDir)
 	if params.Path != "" {
 		if !filepath.IsAbs(params.Path) {
 			return tool.ExecutionResult{Content: "path must be absolute", IsError: true}, nil
@@ -61,7 +61,7 @@ func (g *globTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		}
 	}
 
-	absProject, err := filepath.Abs(g.projectDir)
+	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, g.projectDir))
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}

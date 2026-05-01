@@ -56,7 +56,7 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	safePath, err := f.resolvePath(params.FilePath)
+	safePath, err := f.resolvePath(ctx, params.FilePath)
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
@@ -71,7 +71,7 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 	return readFileLines(safePath, params.Offset, params.Limit)
 }
 
-func (f *fileRead) resolvePath(p string) (string, error) {
+func (f *fileRead) resolvePath(ctx context.Context, p string) (string, error) {
 	if !filepath.IsAbs(p) {
 		return "", fmt.Errorf("filePath must be absolute")
 	}
@@ -79,7 +79,7 @@ func (f *fileRead) resolvePath(p string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	absProject, err := filepath.Abs(f.projectDir)
+	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, f.projectDir))
 	if err != nil {
 		return "", err
 	}

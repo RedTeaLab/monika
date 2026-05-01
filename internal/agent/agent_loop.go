@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
+	"time"
+	"unicode/utf8"
 
 	"monika/internal/tool"
 	"monika/pkg/engine"
@@ -173,7 +177,8 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 				continue
 			}
 
-			execResult, err := t.Execute(ctx, json.RawMessage(tc.Function.Arguments))
+			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
+			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				conv.Messages = append(conv.Messages, engine.ChatMessage{
 					Role:       "tool",
@@ -257,61 +262,107 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		var collected []engine.ChatEvent
-		for ev := range events {
-			collected = append(collected, ev)
-			switch ev.Kind {
-			case engine.EventContentDelta:
-				if ev.ReasoningContent != "" {
-					ch <- Event{Type: EventThinking, Content: ev.ReasoningContent}
-				} else {
-					ch <- Event{Type: EventTextDelta, Content: ev.Text}
-				}
-			case engine.EventToolCallStart:
-				if ev.ToolCall != nil {
-					ch <- Event{
-						Type: EventToolStart,
-						Tool: &ToolEvent{
-							ID:    ev.ToolCall.ID,
-							Name:  ev.ToolCall.Function.Name,
-							Input: ev.ToolCall.Function.Arguments,
-						},
-					}
-				}
-			case engine.EventToolCallEnd:
-				if ev.ToolCall != nil {
-					ch <- Event{
-						Type: EventToolDone,
-						Tool: &ToolEvent{
-							ID:    ev.ToolCall.ID,
-							Name:  ev.ToolCall.Function.Name,
-							Input: ev.ToolCall.Function.Arguments,
-						},
-					}
-				}
-			case engine.EventUsage:
-				totalUsage.InputTokens += ev.Usage.InputTokens
-				totalUsage.OutputTokens += ev.Usage.OutputTokens
-				totalUsage.TotalTokens += ev.Usage.TotalTokens
-				totalUsage.ReasoningTokens += ev.Usage.ReasoningTokens
-				totalUsage.CacheReadTokens += ev.Usage.CacheReadTokens
-				totalUsage.CacheWriteTokens += ev.Usage.CacheWriteTokens
-				ch <- Event{
-					Type: EventUsage,
-					Usage: UsageEvent{
-						InputTokens:      totalUsage.InputTokens,
-						OutputTokens:     totalUsage.OutputTokens,
-						TotalTokens:      totalUsage.TotalTokens,
-						ReasoningTokens:  totalUsage.ReasoningTokens,
-						CacheReadTokens:  totalUsage.CacheReadTokens,
-						CacheWriteTokens: totalUsage.CacheWriteTokens,
-						ContextTokens:    totalUsage.ContextTokens(),
-						MaxContext:       contextLimit(a.model),
-					},
-				}
-			case engine.EventError:
-				ch <- Event{Type: EventError, Content: ev.Error.Message}
+		var textBuf strings.Builder
+		var thinkingBuf strings.Builder
+		flushTick := time.NewTicker(30 * time.Millisecond)
+		defer flushTick.Stop()
+
+		flushText := func() {
+			if textBuf.Len() > 0 {
+				ch <- Event{Type: EventTextDelta, Content: textBuf.String()}
+				textBuf.Reset()
 			}
 		}
+		flushThinking := func() {
+			if thinkingBuf.Len() > 0 {
+				ch <- Event{Type: EventThinking, Content: thinkingBuf.String()}
+				thinkingBuf.Reset()
+			}
+		}
+		flushAll := func() {
+			flushThinking()
+			flushText()
+		}
+
+		loop := true
+		for loop {
+			select {
+			case <-flushTick.C:
+				flushAll()
+				continue
+			case ev, ok := <-events:
+				if !ok {
+					loop = false
+					break
+				}
+				collected = append(collected, ev)
+				switch ev.Kind {
+				case engine.EventContentDelta:
+					if ev.ReasoningContent != "" {
+						thinkingBuf.WriteString(ev.ReasoningContent)
+					} else {
+						textBuf.WriteString(ev.Text)
+					}
+					if utf8.RuneCountInString(textBuf.String()) >= 10 {
+						flushText()
+					}
+					if utf8.RuneCountInString(thinkingBuf.String()) >= 10 {
+						flushThinking()
+					}
+				case engine.EventToolCallStart:
+					flushAll()
+					if ev.ToolCall != nil {
+						ch <- Event{
+							Type: EventToolStart,
+							Tool: &ToolEvent{
+								ID:    ev.ToolCall.ID,
+								Name:  ev.ToolCall.Function.Name,
+								Input: ev.ToolCall.Function.Arguments,
+							},
+						}
+					}
+				case engine.EventToolCallEnd:
+					flushAll()
+					if ev.ToolCall != nil {
+						ch <- Event{
+							Type: EventToolDone,
+							Tool: &ToolEvent{
+								ID:    ev.ToolCall.ID,
+								Name:  ev.ToolCall.Function.Name,
+								Input: ev.ToolCall.Function.Arguments,
+							},
+						}
+					}
+				case engine.EventUsage:
+					flushAll()
+					totalUsage.InputTokens += ev.Usage.InputTokens
+					totalUsage.OutputTokens += ev.Usage.OutputTokens
+					totalUsage.TotalTokens += ev.Usage.TotalTokens
+					totalUsage.ReasoningTokens += ev.Usage.ReasoningTokens
+					totalUsage.CacheReadTokens += ev.Usage.CacheReadTokens
+					totalUsage.CacheWriteTokens += ev.Usage.CacheWriteTokens
+					ch <- Event{
+						Type: EventUsage,
+						Usage: UsageEvent{
+							InputTokens:      totalUsage.InputTokens,
+							OutputTokens:     totalUsage.OutputTokens,
+							TotalTokens:      totalUsage.TotalTokens,
+							ReasoningTokens:  totalUsage.ReasoningTokens,
+							CacheReadTokens:  totalUsage.CacheReadTokens,
+							CacheWriteTokens: totalUsage.CacheWriteTokens,
+							ContextTokens:    totalUsage.ContextTokens(),
+							MaxContext:       contextLimit(a.model),
+						},
+					}
+				case engine.EventError:
+					flushAll()
+					ch <- Event{Type: EventError, Content: ev.Error.Message}
+				case engine.EventMessageEnd:
+					flushAll()
+				}
+			}
+		}
+		flushAll()
 
 		result := parseResult(collected)
 		if result.Error != nil {
@@ -380,7 +431,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				continue
 			}
 
-			execResult, err := t.Execute(ctx, json.RawMessage(tc.Function.Arguments))
+			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
+			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				ch <- Event{
 					Type: EventToolOutput,
@@ -448,9 +500,13 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 	var messages []engine.ChatMessage
 
 	if a.systemPrompt != "" {
+		normalized := strings.ReplaceAll(a.projectDir, "\\", "/")
+		prompt := strings.ReplaceAll(a.systemPrompt, "{{WorkingDirectory}}", normalized)
+		fmt.Fprintf(os.Stderr, "[monika DEBUG] buildMessages: a.projectDir=%q normalized=%q placeholderInPrompt=%v\n",
+			a.projectDir, normalized, strings.Contains(a.systemPrompt, "{{WorkingDirectory}}"))
 		messages = append(messages, engine.ChatMessage{
 			Role:    "system",
-			Content: a.systemPrompt,
+			Content: prompt,
 		})
 	}
 

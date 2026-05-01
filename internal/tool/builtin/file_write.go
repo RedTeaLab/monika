@@ -57,7 +57,7 @@ func (f *fileWrite) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
-	absProject, err := filepath.Abs(f.projectDir)
+	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, f.projectDir))
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}

@@ -226,10 +226,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 		Messages: s.Messages,
 	}
 
-	opts := append([]agent2.LoopOption{
-		agent2.WithProjectDir(projectPath),
-	}, a.loopOpts...)
-	opts = append(opts, agent2.WithModel(model))
+	opts := append([]agent2.LoopOption{}, a.loopOpts...)
+	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
+	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
 
 	go func() {

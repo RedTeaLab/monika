@@ -51,7 +51,7 @@ func main() {
 	application.RegisterEvent[api.StreamEvent]("stream")
 
 	systemParts := []string{
-		fmt.Sprintf("OS Version: %s\nWorking directory: %s", runtime.GOOS, cwd),
+		fmt.Sprintf("OS Version: %s\nWorking directory: {{WorkingDirectory}}", runtime.GOOS),
 		agent.PromptIdentity,
 		agent.PromptToolUsage,
 		agent.PromptCodeQuality,

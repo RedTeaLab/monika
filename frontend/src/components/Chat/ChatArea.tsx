@@ -77,12 +77,16 @@ function ChatArea() {
   const hasActiveSession = activeSessionId !== ''
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const lastScrollRef = useRef(0)
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
+    const now = performance.now()
+    if (now - lastScrollRef.current < 50) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
     if (nearBottom) {
+      lastScrollRef.current = now
       el.scrollTop = el.scrollHeight
     }
   }, [messages])
