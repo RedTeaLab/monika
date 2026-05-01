@@ -235,9 +235,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	}
 
 	opts := append([]agent2.LoopOption{
-		agent2.WithModel(model),
 		agent2.WithProjectDir(projectPath),
 	}, a.loopOpts...)
+	opts = append(opts, agent2.WithModel(model))
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
 
 	go func() {
