@@ -72,10 +72,10 @@ func (ts *taskStore) Replace(sessionID string, tasks []tool.Task) error {
 
 func (ts *taskStore) Update(sessionID, taskID string, fields tool.TaskUpdateFields) error {
 	ts.mu.Lock()
-	defer ts.mu.Unlock()
 
 	list, ok := ts.tasks[sessionID]
 	if !ok || len(list) == 0 {
+		ts.mu.Unlock()
 		return fmt.Errorf("no tasks for session %s", sessionID)
 	}
 
@@ -87,6 +87,7 @@ func (ts *taskStore) Update(sessionID, taskID string, fields tool.TaskUpdateFiel
 		}
 	}
 	if idx < 0 {
+		ts.mu.Unlock()
 		validIDs := make([]string, len(list))
 		for i, t := range list {
 			validIDs[i] = t.ID
@@ -97,7 +98,8 @@ func (ts *taskStore) Update(sessionID, taskID string, fields tool.TaskUpdateFiel
 	t := &list[idx]
 	if fields.Status != nil {
 		if !validStatuses[*fields.Status] {
-			return fmt.Errorf("validation: invalid status %q", *fields.Status)
+			ts.mu.Unlock()
+			return fmt.Errorf("validation: invalid status %q, must be one of pending/in_progress/completed/cancelled", *fields.Status)
 		}
 		t.Status = *fields.Status
 	}
@@ -111,8 +113,18 @@ func (ts *taskStore) Update(sessionID, taskID string, fields tool.TaskUpdateFiel
 		t.BlockedBy = append(t.BlockedBy, fields.AddBlockedBy...)
 	}
 
+	listCopy := make([]tool.Task, len(list))
+	for i := range list {
+		listCopy[i] = list[i]
+		if list[i].BlockedBy != nil {
+			listCopy[i].BlockedBy = make([]string, len(list[i].BlockedBy))
+			copy(listCopy[i].BlockedBy, list[i].BlockedBy)
+		}
+	}
+	ts.mu.Unlock()
+
 	if ts.onChange != nil {
-		ts.onChange(sessionID, list)
+		ts.onChange(sessionID, listCopy)
 	}
 	return nil
 }
@@ -126,7 +138,13 @@ func (ts *taskStore) List(sessionID string) []tool.Task {
 		return nil
 	}
 	out := make([]tool.Task, len(list))
-	copy(out, list)
+	for i := range list {
+		out[i] = list[i]
+		if list[i].BlockedBy != nil {
+			out[i].BlockedBy = make([]string, len(list[i].BlockedBy))
+			copy(out[i].BlockedBy, list[i].BlockedBy)
+		}
+	}
 	return out
 }
 
@@ -138,7 +156,13 @@ func (ts *taskStore) Snapshot() map[string][]tool.Task {
 	out := make(map[string][]tool.Task, len(ts.tasks))
 	for sid, list := range ts.tasks {
 		copied := make([]tool.Task, len(list))
-		copy(copied, list)
+		for i := range list {
+			copied[i] = list[i]
+			if list[i].BlockedBy != nil {
+				copied[i].BlockedBy = make([]string, len(list[i].BlockedBy))
+				copy(copied[i].BlockedBy, list[i].BlockedBy)
+			}
+		}
 		out[sid] = copied
 	}
 	return out
