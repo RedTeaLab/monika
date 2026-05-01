@@ -75,10 +75,10 @@ var providerDefaults = map[string]struct {
 }{
 	"deepseek": {
 		"https://api.deepseek.com",
-		"deepseek-chat",
+		"deepseek-v4-pro",
 		[]config.ModelEntry{
-			{ID: "deepseek-chat", DisplayName: "DeepSeek Chat"},
-			{ID: "deepseek-reasoner", DisplayName: "DeepSeek Reasoner"},
+			{ID: "deepseek-v4-pro", DisplayName: "DeepSeek V4 Pro"},
+			{ID: "deepseek-v4-flash", DisplayName: "DeepSeek V4 Flash"},
 		},
 	},
 	"openai": {
