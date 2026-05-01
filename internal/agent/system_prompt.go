@@ -47,6 +47,25 @@ const PromptToolUsage = `## Tool Usage
 - Each unnecessary file_read wastes context window space
 - Prefer editing existing files over creating new ones`
 
+const PromptPlanning = `## Task Planning
+
+Use TaskCreate/TaskUpdate/TaskList to manage a structured task list for
+complex multi-step work. Before any non-trivial task, assess complexity:
+
+- Simple (single-file edit, typo fix, small query) → skip planning
+- Medium (2-3 files, one concern) → optional, brief plan
+- Complex (new feature, refactor, multi-system change) → MUST create plan
+
+Plan rules:
+- Create task list BEFORE implementation via TaskCreate
+- Each task must be discrete and verifiable — one clear outcome
+- Mark one task in_progress at a time; complete it before starting the next
+- When a task becomes irrelevant, mark it ` + "`cancelled`" + ` rather than silently abandoning it
+- Call TaskUpdate immediately when you start, finish, or cancel a task
+- BlockedBy expresses hard dependencies: task can't start before blockedBy tasks complete
+- Read current status with TaskList before deciding next step
+- A new TaskCreate call replaces the entire previous list`
+
 const PromptCodeQuality = `## Code Quality
 
 ### Do the smallest thing
