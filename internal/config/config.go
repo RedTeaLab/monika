@@ -23,11 +23,17 @@ type Config struct {
 	Tools          ToolsConfig               `yaml:"tools"`
 }
 
+type ModelEntry struct {
+	ID          string `yaml:"id"`
+	DisplayName string `yaml:"name"`
+}
+
 type ProviderConfig struct {
-	Name    string `yaml:"name"`
-	BaseURL string `yaml:"base_url"`
-	APIKey  string `yaml:"api_key"`
-	WireAPI string `yaml:"wire_api"`
+	Name    string       `yaml:"name"`
+	BaseURL string       `yaml:"base_url"`
+	APIKey  string       `yaml:"api_key"`
+	WireAPI string       `yaml:"wire_api"`
+	Models  []ModelEntry `yaml:"models"`
 }
 
 type SkillConfig struct {
@@ -111,6 +117,9 @@ func merge(dst *Config, src Config) {
 			}
 			if provider.WireAPI != "" {
 				current.WireAPI = provider.WireAPI
+			}
+			if len(provider.Models) > 0 {
+				current.Models = provider.Models
 			}
 			dst.ModelProviders[key] = current
 		}
