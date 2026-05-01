@@ -42,6 +42,7 @@ function SessionList() {
     if (!projectPath) return
     try {
       const info = await App.NewSession(projectPath, selectedModel)
+      if (!info) return
       setSessions((prev) => [info, ...prev])
       await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {

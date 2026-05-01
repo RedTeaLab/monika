@@ -75,7 +75,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
       await Promise.all(openFiles.map(async (file) => {
         try {
           const content = await App.ReadFile(projectPath, file.path);
-          if (content.exist) {
+          if (content && content.exist) {
             updateFileContent(file.path, content.content);
           } else {
             closeFileTab(file.path);

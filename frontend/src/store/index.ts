@@ -399,7 +399,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const project = useStore.getState().projectPath
       const session = await App.LoadSession(project, id)
-      const msgs = session.messages
+      const msgs = session?.messages
         ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
         : []
       set((s) => {

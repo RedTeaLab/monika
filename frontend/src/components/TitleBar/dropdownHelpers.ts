@@ -17,6 +17,7 @@ export async function resolveUnmergedWithAI(
   let sid = store.activeSessionId;
   if (!sid) {
     const info = await App.NewSession(projectPath, store.selectedModel);
+    if (!info) throw new Error('Failed to create session');
     sid = info.id;
     await store.openSessionTab(info.id, info.title || 'Untitled');
   }
