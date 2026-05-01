@@ -7,14 +7,21 @@ function FileTree() {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
-  const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const openFileTab = useStore((s) => s.openFileTab)
   const activeFilePath = useStore((s) => s.activeFilePath)
 
   useEffect(() => {
     if (!projectPath) return
-    App.ListFileTree(projectPath).then(setTree).catch(() => {})
-  }, [projectPath, fileTreeVersion])
+    let cancelled = false
+    App.ListFileTree(projectPath)
+      .then((result) => {
+        if (!cancelled) setTree(Array.isArray(result) ? result : [])
+      })
+      .catch(() => {
+        if (!cancelled) setTree([])
+      })
+    return () => { cancelled = true }
+  }, [projectPath])
 
   const handleFileClick = async (node: FileNode) => {
     if (node.is_dir) {
@@ -43,12 +50,12 @@ function FileTree() {
     return (
       <div key={node.path}>
         <div
-          className={`flex items-center gap-1 cursor-pointer text-[12px] leading-[26px] rounded-md transition-colors mx-1`}
+          className={`flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors mx-1`}
           style={{
             paddingLeft: `${depth * 14 + 6}px`,
             paddingRight: '6px',
             color: gColor || (isSelected ? 'var(--text-primary)' : 'var(--text-secondary)'),
-            background: isSelected ? 'var(--bg-active)' : 'transparent',
+            background: isSelected ? 'var(--glass-active)' : 'transparent',
           }}
           onClick={() => handleFileClick(node)}
         >
@@ -70,14 +77,14 @@ function FileTree() {
 
   return (
     <div
-      className="flex flex-col h-full"
-      style={{ background: 'var(--bg-sidebar)', padding: '0 14px' }}
+      className="flex flex-col h-full backdrop-blur-md"
+      style={{ background: 'var(--glass-light)', padding: '0 8px' }}
     >
       <div className="pt-5 pb-2 px-1">
         <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Files</span>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {tree.length === 0 ? (
+        {(!tree || tree.length === 0) ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No project opened</div>
         ) : (
           tree.map(node => renderNode(node))

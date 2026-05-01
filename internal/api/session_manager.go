@@ -124,7 +124,7 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 	entries, err := os.ReadDir(sm.sessionsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return []SessionInfo{}, nil
 		}
 		return nil, err
 	}

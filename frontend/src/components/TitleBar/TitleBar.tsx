@@ -4,7 +4,8 @@ import { useStore, LayoutMode } from '../../store'
 import { App } from '../../../bindings/monika'
 import {
   IconMinimize, IconMaximize, IconClose, IconRestore,
-  IconChevronDown, IconChatLayout, IconSplitLayout, IconFilesLayout,
+  IconChatLayout, IconSplitLayout, IconFilesLayout,
+  IconChevronDown,
 } from '../Icons'
 import { ProjectDropdown } from './ProjectDropdown'
 import { BranchDropdown } from './BranchDropdown'
@@ -13,10 +14,10 @@ import { FileDialog } from './FileDialog'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { buildDirtyGuardMessage } from './dropdownHelpers'
 
-const layoutModes: { mode: LayoutMode; label: string; icon: React.FC<{ size?: number }> }[] = [
-  { mode: 'chat', label: 'Chat', icon: IconChatLayout },
-  { mode: 'split', label: 'Split', icon: IconSplitLayout },
-  { mode: 'files', label: 'Files', icon: IconFilesLayout },
+const layoutModes: { mode: LayoutMode; icon: typeof IconChatLayout; label: string }[] = [
+  { mode: 'chat', icon: IconChatLayout, label: 'Chat mode' },
+  { mode: 'split', icon: IconSplitLayout, label: 'Split mode' },
+  { mode: 'files', icon: IconFilesLayout, label: 'Files mode' },
 ]
 
 function TitleBar() {
@@ -49,19 +50,31 @@ function TitleBar() {
   const isGitRepo = projectPath && branch !== '—'
 
   const doSwitchProject = async (targetPath: string) => {
+    console.log('[monika] doSwitchProject: starting, targetPath:', targetPath)
     const info = await App.OpenProject(targetPath)
-    if (!info) return
+    console.log('[monika] doSwitchProject: OpenProject returned:', JSON.stringify(info))
+    if (!info) {
+      console.warn('[monika] doSwitchProject: OpenProject returned null/undefined, aborting')
+      return
+    }
+    console.log('[monika] doSwitchProject: calling resetProjectState')
     resetProjectState()
+    console.log('[monika] doSwitchProject: setting projectPath:', info.path, 'branch:', info.branch)
     setProjectPath(info.path)
     setBranch(info.branch)
+    console.log('[monika] doSwitchProject: loading branches and recent projects')
     await Promise.all([loadBranches(), loadRecentProjects()])
+    console.log('[monika] doSwitchProject: complete')
   }
 
   const handleProjectSelect = useCallback(async (targetPath: string) => {
+    console.log('[monika] handleProjectSelect: targetPath:', targetPath)
     const dirtyCount = openFiles.filter(f => f.isDirty).length
     const isGenerating = generatingSessionId !== ''
+    console.log('[monika] handleProjectSelect: dirtyCount:', dirtyCount, 'isGenerating:', isGenerating)
 
     if (dirtyCount > 0 || isGenerating) {
+      console.log('[monika] handleProjectSelect: showing confirm modal (dirty/generating)')
       const message = buildDirtyGuardMessage(dirtyCount, isGenerating, 'projects');
       setConfirmModal({ title: 'Switch Project', message, targetPath })
       return
@@ -72,11 +85,13 @@ function TitleBar() {
 
   return (
     <div
-      className="flex items-center h-[36px] border-b border-[var(--border)] select-none"
+      className="flex items-center h-[32px] backdrop-blur-md border-b border-[var(--border)] select-none"
       style={{
         '--wails-draggable': 'drag' as string,
-        background: 'var(--bg-elevated)',
-        paddingLeft: '14px',
+        background: 'var(--glass-strong)',
+        paddingLeft: '12px',
+        position: 'relative',
+        zIndex: 10,
       } as React.CSSProperties}
     >
       <span className="text-[13px] font-semibold text-[var(--text-primary)] tracking-tight">Monika</span>
@@ -85,22 +100,21 @@ function TitleBar() {
         ref={projectTriggerRef}
         onClick={() => { setProjectDropdownOpen(!projectDropdownOpen); setBranchDropdownOpen(false) }}
         style={{
-          fontSize: 12,
-          fontFamily: 'var(--font-mono)',
-          color: projectDropdownOpen ? 'var(--accent)' : 'var(--text-secondary)',
+          fontSize: 11,
+          color: projectDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
           cursor: 'pointer',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 4,
-          padding: '3px 10px',
-          borderRadius: 'var(--radius-sm)',
-          marginLeft: 16,
+          gap: 2,
+          padding: '2px 4px',
+          borderRadius: 2,
+          marginLeft: 12,
           WebkitAppRegion: 'no-drag',
-          background: projectDropdownOpen ? 'var(--bg-hover)' : 'transparent',
+          background: projectDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
         } as React.CSSProperties}
       >
         {projectName || 'project'}
-        <span style={{ display: 'inline-flex', transform: projectDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.12s', opacity: 0.4 }}>
+        <span style={{ display: 'inline-flex', transform: projectDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
           <IconChevronDown size={10} />
         </span>
       </span>
@@ -115,24 +129,23 @@ function TitleBar() {
         }}
         title={isGitRepo ? undefined : 'Not a git repository'}
         style={{
-          fontSize: 12,
-          fontFamily: 'var(--font-mono)',
-          color: branchDropdownOpen ? 'var(--accent)' : 'var(--text-secondary)',
+          fontSize: 11,
+          color: branchDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
           cursor: isGitRepo ? 'pointer' : 'default',
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 4,
-          padding: '3px 10px',
-          borderRadius: 'var(--radius-sm)',
-          marginLeft: 8,
+          gap: 2,
+          padding: '2px 4px',
+          borderRadius: 2,
+          marginLeft: 6,
           WebkitAppRegion: 'no-drag',
-          background: branchDropdownOpen ? 'var(--bg-hover)' : 'transparent',
+          background: branchDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
           opacity: isGitRepo ? 1 : 0.5,
         } as React.CSSProperties}
       >
         {isGitRepo ? branch : '—'}
         {isGitRepo && (
-          <span style={{ display: 'inline-flex', transform: branchDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.12s', opacity: 0.4 }}>
+          <span style={{ display: 'inline-flex', transform: branchDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
             <IconChevronDown size={10} />
           </span>
         )}
@@ -145,37 +158,36 @@ function TitleBar() {
         role="group"
         aria-label="Layout modes"
       >
-        {layoutModes.map(({ mode, label, icon: Icon }) => (
+        {layoutModes.map(({ mode, icon: IconComp, label }) => (
           <button
             key={mode}
             onClick={() => setLayoutMode(mode)}
-            title={label}
-            className={`w-[32px] h-full flex items-center justify-center transition-colors ${layoutMode === mode ? 'text-[var(--text-primary)] bg-[var(--bg-active)]' : 'text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'}`}
-            aria-label={`${label} mode`}
+            className={`w-[32px] h-full flex items-center justify-center transition-colors ${layoutMode === mode ? 'text-[var(--accent)]' : 'text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)]'}`}
+            aria-label={label}
             aria-pressed={layoutMode === mode}
           >
-            <Icon size={14} />
+            <IconComp size={14} />
           </button>
         ))}
       </div>
       <div style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties} className="flex h-full">
         <button
           onClick={() => Window.Minimise()}
-          className="w-[36px] h-[36px] flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
           aria-label="Minimize"
         >
           <IconMinimize size={14} />
         </button>
         <button
           onClick={() => Window.ToggleMaximise()}
-          className="w-[36px] h-[36px] flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
           aria-label={isMaximised ? 'Restore' : 'Maximize'}
         >
           {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}
         </button>
         <button
           onClick={async () => { await Window.Close(); await App.QuitApp() }}
-          className="w-[36px] h-[36px] flex items-center justify-center text-[var(--text-dim)] hover:text-white hover:bg-[var(--red)] transition-colors"
+          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-white hover:bg-[var(--red)] transition-colors"
           aria-label="Close"
         >
           <IconClose size={14} />

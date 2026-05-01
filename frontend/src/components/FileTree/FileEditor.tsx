@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { EditorState } from '@codemirror/state'
+import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
@@ -11,19 +11,6 @@ import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import ConfirmModal from '../Chat/ConfirmModal'
-
-const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
-
-const monoTheme = EditorView.theme({
-  '&': { fontFamily: monoFont },
-  '.cm-content': { fontFamily: monoFont },
-  '.cm-gutters': { fontFamily: monoFont },
-  '.cm-cursor': { fontFamily: monoFont },
-  '.cm-activeLine': { fontFamily: monoFont },
-  '.cm-selectionBackground': { fontFamily: monoFont },
-  '.cm-line': { fontFamily: monoFont },
-  '.cm-selectionMatch': { fontFamily: monoFont },
-}, { dark: true })
 
 const MAX_CACHED_EDITORS = 10
 
@@ -41,15 +28,18 @@ function FileEditor() {
   const closeFileTab = useStore((s) => s.closeFileTab)
   const switchFileTab = useStore((s) => s.switchFileTab)
   const updateFileContent = useStore((s) => s.updateFileContent)
+  const setFileMode = useStore((s) => s.setFileMode)
+  const setFileDirty = useStore((s) => s.setFileDirty)
   const projectPath = useStore((s) => s.projectPath)
 
   const editorCache = useRef<Map<string, EditorView>>(new Map())
   const lruOrder = useRef<string[]>([])
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const [dirtyClosePath, setDirtyClosePath] = useState<string | null>(null)
-  const [currentMode, setCurrentMode] = useState<'edit' | 'diff'>('edit')
-  const [diffLines, setDiffLines] = useState<string[]>([])
-  const [diffLoading, setDiffLoading] = useState(false)
+  const editableCompartment = useRef(new Compartment())
+
+  const activeFile = openFiles.find((f) => f.path === activeFilePath)
+  const currentMode = activeFile?.mode || 'edit'
 
   const registerContainer = useCallback((path: string, el: HTMLDivElement | null) => {
     if (el) containerRefs.current.set(path, el)
@@ -62,6 +52,7 @@ function FileEditor() {
     const container = containerRefs.current.get(activeFilePath)
     if (!container) return
 
+    const filePath = activeFilePath
     let view = editorCache.current.get(activeFilePath)
     if (!view) {
       const file = openFiles.find((f) => f.path === activeFilePath)
@@ -70,10 +61,17 @@ function FileEditor() {
         doc: content,
         extensions: [
           oneDark,
-          monoTheme,
           keymap.of(defaultKeymap),
           getLangExtension(activeFilePath),
-          EditorView.editable.of(false),
+          editableCompartment.current.of(EditorView.editable.of(file?.mode === 'edit')),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              const currentFile = useStore.getState().openFiles.find((f) => f.path === filePath)
+              if (currentFile?.mode === 'edit') {
+                setFileDirty(filePath, true)
+              }
+            }
+          }),
         ],
       })
       view = new EditorView({ state, parent: container })
@@ -106,6 +104,43 @@ function FileEditor() {
     lruOrder.current.push(activeFilePath)
   }, [activeFilePath, openFiles])
 
+  // Toggle editable when mode changes
+  useEffect(() => {
+    if (!activeFilePath) return
+    const view = editorCache.current.get(activeFilePath)
+    if (!view) return
+    view.dispatch({
+      effects: editableCompartment.current.reconfigure(
+        EditorView.editable.of(currentMode === 'edit')
+      )
+    })
+  }, [currentMode, activeFilePath])
+
+  // Ctrl+S save handler
+  useEffect(() => {
+    if (currentMode !== 'edit') return
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault()
+        const file = useStore.getState().openFiles.find((f) => f.path === activeFilePath)
+        if (!file?.isDirty) return
+        const view = editorCache.current.get(activeFilePath)
+        if (!view) return
+        const content = view.state.doc.toString()
+        App.WriteFile(projectPath, activeFilePath, content)
+          .then(() => {
+            updateFileContent(activeFilePath, content)
+            setFileDirty(activeFilePath, false)
+          })
+          .catch((err) => {
+            console.error('[FileEditor] WriteFile failed:', activeFilePath, err)
+          })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [currentMode, activeFilePath, projectPath])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -114,27 +149,6 @@ function FileEditor() {
       lruOrder.current = []
     }
   }, [])
-
-  // Fetch diff when switching to Diff mode
-  useEffect(() => {
-    if (currentMode !== 'diff' || !activeFilePath) return
-    let cancelled = false
-    setDiffLoading(true)
-    App.GetFileDiff(projectPath, activeFilePath)
-      .then((result) => {
-        if (!cancelled) {
-          setDiffLines(result?.lines || [])
-          setDiffLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDiffLines([])
-          setDiffLoading(false)
-        }
-      })
-    return () => { cancelled = true }
-  }, [currentMode, activeFilePath, projectPath])
 
   const handleClose = useCallback((path: string) => {
     const file = openFiles.find((f) => f.path === path)
@@ -174,7 +188,7 @@ function FileEditor() {
     return (
       <div className="flex-1 flex flex-col min-w-0">
         <TabBar tabs={[]} activeKey="" onSelect={() => {}} onClose={() => {}} emptyLabel="Preview" />
-        <div className="flex-1 flex items-center justify-center bg-[var(--bg-root)]">
+        <div className="flex-1 flex items-center justify-center bg-[var(--bg-main)]">
           <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
         </div>
       </div>
@@ -191,74 +205,44 @@ function FileEditor() {
         emptyLabel="Preview"
       />
       <div className="flex-1 relative">
-        <div className="absolute top-2 right-2 z-10 flex gap-1">
-          <button
-            onClick={() => setCurrentMode('edit')}
-            className={`px-2 py-0.5 text-[11px] rounded border transition-colors ${
-              currentMode === 'edit'
-                ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                : 'bg-[var(--bg-main)] text-[var(--text-dim)] border-[var(--border-color)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            Edit
-          </button>
-          <button
-            onClick={() => setCurrentMode('diff')}
-            className={`px-2 py-0.5 text-[11px] rounded border transition-colors ${
-              currentMode === 'diff'
-                ? 'bg-[var(--accent)] text-white border-[var(--accent)]'
-                : 'bg-[var(--bg-main)] text-[var(--text-dim)] border-[var(--border-color)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            Diff
-          </button>
-        </div>
-        {currentMode === 'diff' ? (
-          <div className="absolute inset-0 overflow-auto font-mono text-[13px] leading-relaxed"
-            style={{ background: 'var(--bg-main)' }}>
-            {diffLoading ? (
-              <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[12px]">
-                Loading diff...
-              </div>
-            ) : diffLines.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[12px]">
-                No changes
-              </div>
-            ) : (
-              <div className="py-2">
-                {diffLines.map((line, i) => {
-                  let bg = 'transparent'
-                  let fg = 'var(--text-primary)'
-                  if (line.startsWith('+') && !line.startsWith('+++')) {
-                    bg = 'rgba(74, 222, 128, 0.08)'
-                    fg = 'var(--green)'
-                  } else if (line.startsWith('-') && !line.startsWith('---')) {
-                    bg = 'rgba(248, 113, 113, 0.10)'
-                    fg = 'var(--red)'
-                  } else if (line.startsWith('@@')) {
-                    fg = 'var(--text-dim)'
-                  } else if (line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
-                    fg = 'var(--text-dim)'
-                  }
-                  return (
-                    <div key={i} style={{ background: bg, color: fg, paddingLeft: '16px', paddingRight: '16px', minHeight: '22px', whiteSpace: 'pre' }}>
-                      {line}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+        {activeFilePath && (
+          <div role="radiogroup" aria-label="Editor mode"
+            className="absolute top-2 right-3 z-10 flex rounded-md overflow-hidden shadow-lg"
+            style={{ background: 'var(--glass-strong)', border: '1px solid var(--border)' }}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={currentMode === 'edit'}
+              aria-label="Edit mode"
+              onClick={() => setFileMode(activeFilePath, 'edit')}
+              className="px-3 py-1 text-[11px] font-medium transition-colors"
+              style={{
+                background: currentMode === 'edit' ? 'var(--accent)' : 'transparent',
+                color: currentMode === 'edit' ? '#fff' : 'var(--text-dim)',
+              }}
+            >Edit</button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={currentMode === 'diff'}
+              aria-label="Diff mode"
+              onClick={() => setFileMode(activeFilePath, 'diff')}
+              className="px-3 py-1 text-[11px] font-medium transition-colors"
+              style={{
+                background: currentMode === 'diff' ? 'var(--accent)' : 'transparent',
+                color: currentMode === 'diff' ? '#fff' : 'var(--text-dim)',
+              }}
+            >Diff</button>
           </div>
-        ) : (
-          openFiles.map((f) => (
-            <div
-              key={f.path}
-              ref={(el) => registerContainer(f.path, el)}
-              style={{ display: f.path === activeFilePath ? 'block' : 'none', height: '100%' }}
-              className="absolute inset-0"
-            />
-          ))
         )}
+        {openFiles.map((f) => (
+          <div
+            key={f.path}
+            ref={(el) => registerContainer(f.path, el)}
+            style={{ display: f.path === activeFilePath ? 'block' : 'none', height: '100%' }}
+            className="absolute inset-0"
+          />
+        ))}
       </div>
       {dirtyClosePath && (
         <ConfirmModal

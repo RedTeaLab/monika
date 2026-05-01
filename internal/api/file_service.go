@@ -49,74 +49,102 @@ func (f *FileService) WriteFile(relPath, content string) error {
 }
 
 func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
-	absPath := filepath.Join(f.projectDir, relPath)
-	entries, err := os.ReadDir(absPath)
-	if err != nil {
-		return nil, err
-	}
+	// Build git status map once at top level.
+	statusMap := f.gitStatusMap()
 
-	var nodes []FileNode
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.HasPrefix(name, ".") || name == "node_modules" {
-			continue
+	var listDirRecursive func(relPath string) ([]FileNode, error)
+	listDirRecursive = func(relPath string) ([]FileNode, error) {
+		absPath := filepath.Join(f.projectDir, relPath)
+		entries, err := os.ReadDir(absPath)
+		if err != nil {
+			return []FileNode{}, err
 		}
 
-		entryRelPath := filepath.Join(relPath, name)
-		node := FileNode{
-			Name:  name,
-			Path:  entryRelPath,
-			IsDir: entry.IsDir(),
-		}
-
-		if entry.IsDir() {
-			children, err := f.ListDir(entryRelPath)
-			if err != nil {
-				return nil, err
+		nodes := make([]FileNode, 0)
+		for _, entry := range entries {
+			name := entry.Name()
+			if strings.HasPrefix(name, ".") || name == "node_modules" {
+				continue
 			}
-			node.Children = children
+
+			entryRelPath := filepath.Join(relPath, name)
+			node := FileNode{
+				Name:  name,
+				Path:  entryRelPath,
+				IsDir: entry.IsDir(),
+			}
+
+			// Populate git status from the status map.
+			if status, ok := statusMap[entryRelPath]; ok {
+				node.Status = status
+			}
+
+			if entry.IsDir() {
+				children, err := listDirRecursive(entryRelPath)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = children
+			}
+
+			nodes = append(nodes, node)
 		}
 
-		nodes = append(nodes, node)
+		sort.Slice(nodes, func(i, j int) bool {
+			if nodes[i].IsDir != nodes[j].IsDir {
+				return nodes[i].IsDir
+			}
+			return nodes[i].Name < nodes[j].Name
+		})
+
+		return nodes, nil
 	}
 
-	sort.Slice(nodes, func(i, j int) bool {
-		if nodes[i].IsDir != nodes[j].IsDir {
-			return nodes[i].IsDir
-		}
-		return nodes[i].Name < nodes[j].Name
-	})
-
-	return nodes, nil
+	return listDirRecursive(relPath)
 }
 
-func (f *FileService) ListChanges() ([]FileChange, error) {
+func (f *FileService) readGitStatus() ([]FileChange, error) {
 	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = f.projectDir
 	out, err := cmd.Output()
 	if err != nil {
-		return []FileChange{}, nil
+		return nil, err
 	}
-
-	var changes []FileChange
+	changes := make([]FileChange, 0)
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		if len(line) < 4 {
 			continue
 		}
-		status := strings.TrimSpace(line[0:2])
+		status := line[0:2]
 		filename := strings.TrimSpace(line[3:])
-
 		if idx := strings.Index(filename, " -> "); idx >= 0 {
 			filename = filename[idx+4:]
 		}
-
-		if status == "" || filename == "" {
-			continue
+		if status != "" && filename != "" {
+			changes = append(changes, FileChange{Path: filename, Status: status})
 		}
-
-		changes = append(changes, FileChange{Path: filename, Status: status})
 	}
+	return changes, nil
+}
 
+// gitStatusMap returns a map of file path -> git status code for the project.
+func (f *FileService) gitStatusMap() map[string]string {
+	changes, err := f.readGitStatus()
+	if err != nil {
+		return make(map[string]string)
+	}
+	m := make(map[string]string, len(changes))
+	for _, c := range changes {
+		m[c.Path] = c.Status
+	}
+	return m
+}
+
+func (f *FileService) ListChanges() ([]FileChange, error) {
+	changes, err := f.readGitStatus()
+	if err != nil {
+		return []FileChange{}, nil
+	}
 	return changes, nil
 }
 

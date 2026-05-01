@@ -32,6 +32,7 @@ interface FileTabInfo {
   path: string
   content: string
   isDirty: boolean
+  mode: 'edit' | 'diff'
 }
 
 interface AppState {
@@ -98,6 +99,7 @@ interface AppState {
   closeFileTab: (path: string) => void
   switchFileTab: (path: string) => void
   setFileDirty: (path: string, dirty: boolean) => void
+  setFileMode: (path: string, mode: 'edit' | 'diff') => void
   updateFileContent: (path: string, content: string) => void
 
   loadRecentProjects: () => Promise<void>
@@ -358,8 +360,14 @@ export const useStore = create<AppState>((set, get) => ({
     })),
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
-  setProjectPath: (path) => set({ projectPath: path }),
-  setBranch: (branch) => set({ branch }),
+  setProjectPath: (path) => {
+    console.log('[monika] store.setProjectPath:', path);
+    set({ projectPath: path });
+  },
+  setBranch: (branch) => {
+    console.log('[monika] store.setBranch:', branch);
+    set({ branch });
+  },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
@@ -480,7 +488,7 @@ export const useStore = create<AppState>((set, get) => ({
       return
     }
     set((s) => ({
-      openFiles: [...s.openFiles, { path, content, isDirty: false }],
+      openFiles: [...s.openFiles, { path, content, isDirty: false, mode: 'edit' }],
       activeFilePath: path,
     }))
   },
@@ -518,6 +526,12 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
+  setFileMode: (path, mode) => {
+    set((s) => ({
+      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, mode } : f),
+    }))
+  },
+
   updateFileContent: (path, content) => {
     set((s) => ({
       openFiles: s.openFiles.map((f) => f.path === path ? { ...f, content } : f),
@@ -525,17 +539,22 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadRecentProjects: async () => {
+    console.log('[monika] loadRecentProjects called');
     const projects = await App.GetRecentProjects();
+    console.log('[monika] loadRecentProjects got', projects.length, 'projects:', projects.map(p => p.path));
     set({ recentProjects: projects });
   },
 
   loadBranches: async () => {
     const { projectPath } = get();
+    console.log('[monika] loadBranches called, projectPath:', projectPath);
     if (!projectPath) return;
     try {
       const branches = await App.ListBranches(projectPath);
+      console.log('[monika] loadBranches got', branches.length, 'branches');
       set({ allBranches: branches });
     } catch (e) {
+      console.error('[monika] loadBranches failed:', e);
       set({ allBranches: [] });
       throw e;
     }
@@ -558,6 +577,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   resetProjectState: () => {
+    console.log('[monika] resetProjectState called');
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
       generatingSessionId: '',
