@@ -33,6 +33,9 @@
 - **模型选择器**：ChatInput 上方新增 `ChatInputToolbar`，含 `ModelSelector` 下拉菜单，展示可用模型列表并支持切换。后端新增 `GetModels` API 返回 `provider.ListModels()` 结果，`SendMessage` 接受 `model` 参数透传至 agent loop。Zustand store 新增 `availableModels`/`selectedModel`/`loadModels`。设计文档：`docs/superpowers/specs/2026-05-01-model-selector-design.md`、`docs/superpowers/plans/2026-05-01-model-selector.md`。
 - **发送/停止按钮与中断生成**：ChatInput 右下角新增发送/停止切换按钮（发送时显示箭头图标 `IconArrowUp`，生成中切换为方形停止图标 `IconStop`，按 ESC 键停止）。`CancelGeneration` 通过 context 取消中断 agent loop，`EventError("cancelled")` 不显示为聊天错误消息。设计文档：`docs/superpowers/specs/2026-05-01-interrupt-generation-design.md`、`docs/superpowers/plans/2026-05-01-interrupt-generation.md`。
 - **修复 StatusDot 状态解析和 NewSession 绑定**：`getStatus` 改用 `!= null` 显式检查替代 falsey 判断，防止空字符串绕过内存状态。`NewSession` 的 TS 绑定移除多余的 `model` 参数，与 Go 签名 `NewSession(projectPath string)` 对齐。
+- **审查修复：取消竞态与状态同步**：SendMessage goroutine 取消后分支化 Save（避免覆写 CancelGeneration 的 idle 状态），`ctx.Err() == nil` 守卫 `session_updated` 事件发送。前端 `cancelled` 错误路径补全 `setSessionStatus(idle)` + `clearSessionError` + `bumpSessionListVersion`，防止侧边栏永远显示 spinner。关闭标签页时自动调用 `CancelGeneration` 清理后端 goroutine。
+- **审查修复：模型状态健壮性**：ChatArea 新增 `selectedModel` 空值校验（无模型时不发送）。`loadModels` 验证旧 `selectedModel` 是否仍在新的 `availableModels` 列表中，不在则回退到第一个。`resetProjectState` 清除 `availableModels`/`selectedModel` 防止跨项目残留。新增 `setSelectedModel` store action 替代 `ChatInputToolbar` 中直接 `useStore.setState`。
+- **审查修复：ESC 稳定性与状态常量化**：ChatInput ESC 监听器改用 `useRef(onStop)` 稳定引用，依赖数组简化为 `[disabled]` 消除每次渲染重注册。Go 端新增 `StatusIdle`/`StatusGenerating`/`StatusSuccess`/`StatusFailure` 常量，替换 `app.go` 和 `session_manager.go` 中所有硬编码字符串。
 
 ## 2026-04-30
 
