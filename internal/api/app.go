@@ -259,6 +259,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 		s.TokenCount = conv.TokenCount
 		s.TokenMax = conv.TokenMax
 		s.CompactionCount = conv.CompactionCount
+		if len(conv.ArchivedMessages) > 0 {
+			s.ArchivedMessages = conv.ArchivedMessages
+		}
 		sm.SetTitle(s)
 
 			sm.Lock()

@@ -57,11 +57,12 @@ func contextLimit(model string) int64 {
 }
 
 type Conversation struct {
-	ID              string
-	Messages        []engine.ChatMessage
-	TokenCount      int64
-	TokenMax        int64
-	CompactionCount int
+	ID               string
+	Messages         []engine.ChatMessage
+	ArchivedMessages []engine.ChatMessage
+	TokenCount       int64
+	TokenMax         int64
+	CompactionCount  int
 }
 
 const compactionBuffer = 20_000
@@ -117,6 +118,10 @@ What remains to be done. Explicit TODOs mentioned by user.
 }
 
 func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
+	// Archive original messages before compaction
+	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
+	copy(conv.ArchivedMessages, conv.Messages)
+
 	limit := contextLimit(a.model)
 	preserveBudget := int64(float64(limit) * 0.25)
 
