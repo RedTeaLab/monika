@@ -14,13 +14,16 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction'
   content: string
   thinking?: string
   tools?: ToolCall[]
   model?: string
   duration?: number
   startedAt?: number
+  compactionNum?: number
+  beforeTokens?: number
+  afterTokens?: number
 }
 
 interface SessionTabInfo {
@@ -40,6 +43,8 @@ interface AppState {
   generatingSessionId: string
   sessionStatuses: Record<string, string>
   sessionErrors: Record<string, string>
+  compactingSessionId: string
+  sessionTokens: Record<string, { count: number; max: number }>
   tokenCount: number
   tokenMax: number
   projectPath: string
@@ -76,7 +81,9 @@ interface AppState {
   setSessionError: (sessionId: string, error: string) => void
   setSelectedModel: (model: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
-  addTokens: (tokens: number, max?: number) => void
+  addTokens: (sid: string, tokens: number, max?: number) => void
+  setCompacting: (sid: string, compacting: boolean) => void
+  addCompactionMessage: (sid: string, data: { summary: string; beforeTokens: number; afterTokens: number; compactionNum: number }) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
   setProjectPath: (path: string) => void
@@ -111,6 +118,8 @@ export const useStore = create<AppState>((set, get) => ({
   generatingSessionId: '',
   sessionStatuses: {},
   sessionErrors: {},
+  compactingSessionId: '',
+  sessionTokens: {},
   tokenCount: 0,
   tokenMax: 0,
   projectPath: '',
@@ -356,10 +365,37 @@ export const useStore = create<AppState>((set, get) => ({
       return updates
     })
   },
-  addTokens: (t, max) => set((s) => ({
-    tokenCount: t, // backend sends cumulative total across turns
-    tokenMax: Math.max(s.tokenMax, max ?? 0),
+  addTokens: (sid, t, max) => set((s) => ({
+    tokenCount: s.activeSessionId === sid ? t : s.tokenCount,
+    tokenMax: s.activeSessionId === sid ? Math.max(s.tokenMax, max ?? 0) : s.tokenMax,
+    sessionTokens: {
+      ...s.sessionTokens,
+      [sid]: { count: t, max: Math.max(s.sessionTokens[sid]?.max ?? 0, max ?? 0) },
+    },
   })),
+
+  setCompacting: (sid, compacting) => set((s) => ({
+    compactingSessionId: compacting ? sid : (s.compactingSessionId === sid ? '' : s.compactingSessionId),
+  })),
+
+  addCompactionMessage: (sid, data) => {
+    const msg: Message = {
+      id: crypto.randomUUID(),
+      role: 'compaction',
+      content: data.summary,
+      compactionNum: data.compactionNum,
+      beforeTokens: data.beforeTokens,
+      afterTokens: data.afterTokens,
+    }
+    set((s) => ({
+      sessionMessages: {
+        ...s.sessionMessages,
+        [sid]: [...(s.sessionMessages[sid] || []), msg],
+      },
+      messages: s.activeSessionId === sid ? [...s.messages, msg] : s.messages,
+    }))
+  },
+
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
   updateSessionTitle: (id, title) =>
@@ -403,8 +439,8 @@ export const useStore = create<AppState>((set, get) => ({
       },
       activeSessionId: id,
       messages: [],
-      tokenCount: 0,
-      tokenMax: 0,
+      tokenCount: s.sessionTokens[id]?.count ?? 0,
+      tokenMax: s.sessionTokens[id]?.max ?? 0,
     }))
     try {
       const project = useStore.getState().projectPath
@@ -484,8 +520,8 @@ export const useStore = create<AppState>((set, get) => ({
         activeSessionId: id,
         sessionMessages: currentCache,
         messages: restored,
-        tokenCount: 0,
-        tokenMax: 0,
+        tokenCount: s.sessionTokens[id]?.count ?? 0,
+        tokenMax: s.sessionTokens[id]?.max ?? 0,
       }
     })
   },
@@ -593,6 +629,8 @@ export const useStore = create<AppState>((set, get) => ({
       generatingSessionId: '',
       sessionStatuses: {},
       sessionErrors: {},
+      compactingSessionId: '',
+      sessionTokens: {},
       tokenCount: 0,
       tokenMax: 0,
       activeSessionId: '',
@@ -621,31 +659,40 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       result.push({ id: crypto.randomUUID(), role: 'user', content: m.content || '' })
       i++
     } else if (m.role === 'assistant') {
-      const tools: ToolCall[] = []
-      if (m.tool_calls) {
-        for (const tc of m.tool_calls) {
-          let output = ''
-          let status: 'done' | 'error' = 'done'
-          let j = i + 1
-          while (j < raw.length) {
-            const tm = raw[j]
-            if (tm.role === 'tool' && tm.tool_call_id === tc.id) {
-              output = tm.content || ''
-              break
+      if ((m as any).name === 'compaction_summary') {
+        result.push({
+          id: crypto.randomUUID(),
+          role: 'compaction',
+          content: m.content || '',
+        })
+        i++
+      } else {
+        const tools: ToolCall[] = []
+        if (m.tool_calls) {
+          for (const tc of m.tool_calls) {
+            let output = ''
+            let status: 'done' | 'error' = 'done'
+            let j = i + 1
+            while (j < raw.length) {
+              const tm = raw[j]
+              if (tm.role === 'tool' && tm.tool_call_id === tc.id) {
+                output = tm.content || ''
+                break
+              }
+              j++
             }
-            j++
+            tools.push({ name: tc.function.name, input: tc.function.arguments, output, status })
           }
-          tools.push({ name: tc.function.name, input: tc.function.arguments, output, status })
         }
+        result.push({
+          id: crypto.randomUUID(), role: 'assistant',
+          content: m.content || '',
+          thinking: m.reasoning_content || undefined,
+          tools: tools.length > 0 ? tools : undefined,
+          model,
+        })
+        i++
       }
-      result.push({
-        id: crypto.randomUUID(), role: 'assistant',
-        content: m.content || '',
-        thinking: m.reasoning_content || undefined,
-        tools: tools.length > 0 ? tools : undefined,
-        model,
-      })
-      i++
     } else if (m.role === 'tool') {
       i++
     } else if (m.role === 'system') {
@@ -727,7 +774,7 @@ export function setupWailsEvents() {
 
       case 'usage':
         if (data.usage) {
-          store.addTokens(data.usage.total_tokens || 0, data.usage.max_context)
+          store.addTokens(sid, data.usage.total_tokens || 0, data.usage.max_context)
         }
         break
 
@@ -791,6 +838,22 @@ export function setupWailsEvents() {
         store.setGeneratingSessionId(sid)
         break
       }
+
+      case 'compacting':
+        store.setCompacting(sid, true)
+        break
+
+      case 'compaction':
+        store.setCompacting(sid, false)
+        if ((data as any).compaction) {
+          store.addCompactionMessage(sid, {
+            summary: (data as any).compaction.summary || '',
+            beforeTokens: (data as any).compaction.before_tokens || 0,
+            afterTokens: (data as any).compaction.after_tokens || 0,
+            compactionNum: (data as any).compaction.compaction_num || 1,
+          })
+        }
+        break
     }
   })
 }
