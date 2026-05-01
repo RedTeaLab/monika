@@ -49,7 +49,6 @@ type AgentLoop struct {
 	systemPrompt string
 	confirmFn    func(tool.Tool, json.RawMessage) bool
 	projectDir   string
-	maxTurns     int
 	model        string
 }
 
@@ -73,12 +72,6 @@ func WithProjectDir(dir string) LoopOption {
 	}
 }
 
-func WithMaxTurns(n int) LoopOption {
-	return func(a *AgentLoop) {
-		a.maxTurns = n
-	}
-}
-
 func WithModel(model string) LoopOption {
 	return func(a *AgentLoop) {
 		a.model = model
@@ -89,7 +82,6 @@ func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...L
 	a := &AgentLoop{
 		provider: provider,
 		tools:    tools,
-		maxTurns: 25,
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -110,7 +102,8 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 	tools := a.buildToolDefs()
 	var totalUsage engine.Usage
 
-	for turn := 0; turn < a.maxTurns; turn++ {
+	for turn := 0; ; turn++ {
+		_ = turn // reserved for future logging
 		messages := a.buildMessages(conv)
 
 		req := engine.ChatRequest{
@@ -204,8 +197,6 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 			})
 		}
 	}
-
-	return nil, fmt.Errorf("agent: exceeded maximum turns (%d)", a.maxTurns)
 }
 
 func (a *AgentLoop) RunStreaming(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
@@ -230,7 +221,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 	tools := a.buildToolDefs()
 	var totalUsage engine.Usage
 
-	for turn := 0; turn < a.maxTurns; turn++ {
+	for turn := 0; ; turn++ {
+		_ = turn // reserved for future logging
 		select {
 		case <-ctx.Done():
 			ch <- Event{Type: EventError, Content: "cancelled"}
@@ -434,8 +426,6 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 
 		ch <- Event{Type: EventTurnStart}
 	}
-
-	ch <- Event{Type: EventError, Content: fmt.Sprintf("agent: exceeded maximum turns (%d)", a.maxTurns)}
 }
 
 // estimateContextTokens runs a client-side tiktoken estimate over all messages

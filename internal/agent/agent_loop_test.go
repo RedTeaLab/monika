@@ -149,32 +149,6 @@ func TestLoopRunToolCallLoop(t *testing.T) {
 	}
 }
 
-func TestLoopRunExceedsMaxTurns(t *testing.T) {
-	provider := &fakeProvider{
-		streamFn: func(_ context.Context, _ engine.ChatRequest) (<-chan engine.ChatEvent, error) {
-			ch := make(chan engine.ChatEvent, 2)
-			ch <- engine.ChatEvent{Kind: engine.EventToolCallEnd, ToolCall: &engine.ToolCall{ID: "1", Type: "function", Function: engine.ToolCallFunc{Name: "test_tool", Arguments: "{}"}}}
-			ch <- engine.ChatEvent{Kind: engine.EventMessageEnd, Text: "tool_calls"}
-			close(ch)
-			return ch, nil
-		},
-	}
-
-	registry := tool.NewRegistry()
-	registry.Register(&fakeTool{
-		name:   "test_tool",
-		params: map[string]any{"type": "object", "properties": map[string]any{}},
-		result: tool.ExecutionResult{Content: "result"},
-	})
-
-	loop := NewLoop(provider, registry, WithMaxTurns(3))
-
-	_, err := loop.Run(context.Background(), nil, "hi")
-	if err == nil {
-		t.Fatal("expected error for exceeding max turns")
-	}
-}
-
 func TestLoopRunToolNotFound(t *testing.T) {
 	events := [][]engine.ChatEvent{
 		{
