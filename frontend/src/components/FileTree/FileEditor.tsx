@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { EditorState, Compartment } from '@codemirror/state'
-import { EditorView, keymap } from '@codemirror/view'
+import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { javascript } from '@codemirror/lang-javascript'
@@ -15,9 +15,12 @@ import ConfirmModal from '../Chat/ConfirmModal'
 const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
 
 const monoTheme = EditorView.theme({
-  '&': { fontFamily: monoFont },
+  '&': { fontFamily: monoFont, backgroundColor: '#08090d' },
+  '.cm-scroller': { backgroundColor: '#08090d' },
+  '.cm-gutters': { fontFamily: monoFont, backgroundColor: '#08090d', color: 'var(--text-dim)', borderRight: '1px solid var(--border)' },
+  '.cm-gutter': { backgroundColor: '#08090d' },
+  '.cm-lineNumbers .cm-gutterElement': { backgroundColor: '#08090d' },
   '.cm-content': { fontFamily: monoFont },
-  '.cm-gutters': { fontFamily: monoFont },
   '.cm-cursor': { fontFamily: monoFont },
   '.cm-activeLine': { fontFamily: monoFont },
   '.cm-selectionBackground': { fontFamily: monoFont },
@@ -77,6 +80,7 @@ function FileEditor() {
         extensions: [
           oneDark,
           monoTheme,
+          lineNumbers(),
           keymap.of(defaultKeymap),
           getLangExtension(activeFilePath),
           editableCompartment.current.of(EditorView.editable.of(file?.mode === 'edit')),
@@ -226,7 +230,7 @@ function FileEditor() {
     try {
       const state = useStore.getState()
       const result = await App.ReadFile(state.projectPath, path)
-      updateFileContent(path, result.content || '')
+      if (result) updateFileContent(path, result.content || '')
     } catch {
       // File may have been deleted — keep cached content
     }
@@ -242,7 +246,7 @@ function FileEditor() {
     return (
       <div className="flex-1 flex flex-col min-w-0">
         <TabBar tabs={[]} activeKey="" onSelect={() => {}} onClose={() => {}} emptyLabel="Preview" />
-        <div className="flex-1 flex items-center justify-center bg-[var(--bg-main)]">
+        <div className="flex-1 flex items-center justify-center bg-[var(--bg-root)]">
           <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
         </div>
       </div>
@@ -258,10 +262,10 @@ function FileEditor() {
         onClose={handleClose}
         emptyLabel="Preview"
       />
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" style={{ background: 'var(--bg-root)' }}>
         {currentMode === 'diff' ? (
           <div className="absolute inset-0 overflow-auto font-mono text-[13px] leading-relaxed"
-            style={{ background: 'var(--bg-main)' }}>
+            style={{ background: 'var(--bg-root)' }}>
             {diffLoading ? (
               <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[12px]">
                 Loading diff...

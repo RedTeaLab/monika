@@ -36,7 +36,7 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
         <span className="text-[var(--text-secondary)]">{generating ? 'generating...' : 'ready'}</span>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)]" style={{ background: 'var(--bg-main)', padding: '2px 4px' }}>
+      <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)]" style={{ background: 'var(--bg-elevated)', padding: '2px 4px' }}>
         <button onClick={onToggleSidebar} title="Sidebar" className={togClass(showSidebar)} aria-label="Toggle session sidebar">
           <IconSidebar size={13} />
         </button>
