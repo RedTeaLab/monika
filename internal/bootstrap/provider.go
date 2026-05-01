@@ -47,6 +47,7 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 	initCfg := map[string]any{
 		"base_url": providerCfg.BaseURL,
 		"api_key":  providerCfg.APIKey,
+		"models":   providerCfg.Models,
 	}
 	if err := eng.Init(ctx, initCfg); err != nil {
 		return nil, fmt.Errorf("init %s: %w", cfg.ModelProvider, err)
@@ -68,9 +69,26 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 	}, nil
 }
 
-var providerDefaults = map[string]struct{ baseURL, model string }{
-	"deepseek": {"https://api.deepseek.com", "deepseek-chat"},
-	"openai":   {"https://api.openai.com/v1", "gpt-4o"},
+var providerDefaults = map[string]struct {
+	baseURL, model string
+	models         []config.ModelEntry
+}{
+	"deepseek": {
+		"https://api.deepseek.com",
+		"deepseek-chat",
+		[]config.ModelEntry{
+			{ID: "deepseek-chat", DisplayName: "DeepSeek Chat"},
+			{ID: "deepseek-reasoner", DisplayName: "DeepSeek Reasoner"},
+		},
+	},
+	"openai": {
+		"https://api.openai.com/v1",
+		"gpt-4o",
+		[]config.ModelEntry{
+			{ID: "gpt-4o", DisplayName: "GPT-4o"},
+			{ID: "gpt-4o-mini", DisplayName: "GPT-4o Mini"},
+		},
+	},
 }
 
 type writeConfig struct {
@@ -80,9 +98,10 @@ type writeConfig struct {
 }
 
 type providerItem struct {
-	Name    string `yaml:"name"`
-	BaseURL string `yaml:"base_url"`
-	APIKey  string `yaml:"api_key"`
+	Name    string             `yaml:"name"`
+	BaseURL string             `yaml:"base_url"`
+	APIKey  string             `yaml:"api_key"`
+	Models  []config.ModelEntry `yaml:"models"`
 }
 
 func setupConfig(home string) error {
@@ -127,7 +146,10 @@ func setupConfig(home string) error {
 	providerName := providerIDs[choice-1]
 	def, known := providerDefaults[providerName]
 	if !known {
-		def = struct{ baseURL, model string }{model: providerName}
+		def = struct {
+			baseURL, model string
+			models         []config.ModelEntry
+		}{model: providerName}
 	}
 
 	fmt.Fprintf(stderr, "\nAPI key for %s: ", providerName)
@@ -151,6 +173,11 @@ func setupConfig(home string) error {
 		model = def.model
 	}
 
+	defModels := []config.ModelEntry{}
+	if d, ok := providerDefaults[providerName]; ok {
+		defModels = d.models
+	}
+
 	cfg := writeConfig{
 		ModelProvider: providerName,
 		Model:         model,
@@ -159,6 +186,7 @@ func setupConfig(home string) error {
 				Name:    providerName,
 				BaseURL: baseURL,
 				APIKey:  apiKey,
+				Models:  defModels,
 			},
 		},
 	}
