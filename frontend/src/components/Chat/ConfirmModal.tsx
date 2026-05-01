@@ -5,11 +5,12 @@ interface ConfirmModalProps {
   title: string
   message: string
   confirmLabel?: string
+  variant?: 'danger' | 'primary'
   onConfirm: () => Promise<void>
   onCancel: () => void
 }
 
-function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: ConfirmModalProps) {
+function ConfirmModal({ title, message, confirmLabel, variant = 'danger', onConfirm, onCancel }: ConfirmModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const cancelRef = useRef<HTMLButtonElement>(null)
@@ -101,7 +102,10 @@ function ConfirmModal({ title, message, confirmLabel, onConfirm, onCancel }: Con
             ref={confirmRef}
             onClick={handleConfirm}
             disabled={isLoading}
-            className="bg-[var(--red)] text-white px-3 py-1.5 text-[13px] rounded-[2px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            className={variant === 'primary'
+              ? 'bg-[var(--accent)] text-white px-3 py-1.5 text-[13px] rounded-[2px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+              : 'bg-[var(--red)] text-white px-3 py-1.5 text-[13px] rounded-[2px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed'
+            }
           >
             {isLoading ? (confirmLabel ? `${confirmLabel}ing...` : 'Deleting...') : (confirmLabel || 'Delete')}
           </button>

@@ -1,4 +1,48 @@
 import type { CSSProperties } from 'react';
+import { App } from '../../../bindings/monika';
+
+type StoreForAI = {
+  activeSessionId: string;
+  openSessionTab: (id: string, title: string) => Promise<void>;
+  addMessage: (msg: { id: string; role: 'user' | 'assistant' | 'system' | 'error'; content: string }) => void;
+  setGeneratingSessionId: (id: string) => void;
+};
+
+export async function resolveUnmergedWithAI(
+  projectPath: string,
+  files: string[],
+  store: StoreForAI,
+): Promise<void> {
+  let sid = store.activeSessionId;
+  if (!sid) {
+    const info = await App.NewSession(projectPath);
+    sid = info.id;
+    await store.openSessionTab(info.id, info.title || 'Untitled');
+  }
+
+  const fileList = files.map(f => `- ${f}`).join('\n');
+  const prompt = [
+    `You need to resolve merge conflicts on the current branch. The following files have unresolved conflicts:\n${fileList}\n`,
+    'Follow these steps:',
+    '1. Run `git diff <file>` on each file to inspect the conflict markers',
+    '2. Determine the correct resolution for each conflict based on the code context',
+    '3. Edit each file to remove the conflict markers (<<<<<<<, =======, >>>>>>>) and keep the correct version',
+    '4. Run `git add <file>` on each resolved file to mark it as resolved',
+    '5. Verify with `git diff --name-only --diff-filter=U` that no unmerged files remain',
+  ].join('\n');
+
+  store.addMessage({ id: crypto.randomUUID(), role: 'user', content: prompt });
+  store.addMessage({ id: crypto.randomUUID(), role: 'assistant', content: '' });
+  store.setGeneratingSessionId(sid);
+
+  try {
+    await App.SendMessage(projectPath, sid, prompt);
+  } catch (err) {
+    store.addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) });
+    store.setGeneratingSessionId('');
+    throw err;
+  }
+}
 
 export const dropdownContainerStyle = {
   position: 'fixed' as const,
@@ -22,8 +66,39 @@ export const sectionHeaderStyle: CSSProperties = {
   borderBottom: '1px solid var(--border)',
 };
 
+export function parseUnmergedError(e: unknown): string[] | null {
+  let msg = e instanceof Error ? e.message : '';
+  // Wails wraps Go errors as JSON: {"message":"...","cause":{},"kind":"RuntimeError"}
+  try {
+    const parsed = JSON.parse(msg);
+    if (parsed.message && typeof parsed.message === 'string') {
+      msg = parsed.message;
+    }
+  } catch {
+    // Not JSON, use raw message.
+  }
+  if (msg.startsWith('UNMERGED_FILES:')) {
+    return msg.slice('UNMERGED_FILES:'.length).split(',').filter(Boolean);
+  }
+  return null;
+}
+
 export function getErrorMessage(e: unknown, fallback: string): string {
-  return e instanceof Error ? e.message : fallback;
+  let msg = e instanceof Error ? e.message : fallback;
+  // Wails wraps Go errors as JSON: {"message":"...","cause":{},"kind":"RuntimeError"}
+  try {
+    const parsed = JSON.parse(msg);
+    if (parsed.message && typeof parsed.message === 'string') {
+      msg = parsed.message;
+    }
+  } catch {
+    // Not JSON, use as-is.
+  }
+  // Strip internal error prefixes so the user sees a clean message.
+  if (msg.startsWith('UNMERGED_FILES:')) {
+    return 'Unmerged files detected. Please resolve conflicts first.';
+  }
+  return msg;
 }
 
 export function buildDirtyGuardMessage(dirtyCount: number, isGenerating: boolean, entity: string): string {
