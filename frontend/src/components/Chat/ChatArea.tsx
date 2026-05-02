@@ -4,6 +4,7 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
+import TodoPanel from '../TodoPanel/TodoPanel'
 
 function ChatArea() {
   const messages = useStore((s) => s.messages)
@@ -76,6 +77,9 @@ function ChatArea() {
   }
 
   const hasActiveSession = activeSessionId !== ''
+  const todoCollapsed = useStore((s) => s.todoCollapsed)
+  const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
+  const isTodoCollapsed = activeSessionId ? (todoCollapsed[activeSessionId] || false) : false
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastScrollRef = useRef(0)
@@ -132,6 +136,10 @@ function ChatArea() {
           ))
         )}
       </div>
+      <TodoPanel
+        collapsed={isTodoCollapsed}
+        onToggle={() => activeSessionId && setTodoCollapsed(activeSessionId, !isTodoCollapsed)}
+      />
       {hasActiveSession && (
         <ChatInput
           key={activeSessionId}
