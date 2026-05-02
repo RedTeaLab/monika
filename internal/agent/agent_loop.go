@@ -14,6 +14,30 @@ import (
 	"monika/pkg/tokenizer"
 )
 
+// CompactionPrompt is the system prompt used by the compaction agent.
+const CompactionPrompt = `You are a conversation summarizer. Summarize the conversation below.
+Focus on information that is essential for continuing the work without
+losing context. Output a structured summary in this format:
+
+## Goal
+What the user is trying to accomplish.
+
+## Key Decisions
+Design choices, architectural decisions, agreed approaches.
+
+## Discoveries
+Important findings, bugs identified, constraints discovered.
+
+## Current State
+What has been done so far. Files created/modified, tests passing/failing.
+
+## Next Steps
+What remains to be done. Explicit TODOs mentioned by user.
+
+## Summary Quality Gate
+- Must preserve all stated user goals and agreed decisions
+- Must preserve all discovered bugs and constraints`
+
 // Model context window limits (in tokens). These are conservative defaults
 // used for client-side estimation; the API response usage is authoritative.
 var modelContextLimits = map[string]int64{
@@ -106,20 +130,11 @@ What remains to be done. Explicit TODOs mentioned by user.
 - Must preserve all discovered bugs and constraints
 - If these cannot fit, prioritize goals > decisions > discoveries`
 
-	var b strings.Builder
-	for _, m := range conv.Messages {
-		if m.ReasoningContent != "" {
-			b.WriteString(fmt.Sprintf("[%s reasoning]: %s\n", m.Role, m.ReasoningContent))
-		}
-		b.WriteString(fmt.Sprintf("[%s]: %s\n", m.Role, m.Content))
-		for _, tc := range m.ToolCalls {
-			b.WriteString(fmt.Sprintf("  [tool_call %s]: %s\n", tc.Function.Name, tc.Function.Arguments))
-		}
-	}
+	dump := buildCompactionPromptFromConv(conv)
 
 	return []engine.ChatMessage{
 		{Role: "user", Content: prompt},
-		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + b.String()},
+		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + dump},
 	}
 }
 
@@ -228,6 +243,56 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 	return nil
 }
 
+// runCompactionViaDispatch runs compaction through the generic dispatch mechanism.
+// Falls back to the old runCompaction if dispatchFn is not set.
+func (a *AgentLoop) runCompactionViaDispatch(ctx context.Context, conv *Conversation, ch chan<- Event) error {
+	if a.dispatchFn == nil {
+		return a.runCompaction(ctx, conv, ch)
+	}
+
+	beforeTokens := conv.TokenCount
+
+	task := SubTask{
+		Type:   TaskCompaction,
+		Agent:  "compaction",
+		Prompt: buildCompactionPromptFromConv(conv),
+		Status: "pending",
+	}
+
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	resultCh := a.dispatchFn(childCtx, task)
+	var summary strings.Builder
+	for ev := range resultCh {
+		if ev.Type == EventTextDelta {
+			summary.WriteString(ev.Content)
+		}
+		if ev.Type == EventError {
+			return fmt.Errorf("compaction agent error: %s", ev.Content)
+		}
+	}
+
+	result := sanitizeCompactionOutput(summary.String())
+	if result == "" {
+		return fmt.Errorf("compaction returned empty summary")
+	}
+
+	a.rewriteMessages(conv, result)
+
+	ch <- Event{
+		Type: EventCompaction,
+		Compaction: &CompactionEvent{
+			Summary:       result,
+			BeforeTokens:  beforeTokens,
+			AfterTokens:   conv.TokenCount,
+			CompactionNum: conv.CompactionCount,
+		},
+	}
+
+	return nil
+}
+
 func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
 	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
 	copy(conv.ArchivedMessages, conv.Messages)
@@ -262,13 +327,27 @@ type LoopResult struct {
 }
 
 type AgentLoop struct {
-	provider     engine.ProviderEngine
-	tools        *tool.ToolRegistry
-	systemPrompt string
-	confirmFn    func(tool.Tool, json.RawMessage) bool
-	projectDir   string
-	model        string
-	sessionID    string
+	agent    Agent
+	provider engine.ProviderEngine
+	tools    *tool.ToolRegistry
+	// conv is the in-memory conversation for this loop's run.
+	conv *Conversation
+	// parent is nil for root loops; non-nil for child subtasks.
+	parent *AgentLoop
+
+	sessionID         string
+	systemPrompt      string
+	confirmFn         func(tool.Tool, json.RawMessage) bool
+	projectDir        string
+	model             string
+	modelContextLimit int64 // 0 = use hardcoded map + default
+	dispatchFn        func(ctx context.Context, task SubTask) <-chan Event
+}
+
+// SetDispatchFn sets the child dispatch function for this loop.
+// Used for compaction and other system-initiated subtasks.
+func (a *AgentLoop) SetDispatchFn(fn func(ctx context.Context, task SubTask) <-chan Event) {
+	a.dispatchFn = fn
 }
 
 type LoopOption func(*AgentLoop)
@@ -302,6 +381,22 @@ func WithSessionID(id string) LoopOption {
 	return func(a *AgentLoop) { a.sessionID = id }
 }
 
+func WithAgent(agent Agent) LoopOption {
+	return func(a *AgentLoop) {
+		a.agent = agent
+		if agent.SystemPrompt != "" {
+			a.systemPrompt = agent.SystemPrompt
+		}
+		if agent.Model != "" {
+			a.model = agent.Model
+		}
+	}
+}
+
+func WithParent(parent *AgentLoop) LoopOption {
+	return func(a *AgentLoop) { a.parent = parent }
+}
+
 func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
 	a := &AgentLoop{
 		provider: provider,
@@ -313,7 +408,7 @@ func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...L
 	return a
 }
 
-func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) (*LoopResult, error) {
+func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMessage string) (*LoopResult, error) {
 	if conv == nil {
 		conv = &Conversation{}
 	}
@@ -427,8 +522,9 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 	}
 }
 
-func (a *AgentLoop) RunStreaming(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
+func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
 	ch := make(chan Event, 64)
+	a.conv = conv
 	go func() {
 		defer close(ch)
 		a.runStreaming(ctx, conv, userMessage, ch)
@@ -465,8 +561,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				Type:       EventCompacting,
 				Compacting: &CompactingEvent{},
 			}
-			if err := a.runCompaction(ctx, conv, ch); err != nil {
-				beforeTokens := conv.TokenCount
+			beforeTokens := conv.TokenCount
+			if err := a.runCompactionViaDispatch(ctx, conv, ch); err != nil {
 				a.rewriteMessagesTruncate(conv)
 				ch <- Event{
 					Type: EventCompaction,
@@ -680,6 +776,54 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			if a.sessionID != "" {
 				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
 			}
+			toolCtx = tool.WithToolCallID(toolCtx, tc.ID)
+			// Check for streaming execution (e.g. SpawnAgent forwards child events)
+			type streamingTool interface {
+				ExecuteStreaming(ctx context.Context, args json.RawMessage) (<-chan Event, error)
+			}
+			if st, ok := t.(streamingTool); ok {
+				eventCh, execErr := st.ExecuteStreaming(toolCtx, json.RawMessage(tc.Function.Arguments))
+				if execErr != nil {
+					ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
+						ID: tc.ID, Name: tc.Function.Name,
+						Input: tc.Function.Arguments, Output: execErr.Error(), Status: "error",
+					}}
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role: "tool", Content: fmt.Sprintf("error: %s", execErr),
+						ToolCallID: tc.ID, Name: tc.Function.Name,
+					})
+					continue
+				}
+				var streamOutput strings.Builder
+				childSID := tc.ID // tool call ID = child session ID
+				for ev := range eventCh {
+					ev.SessionID = childSID // tag so frontend routes to child tab
+					switch ev.Type {
+					case EventTextDelta, EventThinking:
+						ch <- ev
+						streamOutput.WriteString(ev.Content)
+					case EventToolStart, EventToolDone, EventToolOutput:
+						ch <- ev
+					case EventError:
+						ch <- ev
+					default:
+						ch <- ev
+					}
+				}
+				toolContent := streamOutput.String()
+				if toolContent == "" {
+					toolContent = "(subtask completed with no output)"
+				}
+				ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
+					ID: tc.ID, Name: tc.Function.Name,
+					Input: tc.Function.Arguments, Output: toolContent, Status: "done",
+				}}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role: "tool", Content: toolContent,
+					ToolCallID: tc.ID, Name: tc.Function.Name,
+				})
+				continue
+			}
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				ch <- Event{
@@ -765,7 +909,11 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 	tools := a.tools.List()
 	defs := make([]engine.ToolDef, 0, len(tools))
+	isChild := strings.HasPrefix(a.sessionID, "call_") || strings.HasPrefix(a.sessionID, "sub_")
 	for _, t := range tools {
+		if isChild && t.Name() == "SpawnAgent" {
+			continue
+		}
 		defs = append(defs, engine.ToolDef{
 			Type: "function",
 			Function: engine.ToolFunction{

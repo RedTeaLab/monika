@@ -20,6 +20,7 @@ const (
 type Event struct {
 	Type       EventType
 	Content    string
+	SessionID  string // non-empty = event belongs to a specific session (e.g. child agent)
 	Tool       *ToolEvent
 	Usage      UsageEvent
 	Compacting *CompactingEvent

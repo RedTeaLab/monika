@@ -4,6 +4,7 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
+import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
 function ChatArea() {
@@ -17,6 +18,7 @@ function ChatArea() {
   const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
+  const sessionParents = useStore((s) => s.sessionParents)
   const openSessions = useStore((s) => s.openSessions)
   const closeSessionTab = useStore((s) => s.closeSessionTab)
   const switchSessionTab = useStore((s) => s.switchSessionTab)
@@ -77,16 +79,24 @@ function ChatArea() {
   }
 
   const hasActiveSession = activeSessionId !== ''
+  const isChildSession = sessionParents[activeSessionId] !== undefined
   const todoCollapsed = useStore((s) => s.todoCollapsed)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const isTodoCollapsed = activeSessionId ? (todoCollapsed[activeSessionId] || false) : false
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastScrollRef = useRef(0)
+  const prevSessionRef = useRef(activeSessionId)
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
+    // Force scroll to bottom on session switch
+    if (prevSessionRef.current !== activeSessionId) {
+      prevSessionRef.current = activeSessionId
+      el.scrollTop = el.scrollHeight
+      return
+    }
     const now = performance.now()
     if (now - lastScrollRef.current < 50) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
@@ -94,7 +104,7 @@ function ChatArea() {
       lastScrollRef.current = now
       el.scrollTop = el.scrollHeight
     }
-  }, [messages])
+  }, [messages, activeSessionId])
 
   // Last assistant message index in the active display — so we can flag it as generating
   const isGenerating = generatingSessionId !== '' && generatingSessionId === activeSessionId
@@ -140,7 +150,7 @@ function ChatArea() {
         collapsed={isTodoCollapsed}
         onToggle={() => activeSessionId && setTodoCollapsed(activeSessionId, !isTodoCollapsed)}
       />
-      {hasActiveSession && (
+      {hasActiveSession && !isChildSession && (
         <ChatInput
           key={activeSessionId}
           onSend={handleSend}
@@ -148,6 +158,9 @@ function ChatArea() {
           disabled={generatingSessionId !== ''}
           compacting={compactingSessionId !== ''}
         />
+      )}
+      {hasActiveSession && isChildSession && (
+        <SubagentFooter />
       )}
     </div>
   )

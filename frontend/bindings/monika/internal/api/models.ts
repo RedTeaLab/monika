@@ -365,6 +365,8 @@ export class StreamEvent {
     "tool"?: agent$0.ToolEvent | null;
     "usage"?: agent$0.UsageEvent | null;
     "file_change"?: FileChangeEvent | null;
+    "compacting"?: any;
+    "compaction"?: any;
     "tasks"?: any[];
 
     /** Creates a new StreamEvent instance. */

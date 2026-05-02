@@ -15,6 +15,7 @@ import (
 	"monika/internal/bootstrap"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
+	engine2 "monika/pkg/engine"
 
 	_ "monika/internal/engines/mcp"
 	_ "monika/internal/engines/provider/deepseek"
@@ -66,18 +67,75 @@ func main() {
 	if p := loadSystemPrompt(cwd); p != "" {
 		systemParts = append(systemParts, p)
 	}
+	systemPrompt := strings.Join(systemParts, "\n\n")
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
-		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
+		agent.WithSystemPrompt(systemPrompt),
 	}
+
+	// Build agent registry with builtin agents
+	agentRegistry := agent.NewAgentRegistry([]agent.Agent{
+		{
+			Name:         "general",
+			Description:  "General-purpose agent for research and multi-step tasks",
+			SystemPrompt: systemPrompt,
+		},
+		{
+			Name:         "explore",
+			Description:  "Fast agent specialized for exploring codebases",
+			SystemPrompt: systemPrompt,
+		},
+		{
+			Name:         "compaction",
+			Description:  "Internal — conversation summarizer",
+			SystemPrompt: agent.CompactionPrompt,
+			Hidden:       true,
+		},
+	})
+
+	// Create task runner for subagent dispatch.
+	// onStart preregisters the child session so the frontend can open the tab during running.
+	// onComplete stores the full execution results.
+	var appService *api.App
+	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry,
+		func(task agent.SubTask, agentName string) {
+			if appService != nil {
+				// Save a minimal session immediately so the tab can be opened
+				appService.SaveChildSession(task.SessionID, &agent.ChildSession{
+					Agent:    agentName,
+					Title:    task.Description,
+					ParentID: task.ParentID,
+					Messages: []engine2.ChatMessage{
+						{Role: "user", Content: task.Prompt},
+					},
+				})
+			}
+		},
+		func(task agent.SubTask, child *agent.ChildSession) {
+			if appService != nil {
+				appService.SaveChildSession(task.SessionID, child)
+				appService.SaveChildSessionToDisk(task.SessionID, child)
+			}
+		})
+
+	// Register SpawnAgent tool
+	builtin.RegisterSpawnAgent(registry, agentRegistry,
+		func(ctx context.Context, task agent.SubTask) <-chan agent.Event {
+			return taskRunner.Dispatch(ctx, task, nil)
+		},
+		func(parentID, childID string) {
+			if appService != nil {
+				appService.PendingChildSession(parentID, childID)
+			}
+		})
 
 	var taskStoreAccessor api.TaskStoreAccessor
 	if accessor, ok := taskStore.(api.TaskStoreAccessor); ok {
 		taskStoreAccessor = accessor
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor)
+	appService = api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

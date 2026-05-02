@@ -20,6 +20,14 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+type childSessionDisk struct {
+	Messages   []engine2.ChatMessage `json:"messages"`
+	Agent      string                `json:"agent"`
+	ParentID   string                `json:"parent_id"`
+	Title      string                `json:"title"`
+	TokenCount int64                 `json:"token_count"`
+}
+
 type App struct {
 	ctx context.Context
 
@@ -39,24 +47,133 @@ type App struct {
 	cancelFuncs map[string]context.CancelFunc
 	cancelMu    sync.Mutex
 
-	loopOpts []agent2.LoopOption
+	taskStoreAccessor TaskStoreAccessor
+	agentRegistry     *agent2.AgentRegistry
+	taskRunner        *agent2.TaskRunner
+	childSessions     map[string]*agent2.ChildSession // keyed by child session ID
+	pendingChildren   map[string]string               // parentSessionID → childSessionID
+	loopOpts          []agent2.LoopOption
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner) *App {
 	return &App{
-		home:        home,
-		cfg:         cfg,
-		provider:    provider,
-		model:       model,
-		registry:    registry,
-		startupCwd:  cwd,
-		sessions:    make(map[string]*SessionManager),
-		projects:    make(map[string]*ProjectInfo),
-		fileSvc:     make(map[string]*FileService),
-		eventBus:    NewEventBus(),
-		cancelFuncs: make(map[string]context.CancelFunc),
-		loopOpts:    loopOpts,
+		home:             home,
+		cfg:              cfg,
+		provider:         provider,
+		model:            model,
+		registry:         registry,
+		startupCwd:       cwd,
+		sessions:         make(map[string]*SessionManager),
+		projects:         make(map[string]*ProjectInfo),
+		fileSvc:          make(map[string]*FileService),
+		eventBus:         NewEventBus(),
+		cancelFuncs:      make(map[string]context.CancelFunc),
+		taskStoreAccessor: taskStoreAccessor,
+		agentRegistry:    agentRegistry,
+		taskRunner:       taskRunner,
+		childSessions:    make(map[string]*agent2.ChildSession),
+pendingChildren:  make(map[string]string),
+		loopOpts:         loopOpts,
 	}
+}
+
+// SaveChildSession stores a completed child agent session.
+func (a *App) SaveChildSession(sessionID string, child *agent2.ChildSession) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.childSessions[sessionID] = child
+}
+
+// LoadChildSession returns a completed child agent session, or nil.
+func (a *App) LoadChildSession(sessionID string) *agent2.ChildSession {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.childSessions[sessionID]
+}
+
+// SaveChildSessionToDisk persists a completed child session to disk under
+// the same project as its parent session.
+func (a *App) SaveChildSessionToDisk(sessionID string, child *agent2.ChildSession) {
+	sm := a.getSessionManagerForSession(child.ParentID)
+	if sm == nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk: parent session %s not found\n", child.ParentID)
+		return
+	}
+	dir := filepath.Join(sm.sessionsDir, "child_sessions")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk mkdir: %v\n", err)
+		return
+	}
+	disk := childSessionDisk{
+		Messages:   child.Messages,
+		Agent:      child.Agent,
+		ParentID:   child.ParentID,
+		Title:      child.Title,
+		TokenCount: child.TokenCount,
+	}
+	data, err := json.MarshalIndent(disk, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk marshal: %v\n", err)
+		return
+	}
+	target := filepath.Join(dir, sessionID+".json")
+	tmp := target + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk write: %v\n", err)
+		return
+	}
+	if err := os.Rename(tmp, target); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk rename: %v\n", err)
+	}
+}
+
+// LoadChildSessionFromDisk loads a completed child session from disk.
+func (a *App) LoadChildSessionFromDisk(projectPath, sessionID string) *agent2.ChildSession {
+	dir := filepath.Join(a.home, ".monika", "projects", projectSlug(projectPath), "sessions", "child_sessions")
+	path := filepath.Join(dir, sessionID+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var disk childSessionDisk
+	if err := json.Unmarshal(data, &disk); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] LoadChildSessionFromDisk unmarshal %s: %v\n", sessionID, err)
+		return nil
+	}
+	return &agent2.ChildSession{
+		Messages:   disk.Messages,
+		Agent:      disk.Agent,
+		ParentID:   disk.ParentID,
+		Title:      disk.Title,
+		TokenCount: disk.TokenCount,
+	}
+}
+
+// PendingChildSession stores a child session ID for a parent, so the frontend
+// can resolve it during execution (before the tool returns).
+func (a *App) PendingChildSession(parentID, childID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pendingChildren[parentID] = childID
+}
+
+// ResolveChildSession returns the latest child session ID for a parent.
+func (a *App) ResolveChildSession(parentID string) string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.pendingChildren[parentID]
+}
+
+// isPendingChild reports whether a child session ID has a pending registration.
+func (a *App) isPendingChild(sessionID string) bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, childID := range a.pendingChildren {
+		if childID == sessionID {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
@@ -197,6 +314,39 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 }
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
+	// Check child sessions first (in-memory, then on-disk, then placeholder)
+	if strings.HasPrefix(sessionID, "sub_") || strings.HasPrefix(sessionID, "call_") {
+		if child := a.LoadChildSession(sessionID); child != nil {
+			return &Session{
+				ID:          sessionID,
+				Title:       child.Title,
+				Messages:    child.Messages,
+				Status:      StatusSuccess,
+				ParentID:    child.ParentID,
+				TokenCount:  child.TokenCount,
+			}, nil
+		}
+		if child := a.LoadChildSessionFromDisk(projectPath, sessionID); child != nil {
+			return &Session{
+				ID:          sessionID,
+				Title:       child.Title,
+				Messages:    child.Messages,
+				Status:      StatusSuccess,
+				ParentID:    child.ParentID,
+				TokenCount:  child.TokenCount,
+			}, nil
+		}
+		// Return placeholder only for recently-pending sessions so the
+		// tab can open before the backend saves the child session.
+		if a.isPendingChild(sessionID) {
+			return &Session{
+				ID:     sessionID,
+				Title:  "Subagent",
+				Status: StatusGenerating,
+			}, nil
+		}
+		return nil, fmt.Errorf("child session %s not found", sessionID)
+	}
 	sm := a.getSessionManager(projectPath)
 	return sm.Load(sessionID)
 }
@@ -232,8 +382,13 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
 	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
+	generalAgent, _ := a.agentRegistry.Get("general")
+	opts = append(opts, agent2.WithAgent(generalAgent))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
+	loop.SetDispatchFn(func(ctx context.Context, task agent2.SubTask) <-chan agent2.Event {
+		return a.taskRunner.Dispatch(ctx, task, loop)
+	})
 
 	go func() {
 		defer cancel()
@@ -251,7 +406,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 		hadError := false
 
-		events := loop.RunStreaming(ctx, conv, text)
+		events := loop.Run(ctx, conv, text)
 		for ev := range events {
 			if ev.Type == agent2.EventError {
 				hadError = true
@@ -353,8 +508,13 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 }
 
 func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
+	// Route to child session if event carries its own session ID
+	sid := sessionID
+	if ev.SessionID != "" {
+		sid = ev.SessionID
+	}
 	se := StreamEvent{
-		SessionID: sessionID,
+		SessionID: sid,
 		Model:     model,
 	}
 
@@ -395,6 +555,16 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Compaction = ev.Compaction
 	}
 
+	a.eventBus.Emit(se)
+	application.Get().Event.Emit("stream", se)
+}
+
+func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
+	se := StreamEvent{
+		SessionID: sessionID,
+		Type:      "task_update",
+		Tasks:     tasks,
+	}
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
 }

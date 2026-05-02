@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
+import SpawnBlock from './SpawnBlock'
 import { formatTokens } from '../../lib/format'
 
 interface ToolCall {
@@ -12,7 +13,7 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask'
   content: string
   thinking?: string
   tools?: ToolCall[]
@@ -22,6 +23,7 @@ interface Message {
   compactionNum?: number
   beforeTokens?: number
   afterTokens?: number
+  subtaskAgent?: string
 }
 
 /* ---- role label ---- */
@@ -31,6 +33,7 @@ const ROLE_LABEL: Record<string, { text: string; color: string }> = {
   assistant: { text: 'Assistant', color: 'var(--text-dim)' },
   error:      { text: 'Error',     color: 'var(--red)' },
   compaction: { text: 'Compacted', color: '#c6902f' },
+  subtask:   { text: 'Subtask',   color: '#a89cc4' },
 }
 
 function RoleLabel({ role, isGenerating, model, duration }: {
@@ -434,7 +437,28 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
-  const { role, content, thinking, tools, model, duration } = message
+  const { role, content, thinking, tools, model, duration, subtaskAgent } = message
+
+  if (role === 'subtask') {
+    return (
+      <div className="flex flex-col gap-1.5 mb-1.5">
+        <div
+          className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-1 select-none flex items-center gap-1.5"
+          style={{ color: '#a89cc4' }}
+        >
+          <span>Subtask</span>
+          {subtaskAgent && (
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              · {subtaskAgent} agent
+            </span>
+          )}
+        </div>
+        <MsgBlock accent="#a89cc4">
+          <div className="text-[13px] text-[var(--text-dim)]">{content}</div>
+        </MsgBlock>
+      </div>
+    )
+  }
 
   if (role === 'compaction') {
     return (
@@ -450,6 +474,8 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
       <div className="text-center text-[var(--text-dim)] text-[12px] py-2">{content}</div>
     )
   }
+
+  const hasSpawnAgent = tools?.some(t => t.name === 'SpawnAgent')
 
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
@@ -469,10 +495,36 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
         <>
           <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
-          {tools?.map((tool, i) => <ToolBlock key={i} tool={tool} />)}
-          {(content || isGenerating) && (
+
+          {tools?.map((tool, i) =>
+            tool.name === 'SpawnAgent' ? (
+              <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
+            ) : (
+              <ToolBlock key={i} tool={tool} />
+            )
+          )}
+
+          {/* "view subagents" hint — matches preview HTML */}
+          {hasSpawnAgent && (
+            <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
+              <span
+                className="text-[9px] font-mono px-1 py-0.5 rounded"
+                style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
+              >
+                click card →
+              </span>
+              view subagents
+            </div>
+          )}
+
+          {content && (
             <MsgBlock>
               <MarkdownBlock content={content} />
+            </MsgBlock>
+          )}
+          {isGenerating && !content && !thinking && (!tools || tools.length === 0) && (
+            <MsgBlock>
+              <span className="text-[13px] text-[var(--text-dim)]">Thinking...</span>
             </MsgBlock>
           )}
         </>

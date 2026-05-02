@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"monika/internal/tool"
@@ -72,22 +70,7 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 }
 
 func (f *fileRead) resolvePath(ctx context.Context, p string) (string, error) {
-	if !filepath.IsAbs(p) {
-		return "", fmt.Errorf("filePath must be absolute")
-	}
-	absPath, err := filepath.Abs(p)
-	if err != nil {
-		return "", err
-	}
-	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, f.projectDir))
-	if err != nil {
-		return "", err
-	}
-	rel, err := filepath.Rel(absProject, absPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return "", fmt.Errorf("path %s is outside project directory", p)
-	}
-	return absPath, nil
+	return resolveToolPath(p, tool.ProjectDirOrDefault(ctx, f.projectDir))
 }
 
 func readFileLines(path string, offset, limit int) (tool.ExecutionResult, error) {
