@@ -130,20 +130,11 @@ What remains to be done. Explicit TODOs mentioned by user.
 - Must preserve all discovered bugs and constraints
 - If these cannot fit, prioritize goals > decisions > discoveries`
 
-	var b strings.Builder
-	for _, m := range conv.Messages {
-		if m.ReasoningContent != "" {
-			b.WriteString(fmt.Sprintf("[%s reasoning]: %s\n", m.Role, m.ReasoningContent))
-		}
-		b.WriteString(fmt.Sprintf("[%s]: %s\n", m.Role, m.Content))
-		for _, tc := range m.ToolCalls {
-			b.WriteString(fmt.Sprintf("  [tool_call %s]: %s\n", tc.Function.Name, tc.Function.Arguments))
-		}
-	}
+	dump := buildCompactionPromptFromConv(conv)
 
 	return []engine.ChatMessage{
 		{Role: "user", Content: prompt},
-		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + b.String()},
+		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + dump},
 	}
 }
 
@@ -918,7 +909,11 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 	tools := a.tools.List()
 	defs := make([]engine.ToolDef, 0, len(tools))
+	isChild := strings.HasPrefix(a.sessionID, "call_") || strings.HasPrefix(a.sessionID, "sub_")
 	for _, t := range tools {
+		if isChild && t.Name() == "SpawnAgent" {
+			continue
+		}
 		defs = append(defs, engine.ToolDef{
 			Type: "function",
 			Function: engine.ToolFunction{

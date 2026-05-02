@@ -24,6 +24,7 @@ type SubTask struct {
 	Model       string       `json:"model,omitempty"`
 	Provider    string       `json:"provider,omitempty"`
 	SessionID   string       `json:"session_id"`
+	ParentID    string       `json:"parent_id,omitempty"`
 	Status      string       `json:"status"`
 	Result      string       `json:"result,omitempty"`
 }

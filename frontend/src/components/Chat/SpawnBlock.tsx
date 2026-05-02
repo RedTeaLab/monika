@@ -63,9 +63,9 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   }
 
   const handleClick = () => {
-    // Running: use tool call ID as session ID (backend uses it via tool context)
-    // Done: use task_id from output
-    const sessionId = isRunning ? tool.id : taskId
+    // Use tool call ID as session ID (always set from tool_start event).
+    // Falls back to taskId for the rare non-streaming Execute path.
+    const sessionId = tool.id || taskId
     if (sessionId) {
       openSessionTab(sessionId, `${subagentType} · ${info.description}`)
     }

@@ -3,11 +3,12 @@ import { formatTokens } from '../../lib/format'
 
 export default function SubagentFooter() {
   const switchSessionTab = useStore((s) => s.switchSessionTab)
-  const sessionParentId = useStore((s) => s.sessionParentId)
+  const sessionParents = useStore((s) => s.sessionParents)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const openSessions = useStore((s) => s.openSessions)
   const sessionTokens = useStore((s) => s.sessionTokens)
   const tok = sessionTokens[activeSessionId]
+  const parentId = sessionParents[activeSessionId] || ''
 
   // Find sibling subagent sessions (share same parent)
   const siblings = openSessions.filter(s => s.id.startsWith('sub_') || s.id.startsWith('call_'))
@@ -50,10 +51,10 @@ export default function SubagentFooter() {
       <span className="flex-1" />
 
       {/* Navigation */}
-      {sessionParentId && (
+      {parentId && (
         <button
           className="text-[10px] px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] cursor-pointer"
-          onClick={() => switchSessionTab(sessionParentId)}
+          onClick={() => switchSessionTab(parentId)}
         >
           ← Parent
         </button>

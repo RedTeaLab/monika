@@ -73,6 +73,14 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 		return tool.ExecutionResult{}, fmt.Errorf("invalid arguments: %w", err)
 	}
 
+	// Prevent recursive spawn: child agents cannot spawn their own children
+	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
+		return tool.ExecutionResult{
+			Content: "SpawnAgent is not available in child agent sessions",
+			IsError: true,
+		}, nil
+	}
+
 	ag, ok := t.registry.Get(params.SubagentType)
 	if !ok {
 		var available []string
@@ -113,6 +121,7 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	task := agent.SubTask{
 		ID:          toolCallID,
 		SessionID:   toolCallID, // frontend loads child session by this ID
+		ParentID:    tool.SessionIDFromContext(ctx),
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,
@@ -156,6 +165,11 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+
+	// Prevent recursive spawn: child agents cannot spawn their own children
+	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
+		return nil, fmt.Errorf("SpawnAgent is not available in child agent sessions")
 	}
 
 	ag, ok := t.registry.Get(params.SubagentType)

@@ -103,8 +103,9 @@ func main() {
 			if appService != nil {
 				// Save a minimal session immediately so the tab can be opened
 				appService.SaveChildSession(task.SessionID, &agent.ChildSession{
-					Agent:  agentName,
-					Title:  task.Description,
+					Agent:    agentName,
+					Title:    task.Description,
+					ParentID: task.ParentID,
 					Messages: []engine2.ChatMessage{
 						{Role: "user", Content: task.Prompt},
 					},
@@ -114,6 +115,7 @@ func main() {
 		func(task agent.SubTask, child *agent.ChildSession) {
 			if appService != nil {
 				appService.SaveChildSession(task.SessionID, child)
+				appService.SaveChildSessionToDisk(task.SessionID, child)
 			}
 		})
 

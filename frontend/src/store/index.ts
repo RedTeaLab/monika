@@ -66,7 +66,7 @@ interface AppState {
   projectPath: string
   branch: string
   activeSessionId: string
-  sessionParentId: string
+  sessionParents: Record<string, string>
   consoleLines: string[]
   layoutMode: LayoutMode
   splitRatio: number
@@ -108,7 +108,6 @@ interface AppState {
   setProjectPath: (path: string) => void
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
-  setSessionParentId: (id: string) => void
   addConsoleLine: (line: string) => void
   setLayoutMode: (mode: LayoutMode) => void
   setSplitRatio: (ratio: number) => void
@@ -147,10 +146,10 @@ export const useStore = create<AppState>((set, get) => ({
   projectPath: '',
   branch: '',
   activeSessionId: '',
-  sessionParentId: '',
+  sessionParents: {},
   consoleLines: ['$ ready'],
   layoutMode: 'split',
-  splitRatio: 0.5,
+  splitRatio: 0.6,
   activeFilePath: '',
   fileTreeVersion: 0,
   sessionListVersion: 0,
@@ -445,7 +444,6 @@ export const useStore = create<AppState>((set, get) => ({
     set({ branch });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
-    setSessionParentId: (id) => set({ sessionParentId: id }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
   setLayoutMode: (mode) => set({ layoutMode: mode }),
   setSplitRatio: (ratio) => set({ splitRatio: ratio }),
@@ -454,7 +452,7 @@ export const useStore = create<AppState>((set, get) => ({
     const state = useStore.getState()
     // If this looks like a subagent session, record the current session as parent
     if ((id.startsWith('sub_') || id.startsWith('call_')) && state.activeSessionId) {
-      set({ sessionParentId: state.activeSessionId })
+      set({ sessionParents: { ...state.sessionParents, [id]: state.activeSessionId } })
     }
     const existing = state.openSessions.find((s) => s.id === id)
     if (existing) {
@@ -473,7 +471,7 @@ export const useStore = create<AppState>((set, get) => ({
         [id]: s.sessionMessages[id] || [],
       },
       activeSessionId: id,
-      sessionParentId: id.startsWith('sub_') || id.startsWith('call_') ? s.sessionParentId : '',
+      sessionParents: s.sessionParents,
       messages: [],
       tokenCount: s.sessionTokens[id]?.count ?? 0,
       tokenMax: s.sessionTokens[id]?.max ?? 0,
@@ -547,6 +545,9 @@ export const useStore = create<AppState>((set, get) => ({
         else newActive = ''
       }
 
+      const newParents = { ...s.sessionParents }
+      delete newParents[id]
+
       const newMessages: Message[] = newActive ? (msgCache[newActive] || []) : [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika.' }]
 
       return {
@@ -555,6 +556,7 @@ export const useStore = create<AppState>((set, get) => ({
         activeSessionId: newActive,
         messages: newMessages,
         generatingSessionId: s.generatingSessionId === id ? '' : s.generatingSessionId,
+        sessionParents: newParents,
       }
     })
   },
@@ -575,7 +577,7 @@ export const useStore = create<AppState>((set, get) => ({
         messages: restored,
         tokenCount: s.sessionTokens[id]?.count ?? 0,
         tokenMax: s.sessionTokens[id]?.max ?? 0,
-        sessionParentId: id.startsWith('sub_') || id.startsWith('call_') ? s.sessionParentId : '',
+        sessionParents: s.sessionParents,
       }
     })
   },
@@ -688,7 +690,7 @@ export const useStore = create<AppState>((set, get) => ({
       tokenCount: 0,
       tokenMax: 0,
       activeSessionId: '',
-      sessionParentId: '',
+      sessionParents: {},
       activeFilePath: '',
       consoleLines: ['$ ready'],
       openSessions: [],
@@ -764,13 +766,14 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
 export function setupWailsEvents() {
   console.log('[monika] setupWailsEvents: subscribing to stream')
   Events.On('stream', (ev) => {
-    const store = useStore.getState()
+    let store = useStore.getState()
     const data = ev.data as StreamEvent
     const sid = data.session_id
 
     // Auto-create entry for child session so streaming events are buffered
     if (sid && (sid.startsWith('call_') || sid.startsWith('sub_')) && !store.sessionMessages[sid]) {
       useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
+      store = useStore.getState()
     }
     // Drop events with no session_id or session that was explicitly closed
     if (!sid || !store.sessionMessages[sid]) {

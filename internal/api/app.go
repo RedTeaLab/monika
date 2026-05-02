@@ -20,6 +20,14 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+type childSessionDisk struct {
+	Messages   []engine2.ChatMessage `json:"messages"`
+	Agent      string                `json:"agent"`
+	ParentID   string                `json:"parent_id"`
+	Title      string                `json:"title"`
+	TokenCount int64                 `json:"token_count"`
+}
+
 type App struct {
 	ctx context.Context
 
@@ -82,6 +90,65 @@ func (a *App) LoadChildSession(sessionID string) *agent2.ChildSession {
 	defer a.mu.RUnlock()
 	return a.childSessions[sessionID]
 }
+
+// SaveChildSessionToDisk persists a completed child session to disk under
+// the same project as its parent session.
+func (a *App) SaveChildSessionToDisk(sessionID string, child *agent2.ChildSession) {
+	sm := a.getSessionManagerForSession(child.ParentID)
+	if sm == nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk: parent session %s not found\n", child.ParentID)
+		return
+	}
+	dir := filepath.Join(sm.sessionsDir, "child_sessions")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk mkdir: %v\n", err)
+		return
+	}
+	disk := childSessionDisk{
+		Messages:   child.Messages,
+		Agent:      child.Agent,
+		ParentID:   child.ParentID,
+		Title:      child.Title,
+		TokenCount: child.TokenCount,
+	}
+	data, err := json.MarshalIndent(disk, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk marshal: %v\n", err)
+		return
+	}
+	target := filepath.Join(dir, sessionID+".json")
+	tmp := target + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk write: %v\n", err)
+		return
+	}
+	if err := os.Rename(tmp, target); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveChildSessionToDisk rename: %v\n", err)
+	}
+}
+
+// LoadChildSessionFromDisk loads a completed child session from disk.
+func (a *App) LoadChildSessionFromDisk(projectPath, sessionID string) *agent2.ChildSession {
+	dir := filepath.Join(a.home, ".monika", "projects", projectSlug(projectPath), "sessions", "child_sessions")
+	path := filepath.Join(dir, sessionID+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	var disk childSessionDisk
+	if err := json.Unmarshal(data, &disk); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] LoadChildSessionFromDisk unmarshal %s: %v\n", sessionID, err)
+		return nil
+	}
+	return &agent2.ChildSession{
+		Messages:   disk.Messages,
+		Agent:      disk.Agent,
+		ParentID:   disk.ParentID,
+		Title:      disk.Title,
+		TokenCount: disk.TokenCount,
+	}
+}
+
 // PendingChildSession stores a child session ID for a parent, so the frontend
 // can resolve it during execution (before the tool returns).
 func (a *App) PendingChildSession(parentID, childID string) {
@@ -95,6 +162,18 @@ func (a *App) ResolveChildSession(parentID string) string {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.pendingChildren[parentID]
+}
+
+// isPendingChild reports whether a child session ID has a pending registration.
+func (a *App) isPendingChild(sessionID string) bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, childID := range a.pendingChildren {
+		if childID == sessionID {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
@@ -235,7 +314,7 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 }
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
-	// Check child sessions first (they live in memory, not on disk)
+	// Check child sessions first (in-memory, then on-disk, then placeholder)
 	if strings.HasPrefix(sessionID, "sub_") || strings.HasPrefix(sessionID, "call_") {
 		if child := a.LoadChildSession(sessionID); child != nil {
 			return &Session{
@@ -247,6 +326,26 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 				TokenCount:  child.TokenCount,
 			}, nil
 		}
+		if child := a.LoadChildSessionFromDisk(projectPath, sessionID); child != nil {
+			return &Session{
+				ID:          sessionID,
+				Title:       child.Title,
+				Messages:    child.Messages,
+				Status:      StatusSuccess,
+				ParentID:    child.ParentID,
+				TokenCount:  child.TokenCount,
+			}, nil
+		}
+		// Return placeholder only for recently-pending sessions so the
+		// tab can open before the backend saves the child session.
+		if a.isPendingChild(sessionID) {
+			return &Session{
+				ID:     sessionID,
+				Title:  "Subagent",
+				Status: StatusGenerating,
+			}, nil
+		}
+		return nil, fmt.Errorf("child session %s not found", sessionID)
 	}
 	sm := a.getSessionManager(projectPath)
 	return sm.Load(sessionID)
