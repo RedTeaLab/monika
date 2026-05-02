@@ -68,6 +68,9 @@ function App() {
   const [sidebarWidth, setSidebarWidth] = useState(224)
   const [fileTreeWidth, setFileTreeWidth] = useState(224)
 
+  const activeSessionId = useStore((s) => s.activeSessionId)
+  const todoCollapsed = useStore((s) => activeSessionId ? s.todoCollapsed[activeSessionId] ?? false : false)
+  const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const layoutMode = useStore((s) => s.layoutMode)
   const splitRatio = useStore((s) => s.splitRatio)
   const setSplitRatio = useStore((s) => s.setSplitRatio)
@@ -92,7 +95,7 @@ function App() {
               <>
                 <div className="flex-shrink-0 overflow-hidden" style={{ width: sidebarWidth }}>
                   <SessionList />
-                  <TodoPanel />
+                  <TodoPanel collapsed={todoCollapsed} onToggle={() => activeSessionId && setTodoCollapsed(activeSessionId, !todoCollapsed)} />
                 </div>
                 <PanelResizeHandle side="right" width={sidebarWidth} onWidthChange={setSidebarWidth} />
               </>
