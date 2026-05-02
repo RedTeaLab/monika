@@ -25,7 +25,7 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 	if err != nil {
 		return nil, fmt.Errorf("config: %w", err)
 	}
-	if cfg.ModelProvider == "" {
+	if len(cfg.ModelProviders) == 0 {
 		if err := setupConfig(home); err != nil {
 			return nil, err
 		}
@@ -60,7 +60,7 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 		providers[providerID] = providerEng
 	}
 	if len(providers) == 0 {
-		return nil, fmt.Errorf("no providers could be initialized from model_providers")
+		return nil, fmt.Errorf("no providers could be initialized; check your config at %s", filepath.Join(home, ".monika", "config.yaml"))
 	}
 
 	model := modelOverride
