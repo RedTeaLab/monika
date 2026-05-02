@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
+import SpawnBlock from './SpawnBlock'
 import { formatTokens } from '../../lib/format'
 
 interface ToolCall {
@@ -469,7 +470,13 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
         <>
           <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
-          {tools?.map((tool, i) => <ToolBlock key={i} tool={tool} />)}
+          {tools?.map((tool, i) =>
+            tool.name === 'SpawnAgent' ? (
+              <SpawnBlock key={i} tool={tool} />
+            ) : (
+              <ToolBlock key={i} tool={tool} />
+            )
+          )}
           {(content || isGenerating) && (
             <MsgBlock>
               <MarkdownBlock content={content} />
