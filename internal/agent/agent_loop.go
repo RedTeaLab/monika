@@ -336,7 +336,7 @@ func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...L
 	return a
 }
 
-func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) (*LoopResult, error) {
+func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMessage string) (*LoopResult, error) {
 	if conv == nil {
 		conv = &Conversation{}
 	}
@@ -450,7 +450,7 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 	}
 }
 
-func (a *AgentLoop) RunStreaming(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
+func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
 	ch := make(chan Event, 64)
 	go func() {
 		defer close(ch)

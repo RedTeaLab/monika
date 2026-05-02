@@ -251,7 +251,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 		hadError := false
 
-		events := loop.RunStreaming(ctx, conv, text)
+		events := loop.Run(ctx, conv, text)
 		for ev := range events {
 			if ev.Type == agent2.EventError {
 				hadError = true

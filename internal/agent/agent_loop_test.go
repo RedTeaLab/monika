@@ -72,7 +72,7 @@ func TestLoopRunReturnsContent(t *testing.T) {
 	}, nil)
 	loop := NewLoop(provider, tool.NewRegistry())
 
-	result, err := loop.Run(context.Background(), nil, "hi")
+	result, err := loop.RunBlocking(context.Background(), nil, "hi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestLoopRunPropagatesProviderError(t *testing.T) {
 	provider := staticProvider(nil, sentinel)
 	loop := NewLoop(provider, tool.NewRegistry())
 
-	_, err := loop.Run(context.Background(), nil, "hi")
+	_, err := loop.RunBlocking(context.Background(), nil, "hi")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -137,7 +137,7 @@ func TestLoopRunToolCallLoop(t *testing.T) {
 
 	loop := NewLoop(provider, registry)
 
-	result, err := loop.Run(context.Background(), nil, "hi")
+	result, err := loop.RunBlocking(context.Background(), nil, "hi")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestLoopRunToolNotFound(t *testing.T) {
 
 	loop := NewLoop(provider, tool.NewRegistry())
 
-	result, err := loop.Run(context.Background(), nil, "hi")
+	result, err := loop.RunBlocking(context.Background(), nil, "hi")
 	if err != nil {
 		t.Fatal(err)
 	}
