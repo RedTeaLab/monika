@@ -1,5 +1,6 @@
 import { useState, KeyboardEvent, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
+import { formatTokens } from '../../lib/format'
 
 function ModelSelect() {
   const availableModels = useStore((s) => s.availableModels)
@@ -79,12 +80,6 @@ function ModelSelect() {
       )}
     </div>
   )
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K'
-  return String(n)
 }
 
 function ChatInput({ onSend, onStop, disabled, compacting }: {

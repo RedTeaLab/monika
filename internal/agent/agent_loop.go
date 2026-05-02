@@ -108,7 +108,13 @@ What remains to be done. Explicit TODOs mentioned by user.
 
 	var b strings.Builder
 	for _, m := range conv.Messages {
+		if m.ReasoningContent != "" {
+			b.WriteString(fmt.Sprintf("[%s reasoning]: %s\n", m.Role, m.ReasoningContent))
+		}
 		b.WriteString(fmt.Sprintf("[%s]: %s\n", m.Role, m.Content))
+		for _, tc := range m.ToolCalls {
+			b.WriteString(fmt.Sprintf("  [tool_call %s]: %s\n", tc.Function.Name, tc.Function.Arguments))
+		}
 	}
 
 	return []engine.ChatMessage{
@@ -223,6 +229,9 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 }
 
 func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
+	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
+	copy(conv.ArchivedMessages, conv.Messages)
+
 	limit := contextLimit(a.model)
 	budget := int64(float64(limit) * 0.25)
 	var running int64
@@ -448,11 +457,12 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				Compacting: &CompactingEvent{},
 			}
 			if err := a.runCompaction(ctx, conv, ch); err != nil {
+				beforeTokens := conv.TokenCount
 				a.rewriteMessagesTruncate(conv)
 				ch <- Event{
 					Type: EventCompaction,
 					Compaction: &CompactionEvent{
-						BeforeTokens:  conv.TokenCount,
+						BeforeTokens:  beforeTokens,
 						AfterTokens:   a.estimateContextTokens(conv),
 						CompactionNum: conv.CompactionCount,
 						Summary:       "(truncated \u2014 compaction failed: " + err.Error() + ")",

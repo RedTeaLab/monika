@@ -659,7 +659,7 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       result.push({ id: crypto.randomUUID(), role: 'user', content: m.content || '' })
       i++
     } else if (m.role === 'assistant') {
-      if ((m as any).name === 'compaction_summary') {
+      if (m.name === 'compaction_summary') {
         result.push({
           id: crypto.randomUUID(),
           role: 'compaction',

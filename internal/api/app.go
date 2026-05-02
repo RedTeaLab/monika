@@ -222,8 +222,12 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	a.cancelMu.Unlock()
 
 	conv := &agent2.Conversation{
-		ID:       s.ID,
-		Messages: s.Messages,
+		ID:               s.ID,
+		Messages:         s.Messages,
+		TokenCount:       s.TokenCount,
+		TokenMax:         s.TokenMax,
+		CompactionCount:  s.CompactionCount,
+		ArchivedMessages: s.ArchivedMessages,
 	}
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
