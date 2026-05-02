@@ -452,6 +452,7 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 
 func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
 	ch := make(chan Event, 64)
+	a.conv = conv
 	go func() {
 		defer close(ch)
 		a.runStreaming(ctx, conv, userMessage, ch)
