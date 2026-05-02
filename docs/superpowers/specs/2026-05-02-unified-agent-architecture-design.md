@@ -405,6 +405,84 @@ task_id: <childSessionID>  (use with resume_id to continue this task)
 
 The parent LLM receives this as a standard tool output, same as any other tool. No special event types.
 
+## Frontend Display
+
+### Design principle: tab-per-session, not nested inline
+
+Subagent execution is NOT rendered as nested content inside the parent message. Instead, each subagent session gets its own tab — the same way OpenCode TUI navigates into child sessions. The parent conversation shows only a compact summary card; clicking it opens the subagent's full execution in a new tab.
+
+### Parent session: SpawnAgent compact card
+
+When the LLM calls `SpawnAgent`, the tool call renders as a compact card in the parent message's tool list:
+
+```
+┌─ SpawnAgent ───────────────────────────────────────────────┐
+│  Analyze auth module for vulnerabilities                   │
+│  [explore]  DeepSeek · 14.2s                       ✓ done  │
+└────────────────────────────────────────────────────────────┘
+
+┌─ SpawnAgent (running) ─────────────────────────────────────┐
+│  Scan route handlers for input validation gaps             │
+│  [general]  Claude Haiku                                   │
+│  ● grep · pattern: `r\.(FormValue\|PostForm\|QueryParam)`  │
+│                                          ● running          │
+└────────────────────────────────────────────────────────────┘
+```
+
+- **Agent badge**: color-coded mono label (`explore`, `general`, `compaction`)
+- **Status**: `● running` (yellow pulse), `✓ done` (green), `✗ error` (red)
+- **Running detail**: current tool name + input summary, live-updated
+- **Done detail**: model name + duration
+- The entire card is clickable — navigates to the child session tab
+- A `Ctrl+→ view subagents` hint appears below the assistant message when it contains SpawnAgent calls
+
+### Child session: full conversation in a tab
+
+Clicking a SpawnAgent card opens a new tab. The tab bar shows:
+
+```
+[🛡️ Security audit] [● explore · analyze auth] [+]
+```
+
+Inside the child session tab:
+
+1. **Prompt message**: the subtask prompt rendered as the first message, with a purple left border and `Subtask · explore agent` role label (distinct from `User`)
+2. **Full execution**: thinking blocks, tool calls, text output — all rendered by the same `MessageBubble` component, zero nesting
+3. **SubagentFooter**: a bottom bar showing:
+   - Agent name with purple dot
+   - Position among siblings: `1 of 2`
+   - Token usage / cost summary
+   - Navigation buttons: `← Parent (Esc)`, `← Prev (Ctrl+←)`, `Next → (Ctrl+→)`
+
+Child sessions have no prompt input — they are read-only views of completed (or running) subagent execution.
+
+### Interaction flow
+
+```
+Parent session                    Child session tab
+┌──────────────────┐    click     ┌──────────────────────────┐
+│ Assistant:       │ ──────────→  │ Subtab · explore agent   │
+│ ┌─ SpawnAgent ─┐ │              │                          │
+│ │ analyze auth │ │              │ Thinking...              │
+│ │ [explore] ✓  │ │              │ glob → grep → text       │
+│ └──────────────┘ │              │                          │
+│                  │              │ ┌─ SubagentFooter ─────┐ │
+│ Ctrl+→ view      │              │ │ ← Parent  ←Prev Next→│ │
+│                  │              │ └──────────────────────┘ │
+└──────────────────┘              └──────────────────────────┘
+```
+
+### Compaction display (unchanged)
+
+The existing `CompactionCard` component is retained with its gold styling, token reduction badge, and collapsible summary. Under the new system, the compaction result comes from the compaction child agent's tool output rather than `EventCompaction`, but the visual presentation is identical from the user's perspective.
+
+### Implementation notes
+
+- No new `Message` role needed — SpawnAgent is a `ToolCall` with `name: "SpawnAgent"`, rendered by a new `SpawnBlock` component (sibling to `ToolBlock`)
+- Child session tabs reuse the existing `TabBar` / `openSessions` / `switchSessionTab` store mechanics
+- `SubagentFooter` is conditionally rendered when `session.parentID` is set
+- Compaction migration: remove `compacting`/`compaction` event handling from `setupWailsEvents()`, delete `CompactionCard`-specific data wiring, but keep the `CompactionCard` component itself
+
 ## Migration Path
 
 ### Phase 1: Agent registry + AgentLoop.Run refactor
@@ -423,7 +501,7 @@ The parent LLM receives this as a standard tool output, same as any other tool. 
 - Register `explore` agent in registry
 - Add user-configured agent loading from `config.yaml`
 - Blocking mode only, single child
-- **Files**: `internal/agent/runner.go` (new), `internal/tool/builtin/spawn_agent.go` (new), `internal/config/config.go` (add agents section)
+- **Files**: `internal/agent/runner.go` (new), `internal/tool/builtin/spawn_agent.go` (new), `internal/config/config.go` (add agents section), `frontend/src/components/Chat/SpawnBlock.tsx` (new), `frontend/src/store/index.ts` (add SpawnAgent tool handling)
 
 ### Phase 3: Compaction migration
 - Register `compaction` agent in registry (if not already from Phase 1)
@@ -433,9 +511,9 @@ The parent LLM receives this as a standard tool output, same as any other tool. 
 - Delete all compaction-specific code after validation passes
 - Update `internal/api/types.go` (remove `Compacting`/`Compaction` fields from `StreamEvent`)
 - Update `internal/api/app.go` (remove `EventCompacting`/`EventCompaction` switch cases)
-- Update frontend to remove `compacting`/`compaction` event handling (compaction result appears as normal agent message)
-- Keep `rewriteMessagesTruncate` as error fallback
-- **Files**: `internal/agent/agent_loop.go` (replace compaction code), `internal/agent/compaction.go` (new, sanitization wrapper), `internal/api/types.go`, `internal/api/app.go`, frontend files
+- Remove `compacting`/`compaction` event handling from `setupWailsEvents()` (compaction result now arrives as normal tool output)
+- Keep `CompactionCard` component — same visuals, data source changes from `EventCompaction` to compaction child agent's tool output
+- **Files**: `internal/agent/agent_loop.go` (replace compaction code), `internal/agent/compaction.go` (new, sanitization wrapper), `internal/api/types.go`, `internal/api/app.go`, `frontend/src/store/index.ts`, `frontend/src/components/Chat/MessageBubble.tsx`
 
 ### Phase 4: Advanced modes (deferred — separate design doc)
 - `fire_forget` and `streaming` dispatch modes
