@@ -20,8 +20,36 @@ func (t *taskCreateTool) Name() string { return "TaskCreate" }
 
 func (t *taskCreateTool) Description() string {
 	return "Create or replace the task list for the current session. " +
-		"Use this to create a structured plan before starting complex multi-step work. " +
-		"Calling this again replaces the entire previous list."
+		"Use this to create a structured plan before starting work. " +
+		"Calling this again replaces the entire previous list.\n\n" +
+		"## When to Use\n" +
+		"Use proactively in these scenarios:\n" +
+		"1. Complex multi-step tasks — 3 or more distinct steps or actions\n" +
+		"2. Non-trivial tasks — tasks that require careful planning or multiple operations\n" +
+		"3. User explicitly requests todo list — \"plan this\", \"create tasks\", etc.\n" +
+		"4. User provides multiple tasks — numbered or comma-separated lists\n" +
+		"5. After receiving new instructions — immediately capture user requirements as tasks\n" +
+		"6. After completing a task — mark it complete and add any new follow-up tasks\n" +
+		"7. When you start working on a task — mark it in_progress via TaskUpdate\n\n" +
+		"## When NOT to Use\n" +
+		"Skip only when:\n" +
+		"1. The task is purely informational (e.g., \"what does git status do?\")\n" +
+		"2. The task is a single, trivial step (e.g., \"run npm install\")\n" +
+		"3. The task can be completed in less than 3 trivial steps\n\n" +
+		"## Task States\n" +
+		"- pending: Not yet started\n" +
+		"- in_progress: Currently working on (only ONE at a time)\n" +
+		"- completed: Finished successfully\n" +
+		"- cancelled: No longer needed\n\n" +
+		"## Task Management\n" +
+		"- Update task status in real-time as you work\n" +
+		"- Mark tasks complete IMMEDIATELY after finishing — don't batch completions\n" +
+		"- Only have ONE task in_progress at any time\n" +
+		"- Complete current tasks before starting new ones\n" +
+		"- Cancel tasks that become irrelevant\n" +
+		"- Create specific, actionable items with clear, descriptive names\n" +
+		"- Break complex tasks into smaller, manageable steps\n\n" +
+		"When in doubt, use this tool. Proactive planning ensures complete requirements."
 }
 
 func (t *taskCreateTool) Parameters() map[string]any {
