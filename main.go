@@ -72,19 +72,19 @@ func main() {
 		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, nil)
+	appService := api.NewApp(home, cwd, pr.Config, pr.Providers, registry, loopOpts)
 
-	// Wire task change callback so TaskStore mutations push events to the frontend
-	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {
-		taskItems := make([]agent.TaskItem, len(tasks))
-		for i, t := range tasks {
-			taskItems[i] = agent.TaskItem{
-				ID: t.ID, Subject: t.Subject, Description: t.Description,
-				Status: t.Status, BlockedBy: t.BlockedBy,
-			}
-		}
-		appService.EmitTaskEvent(sessionID, taskItems)
-	})
+//	// Wire task change callback so TaskStore mutations push events to the frontend
+//	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {
+//		taskItems := make([]agent.TaskItem, len(tasks))
+//		for i, t := range tasks {
+//			taskItems[i] = agent.TaskItem{
+//				ID: t.ID, Subject: t.Subject, Description: t.Description,
+//				Status: t.Status, BlockedBy: t.BlockedBy,
+//			}
+//		}
+//		appService.EmitTaskEvent(sessionID, taskItems)
+//	})
 
 	assets, err := fs.Sub(embeddedAssets, "frontend/dist")
 	if err != nil {
