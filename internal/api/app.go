@@ -39,23 +39,29 @@ type App struct {
 	cancelFuncs map[string]context.CancelFunc
 	cancelMu    sync.Mutex
 
-	loopOpts []agent2.LoopOption
+	taskStoreAccessor TaskStoreAccessor
+	agentRegistry     *agent2.AgentRegistry
+	taskRunner        *agent2.TaskRunner
+	loopOpts          []agent2.LoopOption
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner) *App {
 	return &App{
-		home:        home,
-		cfg:         cfg,
-		provider:    provider,
-		model:       model,
-		registry:    registry,
-		startupCwd:  cwd,
-		sessions:    make(map[string]*SessionManager),
-		projects:    make(map[string]*ProjectInfo),
-		fileSvc:     make(map[string]*FileService),
-		eventBus:    NewEventBus(),
-		cancelFuncs: make(map[string]context.CancelFunc),
-		loopOpts:    loopOpts,
+		home:             home,
+		cfg:              cfg,
+		provider:         provider,
+		model:            model,
+		registry:         registry,
+		startupCwd:       cwd,
+		sessions:         make(map[string]*SessionManager),
+		projects:         make(map[string]*ProjectInfo),
+		fileSvc:          make(map[string]*FileService),
+		eventBus:         NewEventBus(),
+		cancelFuncs:      make(map[string]context.CancelFunc),
+		taskStoreAccessor: taskStoreAccessor,
+		agentRegistry:    agentRegistry,
+		taskRunner:       taskRunner,
+		loopOpts:         loopOpts,
 	}
 }
 
@@ -232,6 +238,8 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
 	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
+	generalAgent, _ := a.agentRegistry.Get("general")
+	opts = append(opts, agent2.WithAgent(generalAgent))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
 
@@ -395,6 +403,16 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Compaction = ev.Compaction
 	}
 
+	a.eventBus.Emit(se)
+	application.Get().Event.Emit("stream", se)
+}
+
+func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
+	se := StreamEvent{
+		SessionID: sessionID,
+		Type:      "task_update",
+		Tasks:     tasks,
+	}
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
 }

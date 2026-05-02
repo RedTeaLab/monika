@@ -66,18 +66,47 @@ func main() {
 	if p := loadSystemPrompt(cwd); p != "" {
 		systemParts = append(systemParts, p)
 	}
+	systemPrompt := strings.Join(systemParts, "\n\n")
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
-		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
+		agent.WithSystemPrompt(systemPrompt),
 	}
+
+	// Build agent registry with builtin agents
+	agentRegistry := agent.NewAgentRegistry([]agent.Agent{
+		{
+			Name:         "general",
+			Description:  "General-purpose agent for research and multi-step tasks",
+			SystemPrompt: systemPrompt,
+		},
+		{
+			Name:         "explore",
+			Description:  "Fast agent specialized for exploring codebases",
+			SystemPrompt: systemPrompt,
+		},
+		{
+			Name:         "compaction",
+			Description:  "Internal — conversation summarizer",
+			SystemPrompt: "", // uses its own compaction prompt
+			Hidden:       true,
+		},
+	})
+
+	// Create task runner for subagent dispatch
+	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry)
+
+	// Register SpawnAgent tool
+	builtin.RegisterSpawnAgent(registry, agentRegistry, func(ctx context.Context, task agent.SubTask) <-chan agent.Event {
+		return taskRunner.Dispatch(ctx, task, nil)
+	})
 
 	var taskStoreAccessor api.TaskStoreAccessor
 	if accessor, ok := taskStore.(api.TaskStoreAccessor); ok {
 		taskStoreAccessor = accessor
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor)
+	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

@@ -1,6 +1,15 @@
 package api
 
-import "monika/internal/agent"
+import (
+	"monika/internal/agent"
+	tool2 "monika/internal/tool"
+)
+
+// TaskStoreAccessor exposes snapshot/restore for task persistence.
+type TaskStoreAccessor interface {
+	Snapshot() map[string][]tool2.Task
+	Restore(sessionID string, tasks []tool2.Task)
+}
 
 type StreamEvent struct {
 	Type       string            `json:"type"`
@@ -12,6 +21,7 @@ type StreamEvent struct {
 	FileChange *FileChangeEvent        `json:"file_change,omitempty"`
 	Compacting *agent.CompactingEvent  `json:"compacting,omitempty"`
 	Compaction *agent.CompactionEvent  `json:"compaction,omitempty"`
+	Tasks      []agent.TaskItem  `json:"tasks,omitempty"`
 }
 
 type FileChangeEvent struct {
