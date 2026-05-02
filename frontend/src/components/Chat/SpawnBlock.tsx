@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useStore } from '../../store'
-import MarkdownBlock from './MarkdownBlock'
 
 interface ToolCall {
   name: string
@@ -24,16 +23,16 @@ function parseSpawnInput(input: string): {
   }
 }
 
-function extractTaskResult(output: string): { taskId: string; result: string } | null {
-  const idMatch = output.match(/task_id:\s*(\S+)/)
-  const resultMatch = output.match(/<task_result>\s*([\s\S]*?)\s*<\/task_result>/)
-  if (idMatch) {
-    return {
-      taskId: idMatch[1],
-      result: resultMatch ? resultMatch[1] : output,
-    }
-  }
-  return null
+function extractTaskId(output: string): string | null {
+  const m = output.match(/task_id:\s*(\S+)/)
+  return m ? m[1] : null
+}
+
+function parseRunningDetail(output?: string): string | null {
+  if (!output) return null
+  // Running output is the current tool status, e.g. "grep · pattern: xxx"
+  const trimmed = output.trim()
+  return trimmed.length > 0 ? trimmed : null
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -44,29 +43,28 @@ const AGENT_COLORS: Record<string, string> = {
 
 interface SpawnBlockProps {
   tool: ToolCall
+  model?: string
+  duration?: number
 }
 
-export default function SpawnBlock({ tool }: SpawnBlockProps) {
+export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   const openSessionTab = useStore((s) => s.openSessionTab)
-  const [expanded, setExpanded] = useState(false)
   const info = useMemo(() => parseSpawnInput(tool.input), [tool.input])
-  const taskResult = useMemo(() => tool.output ? extractTaskResult(tool.output) : null, [tool.output])
-  const agentColor = AGENT_COLORS[info.subagent_type] || '#7e70a8'
+  const taskId = useMemo(() => tool.output ? extractTaskId(tool.output) : null, [tool.output])
+  const runningDetail = useMemo(() => parseRunningDetail(tool.output), [tool.output])
+  const subagentType = info.subagent_type || 'general'
+const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
   const isRunning = tool.status === 'running'
-  const isDone = tool.status === 'done'
 
-  const handleClick = () => {
-    if (isRunning) return // can't open while running — session isn't saved yet
-    if (taskResult) {
-      // Toggle expanded content inline
-      setExpanded(!expanded)
-    }
+  const formatDuration = (s: number) => {
+    if (s >= 60) return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
+    return `${s.toFixed(1)}s`
   }
 
-  const handleOpenTab = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (taskResult) {
-      openSessionTab(taskResult.taskId, `${info.subagent_type} · ${info.description}`)
+  const handleClick = () => {
+    if (isRunning) return
+    if (taskId) {
+      openSessionTab(taskId, `${subagentType} · ${info.description}`)
     }
   }
 
@@ -78,22 +76,40 @@ export default function SpawnBlock({ tool }: SpawnBlockProps) {
         borderColor: 'var(--border)',
         cursor: isRunning ? 'default' : 'pointer',
       }}
+      onClick={handleClick}
+      onMouseEnter={(e) => { if (!isRunning) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+      onMouseLeave={(e) => { if (!isRunning) e.currentTarget.style.background = 'var(--bg-card)' }}
     >
-      <div
-        className="flex items-center gap-2.5 px-[14px] py-[8px]"
-        onClick={handleClick}
-        onMouseEnter={(e) => { if (!isRunning) (e.currentTarget.parentElement as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
-        onMouseLeave={(e) => { if (!isRunning) (e.currentTarget.parentElement as HTMLElement).style.background = 'var(--bg-card)' }}
-      >
+      <div className="flex items-center gap-2.5 px-[14px] py-[8px] min-w-0">
+        {/* Agent badge */}
         <span
           className="text-[10px] font-semibold font-mono shrink-0 rounded px-1.5 py-0.5"
           style={{ color: agentColor, background: `${agentColor}1a` }}
         >
-          {info.subagent_type}
+          {subagentType}
         </span>
-        <span className="text-[12px] font-semibold truncate">{info.description}</span>
+
+        {/* Description + meta */}
+        <div className="flex flex-col min-w-0 flex-1">
+          <span className="text-[12px] font-semibold truncate">{info.description}</span>
+          {!isRunning && (
+            <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1.5">
+              {model && <span>{model}</span>}
+              {model && duration != null && duration > 0 && <span>·</span>}
+              {duration != null && duration > 0 && <span>{formatDuration(duration)}</span>}
+            </span>
+          )}
+          {isRunning && runningDetail && (
+            <span className="text-[10px] text-[var(--text-dim)] truncate font-mono flex items-center gap-1">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--yellow)] motion-safe:animate-pulse" />
+              {runningDetail}
+            </span>
+          )}
+        </div>
+
+        {/* Status */}
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.03em] shrink-0 ml-auto flex items-center gap-1.5"
+          className="text-[10px] font-semibold uppercase tracking-[0.03em] shrink-0 flex items-center gap-1.5"
           style={{ color: isRunning ? 'var(--yellow)' : tool.status === 'error' ? 'var(--red)' : 'var(--green)' }}
         >
           {isRunning ? (
@@ -107,26 +123,7 @@ export default function SpawnBlock({ tool }: SpawnBlockProps) {
             'done'
           )}
         </span>
-        {isDone && (
-          <button
-            className="text-[10px] px-2 py-0.5 rounded border border-[var(--border)] hover:bg-[var(--bg-hover)] shrink-0"
-            onClick={handleOpenTab}
-            title="Open in new tab"
-          >
-            Open tab →
-          </button>
-        )}
       </div>
-
-      {/* Inline expanded result (click the card body to toggle) */}
-      {expanded && taskResult && (
-        <div
-          className="px-[14px] pb-[10px] text-[13px]"
-          style={{ borderTop: '1px solid var(--border)' }}
-        >
-          <MarkdownBlock content={taskResult.result} muted />
-        </div>
-      )}
     </div>
   )
 }

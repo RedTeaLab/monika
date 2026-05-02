@@ -452,6 +452,8 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
     )
   }
 
+  const hasSpawnAgent = tools?.some(t => t.name === 'SpawnAgent')
+
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
       {role === 'user' ? (
@@ -470,16 +472,36 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
         <>
           <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
+
           {tools?.map((tool, i) =>
             tool.name === 'SpawnAgent' ? (
-              <SpawnBlock key={i} tool={tool} />
+              <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
             ) : (
               <ToolBlock key={i} tool={tool} />
             )
           )}
-          {(content || isGenerating) && (
+
+          {/* "view subagents" hint — matches preview HTML */}
+          {hasSpawnAgent && (
+            <div className="text-[10px] text-[var(--text-dim)] flex items-center gap-1.5 pl-3">
+              <span
+                className="text-[9px] font-mono px-1 py-0.5 rounded"
+                style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
+              >
+                click card →
+              </span>
+              view subagents
+            </div>
+          )}
+
+          {content && (
             <MsgBlock>
               <MarkdownBlock content={content} />
+            </MsgBlock>
+          )}
+          {isGenerating && !content && !thinking && (!tools || tools.length === 0) && (
+            <MsgBlock>
+              <span className="text-[13px] text-[var(--text-dim)]">Thinking...</span>
             </MsgBlock>
           )}
         </>
