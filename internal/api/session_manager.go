@@ -33,6 +33,7 @@ type Session struct {
 	TokenMax         int64                `json:"token_max,omitempty"`
 	CompactionCount  int                  `json:"compaction_count,omitempty"`
 	ArchivedMessages []engine.ChatMessage `json:"archived_messages,omitempty"`
+	ParentID         string               `json:"parent_id,omitempty"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 }
