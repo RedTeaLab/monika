@@ -262,13 +262,20 @@ type LoopResult struct {
 }
 
 type AgentLoop struct {
-	provider     engine.ProviderEngine
-	tools        *tool.ToolRegistry
-	systemPrompt string
-	confirmFn    func(tool.Tool, json.RawMessage) bool
-	projectDir   string
-	model        string
-	sessionID    string
+	agent    Agent
+	provider engine.ProviderEngine
+	tools    *tool.ToolRegistry
+	// conv is the in-memory conversation for this loop's run.
+	conv *Conversation
+	// parent is nil for root loops; non-nil for child subtasks.
+	parent *AgentLoop
+
+	sessionID         string
+	systemPrompt      string
+	confirmFn         func(tool.Tool, json.RawMessage) bool
+	projectDir        string
+	model             string
+	modelContextLimit int64 // 0 = use hardcoded map + default
 }
 
 type LoopOption func(*AgentLoop)
@@ -300,6 +307,22 @@ func WithModel(model string) LoopOption {
 // WithSessionID sets the session ID injected into tool context.
 func WithSessionID(id string) LoopOption {
 	return func(a *AgentLoop) { a.sessionID = id }
+}
+
+func WithAgent(agent Agent) LoopOption {
+	return func(a *AgentLoop) {
+		a.agent = agent
+		if agent.SystemPrompt != "" {
+			a.systemPrompt = agent.SystemPrompt
+		}
+		if agent.Model != "" {
+			a.model = agent.Model
+		}
+	}
+}
+
+func WithParent(parent *AgentLoop) LoopOption {
+	return func(a *AgentLoop) { a.parent = parent }
 }
 
 func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
