@@ -1,6 +1,11 @@
 package builtin
 
-import "monika/internal/tool"
+import (
+	"context"
+
+	"monika/internal/agent"
+	"monika/internal/tool"
+)
 
 func RegisterDefaults(r *tool.ToolRegistry, projectDir string) error {
 	r.Register(NewFileRead(projectDir))
@@ -23,4 +28,10 @@ func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
 	r.Register(NewTaskCreate(store))
 	r.Register(NewTaskUpdate(store))
 	r.Register(NewTaskList(store))
+}
+
+// RegisterSpawnAgent registers the SpawnAgent tool for dispatching subtasks to other agents.
+// Called after AgentRegistry and TaskRunner are created in main.
+func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event) {
+	r.Register(NewSpawnAgent(registry, dispatchFn))
 }
