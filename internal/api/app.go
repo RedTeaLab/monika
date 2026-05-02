@@ -269,6 +269,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	opts = append(opts, agent2.WithAgent(generalAgent))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
+	loop.SetDispatchFn(func(ctx context.Context, task agent2.SubTask) <-chan agent2.Event {
+		return a.taskRunner.Dispatch(ctx, task, loop)
+	})
 
 	go func() {
 		defer cancel()

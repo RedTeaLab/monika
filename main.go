@@ -89,7 +89,7 @@ func main() {
 		{
 			Name:         "compaction",
 			Description:  "Internal — conversation summarizer",
-			SystemPrompt: "", // uses its own compaction prompt
+			SystemPrompt: agent.CompactionPrompt,
 			Hidden:       true,
 		},
 	})

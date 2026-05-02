@@ -14,6 +14,30 @@ import (
 	"monika/pkg/tokenizer"
 )
 
+// CompactionPrompt is the system prompt used by the compaction agent.
+const CompactionPrompt = `You are a conversation summarizer. Summarize the conversation below.
+Focus on information that is essential for continuing the work without
+losing context. Output a structured summary in this format:
+
+## Goal
+What the user is trying to accomplish.
+
+## Key Decisions
+Design choices, architectural decisions, agreed approaches.
+
+## Discoveries
+Important findings, bugs identified, constraints discovered.
+
+## Current State
+What has been done so far. Files created/modified, tests passing/failing.
+
+## Next Steps
+What remains to be done. Explicit TODOs mentioned by user.
+
+## Summary Quality Gate
+- Must preserve all stated user goals and agreed decisions
+- Must preserve all discovered bugs and constraints`
+
 // Model context window limits (in tokens). These are conservative defaults
 // used for client-side estimation; the API response usage is authoritative.
 var modelContextLimits = map[string]int64{
@@ -228,6 +252,70 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 	return nil
 }
 
+// runCompactionViaDispatch runs compaction through the generic dispatch mechanism.
+// Falls back to the old runCompaction if dispatchFn is not set.
+func (a *AgentLoop) runCompactionViaDispatch(ctx context.Context, conv *Conversation, ch chan<- Event) error {
+	if a.dispatchFn == nil {
+		return a.runCompaction(ctx, conv, ch)
+	}
+
+	beforeTokens := conv.TokenCount
+
+	task := SubTask{
+		Type:   TaskCompaction,
+		Agent:  "compaction",
+		Prompt: buildCompactionPromptFromConv(conv),
+		Status: "pending",
+	}
+
+	childCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	resultCh := a.dispatchFn(childCtx, task)
+	var summary strings.Builder
+	for ev := range resultCh {
+		if ev.Type == EventTextDelta {
+			summary.WriteString(ev.Content)
+		}
+		if ev.Type == EventError {
+			return fmt.Errorf("compaction agent error: %s", ev.Content)
+		}
+	}
+
+	result := summary.String()
+	if result == "" {
+		return fmt.Errorf("compaction returned empty summary")
+	}
+
+	a.rewriteMessages(conv, result)
+
+	ch <- Event{
+		Type: EventCompaction,
+		Compaction: &CompactionEvent{
+			Summary:       result,
+			BeforeTokens:  beforeTokens,
+			AfterTokens:   conv.TokenCount,
+			CompactionNum: conv.CompactionCount,
+		},
+	}
+
+	return nil
+}
+
+func buildCompactionPromptFromConv(conv *Conversation) string {
+	var b strings.Builder
+	for _, m := range conv.Messages {
+		if m.ReasoningContent != "" {
+			b.WriteString("[" + m.Role + " reasoning]: " + m.ReasoningContent + "\n")
+		}
+		b.WriteString("[" + m.Role + "]: " + m.Content + "\n")
+		for _, tc := range m.ToolCalls {
+			b.WriteString("  [tool_call " + tc.Function.Name + "]: " + tc.Function.Arguments + "\n")
+		}
+	}
+	return b.String()
+}
+
 func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
 	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
 	copy(conv.ArchivedMessages, conv.Messages)
@@ -276,6 +364,13 @@ type AgentLoop struct {
 	projectDir        string
 	model             string
 	modelContextLimit int64 // 0 = use hardcoded map + default
+	dispatchFn        func(ctx context.Context, task SubTask) <-chan Event
+}
+
+// SetDispatchFn sets the child dispatch function for this loop.
+// Used for compaction and other system-initiated subtasks.
+func (a *AgentLoop) SetDispatchFn(fn func(ctx context.Context, task SubTask) <-chan Event) {
+	a.dispatchFn = fn
 }
 
 type LoopOption func(*AgentLoop)
@@ -489,8 +584,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				Type:       EventCompacting,
 				Compacting: &CompactingEvent{},
 			}
-			if err := a.runCompaction(ctx, conv, ch); err != nil {
-				beforeTokens := conv.TokenCount
+			beforeTokens := conv.TokenCount
+			if err := a.runCompactionViaDispatch(ctx, conv, ch); err != nil {
 				a.rewriteMessagesTruncate(conv)
 				ch <- Event{
 					Type: EventCompaction,
