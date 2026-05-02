@@ -184,6 +184,7 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 
 	prompt := a.buildCompactionPrompt(conv)
 	req := engine.ChatRequest{
+		Provider: a.providerID,
 		Model:    a.model,
 		Messages: prompt,
 	}
@@ -269,6 +270,7 @@ type AgentLoop struct {
 	projectDir   string
 	model        string
 	sessionID    string
+	providerID   string
 }
 
 type LoopOption func(*AgentLoop)
@@ -294,6 +296,13 @@ func WithProjectDir(dir string) LoopOption {
 func WithModel(model string) LoopOption {
 	return func(a *AgentLoop) {
 		a.model = model
+	}
+}
+
+// WithProvider sets the provider ID (e.g. "deepseek", "openai") to use.
+func WithProvider(id string) LoopOption {
+	return func(a *AgentLoop) {
+		a.providerID = id
 	}
 }
 
@@ -331,6 +340,7 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 		messages := a.buildMessages(conv)
 
 		req := engine.ChatRequest{
+			Provider: a.providerID,
 			Model:    a.model,
 			Messages: messages,
 			Tools:    tools,
@@ -482,6 +492,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		req := engine.ChatRequest{
+			Provider: a.providerID,
 			Model:    a.model,
 			Messages: messages,
 			Tools:    tools,
