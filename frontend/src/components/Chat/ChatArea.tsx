@@ -4,6 +4,7 @@ import { useStore } from '../../store'
 import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
+import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
 function ChatArea() {
@@ -17,6 +18,7 @@ function ChatArea() {
   const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
   const activeSessionId = useStore((s) => s.activeSessionId)
+  const sessionParentId = useStore((s) => s.sessionParentId)
   const openSessions = useStore((s) => s.openSessions)
   const closeSessionTab = useStore((s) => s.closeSessionTab)
   const switchSessionTab = useStore((s) => s.switchSessionTab)
@@ -77,6 +79,7 @@ function ChatArea() {
   }
 
   const hasActiveSession = activeSessionId !== ''
+  const isChildSession = sessionParentId !== ''
   const todoCollapsed = useStore((s) => s.todoCollapsed)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const isTodoCollapsed = activeSessionId ? (todoCollapsed[activeSessionId] || false) : false
@@ -140,7 +143,7 @@ function ChatArea() {
         collapsed={isTodoCollapsed}
         onToggle={() => activeSessionId && setTodoCollapsed(activeSessionId, !isTodoCollapsed)}
       />
-      {hasActiveSession && (
+      {hasActiveSession && !isChildSession && (
         <ChatInput
           key={activeSessionId}
           onSend={handleSend}
@@ -148,6 +151,9 @@ function ChatArea() {
           disabled={generatingSessionId !== ''}
           compacting={compactingSessionId !== ''}
         />
+      )}
+      {hasActiveSession && isChildSession && (
+        <SubagentFooter />
       )}
     </div>
   )
