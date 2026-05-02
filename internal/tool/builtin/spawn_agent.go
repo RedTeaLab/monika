@@ -96,18 +96,23 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 		}, nil
 	}
 
-	id := generateSubTaskID()
+	// Use tool call ID as session ID so frontend can open tab during running.
+	// The tool call ID is available in the frontend from the tool_start event.
+	toolCallID := tool.ToolCallIDFromContext(ctx)
+	if toolCallID == "" {
+		toolCallID = generateSubTaskID()
+	}
 
 	// Expose child session ID immediately so frontend can open tab during running
 	if t.pendingStore != nil {
 		if parentID := tool.SessionIDFromContext(ctx); parentID != "" {
-			t.pendingStore(parentID, id)
+			t.pendingStore(parentID, toolCallID)
 		}
 	}
 
 	task := agent.SubTask{
-		ID:          id,
-		SessionID:   id, // frontend loads child session by this ID
+		ID:          toolCallID,
+		SessionID:   toolCallID, // frontend loads child session by this ID
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,

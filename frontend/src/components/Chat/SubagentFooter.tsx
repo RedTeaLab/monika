@@ -10,7 +10,7 @@ export default function SubagentFooter() {
   const tok = sessionTokens[activeSessionId]
 
   // Find sibling subagent sessions (share same parent)
-  const siblings = openSessions.filter(s => s.id.startsWith('sub_'))
+  const siblings = openSessions.filter(s => s.id.startsWith('sub_') || s.id.startsWith('call_'))
   const siblingIdx = siblings.findIndex(s => s.id === activeSessionId)
   const totalSiblings = siblings.length
 

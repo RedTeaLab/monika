@@ -20,6 +20,7 @@ export interface ConsoleLine {
 export type LayoutMode = 'chat' | 'split' | 'files'
 
 interface ToolCall {
+  id?: string
   name: string
   input: string
   output?: string
@@ -452,7 +453,7 @@ export const useStore = create<AppState>((set, get) => ({
   openSessionTab: async (id, title) => {
     const state = useStore.getState()
     // If this looks like a subagent session, record the current session as parent
-    if (id.startsWith('sub_') && state.activeSessionId) {
+    if ((id.startsWith('sub_') || id.startsWith('call_')) && state.activeSessionId) {
       set({ sessionParentId: state.activeSessionId })
     }
     const existing = state.openSessions.find((s) => s.id === id)
@@ -472,7 +473,7 @@ export const useStore = create<AppState>((set, get) => ({
         [id]: s.sessionMessages[id] || [],
       },
       activeSessionId: id,
-      sessionParentId: id.startsWith('sub_') ? s.sessionParentId : '',
+      sessionParentId: id.startsWith('sub_') || id.startsWith('call_') ? s.sessionParentId : '',
       messages: [],
       tokenCount: s.sessionTokens[id]?.count ?? 0,
       tokenMax: s.sessionTokens[id]?.max ?? 0,
@@ -489,7 +490,7 @@ export const useStore = create<AppState>((set, get) => ({
           ? [...msgs, ...streamMsgs.filter((sm) => !msgs.some((lm) => lm.id === sm.id))]
           : streamMsgs
         // For child sessions: transform first user message to subtask role
-        if (id.startsWith('sub_') && merged.length > 0 && merged[0].role === 'user') {
+        if ((id.startsWith('sub_') || id.startsWith('call_')) && merged.length > 0 && merged[0].role === 'user') {
           const agentName = title?.split(' · ')[0] || ''
           merged = merged.map((m, i) =>
             i === 0 ? { ...m, role: 'subtask' as const, subtaskAgent: agentName } : m
@@ -574,7 +575,7 @@ export const useStore = create<AppState>((set, get) => ({
         messages: restored,
         tokenCount: s.sessionTokens[id]?.count ?? 0,
         tokenMax: s.sessionTokens[id]?.max ?? 0,
-        sessionParentId: id.startsWith('sub_') ? s.sessionParentId : '',
+        sessionParentId: id.startsWith('sub_') || id.startsWith('call_') ? s.sessionParentId : '',
       }
     })
   },
@@ -790,10 +791,10 @@ export function setupWailsEvents() {
 
       case 'tool_start':
         if (data.tool) {
-          store.addSessionToolStart(sid, { name: data.tool.name, input: data.tool.input || '', status: 'running' })
+          store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           store.addConsoleLine(`$ ${data.tool.name} ${data.tool.input || ''}`)
           if (sid === store.activeSessionId) {
-            store.addToolStart({ name: data.tool.name, input: data.tool.input || '', status: 'running' })
+            store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           }
         }
         break

@@ -785,6 +785,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			if a.sessionID != "" {
 				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
 			}
+			toolCtx = tool.WithToolCallID(toolCtx, tc.ID)
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				ch <- Event{

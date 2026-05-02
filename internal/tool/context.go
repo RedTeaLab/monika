@@ -5,11 +5,13 @@ import "context"
 type projectDirKeyType struct{}
 type sessionIDKeyType struct{}
 type taskStoreKeyType struct{}
+type toolCallIDKeyType struct{}
 
 var (
-	projectDirKey projectDirKeyType
-	sessionIDKey  sessionIDKeyType
-	taskStoreKey  taskStoreKeyType
+	projectDirKey  projectDirKeyType
+	sessionIDKey   sessionIDKeyType
+	taskStoreKey   taskStoreKeyType
+	toolCallIDKey  toolCallIDKeyType
 )
 
 // WithProjectDir returns a child context carrying the project directory.
@@ -39,6 +41,17 @@ func WithSessionID(ctx context.Context, id string) context.Context {
 // SessionIDFromContext extracts the session ID from context, or empty string.
 func SessionIDFromContext(ctx context.Context) string {
 	id, _ := ctx.Value(sessionIDKey).(string)
+	return id
+}
+
+// WithToolCallID returns a child context carrying the tool call ID.
+func WithToolCallID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, toolCallIDKey, id)
+}
+
+// ToolCallIDFromContext extracts the tool call ID from context, or empty string.
+func ToolCallIDFromContext(ctx context.Context) string {
+	id, _ := ctx.Value(toolCallIDKey).(string)
 	return id
 }
 

@@ -236,7 +236,7 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	// Check child sessions first (they live in memory, not on disk)
-	if strings.HasPrefix(sessionID, "sub_") {
+	if strings.HasPrefix(sessionID, "sub_") || strings.HasPrefix(sessionID, "call_") {
 		if child := a.LoadChildSession(sessionID); child != nil {
 			return &Session{
 				ID:          sessionID,

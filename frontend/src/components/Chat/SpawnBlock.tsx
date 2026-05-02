@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useStore } from '../../store'
 
 interface ToolCall {
+  id?: string
   name: string
   input: string
   output?: string
@@ -62,9 +63,11 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   }
 
   const handleClick = () => {
-    if (isRunning) return // session ID not available until tool completes
-    if (taskId) {
-      openSessionTab(taskId, `${subagentType} · ${info.description}`)
+    // Running: use tool call ID as session ID (backend uses it via tool context)
+    // Done: use task_id from output
+    const sessionId = isRunning ? tool.id : taskId
+    if (sessionId) {
+      openSessionTab(sessionId, `${subagentType} · ${info.description}`)
     }
   }
 
@@ -74,11 +77,11 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border)',
-        cursor: isRunning ? 'default' : 'pointer',
+        cursor: (isRunning && !tool.id) ? 'default' : 'pointer',
       }}
       onClick={handleClick}
-      onMouseEnter={(e) => { if (!isRunning) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-      onMouseLeave={(e) => { if (!isRunning) e.currentTarget.style.background = 'var(--bg-card)' }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-card)' }}
     >
       <div className="flex items-center gap-2.5 px-[14px] py-[8px] min-w-0">
         {/* Agent badge */}
