@@ -25,7 +25,7 @@ type App struct {
 
 	home       string
 	cfg        config2.Config
-	provider   engine2.ProviderEngine
+	providers  map[string]engine2.ProviderEngine
 	model      string
 	registry   *tool2.ToolRegistry
 	startupCwd string
@@ -42,11 +42,11 @@ type App struct {
 	loopOpts []agent2.LoopOption
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
 	return &App{
 		home:        home,
 		cfg:         cfg,
-		provider:    provider,
+		providers:   providers,
 		model:       model,
 		registry:    registry,
 		startupCwd:  cwd,
@@ -188,7 +188,11 @@ func (a *App) NewSession(projectPath, model string) (*SessionInfo, error) {
 }
 
 func (a *App) GetModels() ([]engine2.Model, error) {
-	return a.provider.ListModels(a.ctx)
+	// Use the first available provider to fetch models.
+	for _, p := range a.providers {
+		return p.ListModels(a.ctx)
+	}
+	return nil, fmt.Errorf("no providers available")
 }
 
 func (a *App) DeleteSession(projectPath, sessionID string) error {
@@ -233,7 +237,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
 	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
-	loop := agent2.NewLoop(a.provider, a.registry, opts...)
+	loop := agent2.NewLoop(a.providers, a.registry, opts...)
 
 	go func() {
 		defer cancel()

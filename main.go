@@ -77,7 +77,7 @@ func main() {
 		taskStoreAccessor = accessor
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor)
+	appService := api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

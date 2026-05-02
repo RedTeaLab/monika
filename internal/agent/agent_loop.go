@@ -189,7 +189,7 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 		Messages: prompt,
 	}
 
-	events, err := a.provider.StreamChat(ctx, req)
+	events, err := a.getProvider().StreamChat(ctx, req)
 	if err != nil {
 		return fmt.Errorf("compaction stream chat: %w", err)
 	}
@@ -263,7 +263,7 @@ type LoopResult struct {
 }
 
 type AgentLoop struct {
-	provider     engine.ProviderEngine
+	providers    map[string]engine.ProviderEngine
 	tools        *tool.ToolRegistry
 	systemPrompt string
 	confirmFn    func(tool.Tool, json.RawMessage) bool
@@ -311,15 +311,30 @@ func WithSessionID(id string) LoopOption {
 	return func(a *AgentLoop) { a.sessionID = id }
 }
 
-func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
+func NewLoop(providers map[string]engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
 	a := &AgentLoop{
-		provider: provider,
-		tools:    tools,
+		providers: providers,
+		tools:     tools,
 	}
 	for _, opt := range opts {
 		opt(a)
 	}
 	return a
+}
+
+// getProvider resolves the provider to use for API calls. When providerID is set
+// (e.g. "openai", "deepseek"), it looks up that specific provider. Otherwise it
+// returns the first available provider from the map.
+func (a *AgentLoop) getProvider() engine.ProviderEngine {
+	if a.providerID != "" {
+		if p, ok := a.providers[a.providerID]; ok {
+			return p
+		}
+	}
+	for _, p := range a.providers {
+		return p
+	}
+	return nil
 }
 
 func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) (*LoopResult, error) {
@@ -346,7 +361,7 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 			Tools:    tools,
 		}
 
-		events, err := a.provider.StreamChat(ctx, req)
+		events, err := a.getProvider().StreamChat(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("stream chat: %w", err)
 		}
@@ -511,7 +526,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			}
 		}
 
-		events, err := a.provider.StreamChat(ctx, req)
+		events, err := a.getProvider().StreamChat(ctx, req)
 		if err != nil {
 			ch <- Event{Type: EventError, Content: fmt.Sprintf("stream chat: %v", err)}
 			return
