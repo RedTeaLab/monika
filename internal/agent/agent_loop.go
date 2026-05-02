@@ -282,7 +282,7 @@ func (a *AgentLoop) runCompactionViaDispatch(ctx context.Context, conv *Conversa
 		}
 	}
 
-	result := summary.String()
+	result := sanitizeCompactionOutput(summary.String())
 	if result == "" {
 		return fmt.Errorf("compaction returned empty summary")
 	}
@@ -300,20 +300,6 @@ func (a *AgentLoop) runCompactionViaDispatch(ctx context.Context, conv *Conversa
 	}
 
 	return nil
-}
-
-func buildCompactionPromptFromConv(conv *Conversation) string {
-	var b strings.Builder
-	for _, m := range conv.Messages {
-		if m.ReasoningContent != "" {
-			b.WriteString("[" + m.Role + " reasoning]: " + m.ReasoningContent + "\n")
-		}
-		b.WriteString("[" + m.Role + "]: " + m.Content + "\n")
-		for _, tc := range m.ToolCalls {
-			b.WriteString("  [tool_call " + tc.Function.Name + "]: " + tc.Function.Arguments + "\n")
-		}
-	}
-	return b.String()
 }
 
 func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {

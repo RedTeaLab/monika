@@ -504,16 +504,16 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
             )
           )}
 
-          {/* "view subagents" hint */}
+          {/* "view subagents" hint — matches preview HTML */}
           {hasSpawnAgent && (
-            <div className="text-[10px] text-[var(--text-dim)] pl-3">
+            <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
               <span
-                className="text-[9px] font-mono px-1 py-0.5 rounded mr-1.5"
+                className="text-[9px] font-mono px-1 py-0.5 rounded"
                 style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
               >
-                click
+                click card →
               </span>
-              to view subagent execution
+              view subagents
             </div>
           )}
 

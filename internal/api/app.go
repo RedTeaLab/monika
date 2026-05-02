@@ -43,6 +43,7 @@ type App struct {
 	agentRegistry     *agent2.AgentRegistry
 	taskRunner        *agent2.TaskRunner
 	childSessions     map[string]*agent2.ChildSession // keyed by child session ID
+	pendingChildren   map[string]string               // parentSessionID → childSessionID
 	loopOpts          []agent2.LoopOption
 }
 
@@ -63,6 +64,7 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 		agentRegistry:    agentRegistry,
 		taskRunner:       taskRunner,
 		childSessions:    make(map[string]*agent2.ChildSession),
+pendingChildren:  make(map[string]string),
 		loopOpts:         loopOpts,
 	}
 }
@@ -79,6 +81,20 @@ func (a *App) LoadChildSession(sessionID string) *agent2.ChildSession {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.childSessions[sessionID]
+}
+// PendingChildSession stores a child session ID for a parent, so the frontend
+// can resolve it during execution (before the tool returns).
+func (a *App) PendingChildSession(parentID, childID string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pendingChildren[parentID] = childID
+}
+
+// ResolveChildSession returns the latest child session ID for a parent.
+func (a *App) ResolveChildSession(parentID string) string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.pendingChildren[parentID]
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {

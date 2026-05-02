@@ -53,7 +53,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   const taskId = useMemo(() => tool.output ? extractTaskId(tool.output) : null, [tool.output])
   const runningDetail = useMemo(() => parseRunningDetail(tool.output), [tool.output])
   const subagentType = info.subagent_type || 'general'
-const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
+  const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
   const isRunning = tool.status === 'running'
 
   const formatDuration = (s: number) => {
@@ -62,9 +62,7 @@ const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
   }
 
   const handleClick = () => {
-    // During running, task_id isn't known yet (generated inside SpawnAgent tool).
-    // Streaming child execution view requires DispatchStreaming mode (Phase 4).
-    if (isRunning) return
+    if (isRunning) return // session ID not available until tool completes
     if (taskId) {
       openSessionTab(taskId, `${subagentType} · ${info.description}`)
     }
@@ -76,7 +74,7 @@ const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border)',
-        cursor: isRunning ? 'not-allowed' : 'pointer',
+        cursor: isRunning ? 'default' : 'pointer',
       }}
       onClick={handleClick}
       onMouseEnter={(e) => { if (!isRunning) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}

@@ -14,6 +14,10 @@ export default function SubagentFooter() {
   const siblingIdx = siblings.findIndex(s => s.id === activeSessionId)
   const totalSiblings = siblings.length
 
+  // Extract agent name from active tab title (format: "explore · description")
+  const activeTab = openSessions.find(s => s.id === activeSessionId)
+  const agentName = activeTab?.title?.split(' · ')[0] || 'subagent'
+
   return (
     <div
       className="flex items-center gap-3 px-4 py-2 text-[11px]"
@@ -25,7 +29,7 @@ export default function SubagentFooter() {
       {/* Agent label */}
       <span className="flex items-center gap-1.5" style={{ color: '#a89cc4', fontWeight: 600 }}>
         <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#a89cc4' }} />
-        subagent session
+        {agentName} agent
       </span>
 
       {/* Position among siblings */}

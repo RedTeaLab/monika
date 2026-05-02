@@ -118,9 +118,15 @@ func main() {
 		})
 
 	// Register SpawnAgent tool
-	builtin.RegisterSpawnAgent(registry, agentRegistry, func(ctx context.Context, task agent.SubTask) <-chan agent.Event {
-		return taskRunner.Dispatch(ctx, task, nil)
-	})
+	builtin.RegisterSpawnAgent(registry, agentRegistry,
+		func(ctx context.Context, task agent.SubTask) <-chan agent.Event {
+			return taskRunner.Dispatch(ctx, task, nil)
+		},
+		func(parentID, childID string) {
+			if appService != nil {
+				appService.PendingChildSession(parentID, childID)
+			}
+		})
 
 	var taskStoreAccessor api.TaskStoreAccessor
 	if accessor, ok := taskStore.(api.TaskStoreAccessor); ok {

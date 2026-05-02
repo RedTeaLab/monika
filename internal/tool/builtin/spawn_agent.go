@@ -12,12 +12,13 @@ import (
 )
 
 type spawnAgentTool struct {
-	registry   *agent.AgentRegistry
-	dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event
+	registry     *agent.AgentRegistry
+	dispatchFn   func(ctx context.Context, task agent.SubTask) <-chan agent.Event
+	pendingStore func(parentSessionID, childSessionID string)
 }
 
-func NewSpawnAgent(registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event) tool.Tool {
-	return &spawnAgentTool{registry: registry, dispatchFn: dispatchFn}
+func NewSpawnAgent(registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event, pendingStore func(parentSessionID, childSessionID string)) tool.Tool {
+	return &spawnAgentTool{registry: registry, dispatchFn: dispatchFn, pendingStore: pendingStore}
 }
 
 func (t *spawnAgentTool) Name() string { return "SpawnAgent" }
@@ -96,6 +97,14 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	}
 
 	id := generateSubTaskID()
+
+	// Expose child session ID immediately so frontend can open tab during running
+	if t.pendingStore != nil {
+		if parentID := tool.SessionIDFromContext(ctx); parentID != "" {
+			t.pendingStore(parentID, id)
+		}
+	}
+
 	task := agent.SubTask{
 		ID:          id,
 		SessionID:   id, // frontend loads child session by this ID

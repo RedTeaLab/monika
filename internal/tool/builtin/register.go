@@ -32,6 +32,6 @@ func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
 
 // RegisterSpawnAgent registers the SpawnAgent tool for dispatching subtasks to other agents.
 // Called after AgentRegistry and TaskRunner are created in main.
-func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event) {
-	r.Register(NewSpawnAgent(registry, dispatchFn))
+func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event, pendingStore func(parentID, childID string)) {
+	r.Register(NewSpawnAgent(registry, dispatchFn, pendingStore))
 }
