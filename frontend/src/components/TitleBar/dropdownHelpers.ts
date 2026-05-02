@@ -3,6 +3,7 @@ import { App } from '../../../bindings/monika';
 
 type StoreForAI = {
   activeSessionId: string;
+  selectedProvider: string;
   selectedModel: string;
   openSessionTab: (id: string, title: string) => Promise<void>;
   addMessage: (msg: { id: string; role: 'user' | 'assistant' | 'system' | 'error'; content: string }) => void;
@@ -16,7 +17,7 @@ export async function resolveUnmergedWithAI(
 ): Promise<void> {
   let sid = store.activeSessionId;
   if (!sid) {
-    const info = await App.NewSession(projectPath, store.selectedModel);
+    const info = await App.NewSession(projectPath, store.selectedProvider, store.selectedModel);
     if (!info) throw new Error('Failed to create session');
     sid = info.id;
     await store.openSessionTab(info.id, info.title || 'Untitled');
@@ -38,7 +39,7 @@ export async function resolveUnmergedWithAI(
   store.setGeneratingSessionId(sid);
 
   try {
-    await App.SendMessage(projectPath, sid, prompt, store.selectedModel);
+    await App.SendMessage(projectPath, sid, prompt, store.selectedProvider, store.selectedModel);
   } catch (err) {
     store.addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) });
     store.setGeneratingSessionId('');

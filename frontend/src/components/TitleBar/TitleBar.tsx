@@ -24,7 +24,7 @@ function TitleBar() {
   const {
     projectPath, branch, openFiles, generatingSessionId,
     resetProjectState, setProjectPath, setBranch,
-    loadBranches, loadRecentProjects, loadModels,
+    loadBranches, loadRecentProjects, loadProviders,
   } = useStore()
   const layoutMode = useStore((s) => s.layoutMode)
   const setLayoutMode = useStore((s) => s.setLayoutMode)
@@ -63,7 +63,7 @@ function TitleBar() {
     setProjectPath(info.path)
     setBranch(info.branch)
     console.log('[monika] doSwitchProject: loading branches and recent projects')
-    await Promise.all([loadBranches(), loadRecentProjects(), loadModels()])
+    await Promise.all([loadBranches(), loadRecentProjects(), loadProviders()])
     console.log('[monika] doSwitchProject: complete')
   }
 
