@@ -108,7 +108,7 @@ function ModelPicker() {
       }
       useStore.getState().setSelectedModel(modelId)
       setOpen(false)
-      App.PersistSelection(providerId, modelId).catch(() => {})
+      App.PersistSelection(providerId, modelId).catch((e: unknown) => { console.error('[monika] PersistSelection failed:', e) })
     },
     [selectedProvider, setSelectedProvider],
   )
