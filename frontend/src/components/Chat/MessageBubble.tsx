@@ -13,7 +13,7 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask'
   content: string
   thinking?: string
   tools?: ToolCall[]
@@ -23,6 +23,7 @@ interface Message {
   compactionNum?: number
   beforeTokens?: number
   afterTokens?: number
+  subtaskAgent?: string
 }
 
 /* ---- role label ---- */
@@ -32,6 +33,7 @@ const ROLE_LABEL: Record<string, { text: string; color: string }> = {
   assistant: { text: 'Assistant', color: 'var(--text-dim)' },
   error:      { text: 'Error',     color: 'var(--red)' },
   compaction: { text: 'Compacted', color: '#c6902f' },
+  subtask:   { text: 'Subtask',   color: '#a89cc4' },
 }
 
 function RoleLabel({ role, isGenerating, model, duration }: {
@@ -435,7 +437,28 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
-  const { role, content, thinking, tools, model, duration } = message
+  const { role, content, thinking, tools, model, duration, subtaskAgent } = message
+
+  if (role === 'subtask') {
+    return (
+      <div className="flex flex-col gap-1.5 mb-1.5">
+        <div
+          className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-1 select-none flex items-center gap-1.5"
+          style={{ color: '#a89cc4' }}
+        >
+          <span>Subtask</span>
+          {subtaskAgent && (
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+              · {subtaskAgent} agent
+            </span>
+          )}
+        </div>
+        <MsgBlock accent="#a89cc4">
+          <div className="text-[13px] text-[var(--text-dim)]">{content}</div>
+        </MsgBlock>
+      </div>
+    )
+  }
 
   if (role === 'compaction') {
     return (
@@ -481,16 +504,16 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
             )
           )}
 
-          {/* "view subagents" hint — matches preview HTML */}
+          {/* "view subagents" hint */}
           {hasSpawnAgent && (
-            <div className="text-[10px] text-[var(--text-dim)] flex items-center gap-1.5 pl-3">
+            <div className="text-[10px] text-[var(--text-dim)] pl-3">
               <span
-                className="text-[9px] font-mono px-1 py-0.5 rounded"
+                className="text-[9px] font-mono px-1 py-0.5 rounded mr-1.5"
                 style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
               >
-                click card →
+                click
               </span>
-              view subagents
+              to view subagent execution
             </div>
           )}
 

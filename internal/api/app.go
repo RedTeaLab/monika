@@ -223,10 +223,12 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	if strings.HasPrefix(sessionID, "sub_") {
 		if child := a.LoadChildSession(sessionID); child != nil {
 			return &Session{
-				ID:       sessionID,
-				Title:    child.Title,
-				Messages: child.Messages,
-				Status:   StatusSuccess,
+				ID:          sessionID,
+				Title:       child.Title,
+				Messages:    child.Messages,
+				Status:      StatusSuccess,
+				ParentID:    child.ParentID,
+				TokenCount:  child.TokenCount,
 			}, nil
 		}
 	}

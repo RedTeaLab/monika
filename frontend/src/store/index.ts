@@ -28,11 +28,12 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask'
   content: string
   thinking?: string
   tools?: ToolCall[]
   model?: string
+  subtaskAgent?: string
   duration?: number
   startedAt?: number
   compactionNum?: number
@@ -484,9 +485,16 @@ export const useStore = create<AppState>((set, get) => ({
         : []
       set((s) => {
         const streamMsgs = s.sessionMessages[id] || []
-        const merged = msgs.length > 0
+        let merged = msgs.length > 0
           ? [...msgs, ...streamMsgs.filter((sm) => !msgs.some((lm) => lm.id === sm.id))]
           : streamMsgs
+        // For child sessions: transform first user message to subtask role
+        if (id.startsWith('sub_') && merged.length > 0 && merged[0].role === 'user') {
+          const agentName = title?.split(' · ')[0] || ''
+          merged = merged.map((m, i) =>
+            i === 0 ? { ...m, role: 'subtask' as const, subtaskAgent: agentName } : m
+          )
+        }
         const tokData = {
           count: (session as any)?.token_count ?? s.sessionTokens[id]?.count ?? 0,
           max: (session as any)?.token_max ?? s.sessionTokens[id]?.max ?? 0,
