@@ -15,7 +15,6 @@ import (
 	"monika/internal/bootstrap"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
-	"monika/pkg/engine"
 
 	_ "monika/internal/engines/mcp"
 	_ "monika/internal/engines/provider/deepseek"
@@ -73,14 +72,7 @@ func main() {
 		agent.WithSystemPrompt(strings.Join(systemParts, "\n\n")),
 	}
 
-	// Select the default provider from the initialized provider map.
-	var defaultProvider engine.ProviderEngine
-	for _, p := range pr.Providers {
-		defaultProvider = p
-		break
-	}
-
-	appService := api.NewApp(home, cwd, pr.Config, defaultProvider, pr.Model, registry, loopOpts)
+	appService := api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, nil)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

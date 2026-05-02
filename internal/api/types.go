@@ -1,6 +1,9 @@
 package api
 
-import "monika/internal/agent"
+import (
+	"monika/internal/agent"
+	"monika/internal/tool"
+)
 
 type StreamEvent struct {
 	Type       string            `json:"type"`
@@ -69,4 +72,15 @@ type DiffResult struct {
 	Old      string   `json:"old"`
 	New      string   `json:"new"`
 	Lines    []string `json:"lines"`
+}
+
+// ProviderInfo identifies a configured provider for the frontend selector.
+type ProviderInfo struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+}
+
+// TaskStoreAccessor provides access to per-session task storage.
+type TaskStoreAccessor interface {
+	GetTaskStore(sessionID string) tool.TaskStore
 }

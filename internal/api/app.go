@@ -18,17 +18,19 @@ import (
 	engine2 "monika/pkg/engine"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"gopkg.in/yaml.v3"
 )
 
 type App struct {
 	ctx context.Context
 
-	home       string
-	cfg        config2.Config
-	provider   engine2.ProviderEngine
-	model      string
-	registry   *tool2.ToolRegistry
-	startupCwd string
+	home              string
+	cfg               config2.Config
+	providers         map[string]engine2.ProviderEngine
+	model             string
+	registry          *tool2.ToolRegistry
+	startupCwd        string
+	taskStoreAccessor TaskStoreAccessor
 
 	mu       sync.RWMutex
 	sessions map[string]*SessionManager
@@ -42,20 +44,21 @@ type App struct {
 	loopOpts []agent2.LoopOption
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
+func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, tsa TaskStoreAccessor) *App {
 	return &App{
-		home:        home,
-		cfg:         cfg,
-		provider:    provider,
-		model:       model,
-		registry:    registry,
-		startupCwd:  cwd,
-		sessions:    make(map[string]*SessionManager),
-		projects:    make(map[string]*ProjectInfo),
-		fileSvc:     make(map[string]*FileService),
-		eventBus:    NewEventBus(),
-		cancelFuncs: make(map[string]context.CancelFunc),
-		loopOpts:    loopOpts,
+		home:              home,
+		cfg:               cfg,
+		providers:         providers,
+		model:             model,
+		registry:          registry,
+		startupCwd:        cwd,
+		taskStoreAccessor: tsa,
+		sessions:          make(map[string]*SessionManager),
+		projects:          make(map[string]*ProjectInfo),
+		fileSvc:           make(map[string]*FileService),
+		eventBus:          NewEventBus(),
+		cancelFuncs:       make(map[string]context.CancelFunc),
+		loopOpts:          loopOpts,
 	}
 }
 
@@ -169,9 +172,9 @@ func (a *App) ListSessions(projectPath string) ([]SessionInfo, error) {
 	return sm.List()
 }
 
-func (a *App) NewSession(projectPath, model string) (*SessionInfo, error) {
+func (a *App) NewSession(projectPath, providerID, model string) (*SessionInfo, error) {
 	sm := a.getSessionManager(projectPath)
-	s, err := sm.New(model, a.cfg.ModelProvider)
+	s, err := sm.New(model, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +190,42 @@ func (a *App) NewSession(projectPath, model string) (*SessionInfo, error) {
 	}, nil
 }
 
-func (a *App) GetModels() ([]engine2.Model, error) {
-	return a.provider.ListModels(a.ctx)
+func (a *App) GetProviders() []ProviderInfo {
+	result := make([]ProviderInfo, 0, len(a.cfg.ModelProviders))
+	for id, pc := range a.cfg.ModelProviders {
+		displayName := pc.Name
+		if displayName == "" {
+			displayName = id
+		}
+		result = append(result, ProviderInfo{ID: id, DisplayName: displayName})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+	return result
+}
+
+func (a *App) GetModels(providerID string) ([]engine2.Model, error) {
+	p, ok := a.providers[providerID]
+	if !ok {
+		return nil, fmt.Errorf("provider %q not available", providerID)
+	}
+	return p.ListModels(a.ctx)
+}
+
+func (a *App) PersistSelection(providerID, modelID string) {
+	a.cfg.ModelProvider = providerID
+	a.cfg.Model = modelID
+
+	configPath := filepath.Join(a.home, ".monika", "config.yaml")
+	data, err := yaml.Marshal(&a.cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to marshal config: %v\n", err)
+		return
+	}
+	if err := os.WriteFile(configPath, data, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to write config: %v\n", err)
+	}
 }
 
 func (a *App) DeleteSession(projectPath, sessionID string) error {
@@ -201,7 +238,7 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	return sm.Load(sessionID)
 }
 
-func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
+func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string) error {
 	sm := a.getSessionManager(projectPath)
 	sm.Lock()
 	defer sm.Unlock()
@@ -221,6 +258,11 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	a.cancelFuncs[sessionID] = cancel
 	a.cancelMu.Unlock()
 
+	providerEng, ok := a.providers[providerID]
+	if !ok {
+		return fmt.Errorf("provider %q not available", providerID)
+	}
+
 	conv := &agent2.Conversation{
 		ID:               s.ID,
 		Messages:         s.Messages,
@@ -231,9 +273,17 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	}
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
-	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
-	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
-	loop := agent2.NewLoop(a.provider, a.registry, opts...)
+	opts = append(opts,
+		agent2.WithProjectDir(projectPath),
+		agent2.WithProvider(providerID),
+		agent2.WithModel(model),
+	)
+	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q provider=%q\n", projectPath, providerID)
+	loop := agent2.NewLoop(providerEng, a.registry, opts...)
+
+	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
+		fmt.Fprintf(os.Stderr, "[monika DEBUG] context limit from config: %d for %s/%s\n", limit, providerID, model)
+	}
 
 	go func() {
 		defer cancel()
@@ -350,6 +400,17 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 		return nil, err
 	}
 	return &dr, nil
+}
+
+func (a *App) resolveModelContextLimit(providerID, modelID string) int64 {
+	if pc, ok := a.cfg.ModelProviders[providerID]; ok {
+		for _, m := range pc.Models {
+			if m.ID == modelID && m.ContextLimit.Int64() > 0 {
+				return m.ContextLimit.Int64()
+			}
+		}
+	}
+	return 0
 }
 
 func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
