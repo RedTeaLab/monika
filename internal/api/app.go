@@ -42,6 +42,7 @@ type App struct {
 	taskStoreAccessor TaskStoreAccessor
 	agentRegistry     *agent2.AgentRegistry
 	taskRunner        *agent2.TaskRunner
+	childSessions     map[string]*agent2.ChildSession // keyed by child session ID
 	loopOpts          []agent2.LoopOption
 }
 
@@ -61,8 +62,23 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 		taskStoreAccessor: taskStoreAccessor,
 		agentRegistry:    agentRegistry,
 		taskRunner:       taskRunner,
+		childSessions:    make(map[string]*agent2.ChildSession),
 		loopOpts:         loopOpts,
 	}
+}
+
+// SaveChildSession stores a completed child agent session.
+func (a *App) SaveChildSession(sessionID string, child *agent2.ChildSession) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.childSessions[sessionID] = child
+}
+
+// LoadChildSession returns a completed child agent session, or nil.
+func (a *App) LoadChildSession(sessionID string) *agent2.ChildSession {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.childSessions[sessionID]
 }
 
 func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOptions) error {
@@ -203,6 +219,17 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 }
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
+	// Check child sessions first (they live in memory, not on disk)
+	if strings.HasPrefix(sessionID, "sub_") {
+		if child := a.LoadChildSession(sessionID); child != nil {
+			return &Session{
+				ID:       sessionID,
+				Title:    child.Title,
+				Messages: child.Messages,
+				Status:   StatusSuccess,
+			}, nil
+		}
+	}
 	sm := a.getSessionManager(projectPath)
 	return sm.Load(sessionID)
 }

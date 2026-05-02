@@ -10,7 +10,7 @@ func TestTaskRunner_Dispatch_AgentNotFound(t *testing.T) {
 	registry := NewAgentRegistry([]Agent{
 		{Name: "general", SystemPrompt: "test"},
 	})
-	runner := NewTaskRunner(registry, nil, nil)
+	runner := NewTaskRunner(registry, nil, nil, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -38,7 +38,7 @@ func TestTaskRunner_Dispatch_Cancellation(t *testing.T) {
 	registry := NewAgentRegistry([]Agent{
 		{Name: "general", SystemPrompt: "test"},
 	})
-	runner := NewTaskRunner(registry, nil, nil)
+	runner := NewTaskRunner(registry, nil, nil, nil)
 
 	// Fill all slots so Dispatch blocks on semaphore, giving cancel time to win
 	for i := 0; i < MaxConcurrentSubtasks; i++ {

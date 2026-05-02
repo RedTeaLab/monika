@@ -95,8 +95,10 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 		}, nil
 	}
 
+	id := generateSubTaskID()
 	task := agent.SubTask{
-		ID:          generateSubTaskID(),
+		ID:          id,
+		SessionID:   id, // frontend loads child session by this ID
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,

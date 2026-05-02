@@ -10,19 +10,30 @@ import (
 
 const MaxConcurrentSubtasks = 4
 
-type TaskRunner struct {
-	registry *AgentRegistry
-	provider engine.ProviderEngine
-	tools    *tool.ToolRegistry
-	sem      chan struct{}
+// ChildSession holds the result of a completed child agent run.
+type ChildSession struct {
+	Messages   []engine.ChatMessage
+	Agent      string
+	ParentID   string
+	Title      string
+	TokenCount int64
 }
 
-func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, tools *tool.ToolRegistry) *TaskRunner {
+type TaskRunner struct {
+	registry   *AgentRegistry
+	provider   engine.ProviderEngine
+	tools      *tool.ToolRegistry
+	sem        chan struct{}
+	onComplete func(task SubTask, child *ChildSession)
+}
+
+func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, tools *tool.ToolRegistry, onComplete func(task SubTask, child *ChildSession)) *TaskRunner {
 	return &TaskRunner{
-		registry: registry,
-		provider: provider,
-		tools:    tools,
-		sem:      make(chan struct{}, MaxConcurrentSubtasks),
+		registry:   registry,
+		provider:   provider,
+		tools:      tools,
+		sem:        make(chan struct{}, MaxConcurrentSubtasks),
+		onComplete: onComplete,
 	}
 }
 
@@ -67,6 +78,17 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 			case <-ctx.Done():
 				return
 			}
+		}
+
+		// Notify completion so caller can persist the child session
+		if r.onComplete != nil && len(childConv.Messages) > 0 {
+			r.onComplete(task, &ChildSession{
+				Messages:   childConv.Messages,
+				Agent:      ag.Name,
+				ParentID:   task.SessionID,
+				Title:      task.Description,
+				TokenCount: childConv.TokenCount,
+			})
 		}
 	}()
 

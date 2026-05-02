@@ -93,8 +93,15 @@ func main() {
 		},
 	})
 
-	// Create task runner for subagent dispatch
-	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry)
+	// Create task runner for subagent dispatch.
+	// onComplete stores child sessions in the App so the frontend can load them.
+	var appService *api.App
+	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry,
+		func(task agent.SubTask, child *agent.ChildSession) {
+			if appService != nil {
+				appService.SaveChildSession(task.SessionID, child)
+			}
+		})
 
 	// Register SpawnAgent tool
 	builtin.RegisterSpawnAgent(registry, agentRegistry, func(ctx context.Context, task agent.SubTask) <-chan agent.Event {
@@ -106,7 +113,7 @@ func main() {
 		taskStoreAccessor = accessor
 	}
 
-	appService := api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
+	appService = api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {
