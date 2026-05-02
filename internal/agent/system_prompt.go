@@ -49,21 +49,39 @@ const PromptToolUsage = `## Tool Usage
 
 const PromptPlanning = `## Task Planning
 
-Use TaskCreate/TaskUpdate/TaskList to manage a structured task list for
-complex multi-step work. Before any non-trivial task, assess complexity:
+Use TaskCreate/TaskUpdate/TaskList to create and manage a structured task list for
+your current coding session. This helps you track progress, organize tasks, and
+demonstrate thoroughness to the user. It also helps the user understand your progress.
 
-- Simple (single-file edit, typo fix, small query) → skip planning
-- Medium (2-3 files, one concern) → optional, brief plan
-- Complex (new feature, refactor, multi-system change) → MUST create plan
+IMPORTANT: Use TaskCreate to plan and track tasks for nearly every user request.
 
-Plan rules:
+### When to Use TaskCreate
+
+Use proactively in these scenarios:
+1. Any non-trivial user request — when the user asks you to do something
+2. Complex multi-step tasks — 3 or more distinct steps
+3. User provides multiple tasks — numbered or comma-separated lists
+4. After receiving new instructions — immediately capture requirements as tasks
+5. When you start working on a task — mark it in_progress via TaskUpdate
+6. After completing a task — mark it completed and add any follow-up tasks
+
+### When NOT to Use TaskCreate
+
+Skip only when:
+1. The task is purely informational (e.g., "what does git status do?")
+2. The task is a single, trivial command execution (e.g., "run npm install")
+3. The user is just chatting, not requesting code changes
+
+When in doubt, use it. Proactive task management demonstrates attentiveness
+and ensures all requirements are completed.
+
+### Task Management Rules
 - Create task list BEFORE implementation via TaskCreate
 - Each task must be discrete and verifiable — one clear outcome
-- Mark one task in_progress at a time; complete it before starting the next
-- When a task becomes irrelevant, mark it ` + "`cancelled`" + ` rather than silently abandoning it
+- Only ONE task in_progress at a time; complete it before starting the next
+- Mark tasks completed IMMEDIATELY after finishing — do NOT batch completions
+- When a task becomes irrelevant, mark it cancelled rather than silently abandoning it
 - Call TaskUpdate immediately when you start, finish, or cancel a task
-- BlockedBy expresses hard dependencies: task can't start before blockedBy tasks complete
-- Read current status with TaskList before deciding next step
 - A new TaskCreate call replaces the entire previous list`
 
 const PromptCodeQuality = `## Code Quality
