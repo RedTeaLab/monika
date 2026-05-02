@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
+import { formatTokens } from '../../lib/format'
 
 interface ToolCall {
   name: string
@@ -11,13 +12,16 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction'
   content: string
   thinking?: string
   tools?: ToolCall[]
   model?: string
   duration?: number
   startedAt?: number
+  compactionNum?: number
+  beforeTokens?: number
+  afterTokens?: number
 }
 
 /* ---- role label ---- */
@@ -25,7 +29,8 @@ interface Message {
 const ROLE_LABEL: Record<string, { text: string; color: string }> = {
   user:      { text: 'You',       color: 'var(--text-dim)' },
   assistant: { text: 'Assistant', color: 'var(--text-dim)' },
-  error:     { text: 'Error',     color: 'var(--red)' },
+  error:      { text: 'Error',     color: 'var(--red)' },
+  compaction: { text: 'Compacted', color: '#c6902f' },
 }
 
 function RoleLabel({ role, isGenerating, model, duration }: {
@@ -375,6 +380,52 @@ function formatJsonLine(line: string): React.ReactNode {
   )
 }
 
+/* ---- compaction card ---- */
+
+function CompactionCard({ message }: { message: Message }) {
+  const [open, setOpen] = useState(true)
+
+  const beforeStr = message.beforeTokens ? formatTokens(message.beforeTokens) : ''
+  const afterStr = message.afterTokens ? formatTokens(message.afterTokens) : ''
+  const reduction = message.beforeTokens && message.afterTokens
+    ? Math.round((1 - message.afterTokens / message.beforeTokens) * 100)
+    : 0
+
+  return (
+    <MsgBlock
+      accent="#c6902f"
+      background="var(--bg-sidebar)"
+      header={
+        <button
+          className="flex items-center gap-1.5 cursor-pointer w-full text-left"
+          onClick={() => setOpen(!open)}
+          aria-label={open ? 'Collapse compaction summary' : 'Expand compaction summary'}
+        >
+          <IconChevronDown
+            size={10}
+            className="transition-transform duration-200"
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: '#c6902f' }}
+          />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: '#c6902f' }}>
+            Conversation Compacted
+          </span>
+          {message.compactionNum != null && message.compactionNum > 1 && (
+            <span className="text-[10px]" style={{ color: 'var(--text-dim)' }}>
+              #{message.compactionNum}
+            </span>
+          )}
+          <span className="text-[10px] ml-auto" style={{ color: 'var(--text-dim)' }}>
+            {beforeStr} → {afterStr}
+            {reduction > 0 && ` (-${reduction}%)`}
+          </span>
+        </button>
+      }
+    >
+      {open && <MarkdownBlock content={message.content} muted />}
+    </MsgBlock>
+  )
+}
+
 /* ---- message bubble (router) ---- */
 
 interface MessageBubbleProps {
@@ -384,6 +435,15 @@ interface MessageBubbleProps {
 
 function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
   const { role, content, thinking, tools, model, duration } = message
+
+  if (role === 'compaction') {
+    return (
+      <div className="flex flex-col gap-1.5 mb-1.5">
+        <RoleLabel role="compaction" />
+        <CompactionCard message={message} />
+      </div>
+    )
+  }
 
   if (role === 'system') {
     return (

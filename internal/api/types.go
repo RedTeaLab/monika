@@ -9,8 +9,9 @@ type StreamEvent struct {
 	Model      string            `json:"model,omitempty"`
 	Tool       *agent.ToolEvent  `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent `json:"usage,omitempty"`
-	FileChange *FileChangeEvent  `json:"file_change,omitempty"`
-	Tasks      []agent.TaskItem  `json:"tasks,omitempty"`
+	FileChange *FileChangeEvent        `json:"file_change,omitempty"`
+	Compacting *agent.CompactingEvent  `json:"compacting,omitempty"`
+	Compaction *agent.CompactionEvent  `json:"compaction,omitempty"`
 }
 
 type FileChangeEvent struct {
@@ -46,8 +47,10 @@ type BranchInfo struct {
 type SessionInfo struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
-	Status    string `json:"status"`
-	UpdatedAt string `json:"updated_at"`
+	Status     string `json:"status"`
+	UpdatedAt  string `json:"updated_at"`
+	TokenCount int64  `json:"token_count,omitempty"`
+	TokenMax   int64  `json:"token_max,omitempty"`
 }
 
 type FileContent struct {

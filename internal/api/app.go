@@ -39,11 +39,10 @@ type App struct {
 	cancelFuncs map[string]context.CancelFunc
 	cancelMu    sync.Mutex
 
-	loopOpts  []agent2.LoopOption
-	taskStore TaskStoreAccessor
+	loopOpts []agent2.LoopOption
 }
 
-func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStore TaskStoreAccessor) *App {
+func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption) *App {
 	return &App{
 		home:        home,
 		cfg:         cfg,
@@ -57,7 +56,6 @@ func NewApp(home, cwd string, cfg config2.Config, provider engine2.ProviderEngin
 		eventBus:    NewEventBus(),
 		cancelFuncs: make(map[string]context.CancelFunc),
 		loopOpts:    loopOpts,
-		taskStore:   taskStore,
 	}
 }
 
@@ -224,12 +222,16 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 	a.cancelMu.Unlock()
 
 	conv := &agent2.Conversation{
-		ID:       s.ID,
-		Messages: s.Messages,
+		ID:               s.ID,
+		Messages:         s.Messages,
+		TokenCount:       s.TokenCount,
+		TokenMax:         s.TokenMax,
+		CompactionCount:  s.CompactionCount,
+		ArchivedMessages: s.ArchivedMessages,
 	}
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
-	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model), agent2.WithSessionID(sessionID))
+	opts = append(opts, agent2.WithProjectDir(projectPath), agent2.WithModel(model))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q\n", projectPath)
 	loop := agent2.NewLoop(a.provider, a.registry, opts...)
 
@@ -258,6 +260,12 @@ func (a *App) SendMessage(projectPath, sessionID, text, model string) error {
 		}
 
 		s.Messages = conv.Messages
+		s.TokenCount = conv.TokenCount
+		s.TokenMax = conv.TokenMax
+		s.CompactionCount = conv.CompactionCount
+		if len(conv.ArchivedMessages) > 0 {
+			s.ArchivedMessages = conv.ArchivedMessages
+		}
 		sm.SetTitle(s)
 
 			sm.Lock()
@@ -379,21 +387,16 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Content = ev.Content
 	case agent2.EventTurnStart:
 		se.Type = "turn_start"
-	case agent2.EventTaskUpdated:
-		se.Type = "task_updated"
-		se.Tasks = ev.Tasks
+	case agent2.EventCompacting:
+		se.Type = "compacting"
+		se.Compacting = ev.Compacting
+	case agent2.EventCompaction:
+		se.Type = "compaction"
+		se.Compaction = ev.Compaction
 	}
 
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
-}
-
-// EmitTaskEvent emits a task_updated event to the frontend.
-func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
-	a.handleAgentEvent(sessionID, a.model, agent2.Event{
-		Type:  agent2.EventTaskUpdated,
-		Tasks: tasks,
-	})
 }
 
 func (a *App) getSessionManager(projectPath string) *SessionManager {
@@ -410,9 +413,6 @@ func (a *App) getSessionManager(projectPath string) *SessionManager {
 		return sm
 	}
 	sm := NewSessionManager(a.home, projectPath)
-	if a.taskStore != nil {
-		sm.SetTaskStore(a.taskStore)
-	}
 	a.sessions[projectPath] = sm
 	return sm
 }

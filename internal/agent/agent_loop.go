@@ -29,6 +29,26 @@ var modelContextLimits = map[string]int64{
 	"claude-3.7-sonnet":   200000,
 }
 
+var modelOutputLimits = map[string]int64{
+	"gpt-4o":            16384,
+	"gpt-4o-mini":       16384,
+	"gpt-4-turbo":       4096,
+	"gpt-4":             4096,
+	"gpt-3.5-turbo":     4096,
+	"deepseek-chat":     32768,
+	"deepseek-reasoner": 32768,
+	"claude-3-opus":     4096,
+	"claude-3.5-sonnet": 8192,
+	"claude-3.7-sonnet": 8192,
+}
+
+func outputLimit(model string) int64 {
+	if limit, ok := modelOutputLimits[model]; ok {
+		return limit
+	}
+	return 32768
+}
+
 func contextLimit(model string) int64 {
 	if limit, ok := modelContextLimits[model]; ok {
 		return limit
@@ -37,8 +57,202 @@ func contextLimit(model string) int64 {
 }
 
 type Conversation struct {
-	ID       string
-	Messages []engine.ChatMessage
+	ID               string
+	Messages         []engine.ChatMessage
+	ArchivedMessages []engine.ChatMessage
+	TokenCount       int64
+	TokenMax         int64
+	CompactionCount  int
+}
+
+const compactionBuffer = 20_000
+
+func (a *AgentLoop) isOverflow(conv *Conversation) bool {
+	limit := contextLimit(a.model)
+	outputMax := outputLimit(a.model)
+	usable := limit - outputMax - compactionBuffer
+	if usable <= 0 {
+		usable = limit / 2
+	}
+	estimated := a.estimateContextTokens(conv)
+	conv.TokenCount = estimated
+	conv.TokenMax = limit
+	return estimated > usable
+}
+
+func (a *AgentLoop) buildCompactionPrompt(conv *Conversation) []engine.ChatMessage {
+	prompt := `You are a conversation summarizer. Summarize the conversation below.
+Focus on information that is essential for continuing the work without
+losing context. Output a structured summary in this format:
+
+## Goal
+What the user is trying to accomplish.
+
+## Key Decisions
+Design choices, architectural decisions, agreed approaches.
+
+## Discoveries
+Important findings, bugs identified, constraints discovered.
+
+## Current State
+What has been done so far. Files created/modified, tests passing/failing.
+
+## Next Steps
+What remains to be done. Explicit TODOs mentioned by user.
+
+## Summary Quality Gate
+- Must preserve all stated user goals
+- Must preserve all agreed design decisions
+- Must preserve all discovered bugs and constraints
+- If these cannot fit, prioritize goals > decisions > discoveries`
+
+	var b strings.Builder
+	for _, m := range conv.Messages {
+		if m.ReasoningContent != "" {
+			b.WriteString(fmt.Sprintf("[%s reasoning]: %s\n", m.Role, m.ReasoningContent))
+		}
+		b.WriteString(fmt.Sprintf("[%s]: %s\n", m.Role, m.Content))
+		for _, tc := range m.ToolCalls {
+			b.WriteString(fmt.Sprintf("  [tool_call %s]: %s\n", tc.Function.Name, tc.Function.Arguments))
+		}
+	}
+
+	return []engine.ChatMessage{
+		{Role: "user", Content: prompt},
+		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + b.String()},
+	}
+}
+
+func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
+	// Archive original messages before compaction
+	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
+	copy(conv.ArchivedMessages, conv.Messages)
+
+	limit := contextLimit(a.model)
+	preserveBudget := int64(float64(limit) * 0.25)
+
+	// Walk backwards from end to find token-based retention window
+	var keepFrom int
+	var runningTokens int64
+	for i := len(conv.Messages) - 1; i >= 0; i-- {
+		m := conv.Messages[i]
+		runningTokens += int64(tokenizer.Count(m.Role))
+		runningTokens += int64(tokenizer.Count(m.Content))
+		runningTokens += int64(tokenizer.Count(m.ReasoningContent))
+		runningTokens += 4
+		if runningTokens > preserveBudget && i < len(conv.Messages)-1 {
+			keepFrom = i + 1
+			// Align to turn boundary: find next user message
+			for keepFrom < len(conv.Messages) && conv.Messages[keepFrom].Role != "user" {
+				keepFrom++
+			}
+			if keepFrom >= len(conv.Messages) {
+				keepFrom = len(conv.Messages) - 1
+			}
+			break
+		}
+	}
+
+	// Ensure at least the last complete turn is preserved
+	lastUserIdx := -1
+	for i := len(conv.Messages) - 1; i >= 0; i-- {
+		if conv.Messages[i].Role == "user" {
+			lastUserIdx = i
+			break
+		}
+	}
+	if lastUserIdx >= 0 && keepFrom > lastUserIdx {
+		keepFrom = lastUserIdx
+	}
+
+	summaryMsg := engine.ChatMessage{
+		Role:    "assistant",
+		Name:    "compaction_summary",
+		Content: summary,
+	}
+
+	recent := make([]engine.ChatMessage, len(conv.Messages)-keepFrom)
+	copy(recent, conv.Messages[keepFrom:])
+
+	conv.Messages = append([]engine.ChatMessage{summaryMsg}, recent...)
+	conv.CompactionCount++
+	conv.TokenCount = a.estimateContextTokens(conv)
+}
+
+func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch chan<- Event) error {
+	beforeTokens := conv.TokenCount
+
+	prompt := a.buildCompactionPrompt(conv)
+	req := engine.ChatRequest{
+		Model:    a.model,
+		Messages: prompt,
+	}
+
+	events, err := a.provider.StreamChat(ctx, req)
+	if err != nil {
+		return fmt.Errorf("compaction stream chat: %w", err)
+	}
+
+	var summary strings.Builder
+	for ev := range events {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		switch ev.Kind {
+		case engine.EventContentDelta:
+			summary.WriteString(ev.Text)
+		case engine.EventError:
+			return fmt.Errorf("compaction provider error: %s", ev.Error.Message)
+		}
+	}
+
+	result := summary.String()
+	if result == "" {
+		return fmt.Errorf("compaction returned empty summary")
+	}
+
+	a.rewriteMessages(conv, result)
+
+	ch <- Event{
+		Type: EventCompaction,
+		Compaction: &CompactionEvent{
+			Summary:       result,
+			BeforeTokens:  beforeTokens,
+			AfterTokens:   conv.TokenCount,
+			CompactionNum: conv.CompactionCount,
+		},
+	}
+
+	return nil
+}
+
+func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
+	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
+	copy(conv.ArchivedMessages, conv.Messages)
+
+	limit := contextLimit(a.model)
+	budget := int64(float64(limit) * 0.25)
+	var running int64
+	keepFrom := len(conv.Messages) - 1
+	for i := len(conv.Messages) - 1; i >= 0; i-- {
+		m := conv.Messages[i]
+		running += int64(tokenizer.Count(m.Role) + tokenizer.Count(m.Content) + tokenizer.Count(m.ReasoningContent) + 4)
+		if running > budget && i < len(conv.Messages)-1 {
+			keepFrom = i + 1
+			break
+		}
+	}
+	for keepFrom < len(conv.Messages) && conv.Messages[keepFrom].Role != "user" {
+		keepFrom++
+	}
+	if keepFrom >= len(conv.Messages) {
+		keepFrom = len(conv.Messages) - 1
+	}
+	conv.Messages = conv.Messages[keepFrom:]
+	conv.CompactionCount++
+	conv.TokenCount = a.estimateContextTokens(conv)
 }
 
 type LoopResult struct {
@@ -245,6 +459,28 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		messages := a.buildMessages(conv)
+
+		if a.isOverflow(conv) {
+			ch <- Event{
+				Type:       EventCompacting,
+				Compacting: &CompactingEvent{},
+			}
+			if err := a.runCompaction(ctx, conv, ch); err != nil {
+				beforeTokens := conv.TokenCount
+				a.rewriteMessagesTruncate(conv)
+				ch <- Event{
+					Type: EventCompaction,
+					Compaction: &CompactionEvent{
+						BeforeTokens:  beforeTokens,
+						AfterTokens:   a.estimateContextTokens(conv),
+						CompactionNum: conv.CompactionCount,
+						Summary:       "(truncated \u2014 compaction failed: " + err.Error() + ")",
+					},
+				}
+			}
+			messages = a.buildMessages(conv)
+		}
+
 		req := engine.ChatRequest{
 			Model:    a.model,
 			Messages: messages,
@@ -252,14 +488,14 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		if turn == 0 {
-			estimated := a.estimateContextTokens(conv)
-			limit := contextLimit(a.model)
+			conv.TokenCount = a.estimateContextTokens(conv)
+			conv.TokenMax = contextLimit(a.model)
 			ch <- Event{
 				Type: EventUsage,
 				Usage: UsageEvent{
-					TotalTokens: estimated,
-					ContextTokens: estimated,
-					MaxContext:  limit,
+					TotalTokens:   conv.TokenCount,
+					ContextTokens: conv.TokenCount,
+					MaxContext:    conv.TokenMax,
 				},
 			}
 		}

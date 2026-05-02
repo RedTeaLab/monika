@@ -13,15 +13,17 @@ const (
 	EventDone
 	EventSessionUpdated
 	EventTurnStart
-	EventTaskUpdated
+	EventCompacting
+	EventCompaction
 )
 
 type Event struct {
-	Type    EventType
-	Content string
-	Tool    *ToolEvent
-	Usage   UsageEvent
-	Tasks   []TaskItem
+	Type       EventType
+	Content    string
+	Tool       *ToolEvent
+	Usage      UsageEvent
+	Compacting *CompactingEvent
+	Compaction *CompactionEvent
 }
 
 type ToolEvent struct {
@@ -43,10 +45,13 @@ type UsageEvent struct {
 	MaxContext       int64 `json:"max_context"`
 }
 
-type TaskItem struct {
-	ID          string   `json:"id"`
-	Subject     string   `json:"subject"`
-	Description string   `json:"description,omitempty"`
-	Status      string   `json:"status"`
-	BlockedBy   []string `json:"blockedBy,omitempty"`
+type CompactingEvent struct {
+	SessionID string `json:"session_id"`
+}
+
+type CompactionEvent struct {
+	Summary       string `json:"summary"`
+	BeforeTokens  int64  `json:"before_tokens"`
+	AfterTokens   int64  `json:"after_tokens"`
+	CompactionNum int    `json:"compaction_num"`
 }

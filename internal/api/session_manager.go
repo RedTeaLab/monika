@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"monika/internal/tool"
 	"monika/pkg/engine"
 )
 
@@ -23,22 +22,19 @@ const (
 )
 
 type Session struct {
-	ID         string               `json:"id"`
-	Title      string               `json:"title"`
-	ProjectDir string               `json:"project_dir"`
-	Messages   []engine.ChatMessage `json:"messages"`
-	Model      string               `json:"model"`
-	Provider   string               `json:"provider"`
-	Status     string               `json:"status"`
-	CreatedAt  time.Time            `json:"created_at"`
-	UpdatedAt  time.Time            `json:"updated_at"`
-	Tasks      []tool.Task          `json:"tasks,omitempty"`
-}
-
-// TaskStoreAccessor provides snapshot/restore for persistence bridging.
-type TaskStoreAccessor interface {
-	Snapshot() map[string][]tool.Task
-	Restore(sessionID string, tasks []tool.Task)
+	ID               string               `json:"id"`
+	Title            string               `json:"title"`
+	ProjectDir       string               `json:"project_dir"`
+	Messages         []engine.ChatMessage `json:"messages"`
+	Model            string               `json:"model"`
+	Provider         string               `json:"provider"`
+	Status           string               `json:"status"`
+	TokenCount       int64                `json:"token_count,omitempty"`
+	TokenMax         int64                `json:"token_max,omitempty"`
+	CompactionCount  int                  `json:"compaction_count,omitempty"`
+	ArchivedMessages []engine.ChatMessage `json:"archived_messages,omitempty"`
+	CreatedAt        time.Time            `json:"created_at"`
+	UpdatedAt        time.Time            `json:"updated_at"`
 }
 
 type SessionManager struct {
@@ -46,7 +42,6 @@ type SessionManager struct {
 	home        string
 	projectDir  string
 	sessionsDir string
-	taskStore   TaskStoreAccessor
 }
 
 func projectSlug(projectDir string) string {
@@ -91,11 +86,6 @@ func (sm *SessionManager) New(model, provider string) (*Session, error) {
 	}, nil
 }
 
-// SetTaskStore sets the TaskStore accessor for persistence bridging.
-func (sm *SessionManager) SetTaskStore(ts TaskStoreAccessor) {
-	sm.taskStore = ts
-}
-
 func (sm *SessionManager) Load(id string) (*Session, error) {
 	p := filepath.Join(sm.sessionsDir, id+".json")
 	data, err := os.ReadFile(p)
@@ -109,26 +99,11 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 	if s.Status == "" {
 		s.Status = StatusIdle
 	}
-
-	// Restore persisted tasks to TaskStore
-	if sm.taskStore != nil && len(s.Tasks) > 0 {
-		sm.taskStore.Restore(s.ID, s.Tasks)
-	}
-
 	return &s, nil
 }
 
 func (sm *SessionManager) Save(s *Session) error {
 	s.UpdatedAt = time.Now()
-
-	// Sync tasks from TaskStore into session for persistence
-	if sm.taskStore != nil {
-		snapshot := sm.taskStore.Snapshot()
-		if tasks, ok := snapshot[s.ID]; ok {
-			s.Tasks = tasks
-		}
-	}
-
 	p := filepath.Join(sm.sessionsDir, s.ID+".json")
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
@@ -137,11 +112,7 @@ func (sm *SessionManager) Save(s *Session) error {
 	if err != nil {
 		return err
 	}
-	tmpPath := p + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmpPath, p)
+	return os.WriteFile(p, data, 0o644)
 }
 
 func (sm *SessionManager) SetStatus(s *Session, status string) {
@@ -171,10 +142,12 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 			continue
 		}
 		infos = append(infos, SessionInfo{
-			ID:        s.ID,
-			Title:     s.Title,
-			Status:    s.Status,
-			UpdatedAt: s.UpdatedAt.Format(time.RFC3339),
+			ID:         s.ID,
+			Title:      s.Title,
+			Status:     s.Status,
+			UpdatedAt:  s.UpdatedAt.Format(time.RFC3339),
+			TokenCount: s.TokenCount,
+			TokenMax:   s.TokenMax,
 		})
 	}
 	return infos, nil
