@@ -70,7 +70,7 @@ func TestLoopRunReturnsContent(t *testing.T) {
 		{Kind: engine.EventContentDelta, Text: "hello"},
 		{Kind: engine.EventMessageEnd, Text: "stop"},
 	}, nil)
-	loop := NewLoop(map[string]engine.ProviderEngine{"fake": provider}, tool.NewRegistry())
+	loop := NewLoop(provider, tool.NewRegistry())
 
 	result, err := loop.Run(context.Background(), nil, "hi")
 	if err != nil {
@@ -87,7 +87,7 @@ func TestLoopRunReturnsContent(t *testing.T) {
 func TestLoopRunPropagatesProviderError(t *testing.T) {
 	sentinel := errors.New("connection refused")
 	provider := staticProvider(nil, sentinel)
-	loop := NewLoop(map[string]engine.ProviderEngine{"fake": provider}, tool.NewRegistry())
+	loop := NewLoop(provider, tool.NewRegistry())
 
 	_, err := loop.Run(context.Background(), nil, "hi")
 	if err == nil {
@@ -135,7 +135,7 @@ func TestLoopRunToolCallLoop(t *testing.T) {
 		result:      tool.ExecutionResult{Content: "tool result"},
 	})
 
-	loop := NewLoop(map[string]engine.ProviderEngine{"fake": provider}, registry)
+	loop := NewLoop(provider, registry)
 
 	result, err := loop.Run(context.Background(), nil, "hi")
 	if err != nil {
@@ -179,7 +179,7 @@ func TestLoopRunToolNotFound(t *testing.T) {
 		},
 	}
 
-	loop := NewLoop(map[string]engine.ProviderEngine{"fake": provider}, tool.NewRegistry())
+	loop := NewLoop(provider, tool.NewRegistry())
 
 	result, err := loop.Run(context.Background(), nil, "hi")
 	if err != nil {
