@@ -144,6 +144,61 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	}, nil
 }
 
+// ExecuteStreaming runs the SpawnAgent tool with streaming event forwarding.
+// Child agent events (thinking, text, tool calls) are forwarded to the parent
+// session in real-time via the returned channel.
+func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMessage) (<-chan agent.Event, error) {
+	var params struct {
+		Description  string `json:"description"`
+		Prompt       string `json:"prompt"`
+		SubagentType string `json:"subagent_type"`
+		Mode         string `json:"mode"`
+	}
+	if err := json.Unmarshal(args, &params); err != nil {
+		return nil, fmt.Errorf("invalid arguments: %w", err)
+	}
+
+	ag, ok := t.registry.Get(params.SubagentType)
+	if !ok {
+		var available []string
+		for _, a := range t.registry.List(false) {
+			available = append(available, a.Name)
+		}
+		return nil, fmt.Errorf("agent %q not found. Available: %v", params.SubagentType, available)
+	}
+
+	if params.Mode == "" {
+		params.Mode = "blocking"
+	}
+
+	if t.dispatchFn == nil {
+		return nil, fmt.Errorf("subtask dispatch is not configured")
+	}
+
+	toolCallID := tool.ToolCallIDFromContext(ctx)
+	if toolCallID == "" {
+		toolCallID = generateSubTaskID()
+	}
+
+	if t.pendingStore != nil {
+		if parentID := tool.SessionIDFromContext(ctx); parentID != "" {
+			t.pendingStore(parentID, toolCallID)
+		}
+	}
+
+	task := agent.SubTask{
+		ID:          toolCallID,
+		SessionID:   toolCallID,
+		Type:        agent.TaskSubtask,
+		Agent:       ag.Name,
+		Description: params.Description,
+		Prompt:      params.Prompt,
+		Status:      "pending",
+	}
+
+	return t.dispatchFn(ctx, task), nil
+}
+
 func generateSubTaskID() string {
 	b := make([]byte, 8)
 	rand.Read(b)

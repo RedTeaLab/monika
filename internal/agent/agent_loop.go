@@ -786,6 +786,51 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
 			}
 			toolCtx = tool.WithToolCallID(toolCtx, tc.ID)
+			// Check for streaming execution (e.g. SpawnAgent forwards child events)
+			type streamingTool interface {
+				ExecuteStreaming(ctx context.Context, args json.RawMessage) (<-chan Event, error)
+			}
+			if st, ok := t.(streamingTool); ok {
+				eventCh, execErr := st.ExecuteStreaming(toolCtx, json.RawMessage(tc.Function.Arguments))
+				if execErr != nil {
+					ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
+						ID: tc.ID, Name: tc.Function.Name,
+						Input: tc.Function.Arguments, Output: execErr.Error(), Status: "error",
+					}}
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role: "tool", Content: fmt.Sprintf("error: %s", execErr),
+						ToolCallID: tc.ID, Name: tc.Function.Name,
+					})
+					continue
+				}
+				var streamOutput strings.Builder
+				for ev := range eventCh {
+					switch ev.Type {
+					case EventTextDelta, EventThinking:
+						ch <- ev
+						streamOutput.WriteString(ev.Content)
+					case EventToolStart, EventToolDone, EventToolOutput:
+						ch <- ev
+					case EventError:
+						ch <- ev
+					default:
+						ch <- ev
+					}
+				}
+				toolContent := streamOutput.String()
+				if toolContent == "" {
+					toolContent = "(subtask completed with no output)"
+				}
+				ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
+					ID: tc.ID, Name: tc.Function.Name,
+					Input: tc.Function.Arguments, Output: toolContent, Status: "done",
+				}}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role: "tool", Content: toolContent,
+					ToolCallID: tc.ID, Name: tc.Function.Name,
+				})
+				continue
+			}
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
 				ch <- Event{
