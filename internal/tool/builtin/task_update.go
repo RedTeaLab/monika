@@ -19,8 +19,14 @@ func NewTaskUpdate(store tool.TaskStore) tool.Tool {
 func (t *taskUpdateTool) Name() string { return "TaskUpdate" }
 
 func (t *taskUpdateTool) Description() string {
-	return "Update a single task's fields. Only provided fields are updated; others remain unchanged. " +
-		"Use this to mark tasks in_progress, completed, or cancelled as you work."
+	return "Update a single task's fields. Only provided fields are updated; " +
+		"others remain unchanged.\n\n" +
+		"CRITICAL: Call TaskUpdate IMMEDIATELY when you:\n" +
+		"- Start working on a task → set status to \"in_progress\"\n" +
+		"- Finish a task → set status to \"completed\"\n" +
+		"- Abandon a task → set status to \"cancelled\"\n\n" +
+		"Do NOT batch updates — mark each task done right after finishing it, " +
+		"before moving to the next one. Only ONE task in_progress at a time."
 }
 
 func (t *taskUpdateTool) Parameters() map[string]any {
