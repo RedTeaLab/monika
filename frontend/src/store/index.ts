@@ -768,9 +768,12 @@ export function setupWailsEvents() {
     const data = ev.data as StreamEvent
     const sid = data.session_id
 
-    // Shadow path: 无 session_id 或 session 已关闭
+    // Auto-create entry for child session so streaming events are buffered
+    if (sid && (sid.startsWith('call_') || sid.startsWith('sub_')) && !store.sessionMessages[sid]) {
+      useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
+    }
+    // Drop events with no session_id or session that was explicitly closed
     if (!sid || !store.sessionMessages[sid]) {
-      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
       return
     }
 

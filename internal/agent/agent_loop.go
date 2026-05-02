@@ -804,7 +804,9 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					continue
 				}
 				var streamOutput strings.Builder
+				childSID := tc.ID // tool call ID = child session ID
 				for ev := range eventCh {
+					ev.SessionID = childSID // tag so frontend routes to child tab
 					switch ev.Type {
 					case EventTextDelta, EventThinking:
 						ch <- ev

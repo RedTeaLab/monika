@@ -409,8 +409,13 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 }
 
 func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
+	// Route to child session if event carries its own session ID
+	sid := sessionID
+	if ev.SessionID != "" {
+		sid = ev.SessionID
+	}
 	se := StreamEvent{
-		SessionID: sessionID,
+		SessionID: sid,
 		Model:     model,
 	}
 
