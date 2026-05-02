@@ -24,15 +24,17 @@ type TaskRunner struct {
 	provider   engine.ProviderEngine
 	tools      *tool.ToolRegistry
 	sem        chan struct{}
+	onStart    func(task SubTask, agentName string) // called before child runs
 	onComplete func(task SubTask, child *ChildSession)
 }
 
-func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, tools *tool.ToolRegistry, onComplete func(task SubTask, child *ChildSession)) *TaskRunner {
+func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, tools *tool.ToolRegistry, onStart func(task SubTask, agentName string), onComplete func(task SubTask, child *ChildSession)) *TaskRunner {
 	return &TaskRunner{
 		registry:   registry,
 		provider:   provider,
 		tools:      tools,
 		sem:        make(chan struct{}, MaxConcurrentSubtasks),
+		onStart:    onStart,
 		onComplete: onComplete,
 	}
 }
@@ -60,6 +62,11 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 		if !ok {
 			resultCh <- Event{Type: EventError, Content: fmt.Sprintf("agent %q not found", task.Agent)}
 			return
+		}
+
+		// Notify before running so the frontend can open the tab immediately
+		if r.onStart != nil {
+			r.onStart(task, ag.Name)
 		}
 
 		child := NewLoop(r.provider, r.tools,

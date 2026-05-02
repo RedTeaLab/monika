@@ -15,6 +15,7 @@ import (
 	"monika/internal/bootstrap"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
+	engine2 "monika/pkg/engine"
 
 	_ "monika/internal/engines/mcp"
 	_ "monika/internal/engines/provider/deepseek"
@@ -94,9 +95,22 @@ func main() {
 	})
 
 	// Create task runner for subagent dispatch.
-	// onComplete stores child sessions in the App so the frontend can load them.
+	// onStart preregisters the child session so the frontend can open the tab during running.
+	// onComplete stores the full execution results.
 	var appService *api.App
 	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry,
+		func(task agent.SubTask, agentName string) {
+			if appService != nil {
+				// Save a minimal session immediately so the tab can be opened
+				appService.SaveChildSession(task.SessionID, &agent.ChildSession{
+					Agent:  agentName,
+					Title:  task.Description,
+					Messages: []engine2.ChatMessage{
+						{Role: "user", Content: task.Prompt},
+					},
+				})
+			}
+		},
 		func(task agent.SubTask, child *agent.ChildSession) {
 			if appService != nil {
 				appService.SaveChildSession(task.SessionID, child)

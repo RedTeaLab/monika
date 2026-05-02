@@ -62,6 +62,8 @@ const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
   }
 
   const handleClick = () => {
+    // During running, task_id isn't known yet (generated inside SpawnAgent tool).
+    // Streaming child execution view requires DispatchStreaming mode (Phase 4).
     if (isRunning) return
     if (taskId) {
       openSessionTab(taskId, `${subagentType} · ${info.description}`)
@@ -74,7 +76,7 @@ const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
       style={{
         background: 'var(--bg-card)',
         borderColor: 'var(--border)',
-        cursor: isRunning ? 'default' : 'pointer',
+        cursor: isRunning ? 'not-allowed' : 'pointer',
       }}
       onClick={handleClick}
       onMouseEnter={(e) => { if (!isRunning) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
