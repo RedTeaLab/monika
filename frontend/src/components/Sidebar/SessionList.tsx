@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import { IconPlus, IconTrash } from '../Icons'
 import ConfirmModal from '../Chat/ConfirmModal'
 
-function SessionList() {
+function SessionList(props: IDockviewPanelProps) {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -56,6 +57,22 @@ function SessionList() {
     const session = sessions.find((s) => s.id === id)
     const title = session?.title || 'Untitled'
     await openSessionTab(id, title)
+
+    const dockApi = useStore.getState().dockviewApi
+    if (dockApi) {
+      const existing = dockApi.getPanel(id)
+      if (existing) {
+        existing.api.setActive()
+      } else {
+        dockApi.addPanel({
+          id,
+          component: 'chat',
+          tabComponent: 'chat-tab',
+          title,
+          params: { sessionId: id },
+        })
+      }
+    }
   }
 
   const handleDeleteClick = (s: SessionInfo, e: React.MouseEvent) => {
