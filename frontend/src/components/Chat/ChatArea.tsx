@@ -1,14 +1,15 @@
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect } from 'react'
+import { IDockviewPanelProps } from 'dockview'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import TabBar from '../TabBar/TabBar'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
-function ChatArea() {
-  const messages = useStore((s) => s.messages)
+function ChatArea(props: IDockviewPanelProps) {
+  const sessionId = (props.params as { sessionId?: string } | undefined)?.sessionId || props.api.id
+
   const generatingSessionId = useStore((s) => s.generatingSessionId)
   const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
@@ -18,22 +19,20 @@ function ChatArea() {
   const clearMessages = useStore((s) => s.clearMessages)
   const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
-  const activeSessionId = useStore((s) => s.activeSessionId)
   const sessionParents = useStore((s) => s.sessionParents)
-  const openSessions = useStore((s) => s.openSessions)
-  const closeSessionTab = useStore((s) => s.closeSessionTab)
-  const switchSessionTab = useStore((s) => s.switchSessionTab)
+  const sessionMessages = useStore((s) => s.sessionMessages)
   const setGeneratingSessionId = useStore((s) => s.setGeneratingSessionId)
 
-  const sessionTabs = useMemo(() => openSessions.map((s) => ({
-    key: s.id,
-    label: s.title || 'Untitled',
-    status: (generatingSessionId === s.id ? 'generating' as const : 'idle' as const),
-  })), [openSessions, generatingSessionId])
+  const isChildSession = sessionParents[sessionId] !== undefined
+  const messages = sessionMessages[sessionId] || []
+
+  const todoCollapsed = useStore((s) => s.todoCollapsed)
+  const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
+  const isTodoCollapsed = todoCollapsed[sessionId] || false
 
   const handleStop = () => {
-    if (generatingSessionId !== '') {
-      App.CancelGeneration(generatingSessionId)
+    if (generatingSessionId === sessionId) {
+      App.CancelGeneration(sessionId)
     }
   }
 
@@ -48,7 +47,7 @@ function ChatArea() {
       return
     }
 
-    if (!projectPath || !activeSessionId) {
+    if (!projectPath || !sessionId) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No project or session selected.' })
       return
     }
@@ -65,39 +64,25 @@ function ChatArea() {
 
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
-    appendToSession(activeSessionId, [userMsg, assistantMsg])
-    setGeneratingSessionId(activeSessionId)
+    appendToSession(sessionId, [userMsg, assistantMsg])
+    setGeneratingSessionId(sessionId)
 
     try {
-      await App.SendMessage(projectPath, activeSessionId, text, selectedProvider, selectedModel)
+      await App.SendMessage(projectPath, sessionId, text, selectedProvider, selectedModel)
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGeneratingSessionId('')
-      // Remove the orphaned assistant placeholder on send failure
-      const currentMsgs = useStore.getState().messages
+      const currentMsgs = useStore.getState().sessionMessages[sessionId] || []
       setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
     }
   }
 
-  const hasActiveSession = activeSessionId !== ''
-  const isChildSession = sessionParents[activeSessionId] !== undefined
-  const todoCollapsed = useStore((s) => s.todoCollapsed)
-  const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
-  const isTodoCollapsed = activeSessionId ? (todoCollapsed[activeSessionId] || false) : false
-
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastScrollRef = useRef(0)
-  const prevSessionRef = useRef(activeSessionId)
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    // Force scroll to bottom on session switch
-    if (prevSessionRef.current !== activeSessionId) {
-      prevSessionRef.current = activeSessionId
-      el.scrollTop = el.scrollHeight
-      return
-    }
     const now = performance.now()
     if (now - lastScrollRef.current < 50) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
@@ -105,10 +90,9 @@ function ChatArea() {
       lastScrollRef.current = now
       el.scrollTop = el.scrollHeight
     }
-  }, [messages, activeSessionId])
+  }, [messages])
 
-  // Last assistant message index in the active display — so we can flag it as generating
-  const isGenerating = generatingSessionId !== '' && generatingSessionId === activeSessionId
+  const isGenerating = generatingSessionId !== '' && generatingSessionId === sessionId
   let generatingIdx = -1
   if (isGenerating) {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -121,19 +105,8 @@ function ChatArea() {
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-root)]">
-      <TabBar
-        tabs={sessionTabs}
-        activeKey={activeSessionId}
-        onSelect={(key) => switchSessionTab(key)}
-        onClose={(key) => closeSessionTab(key)}
-        emptyLabel="Chat"
-      />
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
-        {!hasActiveSession ? (
-          <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
-            Start a session to chat
-          </div>
-        ) : messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
             No messages yet. Start a conversation.
           </div>
@@ -149,18 +122,18 @@ function ChatArea() {
       </div>
       <TodoPanel
         collapsed={isTodoCollapsed}
-        onToggle={() => activeSessionId && setTodoCollapsed(activeSessionId, !isTodoCollapsed)}
+        onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
       />
-      {hasActiveSession && !isChildSession && (
+      {!isChildSession && (
         <ChatInput
-          key={activeSessionId}
+          key={sessionId}
           onSend={handleSend}
           onStop={handleStop}
           disabled={generatingSessionId !== ''}
           compacting={compactingSessionId !== ''}
         />
       )}
-      {hasActiveSession && isChildSession && (
+      {isChildSession && (
         <SubagentFooter />
       )}
     </div>
