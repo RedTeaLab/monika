@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo } from '../../bindings/monika'
+import type { DockviewApi } from 'dockview'
 
 export interface TaskItem {
   id: string
@@ -16,8 +17,6 @@ export interface ConsoleLine {
   text: string
   meta?: string  // secondary info: tool name for cmd, path for file, etc.
 }
-
-export type LayoutMode = 'chat' | 'split' | 'files'
 
 interface ToolCall {
   id?: string
@@ -68,11 +67,10 @@ interface AppState {
   activeSessionId: string
   sessionParents: Record<string, string>
   consoleLines: string[]
-  layoutMode: LayoutMode
-  splitRatio: number
   activeFilePath: string
   fileTreeVersion: number
   sessionListVersion: number
+  dockviewApi: DockviewApi | null
 
   openSessions: SessionTabInfo[]
   sessionMessages: Record<string, Message[]>
@@ -111,8 +109,7 @@ interface AppState {
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
   addConsoleLine: (line: string) => void
-  setLayoutMode: (mode: LayoutMode) => void
-  setSplitRatio: (ratio: number) => void
+  setDockviewApi: (api: DockviewApi | null) => void
   bumpFileTreeVersion: () => void
   bumpSessionListVersion: () => void
   updateSessionTitle: (id: string, title: string) => void
@@ -152,11 +149,10 @@ export const useStore = create<AppState>((set, get) => ({
   activeSessionId: '',
   sessionParents: {},
   consoleLines: ['$ ready'],
-  layoutMode: 'split',
-  splitRatio: 0.6,
   activeFilePath: '',
   fileTreeVersion: 0,
   sessionListVersion: 0,
+  dockviewApi: null as DockviewApi | null,
 
   openSessions: [],
   sessionMessages: {},
@@ -451,8 +447,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
   addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
-  setLayoutMode: (mode) => set({ layoutMode: mode }),
-  setSplitRatio: (ratio) => set({ splitRatio: ratio }),
+  setDockviewApi: (api) => set({ dockviewApi: api }),
 
   openSessionTab: async (id, title) => {
     const state = useStore.getState()
