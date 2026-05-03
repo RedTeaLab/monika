@@ -1,4 +1,5 @@
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { IDockviewPanelProps } from 'dockview'
 import { EditorState, Compartment } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
@@ -9,7 +10,6 @@ import { json } from '@codemirror/lang-json'
 import { go } from '@codemirror/lang-go'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import TabBar from '../TabBar/TabBar'
 import ConfirmModal from '../Chat/ConfirmModal'
 
 const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
@@ -38,15 +38,16 @@ function getLangExtension(filePath: string) {
   return []
 }
 
-function FileEditor() {
+function FileEditor(props: IDockviewPanelProps) {
   const openFiles = useStore((s) => s.openFiles)
-  const activeFilePath = useStore((s) => s.activeFilePath)
   const closeFileTab = useStore((s) => s.closeFileTab)
-  const switchFileTab = useStore((s) => s.switchFileTab)
   const updateFileContent = useStore((s) => s.updateFileContent)
   const setFileMode = useStore((s) => s.setFileMode)
   const setFileDirty = useStore((s) => s.setFileDirty)
   const projectPath = useStore((s) => s.projectPath)
+
+  const paramsPath = (props.params as { filePath?: string } | undefined)?.filePath
+  const activeFilePath = paramsPath || props.api.id
 
   const editorCache = useRef<Map<string, EditorView>>(new Map())
   const lruOrder = useRef<string[]>([])
@@ -208,44 +209,10 @@ function FileEditor() {
     }
   }, [])
 
-  const handleClose = useCallback((path: string) => {
-    const file = openFiles.find((f) => f.path === path)
-    if (file?.isDirty) {
-      setDirtyClosePath(path)
-      return
-    }
-    const view = editorCache.current.get(path)
-    if (view) {
-      view.destroy()
-      editorCache.current.delete(path)
-    }
-    lruOrder.current = lruOrder.current.filter((p) => p !== path)
-    containerRefs.current.delete(path)
-    closeFileTab(path)
-  }, [openFiles, closeFileTab])
-
-  const handleSelect = useCallback(async (path: string) => {
-    if (path === activeFilePath) return
-    switchFileTab(path)
-    try {
-      const state = useStore.getState()
-      const result = await App.ReadFile(state.projectPath, path)
-      if (result) updateFileContent(path, result.content || '')
-    } catch {
-      // File may have been deleted — keep cached content
-    }
-  }, [activeFilePath, switchFileTab, updateFileContent])
-
-  const fileTabs = useMemo(() => openFiles.map((f) => ({
-    key: f.path,
-    label: f.path.split('/').pop() || f.path.split('\\').pop() || f.path,
-    dirty: f.isDirty,
-  })), [openFiles])
 
   if (openFiles.length === 0) {
     return (
       <div className="flex-1 flex flex-col min-w-0">
-        <TabBar tabs={[]} activeKey="" onSelect={() => {}} onClose={() => {}} emptyLabel="Preview" />
         <div className="flex-1 flex items-center justify-center bg-[var(--bg-root)]">
           <span className="text-[13px] text-[var(--text-dim)]">Select a file to preview</span>
         </div>
@@ -255,13 +222,6 @@ function FileEditor() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      <TabBar
-        tabs={fileTabs}
-        activeKey={activeFilePath}
-        onSelect={handleSelect}
-        onClose={handleClose}
-        emptyLabel="Preview"
-      />
       <div className="flex-1 relative" style={{ background: 'var(--bg-root)' }}>
         {currentMode === 'diff' ? (
           <div className="absolute inset-0 overflow-auto font-mono text-[13px] leading-relaxed"
