@@ -562,7 +562,7 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
 	se := StreamEvent{
 		SessionID: sessionID,
-		Type:      "task_update",
+		Type:      "task_updated",
 		Tasks:     tasks,
 	}
 	a.eventBus.Emit(se)
