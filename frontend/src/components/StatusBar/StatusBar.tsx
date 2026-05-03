@@ -1,15 +1,10 @@
 import { useStore } from '../../store'
-import { IconSidebar, IconConsole, IconFolder, IconCode, IconCircle } from '../Icons'
-
-interface StatusBarProps {
-  showConsole: boolean; showFileTree: boolean; showSidebar: boolean
-  onToggleConsole: () => void; onToggleFileTree: () => void; onToggleSidebar: () => void
-}
+import { IconCode, IconCircle } from '../Icons'
 
 const togClass = (active: boolean) =>
   `flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] outline-none transition-colors ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'} hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:shadow-[0_0_0_3px_var(--accent-muted)]`
 
-function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, onToggleFileTree, onToggleSidebar }: StatusBarProps) {
+function StatusBar() {
   const generating = useStore((s) => s.generatingSessionId !== '')
   const activeFilePath = useStore((s) => s.activeFilePath)
   const openFiles = useStore((s) => s.openFiles)
@@ -37,16 +32,6 @@ function StatusBar({ showConsole, showFileTree, showSidebar, onToggleConsole, on
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)]" style={{ background: 'var(--bg-elevated)', padding: '2px 4px' }}>
-        <button onClick={onToggleSidebar} title="Sidebar" className={togClass(showSidebar)} aria-label="Toggle session sidebar">
-          <IconSidebar size={13} />
-        </button>
-        <button onClick={onToggleConsole} title="Console" className={togClass(showConsole)} aria-label="Toggle console">
-          <IconConsole size={13} />
-        </button>
-        <button onClick={onToggleFileTree} title="Files" className={togClass(showFileTree)} aria-label="Toggle file tree">
-          <IconFolder size={13} />
-        </button>
-        <span className="text-[var(--border)] select-none mx-0.5">|</span>
         <button
           type="button"
           onClick={() => setFileMode(activeFilePath, currentMode === 'edit' ? 'diff' : 'edit')}

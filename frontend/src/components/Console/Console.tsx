@@ -22,7 +22,7 @@ function Console(_props: IDockviewPanelProps) {
         className="flex-1 overflow-y-auto text-[12px] text-[var(--text-dim)]"
         style={{ fontFamily: 'var(--font-mono)', padding: '8px 12px' }}
       >
-        {lines.map((line, i) => (<div key={i}>{line.text}</div>))}
+        {lines.map((line, i) => (<div key={i}>{line}</div>))}
       </div>
     </div>
   )
