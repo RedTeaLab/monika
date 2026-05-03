@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react'
 import { IDockviewPanelHeaderProps } from 'dockview'
 import { useStore } from '../../store'
 import { IconClose } from '../Icons'
 
 export function ChatTab(props: IDockviewPanelHeaderProps) {
   const sessionStatuses = useStore((s) => s.sessionStatuses)
-  const sessionErrors = useStore((s) => s.sessionErrors)
   const generatingSessionId = useStore((s) => s.generatingSessionId)
 
   const sessionId = props.api.id
@@ -18,12 +16,6 @@ export function ChatTab(props: IDockviewPanelHeaderProps) {
         : 'idle'
 
   const title = props.api.title || 'Chat'
-
-  const [isActive, setIsActive] = useState(false)
-  useEffect(() => {
-    const disp = props.api.onDidActiveChange((e) => setIsActive(e.isActive))
-    return () => disp.dispose()
-  }, [props.api])
 
   return (
     <div className="flex items-center gap-1 px-[16px] h-full text-[12px] select-none"
