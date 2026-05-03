@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react'
-import { DockviewReact, type DockviewApi, IDockviewPanelProps } from 'dockview'
+import { DockviewReact, type DockviewApi, IDockviewPanelProps, IDockviewHeaderActionsProps } from 'dockview'
 import TitleBar from './components/TitleBar/TitleBar'
 import SessionList from './components/Sidebar/SessionList'
 import ChatArea from './components/Chat/ChatArea'
@@ -7,11 +7,16 @@ import FileTree from './components/FileTree/FileTree'
 import FileEditor from './components/FileTree/FileEditor'
 import Console from './components/Console/Console'
 import StatusBar from './components/StatusBar/StatusBar'
+import ModelPicker from './components/Chat/ModelPicker'
 import { ChatTab } from './components/Panel/ChatTab'
 import { EditorTab } from './components/Panel/EditorTab'
 import { DefaultTab } from './components/Panel/DefaultTab'
 import { useLayoutPersistence } from './components/Panel/useLayoutPersistence'
 import { useStore } from './store'
+
+function ModelPickerHeader(_props: IDockviewHeaderActionsProps) {
+  return <ModelPicker />
+}
 
 const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
   chat: ChatArea,
@@ -47,6 +52,7 @@ function App() {
           components={components}
           tabComponents={tabComponents}
           defaultTabComponent={DefaultTab}
+          rightHeaderActionsComponent={ModelPickerHeader}
           onReady={handleReady}
           className="h-full"
         />
