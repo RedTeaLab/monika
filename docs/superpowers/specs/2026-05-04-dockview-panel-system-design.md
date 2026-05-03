@@ -138,21 +138,20 @@ Kept (business state):
 ### Default Layout
 
 ```
-┌──────────┬───────────────────┬──────────┐
-│ session  │  chat             │ filetree │
-│ (224px)  │  (flex)           │ (224px)  │
-│          ├───────────────────┤          │
-│          │  editor           │          │
-│          │  (flex)           │          │
-├──────────┴───────────────────┴──────────┤
-│ console (200px)                         │
-└─────────────────────────────────────────┘
+┌──────────┬──────────────┬──────────────────────┬──────────┐
+│ session  │  chat        │  editor              │ filetree │
+│ (224px)  │  (flex)      │  (flex)              │ (224px)  │
+│          │              │                      │          │
+│          │              │                      │          │
+├──────────┴──────────────┴──────────────────────┴──────────┤
+│ console (200px)                                            │
+└───────────────────────────────────────────────────────────┘
 ```
 
-- Top area: session (left, 224px) | chat+editor vertical split (center) | filetree (right, 224px)
-- Bottom: console (200px)
-- Chat and editor are in a vertical split within the center — both visible simultaneously
-- Each panel can be closed via tab × button; StatusBar toggles removed
+- session (左) | chat (中左) | editor (中右) | filetree (右) — 水平排列
+- 底部: console
+- Chat 和 editor 各占 flex 空间，通过 split 分隔
+- 每个 panel 可通过 tab × 关闭；StatusBar toggle 已移除
 
 ## Key Interactions
 
