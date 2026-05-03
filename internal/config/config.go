@@ -23,9 +23,16 @@ type Config struct {
 	Tools          ToolsConfig               `yaml:"tools"`
 }
 
+// ContextLimit is an optional token limit override for a model.
+type ContextLimit int64
+
+// Int64 returns the context limit as an int64, or 0 if unset.
+func (c ContextLimit) Int64() int64 { return int64(c) }
+
 type ModelEntry struct {
-	ID          string `yaml:"id"`
-	DisplayName string `yaml:"name"`
+	ID           string       `yaml:"id"`
+	DisplayName  string       `yaml:"name"`
+	ContextLimit ContextLimit `yaml:"context_limit,omitempty"`
 }
 
 type ProviderConfig struct {

@@ -41,16 +41,16 @@ What remains to be done. Explicit TODOs mentioned by user.
 // Model context window limits (in tokens). These are conservative defaults
 // used for client-side estimation; the API response usage is authoritative.
 var modelContextLimits = map[string]int64{
-	"gpt-4o":              128000,
-	"gpt-4o-mini":         128000,
-	"gpt-4":               8192,
-	"gpt-4-turbo":         128000,
-	"gpt-3.5-turbo":       16385,
-	"deepseek-chat":       131072,
-	"deepseek-reasoner":   131072,
-	"claude-3-opus":       200000,
-	"claude-3.5-sonnet":   200000,
-	"claude-3.7-sonnet":   200000,
+	"gpt-4o":            128000,
+	"gpt-4o-mini":       128000,
+	"gpt-4":             8192,
+	"gpt-4-turbo":       128000,
+	"gpt-3.5-turbo":     16385,
+	"deepseek-chat":     131072,
+	"deepseek-reasoner": 131072,
+	"claude-3-opus":     200000,
+	"claude-3.5-sonnet": 200000,
+	"claude-3.7-sonnet": 200000,
 }
 
 var modelOutputLimits = map[string]int64{
@@ -199,6 +199,7 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 
 	prompt := a.buildCompactionPrompt(conv)
 	req := engine.ChatRequest{
+		Provider: a.providerID,
 		Model:    a.model,
 		Messages: prompt,
 	}
@@ -340,6 +341,7 @@ type AgentLoop struct {
 	confirmFn         func(tool.Tool, json.RawMessage) bool
 	projectDir        string
 	model             string
+	providerID        string
 	modelContextLimit int64 // 0 = use hardcoded map + default
 	dispatchFn        func(ctx context.Context, task SubTask) <-chan Event
 }
@@ -373,6 +375,13 @@ func WithProjectDir(dir string) LoopOption {
 func WithModel(model string) LoopOption {
 	return func(a *AgentLoop) {
 		a.model = model
+	}
+}
+
+// WithProvider sets the provider ID (e.g. "deepseek", "openai") to use.
+func WithProvider(id string) LoopOption {
+	return func(a *AgentLoop) {
+		a.providerID = id
 	}
 }
 
@@ -426,6 +435,7 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 		messages := a.buildMessages(conv)
 
 		req := engine.ChatRequest{
+			Provider: a.providerID,
 			Model:    a.model,
 			Messages: messages,
 			Tools:    tools,
@@ -570,7 +580,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						BeforeTokens:  beforeTokens,
 						AfterTokens:   a.estimateContextTokens(conv),
 						CompactionNum: conv.CompactionCount,
-						Summary:       "(truncated \u2014 compaction failed: " + err.Error() + ")",
+						Summary:       "(truncated — compaction failed: " + err.Error() + ")",
 					},
 				}
 			}
@@ -578,6 +588,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		req := engine.ChatRequest{
+			Provider: a.providerID,
 			Model:    a.model,
 			Messages: messages,
 			Tools:    tools,

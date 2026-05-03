@@ -14,9 +14,10 @@ export {
   DiffResult,
   StreamEvent,
   WorktreeInfo,
+  ProviderInfo,
 } from "./internal/api/models.js";
 
 export { App } from "./internal/api/index.js";
 
 // Model was renamed from ModelInfo — alias for backward compat
-export { Model as ModelInfo } from "./pkg/engine/index.js";
+export { Model, Model as ModelInfo } from "./pkg/engine/index.js";

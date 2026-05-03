@@ -12,6 +12,7 @@ function ChatArea() {
   const generatingSessionId = useStore((s) => s.generatingSessionId)
   const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
+  const selectedProvider = useStore((s) => s.selectedProvider)
   const addMessage = useStore((s) => s.addMessage)
   const appendToSession = useStore((s) => s.appendToSession)
   const clearMessages = useStore((s) => s.clearMessages)
@@ -57,8 +58,8 @@ function ChatArea() {
       return
     }
 
-    if (!selectedModel) {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No model selected. Please choose a model from the toolbar.' })
+    if (!selectedProvider || !selectedModel) {
+      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No provider or model selected. Please choose a model from the toolbar.' })
       return
     }
 
@@ -68,7 +69,7 @@ function ChatArea() {
     setGeneratingSessionId(activeSessionId)
 
     try {
-      await App.SendMessage(projectPath, activeSessionId, text, selectedModel)
+      await App.SendMessage(projectPath, activeSessionId, text, selectedProvider, selectedModel)
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGeneratingSessionId('')

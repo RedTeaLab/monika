@@ -94,11 +94,20 @@ func main() {
 		},
 	})
 
+	// Resolve default provider engine for task runner
+	defaultProvider, ok := pr.Providers[pr.Config.ModelProvider]
+	if !ok {
+		for _, p := range pr.Providers {
+			defaultProvider = p
+			break
+		}
+	}
+
 	// Create task runner for subagent dispatch.
 	// onStart preregisters the child session so the frontend can open the tab during running.
 	// onComplete stores the full execution results.
 	var appService *api.App
-	taskRunner := agent.NewTaskRunner(agentRegistry, pr.Provider, registry,
+	taskRunner := agent.NewTaskRunner(agentRegistry, defaultProvider, registry,
 		func(task agent.SubTask, agentName string) {
 			if appService != nil {
 				// Save a minimal session immediately so the tab can be opened
@@ -135,7 +144,7 @@ func main() {
 		taskStoreAccessor = accessor
 	}
 
-	appService = api.NewApp(home, cwd, pr.Config, pr.Provider, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
+	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
-import type { RecentProject, BranchInfo, ModelInfo } from '../../bindings/monika'
+import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo } from '../../bindings/monika'
 
 export interface TaskItem {
   id: string
@@ -81,7 +81,9 @@ interface AppState {
   openFiles: FileTabInfo[]
   recentProjects: RecentProject[]
   allBranches: BranchInfo[]
-  availableModels: ModelInfo[]
+  availableProviders: ProviderInfo[]
+  selectedProvider: string
+  modelsByProvider: Record<string, ModelInfo[]>
   selectedModel: string
 
   addMessage: (msg: Message) => void
@@ -130,7 +132,9 @@ interface AppState {
 
   loadRecentProjects: () => Promise<void>
   loadBranches: () => Promise<void>
-  loadModels: () => Promise<void>
+  loadProviders: () => Promise<void>
+  setSelectedProvider: (providerId: string) => Promise<void>
+  loadModelsForProvider: (providerId: string) => Promise<void>
   resetProjectState: () => void
 }
 
@@ -161,7 +165,9 @@ export const useStore = create<AppState>((set, get) => ({
   openFiles: [],
   recentProjects: [],
   allBranches: [],
-  availableModels: [],
+  availableProviders: [],
+  selectedProvider: '',
+  modelsByProvider: {},
   selectedModel: '',
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
@@ -662,18 +668,40 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  loadModels: async () => {
-    let models: ModelInfo[] = [];
+  loadProviders: async () => {
+    let providers: ProviderInfo[] = [];
     try {
-      models = await App.GetModels();
+      providers = await App.GetProviders();
     } catch {
-      // Keep models empty on failure — dropdown will show "No models"
+      // Keep providers empty on failure — dropdown will show "No providers"
     }
     const state = get();
-    // Preserve existing selection only if it's still in the new model list
-    const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel)
+    const valid = state.selectedProvider && providers.some((p) => p.id === state.selectedProvider);
     set({
-      availableModels: models,
+      availableProviders: providers,
+      selectedProvider: valid ? state.selectedProvider : (providers.length > 0 ? providers[0].id : ''),
+    });
+    if (providers.length > 0) {
+      await get().loadModelsForProvider(valid ? state.selectedProvider! : providers[0].id);
+    }
+  },
+
+  setSelectedProvider: async (providerId: string) => {
+    set({ selectedProvider: providerId });
+    await get().loadModelsForProvider(providerId);
+  },
+
+  loadModelsForProvider: async (providerId: string) => {
+    let models: ModelInfo[] = [];
+    try {
+      models = await App.GetModels(providerId);
+    } catch {
+      // Keep models empty on failure
+    }
+    const state = get();
+    const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel);
+    set({
+      modelsByProvider: { ...state.modelsByProvider, [providerId]: models },
       selectedModel: valid ? state.selectedModel : (models.length > 0 ? models[0].ID : ''),
     });
   },
@@ -699,7 +727,9 @@ export const useStore = create<AppState>((set, get) => ({
       openFiles: [],
       allBranches: [],
       recentProjects: [],
-      availableModels: [],
+      availableProviders: [],
+      selectedProvider: '',
+      modelsByProvider: {},
       selectedModel: '',
       fileTreeVersion: 0,
       sessionListVersion: 0,
@@ -777,6 +807,7 @@ export function setupWailsEvents() {
     }
     // Drop events with no session_id or session that was explicitly closed
     if (!sid || !store.sessionMessages[sid]) {
+      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
       return
     }
 
@@ -935,7 +966,7 @@ export async function initProject() {
     if (info) {
       useStore.getState().setProjectPath(info.path)
       useStore.getState().setBranch(info.branch)
-      useStore.getState().loadModels()
+      useStore.getState().loadProviders()
       console.log('[monika] projectPath set to:', info.path, 'branch:', info.branch)
     } else {
       console.log('[monika] GetCurrentProject returned null/undefined')

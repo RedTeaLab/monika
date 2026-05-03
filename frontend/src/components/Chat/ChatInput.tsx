@@ -1,86 +1,7 @@
 import { useState, KeyboardEvent, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { formatTokens } from '../../lib/format'
-
-function ModelSelect() {
-  const availableModels = useStore((s) => s.availableModels)
-  const selectedModel = useStore((s) => s.selectedModel)
-  const setSelectedModel = useStore((s) => s.setSelectedModel)
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  const current = availableModels.find((m) => m.ID === selectedModel) || availableModels[0]
-
-  if (availableModels.length === 0) {
-    return (
-      <span className="text-[11px] text-[var(--text-dim)]">No models</span>
-    )
-  }
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1"
-        style={{
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          color: 'var(--text-primary)',
-          fontFamily: 'inherit',
-        }}
-      >
-        <span>{current?.DisplayName || 'Select'}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: 0,
-            marginBottom: '4px',
-            minWidth: '140px',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border)',
-            borderRadius: '6px',
-            padding: '4px',
-            zIndex: 50,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-          }}
-        >
-          {availableModels.map((m) => (
-            <button
-              key={m.ID}
-              onClick={() => { setSelectedModel(m.ID); setOpen(false) }}
-              className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer block"
-              style={{
-                background: m.ID === selectedModel ? 'var(--bg-hover)' : 'transparent',
-                color: m.ID === selectedModel ? 'var(--text-primary)' : 'var(--text-secondary)',
-                border: 'none',
-                fontFamily: 'inherit',
-              }}
-              onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--bg-hover)' }}
-              onMouseLeave={(e) => { (e.target as HTMLElement).style.background = m.ID === selectedModel ? 'var(--bg-hover)' : 'transparent' }}
-            >
-              {m.DisplayName}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+import ModelPicker from './ModelPicker'
 
 function ChatInput({ onSend, onStop, disabled, compacting }: {
   onSend: (text: string) => void
@@ -168,7 +89,7 @@ function ChatInput({ onSend, onStop, disabled, compacting }: {
           className="flex items-center gap-2 px-[10px] pb-[8px]"
           style={{ background: 'transparent' }}
         >
-          <ModelSelect />
+          <ModelPicker />
 
           <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
             tok: {tokenText}

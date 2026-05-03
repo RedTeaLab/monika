@@ -2,14 +2,8 @@ package api
 
 import (
 	"monika/internal/agent"
-	tool2 "monika/internal/tool"
+	"monika/internal/tool"
 )
-
-// TaskStoreAccessor exposes snapshot/restore for task persistence.
-type TaskStoreAccessor interface {
-	Snapshot() map[string][]tool2.Task
-	Restore(sessionID string, tasks []tool2.Task)
-}
 
 type StreamEvent struct {
 	Type       string            `json:"type"`
@@ -18,9 +12,9 @@ type StreamEvent struct {
 	Model      string            `json:"model,omitempty"`
 	Tool       *agent.ToolEvent  `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent `json:"usage,omitempty"`
-	FileChange *FileChangeEvent        `json:"file_change,omitempty"`
-	Compacting *agent.CompactingEvent  `json:"compacting,omitempty"`
-	Compaction *agent.CompactionEvent  `json:"compaction,omitempty"`
+	FileChange *FileChangeEvent       `json:"file_change,omitempty"`
+	Compacting *agent.CompactingEvent `json:"compacting,omitempty"`
+	Compaction *agent.CompactionEvent `json:"compaction,omitempty"`
 	Tasks      []agent.TaskItem  `json:"tasks,omitempty"`
 }
 
@@ -55,8 +49,8 @@ type BranchInfo struct {
 }
 
 type SessionInfo struct {
-	ID        string `json:"id"`
-	Title     string `json:"title"`
+	ID         string `json:"id"`
+	Title      string `json:"title"`
 	Status     string `json:"status"`
 	UpdatedAt  string `json:"updated_at"`
 	TokenCount int64  `json:"token_count,omitempty"`
@@ -79,4 +73,17 @@ type DiffResult struct {
 	Old      string   `json:"old"`
 	New      string   `json:"new"`
 	Lines    []string `json:"lines"`
+}
+
+// ProviderInfo identifies a configured provider for the frontend selector.
+type ProviderInfo struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+}
+
+// TaskStoreAccessor provides access to per-session task storage.
+type TaskStoreAccessor interface {
+	Snapshot() map[string][]tool.Task
+	Restore(sessionID string, tasks []tool.Task)
+	GetTaskStore(sessionID string) tool.TaskStore
 }
