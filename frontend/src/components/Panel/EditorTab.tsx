@@ -26,8 +26,10 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
   }, [menuOpen])
 
   const handleClose = () => {
-    // Dirty check: close is always allowed via the X button
-    // The actual dirty-check + ConfirmModal is handled in FileEditor's close flow
+    if (isDirty && !window.confirm(`Close "${title}" without saving?`)) {
+      return
+    }
+    useStore.getState().closeFileTab(filePath)
     props.api.close()
   }
 

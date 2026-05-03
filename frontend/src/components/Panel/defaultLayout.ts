@@ -7,63 +7,78 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       data: [
         {
           type: 'branch',
-          size: 224,
+          size: undefined, // flex — main area
           data: [
             {
-              type: 'leaf',
+              type: 'branch',
               size: 224,
-              data: {
-                id: 'session-group',
-                views: ['session'],
-                activeView: 'session',
-              },
+              data: [
+                {
+                  type: 'leaf',
+                  size: 224,
+                  data: {
+                    id: 'session-group',
+                    views: ['session'],
+                    activeView: 'session',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'branch',
+              size: undefined,
+              data: [
+                {
+                  type: 'leaf',
+                  size: undefined,
+                  data: {
+                    id: 'chat-group',
+                    views: ['chat'],
+                    activeView: 'chat',
+                  },
+                },
+                {
+                  type: 'leaf',
+                  size: undefined,
+                  data: {
+                    id: 'editor-group',
+                    views: ['editor'],
+                    activeView: 'editor',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'branch',
+              size: 224,
+              data: [
+                {
+                  type: 'leaf',
+                  size: 224,
+                  data: {
+                    id: 'filetree-group',
+                    views: ['filetree'],
+                    activeView: 'filetree',
+                  },
+                },
+              ],
             },
           ],
         },
         {
-          type: 'branch',
-          size: undefined,
-          data: [
-            {
-              type: 'leaf',
-              size: undefined,
-              data: {
-                id: 'chat-group',
-                views: ['chat'],
-                activeView: 'chat',
-              },
-            },
-            {
-              type: 'leaf',
-              size: undefined,
-              data: {
-                id: 'editor-group',
-                views: ['editor'],
-                activeView: 'editor',
-              },
-            },
-          ],
-        },
-        {
-          type: 'branch',
-          size: 224,
-          data: [
-            {
-              type: 'leaf',
-              size: 224,
-              data: {
-                id: 'filetree-group',
-                views: ['filetree'],
-                activeView: 'filetree',
-              },
-            },
-          ],
+          type: 'leaf',
+          size: 200,
+          data: {
+            id: 'console-group',
+            views: ['console'],
+            activeView: 'console',
+          },
         },
       ],
     },
-    orientation: Orientation.HORIZONTAL,
+    orientation: Orientation.VERTICAL,
     width: 1400,
-    height: 700,
+    height: 900,
   },
   panels: {
     session: {
