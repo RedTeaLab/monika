@@ -16,6 +16,10 @@
 
 ---
 
+## 2026-05-04
+
+- **修复 TodoPanel 不渲染任务**：`EmitTaskEvent` 发送的事件类型为 `"task_update"` 但前端 `setupWailsEvents` 监听的是 `"task_updated"`（末尾少了一个 `d`），导致 `setSessionTasks` 从未被调用，Zustand store 中 tasks 始终为空，TodoPanel 读取 `store.tasks[activeSessionId]` 始终拿到 `undefined`。修改 `internal/api/app.go:565` 中 `Type` 字段为 `"task_updated"` 与前端对齐。
+
 ## 2026-05-01
 
 - **中断生成**：ChatInput 右下角新增发送/停止切换按钮——发送时显示箭头图标 `IconArrowUp`，生成中切换为方形停止图标 `IconStop`，按 ESC 键停止。ChatArea 通过 `App.CancelGeneration(generatingSessionId)` 调用后端 `context` 取消中断 agent loop。Store `error` 事件识别 `cancelled` 类型时静默清除状态（不追加错误消息），后端取消时重置 session 为 idle，goroutine 检测 `ctx.Err()` 避免覆盖。设计文档：`docs/superpowers/specs/2026-05-01-interrupt-generation-design.md`、`docs/superpowers/plans/2026-05-01-interrupt-generation.md`。
