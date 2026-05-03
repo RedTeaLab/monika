@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
+import { IDockviewPanelProps } from 'dockview'
 import { App, FileNode } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import { IconChevronRight, IconChevronDown, IconFile } from '../Icons'
 
-function FileTree() {
+function FileTree(_props: IDockviewPanelProps) {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
