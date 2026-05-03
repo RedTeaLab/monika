@@ -5,6 +5,147 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as engine$0 from "../../pkg/engine/models.js";
+
+/**
+ * ChildSession holds the result of a completed child agent run.
+ */
+export class ChildSession {
+    "Messages": engine$0.ChatMessage[];
+    "Agent": string;
+    "ParentID": string;
+    "Title": string;
+    "TokenCount": number;
+
+    /** Creates a new ChildSession instance. */
+    constructor($$source: Partial<ChildSession> = {}) {
+        if (!("Messages" in $$source)) {
+            this["Messages"] = [];
+        }
+        if (!("Agent" in $$source)) {
+            this["Agent"] = "";
+        }
+        if (!("ParentID" in $$source)) {
+            this["ParentID"] = "";
+        }
+        if (!("Title" in $$source)) {
+            this["Title"] = "";
+        }
+        if (!("TokenCount" in $$source)) {
+            this["TokenCount"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ChildSession instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ChildSession {
+        const $$createField0_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("Messages" in $$parsedSource) {
+            $$parsedSource["Messages"] = $$createField0_0($$parsedSource["Messages"]);
+        }
+        return new ChildSession($$parsedSource as Partial<ChildSession>);
+    }
+}
+
+export class CompactingEvent {
+    "session_id": string;
+
+    /** Creates a new CompactingEvent instance. */
+    constructor($$source: Partial<CompactingEvent> = {}) {
+        if (!("session_id" in $$source)) {
+            this["session_id"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CompactingEvent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CompactingEvent {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CompactingEvent($$parsedSource as Partial<CompactingEvent>);
+    }
+}
+
+export class CompactionEvent {
+    "summary": string;
+    "before_tokens": number;
+    "after_tokens": number;
+    "compaction_num": number;
+
+    /** Creates a new CompactionEvent instance. */
+    constructor($$source: Partial<CompactionEvent> = {}) {
+        if (!("summary" in $$source)) {
+            this["summary"] = "";
+        }
+        if (!("before_tokens" in $$source)) {
+            this["before_tokens"] = 0;
+        }
+        if (!("after_tokens" in $$source)) {
+            this["after_tokens"] = 0;
+        }
+        if (!("compaction_num" in $$source)) {
+            this["compaction_num"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new CompactionEvent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): CompactionEvent {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new CompactionEvent($$parsedSource as Partial<CompactionEvent>);
+    }
+}
+
+/**
+ * TaskItem is a lightweight task representation for frontend events.
+ * Mirrors the fields of tool.Task without importing the tool package.
+ */
+export class TaskItem {
+    "id": string;
+    "subject": string;
+    "description"?: string;
+    "status": string;
+    "blockedBy"?: string[];
+
+    /** Creates a new TaskItem instance. */
+    constructor($$source: Partial<TaskItem> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("subject" in $$source)) {
+            this["subject"] = "";
+        }
+        if (!("status" in $$source)) {
+            this["status"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new TaskItem instance from a string or object.
+     */
+    static createFrom($$source: any = {}): TaskItem {
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("blockedBy" in $$parsedSource) {
+            $$parsedSource["blockedBy"] = $$createField4_0($$parsedSource["blockedBy"]);
+        }
+        return new TaskItem($$parsedSource as Partial<TaskItem>);
+    }
+}
+
 export class ToolEvent {
     "id": string;
     "name": string;
@@ -90,3 +231,8 @@ export class UsageEvent {
         return new UsageEvent($$parsedSource as Partial<UsageEvent>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = engine$0.ChatMessage.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = $Create.Array($Create.Any);

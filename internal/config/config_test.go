@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadMergesModelProviderAndModel(t *testing.T) {
@@ -268,6 +270,42 @@ skill:
 	}
 	if len(cfg.Skill.Paths) != 1 || cfg.Skill.Paths[0] != "/home/skills" {
 		t.Fatalf("home-only skill paths should survive, got %v", cfg.Skill.Paths)
+	}
+}
+
+func TestContextLimitUnmarshalYAML(t *testing.T) {
+	tests := []struct {
+		yaml     string
+		expected int64
+	}{
+		{"context_limit: 128k", 128000},
+		{"context_limit: 128K", 128000},
+		{"context_limit: 1m", 1000000},
+		{"context_limit: 1M", 1000000},
+		{"context_limit: 200", 200},
+		{"context_limit: 0", 0},
+		{"context_limit: 2g", 2000000000},
+	}
+	for _, tt := range tests {
+		var cfg struct {
+			ContextLimit ContextLimit `yaml:"context_limit"`
+		}
+		if err := yaml.Unmarshal([]byte(tt.yaml), &cfg); err != nil {
+			t.Errorf("%q: %v", tt.yaml, err)
+			continue
+		}
+		if cfg.ContextLimit.Int64() != tt.expected {
+			t.Errorf("%q: got %d, want %d", tt.yaml, cfg.ContextLimit.Int64(), tt.expected)
+		}
+	}
+}
+
+func TestParseSizeErrors(t *testing.T) {
+	bad := []string{"", "abc", "-1", "-1k"}
+	for _, s := range bad {
+		if _, err := parseSize(s); err == nil {
+			t.Errorf("%q: expected error", s)
+		}
 	}
 }
 

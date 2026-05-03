@@ -236,6 +236,34 @@ export class ProjectInfo {
 }
 
 /**
+ * ProviderInfo identifies a configured provider for the frontend selector.
+ */
+export class ProviderInfo {
+    "id": string;
+    "display_name": string;
+
+    /** Creates a new ProviderInfo instance. */
+    constructor($$source: Partial<ProviderInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("display_name" in $$source)) {
+            this["display_name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ProviderInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ProviderInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ProviderInfo($$parsedSource as Partial<ProviderInfo>);
+    }
+}
+
+/**
  * RecentProject represents a recently opened project.
  */
 export class RecentProject {
@@ -275,6 +303,11 @@ export class Session {
     "model": string;
     "provider": string;
     "status": string;
+    "token_count"?: number;
+    "token_max"?: number;
+    "compaction_count"?: number;
+    "archived_messages"?: engine$0.ChatMessage[];
+    "parent_id"?: string;
     "created_at": time$0.Time;
     "updated_at": time$0.Time;
 
@@ -316,9 +349,13 @@ export class Session {
      */
     static createFrom($$source: any = {}): Session {
         const $$createField3_0 = $$createType6;
+        const $$createField10_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
+        }
+        if ("archived_messages" in $$parsedSource) {
+            $$parsedSource["archived_messages"] = $$createField10_0($$parsedSource["archived_messages"]);
         }
         return new Session($$parsedSource as Partial<Session>);
     }
@@ -329,6 +366,8 @@ export class SessionInfo {
     "title": string;
     "status": string;
     "updated_at": string;
+    "token_count"?: number;
+    "token_max"?: number;
 
     /** Creates a new SessionInfo instance. */
     constructor($$source: Partial<SessionInfo> = {}) {
@@ -365,9 +404,9 @@ export class StreamEvent {
     "tool"?: agent$0.ToolEvent | null;
     "usage"?: agent$0.UsageEvent | null;
     "file_change"?: FileChangeEvent | null;
-    "compacting"?: any;
-    "compaction"?: any;
-    "tasks"?: any[];
+    "compacting"?: agent$0.CompactingEvent | null;
+    "compaction"?: agent$0.CompactionEvent | null;
+    "tasks"?: agent$0.TaskItem[];
 
     /** Creates a new StreamEvent instance. */
     constructor($$source: Partial<StreamEvent> = {}) {
@@ -385,6 +424,9 @@ export class StreamEvent {
         const $$createField4_0 = $$createType8;
         const $$createField5_0 = $$createType10;
         const $$createField6_0 = $$createType12;
+        const $$createField7_0 = $$createType14;
+        const $$createField8_0 = $$createType16;
+        const $$createField9_0 = $$createType18;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool" in $$parsedSource) {
             $$parsedSource["tool"] = $$createField4_0($$parsedSource["tool"]);
@@ -394,6 +436,15 @@ export class StreamEvent {
         }
         if ("file_change" in $$parsedSource) {
             $$parsedSource["file_change"] = $$createField6_0($$parsedSource["file_change"]);
+        }
+        if ("compacting" in $$parsedSource) {
+            $$parsedSource["compacting"] = $$createField7_0($$parsedSource["compacting"]);
+        }
+        if ("compaction" in $$parsedSource) {
+            $$parsedSource["compaction"] = $$createField8_0($$parsedSource["compaction"]);
+        }
+        if ("tasks" in $$parsedSource) {
+            $$parsedSource["tasks"] = $$createField9_0($$parsedSource["tasks"]);
         }
         return new StreamEvent($$parsedSource as Partial<StreamEvent>);
     }
@@ -438,3 +489,9 @@ const $$createType9 = agent$0.UsageEvent.createFrom;
 const $$createType10 = $Create.Nullable($$createType9);
 const $$createType11 = FileChangeEvent.createFrom;
 const $$createType12 = $Create.Nullable($$createType11);
+const $$createType13 = agent$0.CompactingEvent.createFrom;
+const $$createType14 = $Create.Nullable($$createType13);
+const $$createType15 = agent$0.CompactionEvent.createFrom;
+const $$createType16 = $Create.Nullable($$createType15);
+const $$createType17 = agent$0.TaskItem.createFrom;
+const $$createType18 = $Create.Array($$createType17);

@@ -14,6 +14,7 @@ export {
     FileContent,
     FileNode,
     ProjectInfo,
+    ProviderInfo,
     RecentProject,
     Session,
     SessionInfo,

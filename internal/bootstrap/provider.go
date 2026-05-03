@@ -38,9 +38,13 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 
 	providers := make(map[string]engine.ProviderEngine)
 	for providerID, providerCfg := range cfg.ModelProviders {
-		eng, err := engine.EngineByID(providerID)
+		engineID := providerCfg.WireAPI
+		if engineID == "" {
+			engineID = providerID
+		}
+		eng, err := engine.EngineByID(engineID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[monika] skipping provider %q: engine not registered\n", providerID)
+			fmt.Fprintf(os.Stderr, "[monika] skipping provider %q: engine %q not registered\n", providerID, engineID)
 			continue
 		}
 		initCfg := map[string]any{

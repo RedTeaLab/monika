@@ -29,6 +29,71 @@ type ContextLimit int64
 // Int64 returns the context limit as an int64, or 0 if unset.
 func (c ContextLimit) Int64() int64 { return int64(c) }
 
+// UnmarshalYAML implements yaml.Unmarshaler so that human-readable strings
+// like "128k" and "1m" are accepted alongside plain integers.
+func (c *ContextLimit) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		if value.Tag == "!!int" {
+			var n int64
+			if err := value.Decode(&n); err != nil {
+				return err
+			}
+			*c = ContextLimit(n)
+			return nil
+		}
+		// string — parse human-readable suffix
+		var s string
+		if err := value.Decode(&s); err != nil {
+			return err
+		}
+		n, err := parseSize(s)
+		if err != nil {
+			return err
+		}
+		*c = ContextLimit(n)
+		return nil
+	}
+	return fmt.Errorf("ContextLimit: expected scalar, got kind %d", value.Kind)
+}
+
+func parseSize(s string) (int64, error) {
+	if s == "" {
+		return 0, fmt.Errorf("empty size string")
+	}
+	// Strip optional 'b' or 'B' suffix (e.g. "128kb" → "128k")
+	if len(s) > 1 && (s[len(s)-1] == 'b' || s[len(s)-1] == 'B') {
+		s = s[:len(s)-1]
+	}
+	if len(s) == 0 {
+		return 0, fmt.Errorf("empty size string")
+	}
+	last := s[len(s)-1]
+	var mult int64 = 1
+	var numStr string
+	switch last {
+	case 'k', 'K':
+		mult = 1000
+		numStr = s[:len(s)-1]
+	case 'm', 'M':
+		mult = 1000000
+		numStr = s[:len(s)-1]
+	case 'g', 'G':
+		mult = 1000000000
+		numStr = s[:len(s)-1]
+	default:
+		numStr = s
+	}
+	var val int64
+	if _, err := fmt.Sscanf(numStr, "%d", &val); err != nil {
+		return 0, fmt.Errorf("cannot parse %q as size: %w", s, err)
+	}
+	if val < 0 {
+		return 0, fmt.Errorf("negative size: %s", s)
+	}
+	return val * mult, nil
+}
+
 type ModelEntry struct {
 	ID           string       `yaml:"id"`
 	DisplayName  string       `yaml:"name"`

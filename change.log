@@ -18,6 +18,11 @@
 
 ## 2026-05-04
 
+- **ContextLimit 可读 YAML 解析**：`internal/config/config.go` 新增 `ContextLimit.UnmarshalYAML` 和 `parseSize`，支持 `128k`/`1m`/`2g` 等人类可读后缀，同时兼容纯整数。`config_test.go` 新增 `TestContextLimitUnmarshalYAML` 和 `TestParseSizeErrors` 测试。
+- **Provider WireAPI 映射**：`internal/bootstrap/provider.go` 支持通过 `wire_api` 字段将 provider 映射到不同的 engine ID（如 openai-compatible provider 使用 openai engine），改进跳过时的错误信息展示 engine ID。
+- **OpenAI engine 注册**：`main.go` 新增 `_ "monika/internal/engines/provider/openai"` 导入，启用 OpenAI 原生 provider。
+- **前端 bindings 自动更新**：新增 `ChildSession`、`CompactingEvent`、`CompactionEvent`、`TaskItem`、`ProviderInfo` 类型绑定。`App` 新增 `GetProviders`、`PersistSelection`、`EmitTaskEvent`、`LoadChildSession`、`PendingChildSession`、`ResolveChildSession`、`SaveChildSession` 等方法。`SendMessage` 和 `NewSession` 签名更新（新增 `providerID` 参数）。`Session`/`SessionInfo` 扩展 token/compaction 字段。
+- **清理构建产物**：删除残留的 `monika.exe~` 二进制备份文件。
 - **修复 TodoPanel 不渲染任务**：`EmitTaskEvent` 发送的事件类型为 `"task_update"` 但前端 `setupWailsEvents` 监听的是 `"task_updated"`（末尾少了一个 `d`），导致 `setSessionTasks` 从未被调用，Zustand store 中 tasks 始终为空，TodoPanel 读取 `store.tasks[activeSessionId]` 始终拿到 `undefined`。修改 `internal/api/app.go:565` 中 `Type` 字段为 `"task_updated"` 与前端对齐。
 
 ## 2026-05-01

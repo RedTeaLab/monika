@@ -7,6 +7,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as agent$0 from "../agent/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as engine$0 from "../../pkg/engine/models.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -28,6 +31,10 @@ export function DeleteSession(projectPath: string, sessionID: string): $Cancella
     return $Call.ByID(1674819245, projectPath, sessionID);
 }
 
+export function EmitTaskEvent(sessionID: string, tasks: agent$0.TaskItem[]): $CancellablePromise<void> {
+    return $Call.ByID(1268878478, sessionID, tasks);
+}
+
 export function GetCurrentProject(): $CancellablePromise<$models.ProjectInfo | null> {
     return $Call.ByID(4211252234).then(($result: any) => {
         return $$createType1($result);
@@ -40,9 +47,15 @@ export function GetFileDiff(projectPath: string, filePath: string): $Cancellable
     });
 }
 
-export function GetModels(): $CancellablePromise<engine$0.Model[]> {
-    return $Call.ByID(2740169318).then(($result: any) => {
+export function GetModels(providerID: string): $CancellablePromise<engine$0.Model[]> {
+    return $Call.ByID(2740169318, providerID).then(($result: any) => {
         return $$createType5($result);
+    });
+}
+
+export function GetProviders(): $CancellablePromise<$models.ProviderInfo[]> {
+    return $Call.ByID(2466924902).then(($result: any) => {
+        return $$createType7($result);
     });
 }
 
@@ -51,7 +64,7 @@ export function GetModels(): $CancellablePromise<engine$0.Model[]> {
  */
 export function GetRecentProjects(): $CancellablePromise<$models.RecentProject[]> {
     return $Call.ByID(541402157).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType9($result);
     });
 }
 
@@ -60,7 +73,7 @@ export function GetRecentProjects(): $CancellablePromise<$models.RecentProject[]
  */
 export function ListBranches(projectPath: string): $CancellablePromise<$models.BranchInfo[]> {
     return $Call.ByID(2066625236, projectPath).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType11($result);
     });
 }
 
@@ -69,43 +82,61 @@ export function ListBranches(projectPath: string): $CancellablePromise<$models.B
  */
 export function ListDirectory(parentPath: string): $CancellablePromise<$models.FileNode[]> {
     return $Call.ByID(2022278691, parentPath).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType13($result);
     });
 }
 
 export function ListFileChanges(projectPath: string): $CancellablePromise<$models.FileChange[]> {
     return $Call.ByID(3265914211, projectPath).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType15($result);
     });
 }
 
 export function ListFileTree(projectPath: string): $CancellablePromise<$models.FileNode[]> {
     return $Call.ByID(2046651834, projectPath).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType13($result);
     });
 }
 
 export function ListProjects(): $CancellablePromise<$models.ProjectInfo[]> {
     return $Call.ByID(1837161474).then(($result: any) => {
-        return $$createType14($result);
+        return $$createType16($result);
     });
 }
 
 export function ListSessions(projectPath: string): $CancellablePromise<$models.SessionInfo[]> {
     return $Call.ByID(116118957, projectPath).then(($result: any) => {
-        return $$createType16($result);
+        return $$createType18($result);
+    });
+}
+
+/**
+ * LoadChildSession returns a completed child agent session, or nil.
+ */
+export function LoadChildSession(sessionID: string): $CancellablePromise<agent$0.ChildSession | null> {
+    return $Call.ByID(1226969414, sessionID).then(($result: any) => {
+        return $$createType20($result);
+    });
+}
+
+/**
+ * LoadChildSessionFromDisk loads a completed child session from disk.
+ */
+export function LoadChildSessionFromDisk(projectPath: string, sessionID: string): $CancellablePromise<agent$0.ChildSession | null> {
+    return $Call.ByID(987540711, projectPath, sessionID).then(($result: any) => {
+        return $$createType20($result);
     });
 }
 
 export function LoadSession(projectPath: string, sessionID: string): $CancellablePromise<$models.Session | null> {
     return $Call.ByID(665171952, projectPath, sessionID).then(($result: any) => {
-        return $$createType18($result);
+        return $$createType22($result);
     });
 }
 
-export function NewSession(projectPath: string, model: string): $CancellablePromise<$models.SessionInfo | null> {
-    return $Call.ByID(3342623882, projectPath, model).then(($result: any) => {
-        return $$createType19($result);
+export function NewSession(projectPath: string, providerID: string, model: string): $CancellablePromise<$models.SessionInfo | null> {
+    return $Call.ByID(3342623882, projectPath, providerID, model).then(($result: any) => {
+        return $$createType23($result);
     });
 }
 
@@ -115,18 +146,52 @@ export function OpenProject(path: string): $CancellablePromise<$models.ProjectIn
     });
 }
 
+/**
+ * PendingChildSession stores a child session ID for a parent, so the frontend
+ * can resolve it during execution (before the tool returns).
+ */
+export function PendingChildSession(parentID: string, childID: string): $CancellablePromise<void> {
+    return $Call.ByID(3382073829, parentID, childID);
+}
+
+export function PersistSelection(providerID: string, modelID: string): $CancellablePromise<void> {
+    return $Call.ByID(4057758998, providerID, modelID);
+}
+
 export function QuitApp(): $CancellablePromise<void> {
     return $Call.ByID(2270927618);
 }
 
 export function ReadFile(projectPath: string, filePath: string): $CancellablePromise<$models.FileContent | null> {
     return $Call.ByID(984933914, projectPath, filePath).then(($result: any) => {
-        return $$createType21($result);
+        return $$createType25($result);
     });
 }
 
-export function SendMessage(projectPath: string, sessionID: string, text: string, model: string): $CancellablePromise<void> {
-    return $Call.ByID(4233179061, projectPath, sessionID, text, model);
+/**
+ * ResolveChildSession returns the latest child session ID for a parent.
+ */
+export function ResolveChildSession(parentID: string): $CancellablePromise<string> {
+    return $Call.ByID(3285960262, parentID);
+}
+
+/**
+ * SaveChildSession stores a completed child agent session.
+ */
+export function SaveChildSession(sessionID: string, child: agent$0.ChildSession | null): $CancellablePromise<void> {
+    return $Call.ByID(2829468895, sessionID, child);
+}
+
+/**
+ * SaveChildSessionToDisk persists a completed child session to disk under
+ * the same project as its parent session.
+ */
+export function SaveChildSessionToDisk(sessionID: string, child: agent$0.ChildSession | null): $CancellablePromise<void> {
+    return $Call.ByID(2797708895, sessionID, child);
+}
+
+export function SendMessage(projectPath: string, sessionID: string, text: string, providerID: string, model: string): $CancellablePromise<void> {
+    return $Call.ByID(4233179061, projectPath, sessionID, text, providerID, model);
 }
 
 /**
@@ -150,19 +215,23 @@ const $$createType2 = $models.DiffResult.createFrom;
 const $$createType3 = $Create.Nullable($$createType2);
 const $$createType4 = engine$0.Model.createFrom;
 const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = $models.RecentProject.createFrom;
+const $$createType6 = $models.ProviderInfo.createFrom;
 const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = $models.BranchInfo.createFrom;
+const $$createType8 = $models.RecentProject.createFrom;
 const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $models.FileNode.createFrom;
+const $$createType10 = $models.BranchInfo.createFrom;
 const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = $models.FileChange.createFrom;
+const $$createType12 = $models.FileNode.createFrom;
 const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $Create.Array($$createType0);
-const $$createType15 = $models.SessionInfo.createFrom;
-const $$createType16 = $Create.Array($$createType15);
-const $$createType17 = $models.Session.createFrom;
-const $$createType18 = $Create.Nullable($$createType17);
-const $$createType19 = $Create.Nullable($$createType15);
-const $$createType20 = $models.FileContent.createFrom;
-const $$createType21 = $Create.Nullable($$createType20);
+const $$createType14 = $models.FileChange.createFrom;
+const $$createType15 = $Create.Array($$createType14);
+const $$createType16 = $Create.Array($$createType0);
+const $$createType17 = $models.SessionInfo.createFrom;
+const $$createType18 = $Create.Array($$createType17);
+const $$createType19 = agent$0.ChildSession.createFrom;
+const $$createType20 = $Create.Nullable($$createType19);
+const $$createType21 = $models.Session.createFrom;
+const $$createType22 = $Create.Nullable($$createType21);
+const $$createType23 = $Create.Nullable($$createType17);
+const $$createType24 = $models.FileContent.createFrom;
+const $$createType25 = $Create.Nullable($$createType24);

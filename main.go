@@ -19,6 +19,7 @@ import (
 
 	_ "monika/internal/engines/mcp"
 	_ "monika/internal/engines/provider/deepseek"
+	_ "monika/internal/engines/provider/openai"
 	_ "monika/internal/engines/skill"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
