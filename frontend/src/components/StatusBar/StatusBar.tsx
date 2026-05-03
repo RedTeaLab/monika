@@ -1,17 +1,10 @@
 import { useStore } from '../../store'
-import { IconCode, IconCircle } from '../Icons'
-
-const togClass = (active: boolean) =>
-  `flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] outline-none transition-colors ${active ? 'text-[var(--text-primary)]' : 'text-[var(--text-dim)]'} hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] focus-visible:shadow-[0_0_0_3px_var(--accent-muted)]`
 
 function StatusBar() {
   const generating = useStore((s) => s.generatingSessionId !== '')
-  const activeFilePath = useStore((s) => s.activeFilePath)
-  const openFiles = useStore((s) => s.openFiles)
-  const setFileMode = useStore((s) => s.setFileMode)
-
-  const activeFile = openFiles.find((f) => f.path === activeFilePath)
-  const currentMode = activeFile?.mode || 'edit'
+  const tokenCount = useStore((s) => s.tokenCount)
+  const tokenMax = useStore((s) => s.tokenMax)
+  const branch = useStore((s) => s.branch)
 
   return (
     <div
@@ -28,19 +21,23 @@ function StatusBar() {
             animation: generating ? 'pulse 1.2s ease-in-out infinite' : undefined,
           }}
         />
-        <span className="text-[var(--text-secondary)]">{generating ? 'generating...' : 'ready'}</span>
+        <span className="text-[var(--text-secondary)]">
+          {generating ? 'generating...' : 'ready'}
+        </span>
+        {branch && (
+          <>
+            <span className="text-[var(--border)] select-none">|</span>
+            <span className="text-[var(--text-dim)]">{branch}</span>
+          </>
+        )}
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)]" style={{ background: 'var(--bg-elevated)', padding: '2px 4px' }}>
-        <button
-          type="button"
-          onClick={() => setFileMode(activeFilePath, currentMode === 'edit' ? 'diff' : 'edit')}
-          className={togClass(true)}
-          title={currentMode === 'edit' ? 'Diff mode (Ctrl+/)' : 'Edit mode (Ctrl+/)'}
-          aria-label={currentMode === 'edit' ? 'Switch to diff mode' : 'Switch to edit mode'}
-        >
-          {currentMode === 'edit' ? <IconCode size={13} /> : <IconCircle size={13} />}
-        </button>
+      <div className="flex items-center gap-2">
+        {tokenMax > 0 && (
+          <span className="text-[var(--text-dim)]">
+            {Math.round(tokenCount / 1000)}k / {Math.round(tokenMax / 1000)}k tokens
+          </span>
+        )}
       </div>
     </div>
   )
