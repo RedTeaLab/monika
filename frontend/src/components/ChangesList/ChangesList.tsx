@@ -27,6 +27,7 @@ function ChangesList(_props: IDockviewPanelProps) {
       })
       .catch(() => {
         if (!cancelled) {
+          setChanges([])
           setError('Failed to load changes')
           setLoading(false)
         }
@@ -41,7 +42,6 @@ function ChangesList(_props: IDockviewPanelProps) {
     } catch {
       openFileTab(stat.path, '')
     }
-    setFileMode(stat.path, 'diff')
     const dockApi = useStore.getState().dockviewApi
     if (dockApi) {
       const existing = dockApi.getPanel(stat.path)
@@ -54,9 +54,9 @@ function ChangesList(_props: IDockviewPanelProps) {
           params: { filePath: stat.path },
           position: { referenceGroup: 'editor-group' },
         })
+        setFileMode(stat.path, 'diff')
       } else {
         existing.api.setActive()
-        // Force diff mode even if file already open
         setFileMode(stat.path, 'diff')
       }
     }
