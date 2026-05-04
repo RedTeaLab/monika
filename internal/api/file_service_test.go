@@ -133,6 +133,19 @@ func TestFileServiceListChanges(t *testing.T) {
 	}
 }
 
+func TestFileServiceListChangeStats_NonGitDir(t *testing.T) {
+	dir := t.TempDir()
+	fs := NewFileService(dir)
+
+	stats, err := fs.ListChangeStats()
+	if err != nil {
+		t.Fatalf("ListChangeStats should not error on non-git dir: %v", err)
+	}
+	if len(stats) != 0 {
+		t.Errorf("expected empty stats for non-git dir, got %d", len(stats))
+	}
+}
+
 func nodeNames(nodes []FileNode) []string {
 	names := make([]string, len(nodes))
 	for i, n := range nodes {
