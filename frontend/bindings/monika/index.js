@@ -1,5 +1,6 @@
-// Re-export barrel — maintains backward compatibility with the old flat index.ts
-// Auto-generated bindings are now in subdirectories (internal/api, pkg/engine, etc.)
+// @ts-check
+// Re-export barrel — maintains backward compatibility
+// Auto-generated bindings are in subdirectories (internal/api, pkg/engine, etc.)
 
 export {
   ProjectInfo,
@@ -11,6 +12,7 @@ export {
   FileChangeEvent,
   RecentProject,
   BranchInfo,
+  ChangeStat,
   DiffResult,
   StreamEvent,
   WorktreeInfo,
@@ -19,5 +21,5 @@ export {
 
 export { App } from "./internal/api/index.js";
 
-// Model was renamed from ModelInfo — alias for backward compat
+// ModelInfo is the legacy name; new bindings use Model
 export { Model, Model as ModelInfo } from "./pkg/engine/index.js";
