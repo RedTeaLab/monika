@@ -28,7 +28,8 @@ type ChangeStat struct {
 
 ```go
 func (a *App) ListChangeStats(projectPath string) ([]ChangeStat, error) {
-    return a.fileService.ListChangeStats()
+    fs := a.getFileService(projectPath)
+    return fs.ListChangeStats()
 }
 ```
 
@@ -57,7 +58,7 @@ Dockview panel 组件，接受 `IDockviewPanelProps`。
 1. `App.ReadFile(projectPath, node.path)` 读取文件内容
 2. `openFileTab(path, content)` 打开 tab
 3. `setFileMode(path, 'diff')` 切换到 diff 模式
-4. `dockviewApi.addPanel({ id: path, component: 'editor', tabComponent: 'editor-tab', ... })` 创建编辑器面板
+4. `dockviewApi.addPanel({ id: path, component: 'editor', tabComponent: 'editor-tab', params: { filePath: path }, position: { referenceGroup: 'editor-group' } })` 创建编辑器面板
 
 **样式**：与 FileTree 一致，使用 `var(--bg-sidebar)` 背景。
 
@@ -69,7 +70,7 @@ Dockview panel 组件，接受 `IDockviewPanelProps`。
 ### 默认布局 (`defaultLayout.ts`)
 
 - `filetree-group` views 改为 `['filetree', 'changes']`
-- panels 新增 `changes` 定义，使用 `contentComponent: 'changes'`、`tabComponent: 'default-tab'`，标题 `'CHANGES'`
+- panels 新增 `changes` 定义，使用 `contentComponent: 'changes'`、`tabComponent: 'changes-tab'`，标题 `'CHANGES'`
 
 ### Store
 
@@ -87,7 +88,7 @@ ChangesList mount / fileTreeVersion change
 用户点击文件
   → App.ReadFile() → openFileTab(path, content)
   → setFileMode(path, 'diff')
-  → dockviewApi.addPanel({ component: 'editor', ... })
+  → dockviewApi.addPanel({ component: 'editor', params: { filePath: path }, position: { referenceGroup: 'editor-group' } })
     → FileEditor 在 diff 模式下渲染 GetFileDiff 结果
 ```
 
@@ -108,4 +109,5 @@ ChangesList mount / fileTreeVersion change
 - `frontend/src/components/ChangesList/ChangesList.tsx` — 新组件
 - `frontend/src/components/Panel/defaultLayout.ts` — layout 配置
 - `frontend/src/App.tsx` — 注册组件和 tab
+- `frontend/src/components/Panel/useLayoutPersistence.ts` — 递增 `LAYOUT_VERSION`（11 → 12）以触发现有用户布局重置
 - 自动生成的 bindings 文件 — 不手动编辑
