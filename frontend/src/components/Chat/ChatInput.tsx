@@ -1,6 +1,7 @@
 import { useState, KeyboardEvent, useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { formatTokens } from '../../lib/format'
+import ModelPicker from './ModelPicker'
 
 function ChatInput({ onSend, onStop, disabled, compacting }: {
   onSend: (text: string) => void
@@ -88,6 +89,8 @@ function ChatInput({ onSend, onStop, disabled, compacting }: {
           className="flex items-center gap-2 px-[10px] pb-[8px]"
           style={{ background: 'transparent' }}
         >
+          <ModelPicker />
+
           <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
             tok: {tokenText}
           </span>

@@ -7,72 +7,34 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       data: [
         {
           type: 'branch',
-          size: undefined, // flex — main area
+          size: undefined,
           data: [
             {
-              type: 'branch',
-              size: 224,
-              data: [
-                {
-                  type: 'leaf',
-                  size: 224,
-                  data: {
-                    id: 'session-group',
-                    views: ['session'],
-                    activeView: 'session',
-                  },
-                },
-              ],
+              type: 'leaf',
+              size: 180,
+              data: { id: 'session-group', views: ['session'], activeView: 'session' },
             },
             {
-              type: 'branch',
+              type: 'leaf',
               size: undefined,
-              data: [
-                {
-                  type: 'leaf',
-                  size: undefined,
-                  data: {
-                    id: 'chat-group',
-                    views: ['chat'],
-                    activeView: 'chat',
-                  },
-                },
-                {
-                  type: 'leaf',
-                  size: undefined,
-                  data: {
-                    id: 'editor-group',
-                    views: ['editor'],
-                    activeView: 'editor',
-                  },
-                },
-              ],
+              data: { id: 'chat-group', views: ['chat'], activeView: 'chat' },
             },
             {
-              type: 'branch',
-              size: 224,
-              data: [
-                {
-                  type: 'leaf',
-                  size: 224,
-                  data: {
-                    id: 'filetree-group',
-                    views: ['filetree'],
-                    activeView: 'filetree',
-                  },
-                },
-              ],
+              type: 'leaf',
+              size: undefined,
+              data: { id: 'editor-group', views: ['editor'], activeView: 'editor' },
+            },
+            {
+              type: 'leaf',
+              size: 180,
+              data: { id: 'filetree-group', views: ['filetree'], activeView: 'filetree' },
             },
           ],
         },
         {
           type: 'leaf',
-          size: 200,
-          data: {
-            id: 'console-group',
-            views: ['console'],
-            activeView: 'console',
-          },
+          size: 120,
+          data: { id: 'console-group', views: ['console'], activeView: 'console' },
         },
       ],
     },
@@ -117,5 +79,5 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       renderer: 'always',
     },
   },
-  activeGroup: 'chat',
+  activeGroup: 'chat-group',
 }

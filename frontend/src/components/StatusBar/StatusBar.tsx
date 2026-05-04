@@ -1,10 +1,36 @@
 import { useStore } from '../../store'
+import { DEFAULT_LAYOUT } from '../Panel/defaultLayout'
+import { applyLayoutSizes } from '../Panel/applyLayoutSizes'
+import { IconRestore } from '../Icons'
+
+const STORAGE_PREFIX = 'monika_layout_'
 
 function StatusBar() {
   const generating = useStore((s) => s.generatingSessionId !== '')
   const tokenCount = useStore((s) => s.tokenCount)
   const tokenMax = useStore((s) => s.tokenMax)
   const branch = useStore((s) => s.branch)
+  const dockviewApi = useStore((s) => s.dockviewApi)
+  const projectPath = useStore((s) => s.projectPath)
+
+  const handleRestoreLayout = () => {
+    if (!dockviewApi) return
+
+    const baseKey = projectPath || 'default'
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(STORAGE_PREFIX) && key.endsWith(baseKey)) {
+        keysToRemove.push(key)
+      }
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key)
+    }
+
+    dockviewApi.fromJSON(DEFAULT_LAYOUT)
+    applyLayoutSizes(dockviewApi)
+  }
 
   return (
     <div
@@ -38,6 +64,13 @@ function StatusBar() {
             {Math.round(tokenCount / 1000)}k / {Math.round(tokenMax / 1000)}k tokens
           </span>
         )}
+        <button
+          onClick={handleRestoreLayout}
+          title="Restore default layout"
+          className="flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+        >
+          <IconRestore size={13} />
+        </button>
       </div>
     </div>
   )

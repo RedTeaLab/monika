@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import { DEFAULT_LAYOUT } from './defaultLayout'
+import { applyLayoutSizes } from './applyLayoutSizes'
 
 const STORAGE_PREFIX = 'monika_layout_'
+const LAYOUT_VERSION = 9
 
 export function useLayoutPersistence(
   api: DockviewApi | null,
@@ -11,24 +13,30 @@ export function useLayoutPersistence(
   const savingRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
 
-  // Restore saved layout or use default on first mount
   useEffect(() => {
     if (!api) return
 
-    const key = STORAGE_PREFIX + (projectPath || 'default')
+    const baseKey = projectPath || 'default'
+    const versionedKey = `${STORAGE_PREFIX}v${LAYOUT_VERSION}_${baseKey}`
+
     try {
-      const saved = localStorage.getItem(key)
+      const saved = localStorage.getItem(versionedKey)
       if (saved) {
         api.fromJSON(JSON.parse(saved))
         return
+      }
+
+      const oldKey = `${STORAGE_PREFIX}${baseKey}`
+      if (localStorage.getItem(oldKey) !== null) {
+        localStorage.removeItem(oldKey)
       }
     } catch {
       // Corrupted — fall through to default
     }
     api.fromJSON(DEFAULT_LAYOUT)
+    applyLayoutSizes(api)
   }, [api, projectPath])
 
-  // Save layout on changes (debounced 500ms)
   useEffect(() => {
     if (!api) return
 
@@ -37,13 +45,14 @@ export function useLayoutPersistence(
       if (timerRef.current) clearTimeout(timerRef.current)
 
       timerRef.current = setTimeout(() => {
-        const key = STORAGE_PREFIX + (projectPath || 'default')
+        const baseKey = projectPath || 'default'
+        const versionedKey = `${STORAGE_PREFIX}v${LAYOUT_VERSION}_${baseKey}`
         try {
           savingRef.current = true
           const json = api.toJSON()
-          localStorage.setItem(key, JSON.stringify(json))
+          localStorage.setItem(versionedKey, JSON.stringify(json))
         } catch {
-          // Silently fail — layout will reset next time
+          // Silently fail
         } finally {
           savingRef.current = false
         }

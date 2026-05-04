@@ -1,6 +1,39 @@
 @import "tailwindcss";
 @import 'dockview/dist/styles/dockview.css';
 
+/* ── Dockview theme overrides ── */
+.dockview-theme-dark {
+  --dv-group-view-background-color: var(--bg-root);
+  --dv-tabs-and-actions-container-background-color: var(--bg-sidebar);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-elevated);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-card);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-elevated);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-card);
+  --dv-tab-divider-color: var(--border);
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-dim);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-dim);
+  --dv-separator-border: var(--border);
+  --dv-sash-color: var(--border);
+  --dv-active-sash-color: var(--border-strong);
+  --dv-icon-hover-background-color: var(--bg-hover);
+  --dv-drag-over-background-color: var(--accent-muted);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-floating-box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+
+/* Dockview overlay container must not block pointer events */
+.dv-dockview .dv-overlay-render-container {
+  pointer-events: none;
+}
+
+/* Ensure panel content areas don't have unwanted backgrounds */
+.dv-group-view {
+  background: var(--bg-root);
+}
+
 @font-face {
   font-family: 'Maple Mono NF';
   src: url('./assets/fonts/MapleMono-NF-Regular.ttf') format('truetype');
@@ -25,6 +58,11 @@
   --bg-elevated: #161820;
   --bg-hover:    rgba(255,255,255,0.04);
   --bg-active:   rgba(255,255,255,0.06);
+
+  /* ── Glass surfaces (semi-transparent overlays) ── */
+  --glass-light:  rgba(255,255,255,0.03);
+  --glass-hover:  rgba(255,255,255,0.06);
+  --glass-active: rgba(255,255,255,0.08);
 
   /* ── Borders ── */
   --border:        rgba(255,255,255,0.06);
