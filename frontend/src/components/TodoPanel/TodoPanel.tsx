@@ -44,14 +44,14 @@ function computeDepth(task: TaskItem, allTasks: TaskItem[]): number {
   return Math.min(maxDepth, 3)
 }
 
-export default function TodoPanel({ collapsed, onToggle }: {
+export default function TodoPanel({ sessionId, collapsed, onToggle }: {
+  sessionId: string
   collapsed: boolean
   onToggle: () => void
 }) {
-  const activeSessionId = useStore((s) => s.activeSessionId)
-  const tasks = useStore((s) => (activeSessionId ? s.tasks[activeSessionId] : undefined))
+  const tasks = useStore((s) => (sessionId ? s.tasks[sessionId] : undefined))
 
-  if (!activeSessionId || !tasks || tasks.length === 0) return null
+  if (!sessionId || !tasks || tasks.length === 0) return null
 
   const completedCount = tasks.filter((t) => t.status === 'completed').length
 

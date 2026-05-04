@@ -150,6 +150,7 @@ function ChatArea(props: IDockviewPanelProps) {
         )}
       </div>
       <TodoPanel
+        sessionId={sessionId}
         collapsed={isTodoCollapsed}
         onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
       />
