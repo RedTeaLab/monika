@@ -554,6 +554,11 @@ func (a *App) ListFileChanges(projectPath string) ([]FileChange, error) {
 	return fs.ListChanges()
 }
 
+func (a *App) ListChangeStats(projectPath string) ([]ChangeStat, error) {
+	fs := a.getFileService(projectPath)
+	return fs.ListChangeStats()
+}
+
 func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 	fs := a.getFileService(projectPath)
 	dr, err := fs.GetDiff(filePath)
