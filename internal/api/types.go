@@ -75,6 +75,12 @@ type DiffResult struct {
 	Lines    []string `json:"lines"`
 }
 
+type ChangeStat struct {
+	Path    string `json:"path"`
+	Added   int    `json:"added"`
+	Deleted int    `json:"deleted"`
+}
+
 // ProviderInfo identifies a configured provider for the frontend selector.
 type ProviderInfo struct {
 	ID          string `json:"id"`
