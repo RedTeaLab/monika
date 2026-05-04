@@ -671,17 +671,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						flushThinking()
 					}
 				case engine.EventToolCallStart:
-					flushAll()
-					if ev.ToolCall != nil {
-						ch <- Event{
-							Type: EventToolStart,
-							Tool: &ToolEvent{
-								ID:    ev.ToolCall.ID,
-								Name:  ev.ToolCall.Function.Name,
-								Input: ev.ToolCall.Function.Arguments,
-							},
-						}
-					}
+						flushAll()
 				case engine.EventToolCallEnd:
 					flushAll()
 					if ev.ToolCall != nil {
@@ -780,6 +770,14 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					ToolCallID: tc.ID, Name: tc.Function.Name,
 				})
 				continue
+			}
+
+			ch <- Event{
+				Type: EventToolStart,
+				Tool: &ToolEvent{
+					ID: tc.ID, Name: tc.Function.Name,
+					Input: tc.Function.Arguments,
+				},
 			}
 
 			t, ok := a.tools.Get(tc.Function.Name)
@@ -909,12 +907,13 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			if execResult.IsError {
 				toolContent = "error: " + toolContent
 			}
-
+			status := "done"
 			if execResult.IsError {
-					executed[dk] = cachedResult{output: execResult.Content, status: "error"}
-				} else {
-					executed[dk] = cachedResult{output: execResult.Content, status: "done"}
-				}
+				status = "error"
+				executed[dk] = cachedResult{output: execResult.Content, status: "error"}
+			} else {
+				executed[dk] = cachedResult{output: execResult.Content, status: "done"}
+			}
 			ch <- Event{
 				Type: EventToolOutput,
 				Tool: &ToolEvent{
@@ -922,7 +921,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					Name:   tc.Function.Name,
 					Input:  tc.Function.Arguments,
 					Output: execResult.Content,
-					Status: "done",
+					Status: status,
 				},
 			}
 

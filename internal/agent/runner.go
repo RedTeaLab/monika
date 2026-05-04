@@ -21,17 +21,19 @@ type ChildSession struct {
 
 type TaskRunner struct {
 	registry   *AgentRegistry
-	provider   engine.ProviderEngine
+	provider   engine.ProviderEngine            // default / fallback provider
+	providers  map[string]engine.ProviderEngine // all available providers, keyed by ID
 	tools      *tool.ToolRegistry
 	sem        chan struct{}
 	onStart    func(task SubTask, agentName string) // called before child runs
 	onComplete func(task SubTask, child *ChildSession)
 }
 
-func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, tools *tool.ToolRegistry, onStart func(task SubTask, agentName string), onComplete func(task SubTask, child *ChildSession)) *TaskRunner {
+func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, providers map[string]engine.ProviderEngine, tools *tool.ToolRegistry, onStart func(task SubTask, agentName string), onComplete func(task SubTask, child *ChildSession)) *TaskRunner {
 	return &TaskRunner{
 		registry:   registry,
 		provider:   provider,
+		providers:  providers,
 		tools:      tools,
 		sem:        make(chan struct{}, MaxConcurrentSubtasks),
 		onStart:    onStart,
@@ -90,7 +92,14 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 				opts = append(opts, WithProvider(parent.providerID))
 			}
 		}
-		child := NewLoop(r.provider, r.tools, opts...)
+		// Resolve provider engine from task.Provider, falling back to default
+		provEng := r.provider
+		if task.Provider != "" {
+			if p, ok := r.providers[task.Provider]; ok {
+				provEng = p
+			}
+		}
+		child := NewLoop(provEng, r.tools, opts...)
 		childConv := &Conversation{ID: task.SessionID}
 
 		childCtx, cancel := context.WithCancel(ctx)

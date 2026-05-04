@@ -26,8 +26,9 @@ const PromptToolUsage = `## Tool Usage
 - Never read an entire file blindly
 
 ### Parallel tool calls
-- When multiple independent tool calls are needed, invoke them in a single message
-- Example: reading 3 files in parallel, running git status + git diff together
+- When multiple INDEPENDENT tool calls are needed, invoke them in a single message
+- Example: reading 3 different files in parallel, running git status + git diff together
+- Do NOT invoke the same tool with identical arguments more than once — duplicates waste time
 
 ### Editing files
 - ALWAYS read the file with file_read before editing with file_edit — never edit blind

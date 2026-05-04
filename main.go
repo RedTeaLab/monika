@@ -108,7 +108,7 @@ func main() {
 	// onStart preregisters the child session so the frontend can open the tab during running.
 	// onComplete stores the full execution results.
 	var appService *api.App
-	taskRunner := agent.NewTaskRunner(agentRegistry, defaultProvider, registry,
+	taskRunner := agent.NewTaskRunner(agentRegistry, defaultProvider, pr.Providers, registry,
 		func(task agent.SubTask, agentName string) {
 			if appService != nil {
 				// Save a minimal session immediately so the tab can be opened

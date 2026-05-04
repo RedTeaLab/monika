@@ -123,6 +123,7 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	toolCallBuf := make(map[int]*engine.ToolCall)
+	toolCallStarted := make(map[int]bool)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -175,7 +176,8 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 					buf.Function.Name = tc.Function.Name
 				}
 
-				if tc.Function.Name != "" && buf.Function.Name == tc.Function.Name {
+				if tc.Function.Name != "" && !toolCallStarted[tc.Index] {
+					toolCallStarted[tc.Index] = true
 					if err := send(engine.ChatEvent{
 						Kind: engine.EventToolCallStart,
 						ToolCall: &engine.ToolCall{
@@ -226,6 +228,7 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 						}
 					}
 				}
+				toolCallBuf = make(map[int]*engine.ToolCall)
 				if err := send(engine.ChatEvent{
 					Kind: engine.EventMessageEnd,
 					Text: *choice.FinishReason,
