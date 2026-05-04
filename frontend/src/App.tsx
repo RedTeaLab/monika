@@ -9,6 +9,8 @@ import Console from './components/Console/Console'
 import StatusBar from './components/StatusBar/StatusBar'
 import { ChatTab } from './components/Panel/ChatTab'
 import { EditorTab } from './components/Panel/EditorTab'
+import { SessionTab } from './components/Panel/SessionTab'
+import ChangesList from './components/ChangesList/ChangesList'
 import { DefaultTab } from './components/Panel/DefaultTab'
 import { useLayoutPersistence } from './components/Panel/useLayoutPersistence'
 import { useStore } from './store'
@@ -17,6 +19,7 @@ const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> =
   chat: ChatArea,
   editor: FileEditor,
   filetree: FileTree,
+  changes: ChangesList,
   session: SessionList,
   console: Console,
 }
@@ -24,7 +27,9 @@ const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> =
 const tabComponents = {
   'chat-tab': ChatTab,
   'editor-tab': EditorTab,
+  'session-tab': SessionTab,
   'default-tab': DefaultTab,
+  'changes-tab': DefaultTab,
 }
 
 function App() {
