@@ -25,6 +25,11 @@
   --dv-floating-box-shadow: 0 8px 24px rgba(0,0,0,0.6);
 }
 
+/* Void space matches tab bar background */
+.dv-void-container {
+  background: var(--bg-sidebar);
+}
+
 /* Dockview overlay container must not block pointer events */
 .dv-dockview .dv-overlay-render-container {
   pointer-events: none;

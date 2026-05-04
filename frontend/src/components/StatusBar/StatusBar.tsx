@@ -1,15 +1,14 @@
 import { useStore } from '../../store'
 import { DEFAULT_LAYOUT } from '../Panel/defaultLayout'
 import { applyLayoutSizes } from '../Panel/applyLayoutSizes'
-import { IconRestore } from '../Icons'
+
 
 const STORAGE_PREFIX = 'monika_layout_'
 
 function StatusBar() {
   const generating = useStore((s) => s.generatingSessionId !== '')
-  const tokenCount = useStore((s) => s.tokenCount)
-  const tokenMax = useStore((s) => s.tokenMax)
-  const branch = useStore((s) => s.branch)
+  const consoleVisible = useStore((s) => s.consoleVisible)
+  const toggleConsole = useStore((s) => s.toggleConsole)
   const dockviewApi = useStore((s) => s.dockviewApi)
   const projectPath = useStore((s) => s.projectPath)
 
@@ -50,26 +49,23 @@ function StatusBar() {
         <span className="text-[var(--text-secondary)]">
           {generating ? 'generating...' : 'ready'}
         </span>
-        {branch && (
-          <>
-            <span className="text-[var(--border)] select-none">|</span>
-            <span className="text-[var(--text-dim)]">{branch}</span>
-          </>
-        )}
+        <button
+          onClick={toggleConsole}
+          title={consoleVisible ? 'Hide Console' : 'Show Console'}
+          className="flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          style={{ opacity: consoleVisible ? 1 : 0.5 }}
+        >
+          <span className="text-[12px] leading-none font-mono">{'>_'}</span>
+        </button>
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-2">
-        {tokenMax > 0 && (
-          <span className="text-[var(--text-dim)]">
-            {Math.round(tokenCount / 1000)}k / {Math.round(tokenMax / 1000)}k tokens
-          </span>
-        )}
         <button
           onClick={handleRestoreLayout}
-          title="Restore default layout"
+          title="Refresh layout"
           className="flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
         >
-          <IconRestore size={13} />
+          <span className="text-[13px] leading-none">↻</span>
         </button>
       </div>
     </div>

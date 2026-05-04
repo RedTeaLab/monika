@@ -12,10 +12,12 @@ export interface TaskItem {
   blockedBy?: string[]
 }
 
-export interface ConsoleLine {
-  type: 'cmd' | 'output' | 'done' | 'error_out' | 'file' | 'compaction'
+export interface ConsoleEntry {
+  type: 'system' | 'tool' | 'error' | 'file'
   text: string
-  meta?: string  // secondary info: tool name for cmd, path for file, etc.
+  meta?: string
+  output?: string
+  status?: 'running' | 'done' | 'error'
 }
 
 interface ToolCall {
@@ -66,7 +68,8 @@ interface AppState {
   branch: string
   activeSessionId: string
   sessionParents: Record<string, string>
-  consoleLines: string[]
+  consoleEntries: ConsoleEntry[]
+  consoleVisible: boolean
   activeFilePath: string
   fileTreeVersion: number
   sessionListVersion: number
@@ -108,7 +111,11 @@ interface AppState {
   setProjectPath: (path: string) => void
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
-  addConsoleLine: (line: string) => void
+  addConsoleEntry: (entry: ConsoleEntry) => void
+  addToolEntry: (name: string, input: string) => void
+  appendToolOutput: (text: string) => void
+  finishToolEntry: (status: 'done' | 'error') => void
+  toggleConsole: () => void
   setDockviewApi: (api: DockviewApi | null) => void
   bumpFileTreeVersion: () => void
   bumpSessionListVersion: () => void
@@ -148,7 +155,8 @@ export const useStore = create<AppState>((set, get) => ({
   branch: '',
   activeSessionId: '',
   sessionParents: {},
-  consoleLines: ['$ ready'],
+  consoleEntries: [{ type: 'system', text: 'ready' }],
+  consoleVisible: true,
   activeFilePath: '',
   fileTreeVersion: 0,
   sessionListVersion: 0,
@@ -424,12 +432,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
-  updateSessionTitle: (id, title) =>
+  updateSessionTitle: (id, title) => {
     set((s) => ({
       openSessions: s.openSessions.map((sess) =>
         sess.id === id ? { ...sess, title } : sess
       ),
-    })),
+    }))
+    get().dockviewApi?.getPanel(id)?.api.setTitle(title)
+  },
   setSessionTasks: (sessionId, tasks) => {
     set((s) => ({ tasks: { ...s.tasks, [sessionId]: tasks } }))
   },
@@ -446,7 +456,48 @@ export const useStore = create<AppState>((set, get) => ({
     set({ branch });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
-  addConsoleLine: (line) => set((s) => ({ consoleLines: [...s.consoleLines, line] })),
+  addConsoleEntry: (entry) => set((s) => ({ consoleEntries: [...s.consoleEntries, entry] })),
+  addToolEntry: (name, input) =>
+    set((s) => ({
+      consoleEntries: [...s.consoleEntries, { type: 'tool', text: name, meta: input || '', output: '', status: 'running' }],
+    })),
+  appendToolOutput: (text) =>
+    set((s) => {
+      const entries = [...s.consoleEntries]
+      const last = entries[entries.length - 1]
+      if (last && last.type === 'tool') {
+        const sep = last.output ? '\n' : ''
+        entries[entries.length - 1] = { ...last, output: (last.output || '') + sep + text }
+      }
+      return { consoleEntries: entries }
+    }),
+  finishToolEntry: (status) =>
+    set((s) => {
+      const entries = [...s.consoleEntries]
+      const last = entries[entries.length - 1]
+      if (last && last.type === 'tool' && last.status === 'running') {
+        entries[entries.length - 1] = { ...last, status }
+      }
+      return { consoleEntries: entries }
+    }),
+  toggleConsole: () => {
+    const { dockviewApi, consoleVisible } = get()
+    if (!dockviewApi) return
+    if (consoleVisible) {
+      dockviewApi.getPanel('console')?.api.close()
+      set({ consoleVisible: false })
+    } else {
+      dockviewApi.addPanel({
+        id: 'console',
+        component: 'console',
+        tabComponent: 'default-tab',
+        title: 'CONSOLE',
+        position: { direction: 'below' },
+        initialHeight: 120,
+      })
+      set({ consoleVisible: true })
+    }
+  },
   setDockviewApi: (api) => set({ dockviewApi: api }),
 
   openSessionTab: async (id, title) => {
@@ -718,7 +769,8 @@ export const useStore = create<AppState>((set, get) => ({
       activeSessionId: '',
       sessionParents: {},
       activeFilePath: '',
-      consoleLines: ['$ ready'],
+      consoleEntries: [{ type: 'system', text: 'ready' }],
+      consoleVisible: true,
       openSessions: [],
       sessionMessages: {},
       tasks: {},
@@ -827,7 +879,7 @@ export function setupWailsEvents() {
       case 'tool_start':
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-          store.addConsoleLine(`$ ${data.tool.name} ${data.tool.input || ''}`)
+          store.addToolEntry(data.tool.name, data.tool.input || '')
           if (sid === store.activeSessionId) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           }
@@ -836,7 +888,7 @@ export function setupWailsEvents() {
 
       case 'tool_output':
         if (data.tool) {
-          store.addConsoleLine(data.tool.output || '')
+          store.appendToolOutput(data.tool.output || '')
           store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
           if (data.tool.input) {
             store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
@@ -853,7 +905,7 @@ export function setupWailsEvents() {
       case 'tool_done':
         if (data.tool) {
           const status = (data.tool.status === 'done' || data.tool.status === 'error') ? data.tool.status : 'done'
-          store.addConsoleLine(`[${status}] ${data.tool.name}`)
+          store.finishToolEntry(status)
           if (data.tool.input) {
             store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
             if (sid === store.activeSessionId) {
@@ -879,7 +931,7 @@ export function setupWailsEvents() {
           store.bumpSessionListVersion()
           break
         }
-        store.addConsoleLine(`[error] ${data.content || 'Unknown error'}`)
+        store.addConsoleEntry({ type: 'error', text: data.content || 'Unknown error' })
         store.addSessionError(sid, data.content || 'Unknown error')
         if (sid === store.activeSessionId) {
           store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
@@ -893,7 +945,7 @@ export function setupWailsEvents() {
 
       case 'file_changed':
         if (data.file_change) {
-          store.addConsoleLine(`[file] ${data.file_change.path} ${data.file_change.status}`)
+          store.addConsoleEntry({ type: 'file', text: data.file_change.path, meta: data.file_change.status })
         }
         store.bumpFileTreeVersion()
         break
