@@ -71,6 +71,24 @@ func (ts *taskStore) Replace(sessionID string, tasks []tool.Task) error {
 		}
 	}
 
+	// Merge with existing tasks: preserve completed/cancelled status for idempotency.
+	// When task_create is called again, tasks that were already completed or cancelled
+	// should not have their status overwritten back to pending.
+	existing := ts.tasks[sessionID]
+	if len(existing) > 0 {
+		statusMap := make(map[string]string, len(existing))
+		for _, t := range existing {
+			if t.Status == "completed" || t.Status == "cancelled" {
+				statusMap[t.ID] = t.Status
+			}
+		}
+		for i := range tasks {
+			if preserved, ok := statusMap[tasks[i].ID]; ok {
+				tasks[i].Status = preserved
+			}
+		}
+	}
+
 	ts.mu.Lock()
 	ts.tasks[sessionID] = tasks
 	ts.mu.Unlock()
@@ -177,6 +195,12 @@ func (ts *taskStore) Snapshot() map[string][]tool.Task {
 		out[sid] = copied
 	}
 	return out
+}
+
+// GetTaskStore returns the store itself, keyed by sessionID internally.
+func (ts *taskStore) GetTaskStore(sessionID string) tool.TaskStore {
+	_ = sessionID
+	return ts
 }
 
 // Restore loads persisted tasks into the store.

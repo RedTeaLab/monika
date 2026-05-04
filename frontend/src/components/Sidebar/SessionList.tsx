@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
+import { logger } from '../../lib/logger'
 import { useStore } from '../../store'
 import { IconPlus, IconTrash } from '../Icons'
 import ConfirmModal from '../Chat/ConfirmModal'
@@ -49,7 +50,7 @@ function SessionList(props: IDockviewPanelProps) {
       setSessions((prev) => [info, ...prev])
       await openSessionTab(info.id, info.title || 'Untitled')
     } catch (err) {
-      console.error('Failed to create session:', err)
+      logger.error('Failed to create session:', err)
     }
   }
 
@@ -88,7 +89,10 @@ function SessionList(props: IDockviewPanelProps) {
     if (!projectPath || !sessionToDelete) return
     await App.DeleteSession(projectPath, sessionToDelete.id)
     const deletedId = sessionToDelete.id
-    useStore.getState().closeSessionTab(deletedId)
+    const state = useStore.getState()
+    state.closeSessionTab(deletedId)
+    // Also close the corresponding dockview panel
+    state.dockviewApi?.getPanel(deletedId)?.api.close()
     setSessionToDelete(null)
 
     // Compute remaining sessions

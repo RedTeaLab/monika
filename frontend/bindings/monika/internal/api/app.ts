@@ -53,6 +53,13 @@ export function GetModels(providerID: string): $CancellablePromise<engine$0.Mode
     });
 }
 
+/**
+ * GetPersistedSelection returns the provider and model from config, or empty strings.
+ */
+export function GetPersistedSelection(): $CancellablePromise<[string, string]> {
+    return $Call.ByID(676179437);
+}
+
 export function GetProviders(): $CancellablePromise<$models.ProviderInfo[]> {
     return $Call.ByID(2466924902).then(($result: any) => {
         return $$createType7($result);

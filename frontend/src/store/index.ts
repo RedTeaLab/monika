@@ -572,7 +572,7 @@ export const useStore = create<AppState>((set, get) => ({
         currentCache[s.activeSessionId] = bgUpdated || s.messages
       }
       const restored = currentCache[id] || []
-      return {
+      const updates = {
         activeSessionId: id,
         sessionMessages: currentCache,
         messages: restored,
@@ -580,6 +580,9 @@ export const useStore = create<AppState>((set, get) => ({
         tokenMax: s.sessionTokens[id]?.max ?? 0,
         sessionParents: s.sessionParents,
       }
+      // Activate corresponding dockview panel
+      s.dockviewApi?.getPanel(id)?.api.setActive()
+      return updates
     })
   },
 

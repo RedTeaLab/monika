@@ -1,0 +1,65 @@
+<h2>数据流与持久化</h2>
+<p class="subtitle">前端 store → Wails RPC → Go App → provider engine</p>
+
+<h3>启动加载流程</h3>
+
+<div style="font-family:monospace;font-size:12px;line-height:2;color:var(--text-primary, #ccc);padding:12px;background:var(--bg-card, #1e1e1e);border-radius:6px;">
+  1. initProject()
+  <span style="color:#888;">&nbsp;&nbsp;→ App.GetCurrentProject()</span><br/>
+  2. loadProviders()
+  <span style="color:#888;">&nbsp;&nbsp;→ App.GetProviders() → ["deepseek", "openai"]</span><br/>
+  3. loadModels(selectedProvider)
+  <span style="color:#888;">&nbsp;&nbsp;→ App.GetModels("deepseek") → [{ID, DisplayName, ContextLimit}, ...]</span><br/>
+  4. auto-select
+  <span style="color:#888;">&nbsp;&nbsp;若 cfg.model 非空且在当前模型列表中 → 选中它</span><br/>
+  <span style="color:#888;">&nbsp;&nbsp;否则选中第一个可用模型</span><br/>
+  5. 用户切换
+  <span style="color:#888;">&nbsp;&nbsp;→ setSelectedProvider(p) + loadModels(p) → 自动选中首模型</span>
+</div>
+
+<h3>SendMessage 调用</h3>
+
+<div style="font-family:monospace;font-size:12px;line-height:2;color:var(--text-primary, #ccc);padding:12px;background:var(--bg-card, #1e1e1e);border-radius:6px;">
+  <span style="color:#888;">// 当前签名</span><br/>
+  App.SendMessage(projectPath, sessionID, text, <span style="color:#f0c060;">model</span>)
+  <br/><br/>
+  <span style="color:#888;">// 新签名</span><br/>
+  App.SendMessage(projectPath, sessionID, text, <span style="color:#60c060;">provider</span>, <span style="color:#f0c060;">model</span>)
+</div>
+
+<h3>持久化</h3>
+
+<table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;">
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <th style="text-align:left;padding:6px 8px;color:var(--text-dim, #888);">时机</th>
+    <th style="text-align:left;padding:6px 8px;color:var(--text-dim, #888);">操作</th>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">用户在 picker 中选择模型</td>
+    <td style="padding:6px 8px;">App 更新 cfg.ModelProvider + cfg.Model，写入 ~/.monika/config.yaml</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">每次 SendMessage 调用</td>
+    <td style="padding:6px 8px;">同上，确保最后使用的 supplier/model 被记住</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;">下次启动</td>
+    <td style="padding:6px 8px;">cfg.ModelProvider 和 cfg.Model 作为默认值，初始化对应的引擎并选中</td>
+  </tr>
+</table>
+
+<h3>Zustand Store 新增字段</h3>
+
+<div style="font-family:monospace;font-size:12px;line-height:1.8;color:var(--text-primary, #ccc);padding:12px;background:var(--bg-card, #1e1e1e);border-radius:6px;">
+  availableProviders: <span style="color:#60c060;">string[]</span><br/>
+  selectedProvider: <span style="color:#60c060;">string</span><br/>
+  modelsByProvider: <span style="color:#60c060;">Record&lt;string, ModelInfo[]&gt;</span><br/><br/>
+  loadProviders: <span style="color:#f0c060;">() =&gt; Promise&lt;void&gt;</span><br/>
+  setSelectedProvider: <span style="color:#f0c060;">(id: string) =&gt; void</span><br/>
+  <br/>
+  <span style="color:#888;">// 修改</span><br/>
+  loadModels: <span style="color:#f0c060;">(providerID: string) =&gt; Promise&lt;void&gt;</span><br/>
+  <span style="color:#888;">// selectedModel 保留，但加载逻辑依赖 selectedProvider</span>
+</div>
+
+<p style="margin-top:16px;color:var(--text-dim, #888);">数据流和持久化方案是否合理？确认后进入错误处理和测试。</p>

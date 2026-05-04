@@ -1,0 +1,74 @@
+<h2>架构变更：单引擎 → 多引擎</h2>
+<p class="subtitle">启动时初始化所有已配置的供应商，存入 map，切换供应商即切换 map key</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">当前：单引擎</div>
+    <div class="mockup-body">
+      <div style="font-family:monospace;font-size:12px;line-height:1.8;color:var(--text-primary, #ccc);">
+        App {<br/>
+        &nbsp;&nbsp;provider: <span style="color:#f0c060;">ProviderEngine</span> <span style="color:#888;">// 唯一</span><br/>
+        &nbsp;&nbsp;model: string<br/>
+        &nbsp;&nbsp;cfg: Config<br/>
+        }<br/>
+        <br/>
+        GetModels() → one engine<br/>
+        SendMessage(..., model)
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">目标：多引擎</div>
+    <div class="mockup-body">
+      <div style="font-family:monospace;font-size:12px;line-height:1.8;color:var(--text-primary, #ccc);">
+        App {<br/>
+        &nbsp;&nbsp;providers: <span style="color:#60c060;">map[string]ProviderEngine</span><br/>
+        &nbsp;&nbsp;model: string<br/>
+        &nbsp;&nbsp;cfg: Config<br/>
+        }<br/>
+        <br/>
+        GetProviders() → []string<br/>
+        GetModels(providerID) → one engine<br/>
+        SendMessage(..., provider, model)
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>后端改动清单</h3>
+
+<div class="section">
+  <h4>1. bootstrap/provider.go</h4>
+  <p>InitProvider() 遍历 cfg.ModelProviders 的每个 key，逐个初始化引擎，返回 <code>map[string]ProviderEngine</code> 而非单个。</p>
+
+  <h4>2. internal/api/app.go</h4>
+  <p>新增 <code>GetProviders()</code> 返回已配置的供应商 ID 列表。<br/>
+  <code>GetModels(providerID)</code> 接受参数定位引擎。<br/>
+  <code>SendMessage(..., provider)</code> 接受供应商参数，传给 agent loop。</p>
+
+  <h4>3. internal/agent/agent_loop.go</h4>
+  <p>LoopOption 增加 <code>WithProvider()</code>，ChatRequest.Provider 填入该值。</p>
+
+  <h4>4. 配置持久化</h4>
+  <p>SendMessage 成功后更新 <code>cfg.ModelProvider</code> 和 <code>cfg.Model</code> 写入 ~/.monika/config.yaml。</p>
+</div>
+
+<h3>前端改动清单</h3>
+
+<div class="section">
+  <h4>1. Zustand store</h4>
+  <p>新增: <code>availableProviders: string[]</code>, <code>selectedProvider: string</code>, <code>loadProviders()</code>, <code>setSelectedProvider()</code>。<br/>
+  修改: <code>loadModels(providerID)</code> 按供应商加载模型列表。</p>
+
+  <h4>2. ModelPicker 组件（新建）</h4>
+  <p>替代 ChatInputToolbar 中的单一下拉框。按钮显示供应商图标+模型名，点击弹出分组列表。</p>
+
+  <h4>3. ChatInputToolbar 改动</h4>
+  <p>用 ModelPicker 替换原有的 &lt;select&gt; 元素。</p>
+
+  <h4>4. Wails bindings</h4>
+  <p>重新生成以反映 API 变更。</p>
+</div>
+
+<p style="margin-top:16px;color:var(--text-dim, #888);">这个架构是否合理？确认后继续细化 ModelPicker 的交互设计。</p>

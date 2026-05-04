@@ -16,7 +16,7 @@ func NewTaskCreate(store tool.TaskStore) tool.Tool {
 	return &taskCreateTool{store: store}
 }
 
-func (t *taskCreateTool) Name() string { return "TaskCreate" }
+func (t *taskCreateTool) Name() string { return "task_create" }
 
 func (t *taskCreateTool) Description() string {
 	return "Create or replace the task list for the current session. " +
@@ -30,7 +30,7 @@ func (t *taskCreateTool) Description() string {
 		"4. User provides multiple tasks — numbered or comma-separated lists\n" +
 		"5. After receiving new instructions — immediately capture user requirements as tasks\n" +
 		"6. After completing a task — mark it complete and add any new follow-up tasks\n" +
-		"7. When you start working on a task — mark it in_progress via TaskUpdate\n\n" +
+		"7. When you start working on a task — mark it in_progress via task_update\n\n" +
 		"## When NOT to Use\n" +
 		"Skip only when:\n" +
 		"1. The task is purely informational (e.g., \"what does git status do?\")\n" +

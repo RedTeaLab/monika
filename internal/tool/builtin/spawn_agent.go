@@ -21,7 +21,7 @@ func NewSpawnAgent(registry *agent.AgentRegistry, dispatchFn func(ctx context.Co
 	return &spawnAgentTool{registry: registry, dispatchFn: dispatchFn, pendingStore: pendingStore}
 }
 
-func (t *spawnAgentTool) Name() string { return "SpawnAgent" }
+func (t *spawnAgentTool) Name() string { return "spawn_agent" }
 
 func (t *spawnAgentTool) Description() string {
 	return `Launch a new agent to handle complex, multi-step tasks. Each agent type has specific capabilities and tools available to it.
@@ -76,7 +76,7 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	// Prevent recursive spawn: child agents cannot spawn their own children
 	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
 		return tool.ExecutionResult{
-			Content: "SpawnAgent is not available in child agent sessions",
+			Content: "spawn_agent is not available in child agent sessions",
 			IsError: true,
 		}, nil
 	}
@@ -127,13 +127,15 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 		Description: params.Description,
 		Prompt:      params.Prompt,
 		Status:      "pending",
+		Model:       tool.ModelFromContext(ctx),
+		Provider:    tool.ProviderFromContext(ctx),
 	}
 
 	resultCh := t.dispatchFn(ctx, task)
 	var output strings.Builder
 	for ev := range resultCh {
 		switch ev.Type {
-		case agent.EventTextDelta:
+		case agent.EventTextDelta, agent.EventThinking:
 			output.WriteString(ev.Content)
 		case agent.EventError:
 			return tool.ExecutionResult{
@@ -169,7 +171,7 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 
 	// Prevent recursive spawn: child agents cannot spawn their own children
 	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
-		return nil, fmt.Errorf("SpawnAgent is not available in child agent sessions")
+		return nil, fmt.Errorf("spawn_agent is not available in child agent sessions")
 	}
 
 	ag, ok := t.registry.Get(params.SubagentType)
@@ -203,11 +205,14 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 	task := agent.SubTask{
 		ID:          toolCallID,
 		SessionID:   toolCallID,
+		ParentID:    tool.SessionIDFromContext(ctx),
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,
 		Prompt:      params.Prompt,
 		Status:      "pending",
+		Model:       tool.ModelFromContext(ctx),
+		Provider:    tool.ProviderFromContext(ctx),
 	}
 
 	return t.dispatchFn(ctx, task), nil

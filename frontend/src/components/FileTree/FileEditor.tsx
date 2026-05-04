@@ -9,8 +9,8 @@ import { python } from '@codemirror/lang-python'
 import { json } from '@codemirror/lang-json'
 import { go } from '@codemirror/lang-go'
 import { App } from '../../../bindings/monika'
+import { logger } from '../../lib/logger'
 import { useStore } from '../../store'
-import ConfirmModal from '../Chat/ConfirmModal'
 
 const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
 
@@ -40,19 +40,18 @@ function getLangExtension(filePath: string) {
 
 function FileEditor(props: IDockviewPanelProps) {
   const openFiles = useStore((s) => s.openFiles)
-  const closeFileTab = useStore((s) => s.closeFileTab)
   const updateFileContent = useStore((s) => s.updateFileContent)
   const setFileMode = useStore((s) => s.setFileMode)
   const setFileDirty = useStore((s) => s.setFileDirty)
   const projectPath = useStore((s) => s.projectPath)
 
+  const storeActiveFilePath = useStore((s) => s.activeFilePath)
   const paramsPath = (props.params as { filePath?: string } | undefined)?.filePath
-  const activeFilePath = paramsPath || props.api.id
+  const activeFilePath = paramsPath || (props.api.id !== 'editor' ? props.api.id : storeActiveFilePath)
 
   const editorCache = useRef<Map<string, EditorView>>(new Map())
   const lruOrder = useRef<string[]>([])
   const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const [dirtyClosePath, setDirtyClosePath] = useState<string | null>(null)
   const [diffLines, setDiffLines] = useState<string[]>([])
   const [diffLoading, setDiffLoading] = useState(false)
   const editableCompartment = useRef(new Compartment())
@@ -154,7 +153,7 @@ function FileEditor(props: IDockviewPanelProps) {
             setFileDirty(activeFilePath, false)
           })
           .catch((err) => {
-            console.error('[FileEditor] WriteFile failed:', activeFilePath, err)
+            logger.error('WriteFile failed:', activeFilePath, err)
           })
       }
     }
@@ -192,7 +191,7 @@ function FileEditor(props: IDockviewPanelProps) {
       })
       .catch((err) => {
         if (!cancelled) {
-          console.error('Failed to fetch diff:', err)
+          logger.error('Failed to fetch diff:', err)
           setDiffLines([])
           setDiffLoading(false)
         }
@@ -270,22 +269,6 @@ function FileEditor(props: IDockviewPanelProps) {
           ))
         )}
       </div>
-      {dirtyClosePath && (
-        <ConfirmModal
-          title="Unsaved Changes"
-          message={`Close ${dirtyClosePath.split('/').pop() || dirtyClosePath.split('\\').pop()} without saving?`}
-          confirmLabel="Discard"
-          onConfirm={async () => {
-            const view = editorCache.current.get(dirtyClosePath)
-            if (view) { view.destroy(); editorCache.current.delete(dirtyClosePath) }
-            lruOrder.current = lruOrder.current.filter((p) => p !== dirtyClosePath)
-            containerRefs.current.delete(dirtyClosePath)
-            closeFileTab(dirtyClosePath)
-            setDirtyClosePath(null)
-          }}
-          onCancel={() => setDirtyClosePath(null)}
-        />
-      )}
     </div>
   )
 }

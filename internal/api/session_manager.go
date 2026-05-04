@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"monika/internal/tool"
 	"monika/pkg/engine"
 )
 
@@ -34,6 +35,7 @@ type Session struct {
 	CompactionCount  int                  `json:"compaction_count,omitempty"`
 	ArchivedMessages []engine.ChatMessage `json:"archived_messages,omitempty"`
 	ParentID         string               `json:"parent_id,omitempty"`
+	Tasks            []tool.Task          `json:"tasks,omitempty"`
 	CreatedAt        time.Time            `json:"created_at"`
 	UpdatedAt        time.Time            `json:"updated_at"`
 }

@@ -44,6 +44,22 @@ function FileTree(_props: IDockviewPanelProps) {
       } catch {
         openFileTab(node.path, '')
       }
+      // Create dockview editor panel for the file
+      const dockApi = useStore.getState().dockviewApi
+      if (dockApi) {
+        const existing = dockApi.getPanel(node.path)
+        if (!existing) {
+          dockApi.addPanel({
+            id: node.path,
+            component: 'editor',
+            tabComponent: 'editor-tab',
+            title: node.name,
+            params: { filePath: node.path },
+          })
+        } else {
+          existing.api.setActive()
+        }
+      }
     }
   }
 

@@ -475,7 +475,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
     )
   }
 
-  const hasSpawnAgent = tools?.some(t => t.name === 'SpawnAgent')
+  const hasSpawnAgent = tools?.some(t => t.name === 'spawn_agent')
 
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
@@ -497,7 +497,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
 
           {tools?.map((tool, i) =>
-            tool.name === 'SpawnAgent' ? (
+            tool.name === 'spawn_agent' ? (
               <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
             ) : (
               <ToolBlock key={i} tool={tool} />

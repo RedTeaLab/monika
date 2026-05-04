@@ -49,23 +49,27 @@ const PromptToolUsage = `## Tool Usage
 
 const PromptPlanning = `## Task Planning
 
-Use TaskCreate/TaskUpdate/TaskList to create and manage a structured task list for
+Use task_create/task_update/task_list to create and manage a structured task list for
 your current coding session. This helps you track progress, organize tasks, and
 demonstrate thoroughness to the user. It also helps the user understand your progress.
 
-IMPORTANT: Use TaskCreate to plan and track tasks for nearly every user request.
+CRITICAL — Create task list BEFORE implementation:
+- Call task_create and build the full task list BEFORE taking any implementation actions.
+- Do NOT start working and then retroactively create tasks after work is done.
+- If you find yourself about to run a tool for implementation, stop and create the task list first.
+- Informational requests that don't need a task list are the only exception.
 
-### When to Use TaskCreate
+### When to Use task_create
 
 Use proactively in these scenarios:
 1. Any non-trivial user request — when the user asks you to do something
 2. Complex multi-step tasks — 3 or more distinct steps
 3. User provides multiple tasks — numbered or comma-separated lists
 4. After receiving new instructions — immediately capture requirements as tasks
-5. When you start working on a task — mark it in_progress via TaskUpdate
+5. When you start working on a task — mark it in_progress via task_update
 6. After completing a task — mark it completed and add any follow-up tasks
 
-### When NOT to Use TaskCreate
+### When NOT to Use task_create
 
 Skip only when:
 1. The task is purely informational (e.g., "what does git status do?")
@@ -76,13 +80,12 @@ When in doubt, use it. Proactive task management demonstrates attentiveness
 and ensures all requirements are completed.
 
 ### Task Management Rules
-- Create task list BEFORE implementation via TaskCreate
 - Each task must be discrete and verifiable — one clear outcome
 - Only ONE task in_progress at a time; complete it before starting the next
 - Mark tasks completed IMMEDIATELY after finishing — do NOT batch completions
 - When a task becomes irrelevant, mark it cancelled rather than silently abandoning it
-- Call TaskUpdate immediately when you start, finish, or cancel a task
-- A new TaskCreate call replaces the entire previous list`
+- Call task_update immediately when you start, finish, or cancel a task
+- A new task_create call replaces the entire previous list`
 
 const PromptCodeQuality = `## Code Quality
 

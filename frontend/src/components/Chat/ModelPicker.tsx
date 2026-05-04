@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useStore } from '../../store'
 import { App } from '../../../bindings/monika'
+import { logger } from '../../lib/logger'
 import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
 
 function ModelPicker() {
@@ -108,7 +109,7 @@ function ModelPicker() {
       }
       useStore.getState().setSelectedModel(modelId)
       setOpen(false)
-      App.PersistSelection(providerId, modelId).catch((e: unknown) => { console.error('[monika] PersistSelection failed:', e) })
+      App.PersistSelection(providerId, modelId).catch((e: unknown) => { logger.error('PersistSelection failed:', e) })
     },
     [selectedProvider, setSelectedProvider],
   )

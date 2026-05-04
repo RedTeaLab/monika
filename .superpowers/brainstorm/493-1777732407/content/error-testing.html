@@ -1,0 +1,58 @@
+<h2>错误处理 & 测试策略</h2>
+<p class="subtitle">最后一部分 — 边界情况和验证计划</p>
+
+<h3>错误处理</h3>
+
+<table style="width:100%;border-collapse:collapse;font-size:11px;">
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <th style="text-align:left;padding:6px 8px;color:var(--text-dim, #888);">场景</th>
+    <th style="text-align:left;padding:6px 8px;color:var(--text-dim, #888);">处理</th>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">model_providers 为空</td>
+    <td style="padding:6px 8px;">GetProviders() 返回空数组；前端显示 "No providers"，picker 不可用</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">某供应商初始化失败</td>
+    <td style="padding:6px 8px;">跳过该供应商，记录日志，不影响其他供应商</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">某供应商 ListModels 返回空</td>
+    <td style="padding:6px 8px;">该供应商不出现在 picker 中</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">模型列表加载失败</td>
+    <td style="padding:6px 8px;">picker 中该供应商分组显示 "Failed to load" 占位</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">已选中的模型不在新供应商列表中</td>
+    <td style="padding:6px 8px;">自动回退到该供应商的第一个模型</td>
+  </tr>
+  <tr style="border-bottom:1px solid var(--border, #555);">
+    <td style="padding:6px 8px;">持久化写入 config.yaml 失败</td>
+    <td style="padding:6px 8px;">控制台打印警告，不影响选择生效（仅在当前会话有效）</td>
+  </tr>
+  <tr>
+    <td style="padding:6px 8px;">SendMessage 供应商引擎不可用</td>
+    <td style="padding:6px 8px;">返回明确错误信息，前端显示 error message</td>
+  </tr>
+</table>
+
+<h3>测试策略</h3>
+
+<div class="section">
+  <h4>Go 后端</h4>
+  <ul>
+    <li><code>config_test.go</code>: 扩展测试多供应商配置加载</li>
+    <li><code>bootstrap/provider_test.go</code>: 测试多引擎初始化</li>
+    <li><code>api/app_test.go</code>: 测试 GetProviders()、GetModels(providerID)、SendMessage(provider)</li>
+  </ul>
+
+  <h4>前端</h4>
+  <ul>
+    <li><code>tsc --noEmit</code>: 确保类型安全</li>
+    <li>手动测试：启动 wails3 dev，切换供应商 → 确认模型列表更新 → 发送消息 → 重启确认持久化</li>
+  </ul>
+</div>
+
+<p style="margin-top:16px;color:var(--text-dim, #888);">错误处理和测试策略是否 OK？确认后我写入完整的设计文档。</p>

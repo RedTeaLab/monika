@@ -16,12 +16,12 @@ func NewTaskUpdate(store tool.TaskStore) tool.Tool {
 	return &taskUpdateTool{store: store}
 }
 
-func (t *taskUpdateTool) Name() string { return "TaskUpdate" }
+func (t *taskUpdateTool) Name() string { return "task_update" }
 
 func (t *taskUpdateTool) Description() string {
 	return "Update a single task's fields. Only provided fields are updated; " +
 		"others remain unchanged.\n\n" +
-		"CRITICAL: Call TaskUpdate IMMEDIATELY when you:\n" +
+		"CRITICAL: Call task_update IMMEDIATELY when you:\n" +
 		"- Start working on a task → set status to \"in_progress\"\n" +
 		"- Finish a task → set status to \"completed\"\n" +
 		"- Abandon a task → set status to \"cancelled\"\n\n" +

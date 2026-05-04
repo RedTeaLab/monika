@@ -6,12 +6,16 @@ type projectDirKeyType struct{}
 type sessionIDKeyType struct{}
 type taskStoreKeyType struct{}
 type toolCallIDKeyType struct{}
+type modelKeyType struct{}
+type providerKeyType struct{}
 
 var (
-	projectDirKey  projectDirKeyType
-	sessionIDKey   sessionIDKeyType
-	taskStoreKey   taskStoreKeyType
-	toolCallIDKey  toolCallIDKeyType
+	projectDirKey projectDirKeyType
+	sessionIDKey  sessionIDKeyType
+	taskStoreKey  taskStoreKeyType
+	toolCallIDKey toolCallIDKeyType
+	modelKey      modelKeyType
+	providerKey   providerKeyType
 )
 
 // WithProjectDir returns a child context carrying the project directory.
@@ -53,6 +57,28 @@ func WithToolCallID(ctx context.Context, id string) context.Context {
 func ToolCallIDFromContext(ctx context.Context) string {
 	id, _ := ctx.Value(toolCallIDKey).(string)
 	return id
+}
+
+// WithModel returns a child context carrying the model name.
+func WithModel(ctx context.Context, model string) context.Context {
+	return context.WithValue(ctx, modelKey, model)
+}
+
+// ModelFromContext extracts the model name from context, or empty string.
+func ModelFromContext(ctx context.Context) string {
+	m, _ := ctx.Value(modelKey).(string)
+	return m
+}
+
+// WithProvider returns a child context carrying the provider ID.
+func WithProvider(ctx context.Context, provider string) context.Context {
+	return context.WithValue(ctx, providerKey, provider)
+}
+
+// ProviderFromContext extracts the provider ID from context, or empty string.
+func ProviderFromContext(ctx context.Context) string {
+	p, _ := ctx.Value(providerKey).(string)
+	return p
 }
 
 // TaskStore is the interface task tools depend on.

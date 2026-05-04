@@ -69,11 +69,28 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 			r.onStart(task, ag.Name)
 		}
 
-		child := NewLoop(r.provider, r.tools,
+		opts := []LoopOption{
 			WithAgent(ag),
 			WithParent(parent),
 			WithSessionID(task.SessionID),
-		)
+		}
+		// Resolve model: agent explicit > task override > parent inheritance
+		if ag.Model == "" {
+			if task.Model != "" {
+				opts = append(opts, WithModel(task.Model))
+			} else if parent != nil && parent.model != "" {
+				opts = append(opts, WithModel(parent.model))
+			}
+		}
+		// Resolve provider: agent explicit > task override > parent inheritance
+		if ag.Provider == "" {
+			if task.Provider != "" {
+				opts = append(opts, WithProvider(task.Provider))
+			} else if parent != nil && parent.providerID != "" {
+				opts = append(opts, WithProvider(parent.providerID))
+			}
+		}
+		child := NewLoop(r.provider, r.tools, opts...)
 		childConv := &Conversation{ID: task.SessionID}
 
 		childCtx, cancel := context.WithCancel(ctx)

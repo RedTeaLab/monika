@@ -399,6 +399,9 @@ func WithAgent(agent Agent) LoopOption {
 		if agent.Model != "" {
 			a.model = agent.Model
 		}
+		if agent.Provider != "" {
+			a.providerID = agent.Provider
+		}
 	}
 }
 
@@ -505,6 +508,12 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
 			if a.sessionID != "" {
 				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
+			}
+			if a.model != "" {
+				toolCtx = tool.WithModel(toolCtx, a.model)
+			}
+			if a.providerID != "" {
+				toolCtx = tool.WithProvider(toolCtx, a.providerID)
 			}
 			execResult, err := t.Execute(toolCtx, json.RawMessage(tc.Function.Arguments))
 			if err != nil {
@@ -737,11 +746,40 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			ToolCalls:        result.ToolCalls,
 		})
 
+		// Deduplicate tool calls within a turn: same name + same args
+		// executes once and reuses the result for every duplicate ID.
+		type dedupKey struct {
+			name string
+			args string
+		}
+		type cachedResult struct {
+			output string
+			status string
+		}
+		executed := make(map[dedupKey]cachedResult)
+
 		for _, tc := range result.ToolCalls {
 			select {
 			case <-ctx.Done():
 				return
 			default:
+			}
+
+			dk := dedupKey{name: tc.Function.Name, args: tc.Function.Arguments}
+			if cached, ok := executed[dk]; ok {
+				ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
+					ID: tc.ID, Name: tc.Function.Name,
+					Input: tc.Function.Arguments, Output: cached.output, Status: cached.status,
+				}}
+				content := cached.output
+				if cached.status == "error" {
+					content = "error: " + content
+				}
+				conv.Messages = append(conv.Messages, engine.ChatMessage{
+					Role: "tool", Content: content,
+					ToolCallID: tc.ID, Name: tc.Function.Name,
+				})
+				continue
 			}
 
 			t, ok := a.tools.Get(tc.Function.Name)
@@ -756,9 +794,11 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						Status: "error",
 					},
 				}
+				errMsg := fmt.Sprintf("tool %s not found", tc.Function.Name)
+				executed[dk] = cachedResult{output: errMsg, status: "error"}
 				conv.Messages = append(conv.Messages, engine.ChatMessage{
 					Role:       "tool",
-					Content:    fmt.Sprintf("tool %s not found", tc.Function.Name),
+					Content:    errMsg,
 					ToolCallID: tc.ID,
 				})
 				continue
@@ -775,6 +815,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						Status: "denied",
 					},
 				}
+				executed[dk] = cachedResult{output: "execution denied by user", status: "denied"}
 				conv.Messages = append(conv.Messages, engine.ChatMessage{
 					Role:       "tool",
 					Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
@@ -788,6 +829,12 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				toolCtx = tool.WithSessionID(toolCtx, a.sessionID)
 			}
 			toolCtx = tool.WithToolCallID(toolCtx, tc.ID)
+			if a.model != "" {
+				toolCtx = tool.WithModel(toolCtx, a.model)
+			}
+			if a.providerID != "" {
+				toolCtx = tool.WithProvider(toolCtx, a.providerID)
+			}
 			// Check for streaming execution (e.g. SpawnAgent forwards child events)
 			type streamingTool interface {
 				ExecuteStreaming(ctx context.Context, args json.RawMessage) (<-chan Event, error)
@@ -799,6 +846,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						ID: tc.ID, Name: tc.Function.Name,
 						Input: tc.Function.Arguments, Output: execErr.Error(), Status: "error",
 					}}
+					executed[dk] = cachedResult{output: execErr.Error(), status: "error"}
 					conv.Messages = append(conv.Messages, engine.ChatMessage{
 						Role: "tool", Content: fmt.Sprintf("error: %s", execErr),
 						ToolCallID: tc.ID, Name: tc.Function.Name,
@@ -825,6 +873,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				if toolContent == "" {
 					toolContent = "(subtask completed with no output)"
 				}
+				executed[dk] = cachedResult{output: toolContent, status: "done"}
 				ch <- Event{Type: EventToolOutput, Tool: &ToolEvent{
 					ID: tc.ID, Name: tc.Function.Name,
 					Input: tc.Function.Arguments, Output: toolContent, Status: "done",
@@ -846,6 +895,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 						Status: "error",
 					},
 				}
+				executed[dk] = cachedResult{output: err.Error(), status: "error"}
 				conv.Messages = append(conv.Messages, engine.ChatMessage{
 					Role:       "tool",
 					Content:    fmt.Sprintf("error executing %s: %s", tc.Function.Name, err),
@@ -860,6 +910,11 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				toolContent = "error: " + toolContent
 			}
 
+			if execResult.IsError {
+					executed[dk] = cachedResult{output: execResult.Content, status: "error"}
+				} else {
+					executed[dk] = cachedResult{output: execResult.Content, status: "done"}
+				}
 			ch <- Event{
 				Type: EventToolOutput,
 				Tool: &ToolEvent{
@@ -922,7 +977,7 @@ func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 	defs := make([]engine.ToolDef, 0, len(tools))
 	isChild := strings.HasPrefix(a.sessionID, "call_") || strings.HasPrefix(a.sessionID, "sub_")
 	for _, t := range tools {
-		if isChild && t.Name() == "SpawnAgent" {
+		if isChild && t.Name() == "spawn_agent" {
 			continue
 		}
 		defs = append(defs, engine.ToolDef{

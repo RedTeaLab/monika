@@ -37,7 +37,15 @@ export function ChatTab(props: IDockviewPanelHeaderProps) {
       </span>
       {/* Close button */}
       <button
-        onClick={(e) => { e.stopPropagation(); props.api.close() }}
+        onClick={(e) => {
+          e.stopPropagation()
+          const state = useStore.getState()
+          // Sync store state: close the session tab if it exists
+          if (state.openSessions.some(s => s.id === sessionId)) {
+            state.closeSessionTab(sessionId)
+          }
+          props.api.close()
+        }}
         aria-label={`Close ${title}`}
         className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-colors"
       >

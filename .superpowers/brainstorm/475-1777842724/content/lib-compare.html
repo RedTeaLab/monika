@@ -1,0 +1,113 @@
+<h2>成熟 React Dock 组件库对比</h2>
+<p class="subtitle">适合实现 VS Code 风格动态面板系统</p>
+
+<div class="options">
+  <div class="option" data-choice="dockview" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>dockview</h3>
+      <p><strong>最推荐。</strong>零依赖 Docker 布局引擎，支持 Tab、拖拽重组、浮动面板、Popout 独立窗口、JSON 序列化。React/Vue/Angular 多框架。</p>
+      <p style="font-size:12px;color:var(--text-dim)">⭐ ~3,100 | v5.2.0 (2026.3) | MIT | dockview.dev</p>
+    </div>
+  </div>
+  <div class="option" data-choice="flexlayout" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>FlexLayout</h3>
+      <p>成熟的 React 停靠布局，支持 Tab、拖拽、浮动面板、序列化。React 专用，久经考验。</p>
+      <p style="font-size:12px;color:var(--text-dim)">⭐ ~1,275 | 2026.3 更新 | MIT</p>
+    </div>
+  </div>
+  <div class="option" data-choice="rcdock" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>rc-dock</h3>
+      <p>轻量级 React Dock 布局，Tab 管理、嵌套拆分、触屏手势。最轻量但功能也最少。</p>
+      <p style="font-size:12px;color:var(--text-dim)">⭐ ~800 | 2025.10 更新 | MIT</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>功能矩阵</h3>
+  <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:12px">
+    <tr style="border-bottom:1px solid var(--border)">
+      <th style="text-align:left;padding:8px 4px">能力</th>
+      <th style="text-align:center;padding:8px 4px">dockview</th>
+      <th style="text-align:center;padding:8px 4px">FlexLayout</th>
+      <th style="text-align:center;padding:8px 4px">rc-dock</th>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">Tab 多标签</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">Tab 拖拽重组</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">浮动面板</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">Popout 独立窗口</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--red)">❌</td>
+      <td style="text-align:center;color:var(--red)">❌</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">布局 JSON 序列化</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">零外部依赖</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+      <td style="text-align:center;color:var(--red)">❌</td>
+      <td style="text-align:center;color:var(--green)">✅</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">多框架支持</td>
+      <td style="text-align:center;color:var(--green)">React/Vue/Angular</td>
+      <td style="text-align:center;color:var(--text-dim)">React only</td>
+      <td style="text-align:center;color:var(--text-dim)">React only</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">活跃维护 (2026)</td>
+      <td style="text-align:center;color:var(--green)">✅ 3月更新</td>
+      <td style="text-align:center;color:var(--green)">✅ 3月更新</td>
+      <td style="text-align:center;color:var(--yellow)">⚠️ 2025.10</td>
+    </tr>
+    <tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:6px 4px">体积</td>
+      <td style="text-align:center">中等</td>
+      <td style="text-align:center">较大</td>
+      <td style="text-align:center">小</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>关键差异</h3>
+  <div class="pros-cons">
+    <div class="pros"><h4>Dockview 独特优势</h4><ul>
+      <li>dockview-core 纯引擎 + React wrapper，架构清晰</li>
+      <li>支持 Popout（tab 拖出变成独立浏览器窗口）</li>
+      <li>Tab 超出自动溢出菜单（与现有 TabBar 行为匹配）</li>
+      <li>8 套内置主题，可自定义</li>
+    </ul></div>
+    <div class="cons"><h4>需要验证的问题</h4><ul>
+      <li>Header 区域能否自定义（放我们的 ModelPicker 等）</li>
+      <li>能否嵌入现有 Zustand store 而非替换</li>
+      <li>WebView2 兼容性（Wails 桌面环境）</li>
+      <li>每个 Panel 的内容渲染性能（CodeMirror 实例）</li>
+    </ul></div>
+  </div>
+</div>

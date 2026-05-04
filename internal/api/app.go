@@ -383,7 +383,12 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 		return nil, fmt.Errorf("child session %s not found", sessionID)
 	}
 	sm := a.getSessionManager(projectPath)
-	return sm.Load(sessionID)
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	a.restoreTasksFromSession(s)
+	return s, nil
 }
 
 func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string) error {
@@ -425,6 +430,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		agent2.WithProjectDir(projectPath),
 		agent2.WithProvider(providerID),
 		agent2.WithModel(model),
+		agent2.WithSessionID(sessionID),
 	)
 	generalAgent, _ := a.agentRegistry.Get("general")
 	opts = append(opts, agent2.WithAgent(generalAgent))
@@ -469,6 +475,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 			s.ArchivedMessages = conv.ArchivedMessages
 		}
 		sm.SetTitle(s)
+
+		// Persist tasks alongside the session so they survive restarts.
+		a.syncTasksToSession(sessionID, s)
 
 			sm.Lock()
 			if ctx.Err() != nil {
@@ -625,6 +634,37 @@ func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
 	}
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
+}
+
+// syncTasksToSession reads the current tasks for a session from the TaskStore
+// and writes them onto the Session struct so they are persisted to disk.
+func (a *App) syncTasksToSession(sessionID string, s *Session) {
+	if a.taskStoreAccessor == nil {
+		return
+	}
+	ts := a.taskStoreAccessor.GetTaskStore(sessionID)
+	if ts == nil {
+		return
+	}
+	s.Tasks = ts.List(sessionID)
+}
+
+// restoreTasksFromSession loads persisted tasks into the TaskStore and emits a
+// task_updated event so the frontend renders them without waiting for a new
+// LLM-initiated task_create.
+func (a *App) restoreTasksFromSession(s *Session) {
+	if a.taskStoreAccessor == nil || len(s.Tasks) == 0 {
+		return
+	}
+	a.taskStoreAccessor.Restore(s.ID, s.Tasks)
+	taskItems := make([]agent2.TaskItem, len(s.Tasks))
+	for i, t := range s.Tasks {
+		taskItems[i] = agent2.TaskItem{
+			ID: t.ID, Subject: t.Subject, Description: t.Description,
+			Status: t.Status, BlockedBy: t.BlockedBy,
+		}
+	}
+	a.EmitTaskEvent(s.ID, taskItems)
 }
 
 func (a *App) getSessionManager(projectPath string) *SessionManager {

@@ -16,7 +16,7 @@ func NewTaskList(store tool.TaskStore) tool.Tool {
 	return &taskListTool{store: store}
 }
 
-func (t *taskListTool) Name() string { return "TaskList" }
+func (t *taskListTool) Name() string { return "task_list" }
 
 func (t *taskListTool) Description() string {
 	return "List all tasks for the current session. Use this to check progress before deciding the next step."

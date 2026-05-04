@@ -18,6 +18,12 @@
 
 ## 2026-05-04
 
+- **启动时恢复持久化模型选择**：新增 `GetPersistedSelection()` API 返回 config.yaml 中的 `model_provider` 和 `model`。前端 `loadProviders` 启动时读取持久化值来初始化 `selectedProvider`/`selectedModel`，而非总是回退到第一个 provider 的第一个 model。修复上次关闭时选择了 `zhipu_code_plan` + `glm-5.1`，但启动后 UI 显示 `deepseek-v4-pro` 而实际请求却发送 `glm-5.1` 到 DeepSeek API 的错乱问题。`loadModelsForProvider` 新增可选 `preferredModel` 参数，支持从持久化值初始化时优先尝试保留历史 model。`wails3 generate bindings -ts` 重新生成 bindings，修复根 barrel `bindings/monika/index.ts` 被删除的问题。
+- **修复 TodoPanel task_updated 事件被 session gate 拦截**：`frontend/src/store/index.ts` 中 `task_updated` 事件现在绕过 `sessionMessages[sid]` 门槛检查，只要 session 在 `openSessions` 或为子 session 即可被处理。任务状态与消息相互独立，修复主 agent 调用 task_create 后页面不显示 todo 列表的问题。
+- **工具名统一为 snake_case**：`TaskCreate` → `task_create`、`TaskUpdate` → `task_update`、`TaskList` → `task_list`、`SpawnAgent` → `spawn_agent`，与 `file_read`、`grep`、`bash` 等其他工具命名风格一致。更新 `system_prompt.go`、`agent_loop.go`、`MessageBubble.tsx` 中所有引用。
+- **TaskCreate 幂等性**：`task_store.go` 的 `Replace` 方法现在保留已有任务的 `completed`/`cancelled` 状态，防止 agent 重新调用 task_create 时覆盖已完成工作。仅保留终态（completed/cancelled），`pending` 和 `in_progress` 不保留。
+- **TaskStore 单元测试**：新增 `task_store_test.go`（11 个测试），覆盖 Replace/Update/List、idempotent 状态保留、验证错误、Snapshot/Restore 往返、onChange 回调触发。
+
 - **ContextLimit 可读 YAML 解析**：`internal/config/config.go` 新增 `ContextLimit.UnmarshalYAML` 和 `parseSize`，支持 `128k`/`1m`/`2g` 等人类可读后缀，同时兼容纯整数。`config_test.go` 新增 `TestContextLimitUnmarshalYAML` 和 `TestParseSizeErrors` 测试。
 - **Provider WireAPI 映射**：`internal/bootstrap/provider.go` 支持通过 `wire_api` 字段将 provider 映射到不同的 engine ID（如 openai-compatible provider 使用 openai engine），改进跳过时的错误信息展示 engine ID。
 - **OpenAI engine 注册**：`main.go` 新增 `_ "monika/internal/engines/provider/openai"` 导入，启用 OpenAI 原生 provider。
