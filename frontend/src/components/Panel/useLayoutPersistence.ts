@@ -4,7 +4,7 @@ import { DEFAULT_LAYOUT } from './defaultLayout'
 import { applyLayoutSizes } from './applyLayoutSizes'
 
 const STORAGE_PREFIX = 'monika_layout_'
-const LAYOUT_VERSION = 9
+const LAYOUT_VERSION = 12
 
 export function useLayoutPersistence(
   api: DockviewApi | null,
