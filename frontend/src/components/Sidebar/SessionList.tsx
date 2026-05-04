@@ -71,6 +71,7 @@ function SessionList(props: IDockviewPanelProps) {
           tabComponent: 'chat-tab',
           title,
           params: { sessionId: id },
+          position: { referenceGroup: 'chat-group' },
         })
       }
     }
@@ -124,14 +125,14 @@ function SessionList(props: IDockviewPanelProps) {
 
   return (
     <div
-      className="flex flex-col h-full backdrop-blur-md"
-      style={{ background: 'var(--glass-light)', padding: '0 12px' }}
+      className="flex flex-col h-full"
+      style={{ background: 'var(--bg-sidebar)', padding: '0 12px' }}
     >
-      <div className="flex items-center justify-between pt-5 pb-2">
-        <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Sessions</span>
+      <div className="flex items-center justify-between pt-[10px] pb-1">
+        <span className="text-[10px] font-semibold text-[var(--text-secondary)] tracking-[0.06em] uppercase">Sessions</span>
         <button
           onClick={handleNewSession}
-          className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
+          className="w-6 h-6 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
           aria-label="New session"
           id="new-session-btn"
         >
@@ -157,7 +158,7 @@ function SessionList(props: IDockviewPanelProps) {
               className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
               style={{
                 color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeSessionId === s.id ? 'var(--glass-active)' : hoveredId === s.id ? 'var(--glass-hover)' : 'transparent',
+                background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
               }}
               onMouseEnter={() => setHoveredId(s.id)}
               onMouseLeave={() => setHoveredId(null)}

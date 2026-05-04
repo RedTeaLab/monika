@@ -64,7 +64,7 @@ export default function TodoPanel({ collapsed, onToggle }: {
     >
       <div
         className="px-[14px] py-[5px] text-[11px] uppercase tracking-wider font-semibold cursor-pointer select-none flex items-center gap-[6px]"
-        style={{ color: 'var(--text-dim)' }}
+        style={{ color: 'var(--text-secondary)' }}
         onClick={onToggle}
       >
         <span style={{
@@ -104,7 +104,7 @@ export default function TodoPanel({ collapsed, onToggle }: {
             }
 
             if (task.status === 'in_progress') {
-              rowStyle.background = 'var(--accent-bg, rgba(137,180,250,0.15))'
+              rowStyle.background = 'var(--accent-muted)'
             }
             if (task.status === 'completed') {
               rowStyle.textDecoration = 'line-through'
@@ -115,7 +115,7 @@ export default function TodoPanel({ collapsed, onToggle }: {
               rowStyle.opacity = 0.3
             }
             if (allDepsDone && task.status === 'pending') {
-              rowStyle.borderLeft = '2px solid var(--accent, #89b4fa)'
+              rowStyle.borderLeft = '2px solid var(--accent)'
             }
 
             const statusLabel =

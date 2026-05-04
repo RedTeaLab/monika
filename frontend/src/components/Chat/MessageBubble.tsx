@@ -32,8 +32,8 @@ const ROLE_LABEL: Record<string, { text: string; color: string }> = {
   user:      { text: 'You',       color: 'var(--text-dim)' },
   assistant: { text: 'Assistant', color: 'var(--text-dim)' },
   error:      { text: 'Error',     color: 'var(--red)' },
-  compaction: { text: 'Compacted', color: '#c6902f' },
-  subtask:   { text: 'Subtask',   color: '#a89cc4' },
+  compaction: { text: 'Compacted', color: 'var(--compaction)' },
+  subtask:   { text: 'Subtask',   color: 'var(--subtask)' },
 }
 
 function RoleLabel({ role, isGenerating, model, duration }: {
@@ -133,7 +133,7 @@ function ThinkingBlock({ content, isGenerating }: { content: string; isGeneratin
 
   return (
     <MsgBlock
-      accent="#a68432"
+      accent="var(--yellow)"
       background="var(--bg-sidebar)"
       header={
         <button
@@ -143,9 +143,9 @@ function ThinkingBlock({ content, isGenerating }: { content: string; isGeneratin
           <IconChevronDown
             size={10}
             className="transition-transform duration-200"
-            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: '#a68432' }}
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: 'var(--yellow)' }}
           />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: '#a68432' }}>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--yellow)' }}>
             Thinking
           </span>
         </button>
@@ -174,13 +174,13 @@ function TextBlock({ content, borderColor }: { content: string; borderColor: str
 /* ---- tool block ---- */
 
 const TOOL_STYLES: Record<string, { color: string }> = {
-  bash:   { color: '#a68432' },
-  file:   { color: '#5a82b8' },
-  grep:   { color: '#449970' },
-  glob:   { color: '#7e70a8' },
-  write:  { color: '#a86e3a' },
-  edit:   { color: '#a86e3a' },
-  default:{ color: '#449970' },
+  bash:   { color: 'var(--yellow)' },
+  file:   { color: 'var(--blue)' },
+  grep:   { color: 'var(--green)' },
+  glob:   { color: 'var(--purple)' },
+  write:  { color: 'var(--orange)' },
+  edit:   { color: 'var(--orange)' },
+  default:{ color: 'var(--green)' },
 }
 
 function toolStyle(name: string) {
@@ -396,7 +396,7 @@ function CompactionCard({ message }: { message: Message }) {
 
   return (
     <MsgBlock
-      accent="#c6902f"
+      accent="var(--compaction)"
       background="var(--bg-sidebar)"
       header={
         <button
@@ -407,9 +407,9 @@ function CompactionCard({ message }: { message: Message }) {
           <IconChevronDown
             size={10}
             className="transition-transform duration-200"
-            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: '#c6902f' }}
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: 'var(--compaction)' }}
           />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: '#c6902f' }}>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--compaction)' }}>
             Conversation Compacted
           </span>
           {message.compactionNum != null && message.compactionNum > 1 && (
@@ -444,7 +444,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
       <div className="flex flex-col gap-1.5 mb-1.5">
         <div
           className="text-[10px] font-semibold uppercase tracking-[0.05em] mb-1 select-none flex items-center gap-1.5"
-          style={{ color: '#a89cc4' }}
+          style={{ color: 'var(--subtask)' }}
         >
           <span>Subtask</span>
           {subtaskAgent && (
@@ -453,7 +453,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
             </span>
           )}
         </div>
-        <MsgBlock accent="#a89cc4">
+        <MsgBlock accent="var(--subtask)">
           <div className="text-[13px] text-[var(--text-dim)]">{content}</div>
         </MsgBlock>
       </div>

@@ -15,7 +15,6 @@ function ChatArea(props: IDockviewPanelProps) {
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const addMessage = useStore((s) => s.addMessage)
-  const appendToSession = useStore((s) => s.appendToSession)
   const clearMessages = useStore((s) => s.clearMessages)
   const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
@@ -52,27 +51,57 @@ function ChatArea(props: IDockviewPanelProps) {
       return
     }
 
-    if (generatingSessionId !== '') {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Another session is generating. Please wait.' })
-      return
-    }
-
     if (!selectedProvider || !selectedModel) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No provider or model selected. Please choose a model from the toolbar.' })
       return
     }
 
+    // Auto-create session if using the default chat panel (no real session)
+    let sid = sessionId
+    if (sid === 'chat') {
+      try {
+        const info = await App.NewSession(projectPath, selectedProvider, selectedModel)
+        if (!info) return
+        sid = info.id
+        const store = useStore.getState()
+        // Register session in store
+        useStore.setState((s) => ({
+          openSessions: [{ id: sid, title: info.title || 'Untitled' }, ...s.openSessions],
+          activeSessionId: sid,
+          sessionMessages: { ...s.sessionMessages, [sid]: [] },
+        }))
+        // Create dockview panel and close default placeholder
+        store.dockviewApi?.addPanel({
+          id: sid,
+          component: 'chat',
+          tabComponent: 'chat-tab',
+          title: info.title || 'Untitled',
+          params: { sessionId: sid },
+          position: { referenceGroup: 'chat-group' },
+        })
+        store.dockviewApi?.getPanel('chat')?.api.close()
+      } catch {
+        addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Failed to create session.' })
+        return
+      }
+    }
+
+    if (generatingSessionId !== '') {
+      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Another session is generating. Please wait.' })
+      return
+    }
+
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
-    appendToSession(sessionId, [userMsg, assistantMsg])
-    setGeneratingSessionId(sessionId)
+    useStore.getState().appendToSession(sid, [userMsg, assistantMsg])
+    setGeneratingSessionId(sid)
 
     try {
-      await App.SendMessage(projectPath, sessionId, text, selectedProvider, selectedModel)
+      await App.SendMessage(projectPath, sid, text, selectedProvider, selectedModel)
     } catch (err) {
       addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
       setGeneratingSessionId('')
-      const currentMsgs = useStore.getState().sessionMessages[sessionId] || []
+      const currentMsgs = useStore.getState().sessionMessages[sid] || []
       setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
     }
   }

@@ -4,6 +4,7 @@
 /* ── Dockview theme overrides ── */
 .dockview-theme-dark {
   --dv-group-view-background-color: var(--bg-root);
+  --dv-tabs-and-actions-container-height: 25px;
   --dv-tabs-and-actions-container-background-color: var(--bg-sidebar);
   --dv-activegroup-visiblepanel-tab-background-color: var(--bg-elevated);
   --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-card);
@@ -29,9 +30,17 @@
   pointer-events: none;
 }
 
-/* Ensure panel content areas don't have unwanted backgrounds */
+/* Panel tab header height */
+.dv-tabs-and-actions-container {
+  height: 25px;
+  min-height: 25px;
+}
+
+/* Ensure panel content areas fill correctly */
 .dv-group-view {
   background: var(--bg-root);
+  display: flex;
+  flex-direction: column;
 }
 
 @font-face {
@@ -59,10 +68,17 @@
   --bg-hover:    rgba(255,255,255,0.04);
   --bg-active:   rgba(255,255,255,0.06);
 
-  /* ── Glass surfaces (semi-transparent overlays) ── */
-  --glass-light:  rgba(255,255,255,0.03);
-  --glass-hover:  rgba(255,255,255,0.06);
-  --glass-active: rgba(255,255,255,0.08);
+  /* ── Tool colors (mapped from semantic) ── */
+  --compaction:   #c6902f;
+  --subtask:      #a89cc4;
+  --bg-console:   #080a10;
+  --tool-bash:    var(--yellow);
+  --tool-file:    var(--blue);
+  --tool-grep:    var(--green);
+  --tool-glob:    var(--purple);
+  --tool-write:   var(--orange);
+  --tool-edit:    var(--orange);
+  --tool-spawn:   var(--blue);
 
   /* ── Borders ── */
   --border:        rgba(255,255,255,0.06);

@@ -15,7 +15,7 @@ function Console(_props: IDockviewPanelProps) {
   return (
     <div
       className="flex flex-col h-full"
-      style={{ background: '#080a10' }}
+      style={{ background: 'var(--bg-console)' }}
     >
       <div
         ref={scrollRef}

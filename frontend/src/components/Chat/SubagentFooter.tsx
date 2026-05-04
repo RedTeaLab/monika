@@ -28,8 +28,8 @@ export default function SubagentFooter() {
       }}
     >
       {/* Agent label */}
-      <span className="flex items-center gap-1.5" style={{ color: '#a89cc4', fontWeight: 600 }}>
-        <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#a89cc4' }} />
+      <span className="flex items-center gap-1.5" style={{ color: 'var(--subtask)', fontWeight: 600 }}>
+        <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--subtask)' }} />
         {agentName} agent
       </span>
 

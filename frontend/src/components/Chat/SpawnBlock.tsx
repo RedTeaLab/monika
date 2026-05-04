@@ -37,9 +37,9 @@ function parseRunningDetail(output?: string): string | null {
 }
 
 const AGENT_COLORS: Record<string, string> = {
-  explore: '#7e70a8',
-  general: '#6b8cff',
-  compaction: '#c6902f',
+  explore: 'var(--purple)',
+  general: 'var(--blue)',
+  compaction: 'var(--compaction)',
 }
 
 interface SpawnBlockProps {
@@ -54,7 +54,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   const taskId = useMemo(() => tool.output ? extractTaskId(tool.output) : null, [tool.output])
   const runningDetail = useMemo(() => parseRunningDetail(tool.output), [tool.output])
   const subagentType = info.subagent_type || 'general'
-  const agentColor = AGENT_COLORS[subagentType] || '#7e70a8'
+  const agentColor = AGENT_COLORS[subagentType] || 'var(--purple)'
   const isRunning = tool.status === 'running'
 
   const formatDuration = (s: number) => {

@@ -76,16 +76,16 @@ function TitleBar() {
 
   return (
     <div
-      className="flex items-center h-[32px] backdrop-blur-md border-b border-[var(--border)] select-none"
+      className="flex items-center h-[28px] border-b border-[var(--border)] select-none"
       style={{
         '--wails-draggable': 'drag' as string,
-        background: 'var(--glass-strong)',
+        background: 'var(--bg-elevated)',
         paddingLeft: '12px',
         position: 'relative',
         zIndex: 10,
       } as React.CSSProperties}
     >
-      <span className="text-[13px] font-semibold text-[var(--text-primary)] tracking-tight">Monika</span>
+      <span className="text-[13px] font-semibold text-[var(--text-secondary)] tracking-tight">Monika</span>
 
       <span
         ref={projectTriggerRef}
@@ -101,7 +101,7 @@ function TitleBar() {
           borderRadius: 2,
           marginLeft: 12,
           WebkitAppRegion: 'no-drag',
-          background: projectDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
+          background: projectDropdownOpen ? 'var(--accent-muted)' : 'transparent',
         } as React.CSSProperties}
       >
         {projectName || 'project'}
@@ -130,7 +130,7 @@ function TitleBar() {
           borderRadius: 2,
           marginLeft: 6,
           WebkitAppRegion: 'no-drag',
-          background: branchDropdownOpen ? 'rgba(91,141,239,0.08)' : 'transparent',
+          background: branchDropdownOpen ? 'var(--accent-muted)' : 'transparent',
           opacity: isGitRepo ? 1 : 0.5,
         } as React.CSSProperties}
       >
@@ -146,14 +146,14 @@ function TitleBar() {
       <div style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties} className="flex h-full">
         <button
           onClick={() => Window.Minimise()}
-          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
+          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
           aria-label="Minimize"
         >
           <IconMinimize size={14} />
         </button>
         <button
           onClick={() => Window.ToggleMaximise()}
-          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors"
+          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
           aria-label={isMaximised ? 'Restore' : 'Maximize'}
         >
           {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}

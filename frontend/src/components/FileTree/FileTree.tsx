@@ -55,6 +55,7 @@ function FileTree(_props: IDockviewPanelProps) {
             tabComponent: 'editor-tab',
             title: node.name,
             params: { filePath: node.path },
+            position: { referenceGroup: 'editor-group' },
           })
         } else {
           existing.api.setActive()
@@ -95,7 +96,7 @@ function FileTree(_props: IDockviewPanelProps) {
             paddingLeft: `${depth * 14 + 6}px`,
             paddingRight: '6px',
             color: gColor || (isSelected ? 'var(--text-primary)' : 'var(--text-secondary)'),
-            background: isSelected ? 'var(--glass-active)' : 'transparent',
+            background: isSelected ? 'var(--bg-active)' : 'transparent',
           }}
           onClick={() => handleFileClick(node)}
         >
@@ -117,11 +118,11 @@ function FileTree(_props: IDockviewPanelProps) {
 
   return (
     <div
-      className="flex flex-col h-full backdrop-blur-md"
-      style={{ background: 'var(--glass-light)', padding: '0 8px' }}
+      className="flex flex-col h-full"
+      style={{ background: 'var(--bg-sidebar)', padding: '0 8px' }}
     >
-      <div className="pt-5 pb-2 px-1 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-[var(--text-dim)] tracking-[0.06em] uppercase">Files</span>
+      <div className="pt-[10px] pb-1 px-1 flex items-center justify-between">
+        <span className="text-[10px] font-semibold text-[var(--text-secondary)] tracking-[0.06em] uppercase">Files</span>
         <button
           onClick={() => bumpTree()}
           title="Refresh file tree"
