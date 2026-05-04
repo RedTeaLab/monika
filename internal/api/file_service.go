@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -167,4 +168,36 @@ func (f *FileService) GetDiff(filePath string) (DiffResult, error) {
 		FilePath: filePath,
 		Lines:    lines,
 	}, nil
+}
+
+func (f *FileService) ListChangeStats() ([]ChangeStat, error) {
+	cmd := command("git", "diff", "--numstat")
+	cmd.Dir = f.projectDir
+	out, err := cmd.Output()
+	if err != nil {
+		return []ChangeStat{}, nil
+	}
+
+	stats := make([]ChangeStat, 0)
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		added, _ := strconv.Atoi(fields[0])
+		deleted, _ := strconv.Atoi(fields[1])
+		// Skip binary files: numstat returns "-" for counts
+		if added == 0 && deleted == 0 && fields[0] == "-" && fields[1] == "-" {
+			continue
+		}
+		stats = append(stats, ChangeStat{
+			Path:    fields[2],
+			Added:   added,
+			Deleted: deleted,
+		})
+	}
+	return stats, nil
 }
