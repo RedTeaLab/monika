@@ -8,7 +8,10 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
   const file = useStore((s) => s.openFiles.find((f) => f.path === filePath))
   const setFileMode = useStore((s) => s.setFileMode)
 
-  const title = filePath.split('/').pop() || filePath.split('\\').pop() || filePath
+  const isDefaultPanel = props.api.id === 'editor'
+  const title = isDefaultPanel
+    ? (props.api.title || 'EDITOR')
+    : (filePath.split('/').pop() || filePath.split('\\').pop() || filePath)
   const isDirty = file?.isDirty || false
 
   const [menuOpen, setMenuOpen] = useState(false)
@@ -41,53 +44,55 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
       )}
       <span className="truncate flex-1">{title}</span>
 
-      {/* More menu */}
-      <div className="relative flex-shrink-0">
-        <button
-          onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-          aria-label="More options"
-          className="text-[var(--text-dim)] hover:text-[var(--text-primary)] w-4 h-4 flex items-center justify-center rounded transition-colors"
-        >
-          <IconDots size={12} />
-        </button>
-        {menuOpen && (
-          <div ref={menuRef}
-            className="absolute right-0 top-full mt-1 bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-[var(--radius-md)] shadow-lg z-50 min-w-[130px]"
-          >
+      {/* More menu + close — only for file tabs, not the default editor */}
+      {!isDefaultPanel && (
+        <>
+          <div className="relative flex-shrink-0">
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setFileMode(filePath, 'edit')
-                setMenuOpen(false)
-              }}
-              className="block w-full text-left px-3 py-1.5 text-[12px] hover:bg-[var(--bg-hover)] transition-colors"
-              style={{ color: file?.mode !== 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+              aria-label="More options"
+              className="text-[var(--text-dim)] hover:text-[var(--text-primary)] w-4 h-4 flex items-center justify-center rounded transition-colors"
             >
-              Edit View
+              <IconDots size={12} />
             </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setFileMode(filePath, 'diff')
-                setMenuOpen(false)
-              }}
-              className="block w-full text-left px-3 py-1.5 text-[12px] hover:bg-[var(--bg-hover)] transition-colors"
-              style={{ color: file?.mode === 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
-            >
-              Diff View
-            </button>
+            {menuOpen && (
+              <div ref={menuRef}
+                className="absolute right-0 top-full mt-1 bg-[var(--bg-elevated)] border border-[var(--border-strong)] rounded-[var(--radius-md)] shadow-lg z-50 min-w-[130px]"
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setFileMode(filePath, 'edit')
+                    setMenuOpen(false)
+                  }}
+                  className="block w-full text-left px-3 py-1.5 text-[12px] hover:bg-[var(--bg-hover)] transition-colors"
+                  style={{ color: file?.mode !== 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                >
+                  Edit View
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setFileMode(filePath, 'diff')
+                    setMenuOpen(false)
+                  }}
+                  className="block w-full text-left px-3 py-1.5 text-[12px] hover:bg-[var(--bg-hover)] transition-colors"
+                  style={{ color: file?.mode === 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                >
+                  Diff View
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Close button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); handleClose() }}
-        aria-label={`Close ${title}`}
-        className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-colors"
-      >
-        <IconClose size={10} />
-      </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleClose() }}
+            aria-label={`Close ${title}`}
+            className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-colors"
+          >
+            <IconClose size={10} />
+          </button>
+        </>
+      )}
     </div>
   )
 }

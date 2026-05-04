@@ -64,8 +64,6 @@ function FileTree(_props: IDockviewPanelProps) {
     }
   }
 
-  const bumpTree = useStore((s) => s.bumpFileTreeVersion)
-
   const gitColor = (status?: string) => {
     if (!status) return undefined
     if (status.includes('D')) return 'var(--red)'
@@ -121,16 +119,6 @@ function FileTree(_props: IDockviewPanelProps) {
       className="flex flex-col h-full"
       style={{ background: 'var(--bg-sidebar)', padding: '0 8px' }}
     >
-      <div className="pt-[10px] pb-1 px-1 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-[var(--text-secondary)] tracking-[0.06em] uppercase">Files</span>
-        <button
-          onClick={() => bumpTree()}
-          title="Refresh file tree"
-          className="text-[10px] text-[var(--text-dim)] hover:text-[var(--text-secondary)] cursor-pointer bg-transparent border-none px-1 rounded"
-        >
-          ↻
-        </button>
-      </div>
       <div className="flex-1 overflow-y-auto">
         {(!tree || tree.length === 0) ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No project opened</div>
