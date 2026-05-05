@@ -16,6 +16,8 @@ function ChatInput({ onSend, onStop, disabled, compacting }: {
   const tokens = sessionTokens[activeSessionId] || { count: 0, max: 0 }
   const tokenCount = tokens.count
   const tokenMax = tokens.max
+  const permissionMode = useStore((s) => s.permissionMode)
+  const setPermissionMode = useStore((s) => s.setPermissionMode)
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
@@ -89,6 +91,34 @@ function ChatInput({ onSend, onStop, disabled, compacting }: {
           className="flex items-center gap-2 px-[10px] pb-[8px]"
           style={{ background: 'transparent' }}
         >
+          <div className="flex rounded-md overflow-hidden border border-[var(--border)]" role="radiogroup" aria-label="Permission mode">
+            <button
+              onClick={() => setPermissionMode('auto')}
+              className={`px-3 py-1 text-[11px] font-medium cursor-pointer transition-colors border-none ${
+                permissionMode === 'auto'
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-transparent text-[var(--text-dim)] hover:text-[var(--text-primary)]'
+              }`}
+              role="radio"
+              aria-checked={permissionMode === 'auto'}
+              title="Auto — 安检模型审查写操作"
+            >
+              Auto
+            </button>
+            <button
+              onClick={() => setPermissionMode('manual')}
+              className={`px-3 py-1 text-[11px] font-medium cursor-pointer transition-colors border-none ${
+                permissionMode === 'manual'
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-transparent text-[var(--text-dim)] hover:text-[var(--text-primary)]'
+              }`}
+              role="radio"
+              aria-checked={permissionMode === 'manual'}
+              title="Manual — 每步工具调用均需确认"
+            >
+              Manual
+            </button>
+          </div>
           <ModelPicker />
 
           <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>

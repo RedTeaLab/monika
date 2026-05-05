@@ -97,8 +97,10 @@ interface AppState {
   modelsByProvider: Record<string, ModelInfo[]>
   selectedModel: string
   pendingPermission: PermissionRequiredEvent | null
+  permissionMode: 'auto' | 'manual'
 
   addMessage: (msg: Message) => void
+  setPermissionMode: (mode: 'auto' | 'manual') => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
@@ -186,6 +188,7 @@ export const useStore = create<AppState>((set, get) => ({
   modelsByProvider: {},
   selectedModel: '',
   pendingPermission: null as PermissionRequiredEvent | null,
+  permissionMode: 'auto',
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -389,6 +392,7 @@ export const useStore = create<AppState>((set, get) => ({
   setSessionError: (sessionId, error) =>
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
   setSelectedModel: (model) => set({ selectedModel: model }),
+  setPermissionMode: (mode) => set({ permissionMode: mode }),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -800,6 +804,7 @@ export const useStore = create<AppState>((set, get) => ({
       modelsByProvider: {},
       selectedModel: '',
       pendingPermission: null,
+      permissionMode: 'auto',
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });
