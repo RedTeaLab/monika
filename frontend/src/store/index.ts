@@ -98,9 +98,11 @@ interface AppState {
   selectedModel: string
   pendingPermission: PermissionRequiredEvent | null
   permissionMode: 'auto' | 'manual'
+  settingsOpen: boolean
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
+  toggleSettings: () => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
@@ -189,6 +191,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedModel: '',
   pendingPermission: null as PermissionRequiredEvent | null,
   permissionMode: 'auto',
+  settingsOpen: false,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -393,6 +396,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
   setSelectedModel: (model) => set({ selectedModel: model }),
   setPermissionMode: (mode) => set({ permissionMode: mode }),
+  toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -805,6 +809,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedModel: '',
       pendingPermission: null,
       permissionMode: 'auto',
+      settingsOpen: false,
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });
