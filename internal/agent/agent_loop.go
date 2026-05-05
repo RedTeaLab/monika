@@ -9,6 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"monika/internal/permission"
 	"monika/internal/tool"
 	"monika/pkg/engine"
 	"monika/pkg/tokenizer"
@@ -338,7 +339,7 @@ type AgentLoop struct {
 
 	sessionID         string
 	systemPrompt      string
-	confirmFn         func(tool.Tool, json.RawMessage) bool
+	pipeline *permission.Pipeline
 	projectDir        string
 	model             string
 	providerID        string
@@ -360,9 +361,9 @@ func WithSystemPrompt(prompt string) LoopOption {
 	}
 }
 
-func WithConfirmFunc(fn func(tool.Tool, json.RawMessage) bool) LoopOption {
+func WithPermissionPipeline(p *permission.Pipeline) LoopOption {
 	return func(a *AgentLoop) {
-		a.confirmFn = fn
+		a.pipeline = p
 	}
 }
 
@@ -496,13 +497,22 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 				continue
 			}
 
-			if a.confirmFn != nil && !a.confirmFn(t, json.RawMessage(tc.Function.Arguments)) {
-				conv.Messages = append(conv.Messages, engine.ChatMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
-					ToolCallID: tc.ID,
-				})
-				continue
+			if a.pipeline != nil {
+				pctx := permission.CheckContext{
+					ToolName:   tc.Function.Name,
+					Args:       json.RawMessage(tc.Function.Arguments),
+					Mode:       permission.Auto,
+					SessionID:  a.sessionID,
+					ProjectDir: a.projectDir,
+				}
+				if a.pipeline.Check(ctx, pctx) == permission.Deny {
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role:       "tool",
+						Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
+						ToolCallID: tc.ID,
+					})
+					continue
+				}
 			}
 
 			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
@@ -802,24 +812,33 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				continue
 			}
 
-			if a.confirmFn != nil && !a.confirmFn(t, json.RawMessage(tc.Function.Arguments)) {
-				ch <- Event{
-					Type: EventToolOutput,
-					Tool: &ToolEvent{
-						ID:     tc.ID,
-						Name:   tc.Function.Name,
-						Input:  tc.Function.Arguments,
-						Output: "execution denied by user",
-						Status: "denied",
-					},
+			if a.pipeline != nil {
+				pctx := permission.CheckContext{
+					ToolName:   tc.Function.Name,
+					Args:       json.RawMessage(tc.Function.Arguments),
+					Mode:       permission.Auto,
+					SessionID:  a.sessionID,
+					ProjectDir: a.projectDir,
 				}
-				executed[dk] = cachedResult{output: "execution denied by user", status: "denied"}
-				conv.Messages = append(conv.Messages, engine.ChatMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
-					ToolCallID: tc.ID,
-				})
-				continue
+				if a.pipeline.Check(ctx, pctx) == permission.Deny {
+					ch <- Event{
+						Type: EventToolOutput,
+						Tool: &ToolEvent{
+							ID:     tc.ID,
+							Name:   tc.Function.Name,
+							Input:  tc.Function.Arguments,
+							Output: "execution denied by user",
+							Status: "denied",
+						},
+					}
+					executed[dk] = cachedResult{output: "execution denied by user", status: "denied"}
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role:       "tool",
+						Content:    fmt.Sprintf("execution of %s was denied by user", tc.Function.Name),
+						ToolCallID: tc.ID,
+					})
+					continue
+				}
 			}
 
 			toolCtx := tool.WithProjectDir(ctx, a.projectDir)
