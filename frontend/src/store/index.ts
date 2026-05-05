@@ -1,8 +1,18 @@
 import { create } from 'zustand'
-import { Events } from '@wailsio/runtime'
+import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo } from '../../bindings/monika'
 import type { DockviewApi } from 'dockview'
+
+export interface PermissionRequiredEvent {
+  type: string
+  sessionId: string
+  tool: string
+  args: string
+  reason: string
+  mode: string
+  requestId: string
+}
 
 export interface TaskItem {
   id: string
@@ -86,6 +96,7 @@ interface AppState {
   selectedProvider: string
   modelsByProvider: Record<string, ModelInfo[]>
   selectedModel: string
+  pendingPermission: PermissionRequiredEvent | null
 
   addMessage: (msg: Message) => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
@@ -139,6 +150,7 @@ interface AppState {
   loadProviders: () => Promise<void>
   setSelectedProvider: (providerId: string) => Promise<void>
   loadModelsForProvider: (providerId: string) => Promise<void>
+  respondPermission: (resp: { requestId: string; decision: string; rulePattern?: string }) => Promise<void>
   resetProjectState: () => void
 }
 
@@ -173,6 +185,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedProvider: '',
   modelsByProvider: {},
   selectedModel: '',
+  pendingPermission: null as PermissionRequiredEvent | null,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -755,6 +768,11 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  respondPermission: async (resp) => {
+    await Call.ByName('monika/internal/api.App.RespondPermission', JSON.stringify(resp))
+    set({ pendingPermission: null })
+  },
+
   resetProjectState: () => {
     console.log('[monika] resetProjectState called');
     set({
@@ -781,6 +799,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedProvider: '',
       modelsByProvider: {},
       selectedModel: '',
+      pendingPermission: null,
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });
@@ -855,6 +874,15 @@ export function setupWailsEvents() {
       useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
       store = useStore.getState()
     }
+
+    // Handle permission_required events — they carry a session_id but may
+    // arrive before the session tab is opened in the frontend.
+    const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
+    if (data.type === 'permission_required' && permPayload) {
+      useStore.setState({ pendingPermission: permPayload })
+      return
+    }
+
     // Drop events with no session_id or session that was explicitly closed
     if (!sid || !store.sessionMessages[sid]) {
       console.warn('[monika] stream event dropped: no session_id or session closed', data.type)

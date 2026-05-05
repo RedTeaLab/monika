@@ -156,6 +156,12 @@ func main() {
 
 	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
 
+	// Wire permission pipeline ConfirmUI to appService so the pipeline
+	// can request user confirmation via the frontend.
+	// The RespondPermission method on App is automatically available as a
+	// Wails service bound method via Call.ByName.
+	pipeline.SetConfirmUI(appService)
+
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {
 		taskItems := make([]agent.TaskItem, len(tasks))

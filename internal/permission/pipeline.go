@@ -56,6 +56,11 @@ func NewPipeline(mode Mode, rules *HardRuleEngine, security *SecurityModel, conf
 	}
 }
 
+// SetConfirmUI sets the frontend confirmation interface.
+func (p *Pipeline) SetConfirmUI(ui ConfirmUI) {
+	p.confirmUI = ui
+}
+
 // SetProject configures project-specific paths for audit logging and rule persistence.
 func (p *Pipeline) SetProject(homeDir, projectDir string) {
 	p.homeDir = homeDir
