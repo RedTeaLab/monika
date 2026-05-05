@@ -61,6 +61,11 @@ func (p *Pipeline) SetConfirmUI(ui ConfirmUI) {
 	p.confirmUI = ui
 }
 
+// SetMode updates the pipeline's permission mode at runtime.
+func (p *Pipeline) SetMode(mode Mode) {
+	p.mode = mode
+}
+
 // SetProject configures project-specific paths for audit logging and rule persistence.
 func (p *Pipeline) SetProject(homeDir, projectDir string) {
 	p.homeDir = homeDir

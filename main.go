@@ -161,6 +161,7 @@ func main() {
 	// The RespondPermission method on App is automatically available as a
 	// Wails service bound method via Call.ByName.
 	pipeline.SetConfirmUI(appService)
+	appService.SetPipeline(pipeline)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

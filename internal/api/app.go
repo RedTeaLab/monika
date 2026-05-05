@@ -58,6 +58,8 @@ type App struct {
 
 	permissionRequests map[string]chan permission.PermissionResponse
 	permMu             sync.Mutex
+
+	pipeline *permission.Pipeline
 }
 
 func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner) *App {
@@ -1195,6 +1197,26 @@ func (a *App) RespondPermission(args json.RawMessage) error {
 	a.permMu.Unlock()
 	if ok {
 		ch <- resp
+	}
+	return nil
+}
+
+// SetPipeline stores the permission pipeline reference for runtime mode changes.
+func (a *App) SetPipeline(p *permission.Pipeline) {
+	a.pipeline = p
+}
+
+// SetPermissionMode updates the session-level permission mode ("auto" or "manual").
+func (a *App) SetPermissionMode(args json.RawMessage) error {
+	var req struct{ Mode string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	if req.Mode != "auto" && req.Mode != "manual" {
+		return fmt.Errorf("invalid permission mode: %q", req.Mode)
+	}
+	if a.pipeline != nil {
+		a.pipeline.SetMode(permission.Mode(req.Mode))
 	}
 	return nil
 }

@@ -395,7 +395,13 @@ export const useStore = create<AppState>((set, get) => ({
   setSessionError: (sessionId, error) =>
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
   setSelectedModel: (model) => set({ selectedModel: model }),
-  setPermissionMode: (mode) => set({ permissionMode: mode }),
+  setPermissionMode: (mode) => {
+    set({ permissionMode: mode })
+    // Notify backend to update pipeline mode
+    Call.ByName('monika/internal/api.App.SetPermissionMode', JSON.stringify({ mode })).catch(() => {
+      // RPC may not be registered yet (happens during store init)
+    })
+  },
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
