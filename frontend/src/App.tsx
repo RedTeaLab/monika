@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { DockviewReact, type DockviewApi, IDockviewPanelProps } from 'dockview'
 import TitleBar from './components/TitleBar/TitleBar'
 import SessionList from './components/Sidebar/SessionList'
@@ -13,6 +13,7 @@ import { SessionTab } from './components/Panel/SessionTab'
 import ChangesList from './components/ChangesList/ChangesList'
 import { DefaultTab } from './components/Panel/DefaultTab'
 import { useLayoutPersistence } from './components/Panel/useLayoutPersistence'
+import { useChangeWatcher } from './hooks/useChangeWatcher'
 import { useStore } from './store'
 
 const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
@@ -34,14 +35,47 @@ const tabComponents = {
 
 function App() {
   const projectPath = useStore((s) => s.projectPath)
+  const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const dockviewApi = useStore((s) => s.dockviewApi)
   const setDockviewApi = useStore((s) => s.setDockviewApi)
+
+  useChangeWatcher(projectPath, fileTreeVersion)
+  useLayoutPersistence(dockviewApi, projectPath)
+
+  // Sync dockview panel removal back to store.
+  // Must distinguish panel close from panel move between groups —
+  // dockview fires onDidRemovePanel for both. A microtask delay lets
+  // onDidAddPanel fire first if the panel was just moved.
+  useEffect(() => {
+    if (!dockviewApi) return
+    const removedIds = new Set<string>()
+
+    const removeDisp = dockviewApi.onDidRemovePanel((panel) => {
+      removedIds.add(panel.id)
+      setTimeout(() => {
+        if (!removedIds.has(panel.id)) return
+        removedIds.delete(panel.id)
+        // Panel still gone after tick — it was closed, not moved
+        const state = useStore.getState()
+        if (state.openSessions.some((s) => s.id === panel.id)) {
+          state.closeSessionTab(panel.id)
+        }
+      }, 0)
+    })
+
+    const addDisp = dockviewApi.onDidAddPanel((panel) => {
+      removedIds.delete(panel.id)
+    })
+
+    return () => {
+      removeDisp.dispose()
+      addDisp.dispose()
+    }
+  }, [dockviewApi])
 
   const handleReady = useCallback((event: { api: DockviewApi }) => {
     setDockviewApi(event.api)
   }, [setDockviewApi])
-
-  useLayoutPersistence(dockviewApi, projectPath)
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-root)] overflow-hidden">

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { Events } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
-import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo } from '../../bindings/monika'
+import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat } from '../../bindings/monika'
 import type { DockviewApi } from 'dockview'
 
 export interface TaskItem {
@@ -80,6 +80,7 @@ interface AppState {
   tasks: Record<string, TaskItem[]>
   todoCollapsed: Record<string, boolean>
   openFiles: FileTabInfo[]
+  changeStats: { stats: ChangeStat[]; loading: boolean; error: string }
   recentProjects: RecentProject[]
   allBranches: BranchInfo[]
   availableProviders: ProviderInfo[]
@@ -140,6 +141,7 @@ interface AppState {
   loadProviders: () => Promise<void>
   setSelectedProvider: (providerId: string) => Promise<void>
   loadModelsForProvider: (providerId: string) => Promise<void>
+  setChangeStats: (st: Partial<{ stats: ChangeStat[]; loading: boolean; error: string }>) => void
   resetProjectState: () => void
 }
 
@@ -168,6 +170,7 @@ export const useStore = create<AppState>((set, get) => ({
   tasks: {},
   todoCollapsed: {},
   openFiles: [],
+  changeStats: { stats: [], loading: false, error: '' },
   recentProjects: [],
   allBranches: [],
   availableProviders: [],
@@ -510,6 +513,19 @@ export const useStore = create<AppState>((set, get) => ({
     const existing = state.openSessions.find((s) => s.id === id)
     if (existing) {
       state.switchSessionTab(id)
+      // If panel was removed (e.g. user closed it), re-create it.
+      // switchSessionTab already activates the panel if it exists.
+      const dockApi = useStore.getState().dockviewApi
+      if (dockApi && !dockApi.getPanel(id)) {
+        dockApi.addPanel({
+          id,
+          component: 'chat',
+          tabComponent: 'chat-tab',
+          title: existing.title,
+          params: { sessionId: id },
+          position: { referenceGroup: 'chat-group' },
+        })
+      }
       return
     }
     if (state.openSessions.length >= 8) {
@@ -529,6 +545,18 @@ export const useStore = create<AppState>((set, get) => ({
       tokenCount: s.sessionTokens[id]?.count ?? 0,
       tokenMax: s.sessionTokens[id]?.max ?? 0,
     }))
+    // Create dockview panel for the new session
+    const dockApi = useStore.getState().dockviewApi
+    if (dockApi && !dockApi.getPanel(id)) {
+      dockApi.addPanel({
+        id,
+        component: 'chat',
+        tabComponent: 'chat-tab',
+        title,
+        params: { sessionId: id },
+        position: { referenceGroup: 'chat-group' },
+      })
+    }
     try {
       const project = useStore.getState().projectPath
       const session = await App.LoadSession(project, id)
@@ -797,6 +825,8 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setChangeStats: (st) => set((s) => ({ changeStats: { ...s.changeStats, ...st } })),
+
   resetProjectState: () => {
     console.log('[monika] resetProjectState called');
     set({
@@ -817,6 +847,7 @@ export const useStore = create<AppState>((set, get) => ({
       sessionMessages: {},
       tasks: {},
       openFiles: [],
+      changeStats: { stats: [], loading: false, error: '' },
       allBranches: [],
       recentProjects: [],
       availableProviders: [],

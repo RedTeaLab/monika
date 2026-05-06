@@ -43,23 +43,6 @@ function SessionList(props: IDockviewPanelProps) {
     const session = sessions.find((s) => s.id === id)
     const title = session?.title || 'Untitled'
     await openSessionTab(id, title)
-
-    const dockApi = useStore.getState().dockviewApi
-    if (dockApi) {
-      const existing = dockApi.getPanel(id)
-      if (existing) {
-        existing.api.setActive()
-      } else {
-        dockApi.addPanel({
-          id,
-          component: 'chat',
-          tabComponent: 'chat-tab',
-          title,
-          params: { sessionId: id },
-          position: { referenceGroup: 'chat-group' },
-        })
-      }
-    }
   }
 
   const handleDeleteClick = (s: SessionInfo, e: React.MouseEvent) => {

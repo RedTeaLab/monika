@@ -19,23 +19,6 @@ export function SessionTab(props: IDockviewPanelHeaderProps) {
       bumpSessionListVersion()
       const title = info.title || 'Untitled'
       await openSessionTab(info.id, title)
-
-      const dockApi = useStore.getState().dockviewApi
-      if (dockApi) {
-        const existing = dockApi.getPanel(info.id)
-        if (existing) {
-          existing.api.setActive()
-        } else {
-          dockApi.addPanel({
-            id: info.id,
-            component: 'chat',
-            tabComponent: 'chat-tab',
-            title,
-            params: { sessionId: info.id },
-            position: { referenceGroup: 'chat-group' },
-          })
-        }
-      }
     } catch (err) {
       logger.error('Failed to create session:', err)
     }
