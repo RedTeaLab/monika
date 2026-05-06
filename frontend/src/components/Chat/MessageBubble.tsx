@@ -496,6 +496,12 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
           <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
 
+          {content && (
+            <MsgBlock>
+              <MarkdownBlock content={content} />
+            </MsgBlock>
+          )}
+
           {tools?.map((tool, i) =>
             tool.name === 'spawn_agent' ? (
               <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
@@ -515,12 +521,6 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
               </span>
               view subagents
             </div>
-          )}
-
-          {content && (
-            <MsgBlock>
-              <MarkdownBlock content={content} />
-            </MsgBlock>
           )}
           {isGenerating && !content && !thinking && (!tools || tools.length === 0) && (
             <MsgBlock>
