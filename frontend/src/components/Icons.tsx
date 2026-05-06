@@ -75,16 +75,6 @@ export function IconRestore({ size }: { size?: number }) {
   )
 }
 
-export function IconDots({ size }: { size?: number }) {
-  return (
-    <Icon size={size}>
-      <circle cx="4" cy="8" r="1" fill="currentColor" stroke="none" />
-      <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="8" r="1" fill="currentColor" stroke="none" />
-    </Icon>
-  )
-}
-
 export function IconTrash({ size }: { size?: number }) {
   return (
     <Icon size={size}>

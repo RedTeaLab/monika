@@ -41,7 +41,6 @@ function getLangExtension(filePath: string) {
 function FileEditor(props: IDockviewPanelProps) {
   const openFiles = useStore((s) => s.openFiles)
   const updateFileContent = useStore((s) => s.updateFileContent)
-  const setFileMode = useStore((s) => s.setFileMode)
   const setFileDirty = useStore((s) => s.setFileDirty)
   const projectPath = useStore((s) => s.projectPath)
 
@@ -160,21 +159,6 @@ function FileEditor(props: IDockviewPanelProps) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [currentMode, activeFilePath, projectPath])
-
-  // Ctrl+/ toggle edit/diff mode
-  useEffect(() => {
-    if (!activeFilePath) return
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
-        e.preventDefault()
-        const file = useStore.getState().openFiles.find((f) => f.path === activeFilePath)
-        if (!file) return
-        setFileMode(activeFilePath, file.mode === 'edit' ? 'diff' : 'edit')
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [activeFilePath, setFileMode])
 
   // Fetch diff when switching to Diff mode
   useEffect(() => {
