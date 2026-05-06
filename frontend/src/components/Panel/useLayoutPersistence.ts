@@ -2,9 +2,17 @@ import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import { DEFAULT_LAYOUT } from './defaultLayout'
 import { applyLayoutSizes } from './applyLayoutSizes'
+import { useStore } from '../../store'
 
 const STORAGE_PREFIX = 'monika_layout_'
 const LAYOUT_VERSION = 12
+
+function extractSessionTabs(layout: any): { id: string; title: string }[] {
+  const panels = layout?.panels || {}
+  return Object.values(panels)
+    .filter((p: any) => p.contentComponent === 'chat' && p.id !== 'chat')
+    .map((p: any) => ({ id: p.id, title: p.title || 'Untitled' }))
+}
 
 export function useLayoutPersistence(
   api: DockviewApi | null,
@@ -22,7 +30,17 @@ export function useLayoutPersistence(
     try {
       const saved = localStorage.getItem(versionedKey)
       if (saved) {
-        api.fromJSON(JSON.parse(saved))
+        const parsed = JSON.parse(saved)
+        api.fromJSON(parsed)
+
+        // Restore session state for restored session panels
+        const sessionTabs = extractSessionTabs(parsed)
+        if (sessionTabs.length > 0 && projectPath) {
+          setTimeout(() => {
+            useStore.getState().restoreSessionTabs(sessionTabs)
+          }, 100)
+        }
+
         return
       }
 

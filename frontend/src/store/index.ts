@@ -126,6 +126,7 @@ interface AppState {
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
   switchSessionTab: (id: string) => void
+  restoreSessionTabs: (tabs: { id: string; title: string }[]) => Promise<void>
 
   openFileTab: (path: string, content: string) => void
   closeFileTab: (path: string) => void
@@ -635,6 +636,47 @@ export const useStore = create<AppState>((set, get) => ({
       s.dockviewApi?.getPanel(id)?.api.setActive()
       return updates
     })
+  },
+
+  restoreSessionTabs: async (tabs: { id: string; title: string }[]) => {
+    const project = get().projectPath
+    if (!project || tabs.length === 0) return
+    for (const tab of tabs) {
+      if (get().openSessions.some((s) => s.id === tab.id)) continue
+      set((s) => ({
+        openSessions: [...s.openSessions, tab],
+      }))
+      try {
+        const session = await App.LoadSession(project, tab.id)
+        const msgs = session?.messages
+          ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
+          : []
+        set((s) => ({
+          sessionMessages: { ...s.sessionMessages, [tab.id]: msgs },
+          sessionTokens: {
+            ...s.sessionTokens,
+            [tab.id]: {
+              count: (session as any)?.token_count ?? 0,
+              max: (session as any)?.token_max ?? 0,
+            },
+          },
+        }))
+      } catch {
+        set((s) => ({
+          sessionMessages: { ...s.sessionMessages, [tab.id]: [] },
+        }))
+      }
+    }
+    if (!get().activeSessionId && tabs.length > 0) {
+      const activeId = tabs[0].id
+      const msgs = get().sessionMessages[activeId] || []
+      set({
+        activeSessionId: activeId,
+        messages: msgs,
+        tokenCount: get().sessionTokens[activeId]?.count ?? 0,
+        tokenMax: get().sessionTokens[activeId]?.max ?? 0,
+      })
+    }
   },
 
   openFileTab: (path, content) => {
