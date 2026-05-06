@@ -1,43 +1,17 @@
-import { useState, useEffect } from 'react'
 import { IDockviewPanelProps } from 'dockview'
-import { App } from '../../../bindings/monika'
+import { App as MonikaApp } from '../../../bindings/monika'
 import type { ChangeStat } from '../../../bindings/monika'
 import { useStore } from '../../store'
 
 function ChangesList(_props: IDockviewPanelProps) {
-  const [changes, setChanges] = useState<ChangeStat[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string>('')
   const projectPath = useStore((s) => s.projectPath)
-  const fileTreeVersion = useStore((s) => s.fileTreeVersion)
+  const changes = useStore((s) => s.changeStats)
   const openFileTab = useStore((s) => s.openFileTab)
   const setFileMode = useStore((s) => s.setFileMode)
 
-  useEffect(() => {
-    if (!projectPath) return
-    let cancelled = false
-    setLoading(true)
-    App.ListChangeStats(projectPath)
-      .then((stats) => {
-        if (!cancelled) {
-          setChanges(Array.isArray(stats) ? stats : [])
-          setError('')
-          setLoading(false)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setChanges([])
-          setError('Failed to load changes')
-          setLoading(false)
-        }
-      })
-    return () => { cancelled = true }
-  }, [projectPath, fileTreeVersion])
-
   const handleClick = async (stat: ChangeStat) => {
     try {
-      const result = await App.ReadFile(projectPath, stat.path)
+      const result = await MonikaApp.ReadFile(projectPath, stat.path)
       openFileTab(stat.path, result?.content || '')
     } catch {
       openFileTab(stat.path, '')
@@ -70,14 +44,14 @@ function ChangesList(_props: IDockviewPanelProps) {
       style={{ background: 'var(--bg-sidebar)', padding: '0 8px' }}
     >
       <div className="flex-1 overflow-y-auto">
-        {loading && changes.length === 0 ? (
+        {changes.loading && changes.stats.length === 0 ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">Loading...</div>
-        ) : error && changes.length === 0 ? (
-          <div className="py-4 text-[12px] text-[var(--red)] px-1">{error}</div>
-        ) : changes.length === 0 ? (
+        ) : changes.error && changes.stats.length === 0 ? (
+          <div className="py-4 text-[12px] text-[var(--red)] px-1">{changes.error}</div>
+        ) : changes.stats.length === 0 ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No changes</div>
         ) : (
-          changes.map((stat) => (
+          changes.stats.map((stat) => (
             <div
               key={stat.path}
               className="flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors mx-1 px-[6px]"
