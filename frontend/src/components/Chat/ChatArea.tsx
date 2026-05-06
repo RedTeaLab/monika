@@ -14,20 +14,18 @@ function ChatArea(props: IDockviewPanelProps) {
   const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
-  const addMessage = useStore((s) => s.addMessage)
-  const clearMessages = useStore((s) => s.clearMessages)
-  const setMessages = useStore((s) => s.setMessages)
   const projectPath = useStore((s) => s.projectPath)
   const sessionParents = useStore((s) => s.sessionParents)
   const sessionMessages = useStore((s) => s.sessionMessages)
-  const setGeneratingSessionId = useStore((s) => s.setGeneratingSessionId)
 
-  const isChildSession = sessionParents[sessionId] !== undefined
   const messages = sessionMessages[sessionId] || []
 
   const todoCollapsed = useStore((s) => s.todoCollapsed)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const isTodoCollapsed = todoCollapsed[sessionId] || false
+
+  const isDefaultChat = sessionId === 'chat'
+  const isChildSession = sessionParents[sessionId] !== undefined
 
   const handleStop = () => {
     if (generatingSessionId === sessionId) {
@@ -38,71 +36,31 @@ function ChatArea(props: IDockviewPanelProps) {
   const handleSend = async (text: string) => {
     if (!text.trim()) return
 
-    if (text.startsWith('/')) {
-      const cmd = text.slice(1)
-      if (cmd === 'help')
-        addMessage({ id: crypto.randomUUID(), role: 'system', content: 'Commands: /help /clear /exit' })
-      if (cmd === 'clear') clearMessages()
-      return
-    }
-
-    if (!projectPath || !sessionId) {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No project or session selected.' })
-      return
-    }
+    if (!projectPath || !sessionId) return
 
     if (!selectedProvider || !selectedModel) {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No provider or model selected. Please choose a model from the toolbar.' })
+      useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: 'No provider or model selected. Please choose a model from the toolbar.' })
       return
-    }
-
-    // Auto-create session if using the default chat panel (no real session)
-    let sid = sessionId
-    if (sid === 'chat') {
-      try {
-        const info = await App.NewSession(projectPath, selectedProvider, selectedModel)
-        if (!info) return
-        sid = info.id
-        const store = useStore.getState()
-        // Register session in store
-        useStore.setState((s) => ({
-          openSessions: [{ id: sid, title: info.title || 'Untitled' }, ...s.openSessions],
-          activeSessionId: sid,
-          sessionMessages: { ...s.sessionMessages, [sid]: [] },
-        }))
-        // Create dockview panel and close default placeholder
-        store.dockviewApi?.addPanel({
-          id: sid,
-          component: 'chat',
-          tabComponent: 'chat-tab',
-          title: info.title || 'Untitled',
-          params: { sessionId: sid },
-          position: { referenceGroup: 'chat-group' },
-        })
-        store.dockviewApi?.getPanel('chat')?.api.close()
-      } catch {
-        addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Failed to create session.' })
-        return
-      }
     }
 
     if (generatingSessionId !== '') {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Another session is generating. Please wait.' })
+      useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Another session is generating. Please wait.' })
       return
     }
 
+    const store = useStore.getState()
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
-    useStore.getState().appendToSession(sid, [userMsg, assistantMsg])
-    setGeneratingSessionId(sid)
+    store.appendToSession(sessionId, [userMsg, assistantMsg])
+    store.setGeneratingSessionId(sessionId)
 
     try {
-      await App.SendMessage(projectPath, sid, text, selectedProvider, selectedModel)
+      await App.SendMessage(projectPath, sessionId, text, selectedProvider, selectedModel)
     } catch (err) {
-      addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
-      setGeneratingSessionId('')
-      const currentMsgs = useStore.getState().sessionMessages[sid] || []
-      setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
+      useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
+      store.setGeneratingSessionId('')
+      const currentMsgs = useStore.getState().sessionMessages[sessionId] || []
+      useStore.getState().setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
     }
   }
 
@@ -154,7 +112,7 @@ function ChatArea(props: IDockviewPanelProps) {
         collapsed={isTodoCollapsed}
         onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
       />
-      {!isChildSession && (
+      {!isDefaultChat && !isChildSession && (
         <ChatInput
           key={sessionId}
           onSend={handleSend}
