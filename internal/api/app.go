@@ -19,7 +19,6 @@ import (
 	engine2 "monika/pkg/engine"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"gopkg.in/yaml.v3"
 )
 
 type childSessionDisk struct {
@@ -338,8 +337,8 @@ func (a *App) PersistSelection(providerID, modelID string) {
 	a.cfg.ModelProvider = providerID
 	a.cfg.Model = modelID
 
-	configPath := filepath.Join(a.home, ".monika", "config.yaml")
-	data, err := yaml.Marshal(&a.cfg)
+	configPath := filepath.Join(a.home, ".monika", "config.json")
+	data, err := json.MarshalIndent(&a.cfg, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] WARNING: failed to marshal config: %v\n", err)
 		return
