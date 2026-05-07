@@ -4,6 +4,21 @@ import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat } from '../../bindings/monika'
 import type { DockviewApi } from 'dockview'
 
+export interface PermissionRule {
+  tool: string
+  decision: 'allow' | 'ask' | 'deny'
+}
+
+export interface AgentInfo {
+  name: string
+  description: string
+  model: string
+  temperature: number
+  systemPrompt: string
+  source: 'builtin' | 'custom'
+  permissionRules: PermissionRule[]
+}
+
 export interface PermissionRequiredEvent {
   type: string
   sessionId: string
@@ -100,6 +115,11 @@ interface AppState {
   pendingPermission: PermissionRequiredEvent | null
   permissionMode: 'auto' | 'manual'
   settingsOpen: boolean
+  agents: AgentInfo[]
+
+  loadAgents: () => Promise<void>
+  saveAgent: (agent: AgentInfo) => Promise<void>
+  deleteAgent: (name: string) => Promise<void>
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
@@ -196,6 +216,10 @@ export const useStore = create<AppState>((set, get) => ({
   pendingPermission: null as PermissionRequiredEvent | null,
   permissionMode: 'auto',
   settingsOpen: false,
+  agents: [
+    { name: 'general', description: 'General-purpose agent for research and multi-step tasks', model: '', temperature: 0, systemPrompt: '', source: 'builtin', permissionRules: [] },
+    { name: 'explore', description: 'Fast agent specialized for exploring codebases', model: '', temperature: 0, systemPrompt: '', source: 'builtin', permissionRules: [] },
+  ],
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -407,6 +431,41 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
+  loadAgents: async () => {
+    try {
+      const data = await Call.ByName('monika/internal/api.App.ListAgents', JSON.stringify({}))
+      const list = JSON.parse(data as string) as AgentInfo[]
+      if (list && list.length > 0) {
+        set({ agents: list })
+      }
+    } catch {
+      // Keep builtin defaults when RPC is unavailable
+    }
+  },
+  saveAgent: async (agent) => {
+    set((s) => {
+      const idx = s.agents.findIndex((a) => a.name === agent.name)
+      if (idx >= 0) {
+        const next = [...s.agents]
+        next[idx] = agent
+        return { agents: next }
+      }
+      return { agents: [...s.agents, agent] }
+    })
+    try {
+      await Call.ByName('monika/internal/api.App.SaveAgent', JSON.stringify({ agent }))
+    } catch {
+      // Local state already updated
+    }
+  },
+  deleteAgent: async (name) => {
+    set((s) => ({ agents: s.agents.filter((a) => a.name !== name) }))
+    try {
+      await Call.ByName('monika/internal/api.App.DeleteAgent', JSON.stringify({ name }))
+    } catch {
+      // Local state already updated
+    }
+  },
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -889,6 +948,10 @@ export const useStore = create<AppState>((set, get) => ({
       pendingPermission: null,
       permissionMode: 'auto',
       settingsOpen: false,
+      agents: [
+        { name: 'general', description: 'General-purpose agent for research and multi-step tasks', model: '', temperature: 0, systemPrompt: '', source: 'builtin', permissionRules: [] },
+        { name: 'explore', description: 'Fast agent specialized for exploring codebases', model: '', temperature: 0, systemPrompt: '', source: 'builtin', permissionRules: [] },
+      ],
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });

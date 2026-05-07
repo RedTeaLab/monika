@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import AgentsTab from './AgentsTab'
 import PermissionsTab from './PermissionsTab'
 import SkillsTab from './SkillsTab'
 import McpTab from './McpTab'
 import ModelsTab from './ModelsTab'
 
-type Tab = 'permissions' | 'skills' | 'mcp' | 'models'
+type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models'
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'agents', label: 'Agents' },
   { id: 'permissions', label: 'Permissions' },
   { id: 'skills', label: 'Skills' },
   { id: 'mcp', label: 'MCP' },
@@ -14,7 +16,7 @@ const TABS: { id: Tab; label: string }[] = [
 ]
 
 function SettingsPage({ onClose }: { onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<Tab>('permissions')
+  const [activeTab, setActiveTab] = useState<Tab>('agents')
 
   return (
     <div
@@ -53,6 +55,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
           ))}
         </nav>
         <main className="flex-1 p-6 overflow-y-auto" role="tabpanel">
+          {activeTab === 'agents' && <AgentsTab />}
           {activeTab === 'permissions' && <PermissionsTab />}
           {activeTab === 'skills' && <SkillsTab />}
           {activeTab === 'mcp' && <McpTab />}
