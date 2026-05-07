@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useStore, AgentInfo, PermissionRule } from '../../store'
+import { useStore, AgentInfo } from '../../store'
 
 function AgentsTab() {
   const agents = useStore((s) => s.agents)
@@ -16,9 +16,9 @@ function AgentsTab() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [model, setModel] = useState('')
-  const [temperature, setTemperature] = useState(0)
+  const [temperature, setTemperature] = useState<number | undefined>(undefined)
   const [systemPrompt, setSystemPrompt] = useState('')
-  const [rules, setRules] = useState<PermissionRule[]>([])
+  const [permission, setPermission] = useState<Record<string, string>>({})
   const [newRuleTool, setNewRuleTool] = useState('')
   const [newRuleDecision, setNewRuleDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
 
@@ -33,7 +33,7 @@ function AgentsTab() {
     setModel('')
     setTemperature(0)
     setSystemPrompt('')
-    setRules([])
+    setPermission({})
     setNewRuleTool('')
     setNewRuleDecision('ask')
     setModalOpen(true)
@@ -46,7 +46,7 @@ function AgentsTab() {
     setModel(agent.model)
     setTemperature(agent.temperature)
     setSystemPrompt(agent.systemPrompt)
-    setRules([...agent.permissionRules])
+    setPermission({...agent.permission})
     setNewRuleTool('')
     setNewRuleDecision('ask')
     setModalOpen(true)
@@ -60,10 +60,14 @@ function AgentsTab() {
         name: name.trim(),
         description: description.trim(),
         model: model.trim(),
+        provider: editing ? editing.provider : '',
         temperature,
         systemPrompt,
+        hidden: editing ? editing.hidden : false,
+        disabled: editing ? editing.disabled : false,
+        isCustom: editing ? editing.isCustom : true,
         source: editing ? editing.source : 'custom',
-        permissionRules: rules,
+        permission,
       })
       setModalOpen(false)
     } finally {
@@ -77,14 +81,15 @@ function AgentsTab() {
 
   const addRule = () => {
     if (!newRuleTool.trim()) return
-    if (rules.some((r) => r.tool === newRuleTool.trim())) return
-    setRules([...rules, { tool: newRuleTool.trim(), decision: newRuleDecision }])
+    setPermission({ ...permission, [newRuleTool.trim()]: newRuleDecision })
     setNewRuleTool('')
     setNewRuleDecision('ask')
   }
 
   const removeRule = (tool: string) => {
-    setRules(rules.filter((r) => r.tool !== tool))
+    const next = { ...permission }
+    delete next[tool]
+    setPermission(next)
   }
 
   const badgeColors: Record<string, string> = {
@@ -265,37 +270,23 @@ function AgentsTab() {
               <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
                 Permission Rules
               </label>
-              {rules.length > 0 && (
+              {Object.keys(permission).length > 0 && (
                 <table className="w-full text-[12px] border-collapse mb-2">
                   <thead>
                     <tr>
-                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal">
-                        Tool
-                      </th>
-                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal w-[100px]">
-                        Decision
-                      </th>
+                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal">Tool</th>
+                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal w-[100px]">Decision</th>
                       <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal w-[40px]" />
                     </tr>
                   </thead>
                   <tbody>
-                    {rules.map((rule) => (
-                      <tr key={rule.tool} className="border-b border-[var(--border)]">
-                        <td className="px-2 py-1 font-mono text-[var(--text-primary)]">
-                          {rule.tool}
-                        </td>
+                    {Object.entries(permission).map(([tool, decision]) => (
+                      <tr key={tool} className="border-b border-[var(--border)]">
+                        <td className="px-2 py-1 font-mono text-[var(--text-primary)]">{tool}</td>
                         <td className="px-2 py-1">
                           <select
-                            value={rule.decision}
-                            onChange={(e) =>
-                              setRules(
-                                rules.map((r) =>
-                                  r.tool === rule.tool
-                                    ? { ...r, decision: e.target.value as PermissionRule['decision'] }
-                                    : r
-                                )
-                              )
-                            }
+                            value={decision}
+                            onChange={(e) => setPermission({ ...permission, [tool]: e.target.value })}
                             className="w-full px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
                           >
                             <option value="allow">allow</option>
@@ -305,9 +296,9 @@ function AgentsTab() {
                         </td>
                         <td className="px-2 py-1 text-center">
                           <button
-                            onClick={() => removeRule(rule.tool)}
+                            onClick={() => removeRule(tool)}
                             className="bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[14px] leading-none p-0"
-                            aria-label={`Remove rule for ${rule.tool}`}
+                            aria-label={`Remove rule for ${tool}`}
                           >
                             &#10005;
                           </button>
@@ -332,7 +323,7 @@ function AgentsTab() {
                 />
                 <select
                   value={newRuleDecision}
-                  onChange={(e) => setNewRuleDecision(e.target.value as PermissionRule['decision'])}
+                  onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
                   className="w-[80px] px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value="allow">allow</option>
