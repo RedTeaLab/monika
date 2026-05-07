@@ -123,9 +123,16 @@ type MCPServerEntry struct {
 	Env     map[string]string `yaml:"env"`
 }
 
+type RuleConfig struct {
+	Tool     string `yaml:"tool"`
+	Pattern  string `yaml:"pattern"`
+	Decision string `yaml:"decision"`
+}
+
 type ToolsConfig struct {
-	Confirm  []string `yaml:"confirm"`
-	Disallow []string `yaml:"disallow"`
+	Confirm  []string     `yaml:"confirm"`
+	Disallow []string     `yaml:"disallow"`
+	Rules    []RuleConfig `yaml:"rules"`
 }
 
 func Load(opts Options) (Config, error) {
@@ -203,7 +210,11 @@ func merge(dst *Config, src Config) {
 		dst.MCP.Servers = append(dst.MCP.Servers, src.MCP.Servers...)
 	}
 	if len(src.Tools.Confirm) > 0 || len(src.Tools.Disallow) > 0 {
-		dst.Tools = src.Tools
+		dst.Tools.Confirm = src.Tools.Confirm
+		dst.Tools.Disallow = src.Tools.Disallow
+	}
+	if len(src.Tools.Rules) > 0 {
+		dst.Tools.Rules = append(dst.Tools.Rules, src.Tools.Rules...)
 	}
 }
 

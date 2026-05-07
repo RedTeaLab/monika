@@ -6,6 +6,7 @@ func TestPromptConstantsNotEmpty(t *testing.T) {
 	constants := map[string]string{
 		"PromptIdentity":         PromptIdentity,
 		"PromptToolUsage":        PromptToolUsage,
+		"PromptPlanning":         PromptPlanning,
 		"PromptCodeQuality":      PromptCodeQuality,
 		"PromptResponseStyle":    PromptResponseStyle,
 		"PromptSafetyBoundaries": PromptSafetyBoundaries,
@@ -21,12 +22,13 @@ func TestPromptConstantsNotEmpty(t *testing.T) {
 func TestPromptTokenBudget(t *testing.T) {
 	total := len(PromptIdentity) +
 		len(PromptToolUsage) +
+		len(PromptPlanning) +
 		len(PromptCodeQuality) +
 		len(PromptResponseStyle) +
 		len(PromptSafetyBoundaries) +
 		len(PromptRemember)
 
-	const maxChars = 8000
+	const maxChars = 10000
 	if total > maxChars {
 		t.Errorf("total prompt size %d chars exceeds budget %d", total, maxChars)
 	}

@@ -125,6 +125,38 @@ func TestLoadAppendsMCPServers(t *testing.T) {
 	}
 }
 
+func TestLoadAppendsRules(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	project := filepath.Join(tmp, "project")
+	mustWrite(t, filepath.Join(home, ".monika", "config.yaml"), []byte(`tools:
+  rules:
+    - tool: bash
+      pattern: npm test
+      decision: allow
+`))
+	mustWrite(t, filepath.Join(project, ".monika", "config.yaml"), []byte(`tools:
+  rules:
+    - tool: glob
+      pattern: "*.go"
+      decision: allow
+`))
+
+	cfg, err := Load(Options{HomeDir: home, ProjectDir: project})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Tools.Rules) != 2 {
+		t.Fatalf("rules = %v", cfg.Tools.Rules)
+	}
+	if cfg.Tools.Rules[0].Tool != "bash" || cfg.Tools.Rules[0].Pattern != "npm test" {
+		t.Fatalf("rules[0] = %+v", cfg.Tools.Rules[0])
+	}
+	if cfg.Tools.Rules[1].Tool != "glob" || cfg.Tools.Rules[1].Pattern != "*.go" {
+		t.Fatalf("rules[1] = %+v", cfg.Tools.Rules[1])
+	}
+}
+
 func TestLoadToolsReplaces(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")

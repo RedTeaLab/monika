@@ -99,6 +99,7 @@ interface AppState {
   selectedModel: string
   pendingPermission: PermissionRequiredEvent | null
   permissionMode: 'auto' | 'manual'
+  permissionRules: { tool: string; pattern: string; decision: string; source: string; createdAt: string }[]
   settingsOpen: boolean
 
   addMessage: (msg: Message) => void
@@ -158,6 +159,9 @@ interface AppState {
   loadModelsForProvider: (providerId: string) => Promise<void>
   setChangeStats: (st: Partial<{ stats: ChangeStat[]; loading: boolean; error: string }>) => void
   respondPermission: (resp: { requestId: string; decision: string; rulePattern?: string }) => Promise<void>
+  loadPermissionRules: () => Promise<void>
+  addPermissionRule: (tool: string, pattern: string, decision: string, source: string) => Promise<void>
+  deletePermissionRule: (tool: string, pattern: string, source: string) => Promise<void>
   resetProjectState: () => void
 }
 
@@ -195,6 +199,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedModel: '',
   pendingPermission: null as PermissionRequiredEvent | null,
   permissionMode: 'auto',
+  permissionRules: [],
   settingsOpen: false,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
@@ -402,7 +407,7 @@ export const useStore = create<AppState>((set, get) => ({
   setPermissionMode: (mode) => {
     set({ permissionMode: mode })
     // Notify backend to update pipeline mode
-    Call.ByName('monika/internal/api.App.SetPermissionMode', JSON.stringify({ mode })).catch(() => {
+    Call.ByName('monika/internal/api.App.SetPermissionMode', { mode }).catch(() => {
       // RPC may not be registered yet (happens during store init)
     })
   },
@@ -855,8 +860,43 @@ export const useStore = create<AppState>((set, get) => ({
   setChangeStats: (st) => set((s) => ({ changeStats: { ...s.changeStats, ...st } })),
 
   respondPermission: async (resp) => {
-    await Call.ByName('monika/internal/api.App.RespondPermission', JSON.stringify(resp))
+    await Call.ByName('monika/internal/api.App.RespondPermission', resp)
     set({ pendingPermission: null })
+  },
+
+  loadPermissionRules: async () => {
+    const { projectPath } = get()
+    if (!projectPath) return
+    try {
+      const rules = await Call.ByName('monika/internal/api.App.ListPermissionRules', { projectPath })
+      set({ permissionRules: rules || [] })
+    } catch {
+      set({ permissionRules: [] })
+    }
+  },
+
+  addPermissionRule: async (tool, pattern, decision, source) => {
+    await Call.ByName('monika/internal/api.App.AddPermissionRule', { tool, pattern, decision, source })
+    const { projectPath } = get()
+    if (!projectPath) return
+    try {
+      const rules = await Call.ByName('monika/internal/api.App.ListPermissionRules', { projectPath })
+      set({ permissionRules: rules || [] })
+    } catch {
+      set({ permissionRules: [] })
+    }
+  },
+
+  deletePermissionRule: async (tool, pattern, source) => {
+    await Call.ByName('monika/internal/api.App.DeletePermissionRule', { tool, pattern, source })
+    const { projectPath } = get()
+    if (!projectPath) return
+    try {
+      const rules = await Call.ByName('monika/internal/api.App.ListPermissionRules', { projectPath })
+      set({ permissionRules: rules || [] })
+    } catch {
+      set({ permissionRules: [] })
+    }
   },
 
   resetProjectState: () => {
@@ -888,6 +928,8 @@ export const useStore = create<AppState>((set, get) => ({
       selectedModel: '',
       pendingPermission: null,
       permissionMode: 'auto',
+      permissionRules: [],
+
       settingsOpen: false,
       fileTreeVersion: 0,
       sessionListVersion: 0,

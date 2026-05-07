@@ -19,7 +19,6 @@ function ChatArea(props: IDockviewPanelProps) {
   const sessionParents = useStore((s) => s.sessionParents)
   const sessionMessages = useStore((s) => s.sessionMessages)
   const pendingPermission = useStore((s) => s.pendingPermission)
-  const setGeneratingSessionId = useStore((s) => s.setGeneratingSessionId)
 
   const messages = sessionMessages[sessionId] || []
 
@@ -127,7 +126,7 @@ function ChatArea(props: IDockviewPanelProps) {
         />
       ) : (
         <SubagentFooter />
-      )}
+      ))}
     </div>
   )
 }

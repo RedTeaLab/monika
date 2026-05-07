@@ -23,6 +23,7 @@ type SubTask struct {
 	Prompt      string       `json:"prompt"`
 	Model       string       `json:"model,omitempty"`
 	Provider    string       `json:"provider,omitempty"`
+	ProjectDir  string       `json:"project_dir,omitempty"`
 	SessionID   string       `json:"session_id"`
 	ParentID    string       `json:"parent_id,omitempty"`
 	Status      string       `json:"status"`

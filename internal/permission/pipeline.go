@@ -14,9 +14,9 @@ type ConfirmUI interface {
 	RequestConfirm(ctx context.Context, ev PermissionRequiredEvent) (PermissionResponse, error)
 }
 
-// AddAlwaysAllowRule persists a new allow_always rule to rules.json.
+// AddAlwaysAllowRule persists a new allow_always rule to project config.yaml.
 // Set by store.go via init. Nil means persistence is not available.
-var AddAlwaysAllowRule func(homeDir, projectSlug, tool, pattern string) error
+var AddAlwaysAllowRule func(projectDir, tool, pattern string) error
 
 var readOps = map[string]bool{
 	"file_read": true,
@@ -43,6 +43,7 @@ type Pipeline struct {
 	confirmUI   ConfirmUI
 	auditLog    string
 	homeDir     string
+	projectDir  string
 	projectSlug string
 }
 
@@ -69,8 +70,18 @@ func (p *Pipeline) SetMode(mode Mode) {
 // SetProject configures project-specific paths for audit logging and rule persistence.
 func (p *Pipeline) SetProject(homeDir, projectDir string) {
 	p.homeDir = homeDir
+	p.projectDir = projectDir
 	p.projectSlug = filepath.Base(projectDir)
 	p.auditLog = filepath.Join(homeDir, ".monika", "projects", p.projectSlug, "audit.log")
+}
+
+
+// BuiltinRules returns a copy of the built-in blacklist rules.
+func (p *Pipeline) BuiltinRules() []Rule {
+	if p.rules == nil {
+		return nil
+	}
+	return p.rules.BuiltinRules()
 }
 
 // Check runs the full permission pipeline and returns a Decision.
@@ -155,8 +166,8 @@ func (p *Pipeline) requestConfirm(ctx context.Context, cctx CheckContext, reason
 		if pattern == "" && cctx.ToolName == "bash" {
 			pattern = p.extractBashCommand(cctx)
 		}
-		if pattern != "" && p.homeDir != "" && p.projectSlug != "" && AddAlwaysAllowRule != nil {
-			_ = AddAlwaysAllowRule(p.homeDir, p.projectSlug, cctx.ToolName, pattern)
+		if pattern != "" && p.projectDir != "" && AddAlwaysAllowRule != nil {
+			_ = AddAlwaysAllowRule(p.projectDir, cctx.ToolName, pattern)
 		}
 		userResp = "allow_always"
 	}

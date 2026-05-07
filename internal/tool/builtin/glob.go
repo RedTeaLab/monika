@@ -49,22 +49,28 @@ func (g *globTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	searchDir := tool.ProjectDirOrDefault(ctx, g.projectDir)
-	if params.Path != "" {
-		if !filepath.IsAbs(params.Path) {
-			return tool.ExecutionResult{Content: "path must be absolute", IsError: true}, nil
-		}
-		var err error
-		searchDir, err = filepath.Abs(params.Path)
-		if err != nil {
-			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
-		}
-	}
-
 	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, g.projectDir))
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
+	if real, err := filepath.EvalSymlinks(absProject); err == nil {
+		absProject = real
+	}
+
+	searchDir := absProject
+	if params.Path != "" {
+		if !filepath.IsAbs(params.Path) {
+			return tool.ExecutionResult{Content: "path must be absolute", IsError: true}, nil
+		}
+		searchDir, err = filepath.Abs(params.Path)
+		if err != nil {
+			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
+		}
+		if real, err := filepath.EvalSymlinks(searchDir); err == nil {
+			searchDir = real
+		}
+	}
+
 	rel, err := filepath.Rel(absProject, searchDir)
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return tool.ExecutionResult{Content: fmt.Sprintf("path is outside project directory"), IsError: true}, nil

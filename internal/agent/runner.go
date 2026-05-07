@@ -76,6 +76,12 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 			WithParent(parent),
 			WithSessionID(task.SessionID),
 		}
+		// Resolve projectDir: task explicit > parent inheritance
+		if task.ProjectDir != "" {
+			opts = append(opts, WithProjectDir(task.ProjectDir))
+		} else if parent != nil && parent.projectDir != "" {
+			opts = append(opts, WithProjectDir(parent.projectDir))
+		}
 		// Resolve model: agent explicit > task override > parent inheritance
 		if ag.Model == "" {
 			if task.Model != "" {

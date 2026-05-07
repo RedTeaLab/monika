@@ -62,7 +62,15 @@ func (g *grepTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: fmt.Sprintf("invalid regex: %s", err), IsError: true}, nil
 	}
 
-	searchDir := tool.ProjectDirOrDefault(ctx, g.projectDir)
+	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, g.projectDir))
+	if err != nil {
+		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
+	}
+	if real, err := filepath.EvalSymlinks(absProject); err == nil {
+		absProject = real
+	}
+
+	searchDir := absProject
 	if params.Path != "" {
 		if !filepath.IsAbs(params.Path) {
 			return tool.ExecutionResult{Content: "path must be absolute", IsError: true}, nil
@@ -71,12 +79,11 @@ func (g *grepTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		if err != nil {
 			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 		}
+		if real, err := filepath.EvalSymlinks(searchDir); err == nil {
+			searchDir = real
+		}
 	}
 
-	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, g.projectDir))
-	if err != nil {
-		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
-	}
 	rel, err := filepath.Rel(absProject, searchDir)
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return tool.ExecutionResult{Content: "path is outside project directory", IsError: true}, nil

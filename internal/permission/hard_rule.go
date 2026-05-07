@@ -19,11 +19,11 @@ func NewHardRuleEngine(userRules []Rule, projectDir string) *HardRuleEngine {
 		rules:      userRules,
 		projectDir: projectDir,
 		blacklist: []Rule{
-			{Tool: "bash", Pattern: "rm -rf", Decision: "deny", Source: "builtin"},
-			{Tool: "bash", Pattern: "curl ", Decision: "deny", Source: "builtin"},
-			{Tool: "bash", Pattern: "chmod 777", Decision: "deny", Source: "builtin"},
-			{Tool: "bash", Pattern: "wget ", Decision: "deny", Source: "builtin"},
-			{Tool: "bash", Pattern: "nc ", Decision: "deny", Source: "builtin"},
+			{Tool: "bash", Pattern: "rm -rf", Decision: "deny", Source: SourceBuiltin},
+			{Tool: "bash", Pattern: "curl ", Decision: "deny", Source: SourceBuiltin},
+			{Tool: "bash", Pattern: "chmod 777", Decision: "deny", Source: SourceBuiltin},
+			{Tool: "bash", Pattern: "wget ", Decision: "deny", Source: SourceBuiltin},
+			{Tool: "bash", Pattern: "nc ", Decision: "deny", Source: SourceBuiltin},
 		},
 	}
 }
@@ -53,6 +53,13 @@ func (e *HardRuleEngine) Check(ctx CheckContext) *Decision {
 		}
 	}
 	return nil
+}
+
+// BuiltinRules returns a copy of the built-in blacklist rules.
+func (e *HardRuleEngine) BuiltinRules() []Rule {
+	result := make([]Rule, len(e.blacklist))
+	copy(result, e.blacklist)
+	return result
 }
 
 // matchRule checks if a rule matches the given context.

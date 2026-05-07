@@ -108,6 +108,7 @@
   --blue:   #6b9ee6;
 
   /* ── Typography ── */
+  --font-sans: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
   --font-ui:   'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
   --font-mono: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
 

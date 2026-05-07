@@ -61,6 +61,12 @@ func (f *fileWrite) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
+	if real, err := filepath.EvalSymlinks(absProject); err == nil {
+		absProject = real
+	}
+	if real, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = real
+	}
 	rel, err := filepath.Rel(absProject, absPath)
 	if err != nil || strings.HasPrefix(rel, "..") {
 		return tool.ExecutionResult{Content: fmt.Sprintf("path %s is outside project directory", params.FilePath), IsError: true}, nil

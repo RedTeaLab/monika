@@ -359,22 +359,22 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	if strings.HasPrefix(sessionID, "sub_") || strings.HasPrefix(sessionID, "call_") {
 		if child := a.LoadChildSession(sessionID); child != nil {
 			return &Session{
-				ID:          sessionID,
-				Title:       child.Title,
-				Messages:    child.Messages,
-				Status:      StatusSuccess,
-				ParentID:    child.ParentID,
-				TokenCount:  child.TokenCount,
+				ID:         sessionID,
+				Title:      child.Title,
+				Messages:   child.Messages,
+				Status:     StatusSuccess,
+				ParentID:   child.ParentID,
+				TokenCount: child.TokenCount,
 			}, nil
 		}
 		if child := a.LoadChildSessionFromDisk(projectPath, sessionID); child != nil {
 			return &Session{
-				ID:          sessionID,
-				Title:       child.Title,
-				Messages:    child.Messages,
-				Status:      StatusSuccess,
-				ParentID:    child.ParentID,
-				TokenCount:  child.TokenCount,
+				ID:         sessionID,
+				Title:      child.Title,
+				Messages:   child.Messages,
+				Status:     StatusSuccess,
+				ParentID:   child.ParentID,
+				TokenCount: child.TokenCount,
 			}, nil
 		}
 		// Return placeholder only for recently-pending sessions so the
@@ -485,25 +485,25 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		// Persist tasks alongside the session so they survive restarts.
 		a.syncTasksToSession(sessionID, s)
 
-			sm.Lock()
-			if ctx.Err() != nil {
-				sm.SetStatus(s, StatusIdle)
-				sm.Save(s)
-			} else if hadError {
-				sm.SetStatus(s, StatusFailure)
-				sm.Save(s)
-			} else {
-				sm.SetStatus(s, StatusSuccess)
-				sm.Save(s)
-			}
-			sm.Unlock()
+		sm.Lock()
+		if ctx.Err() != nil {
+			sm.SetStatus(s, StatusIdle)
+			sm.Save(s)
+		} else if hadError {
+			sm.SetStatus(s, StatusFailure)
+			sm.Save(s)
+		} else {
+			sm.SetStatus(s, StatusSuccess)
+			sm.Save(s)
+		}
+		sm.Unlock()
 
-			if ctx.Err() == nil {
-				a.handleAgentEvent(sessionID, model, agent2.Event{
-					Type:    agent2.EventSessionUpdated,
-					Content: s.Title,
-				})
-			}
+		if ctx.Err() == nil {
+			a.handleAgentEvent(sessionID, model, agent2.Event{
+				Type:    agent2.EventSessionUpdated,
+				Content: s.Title,
+			})
+		}
 	}()
 
 	return nil
@@ -1219,4 +1219,67 @@ func (a *App) SetPermissionMode(args json.RawMessage) error {
 		a.pipeline.SetMode(permission.Mode(req.Mode))
 	}
 	return nil
+}
+
+// ListPermissionRules returns all permission rules for the given project,
+// including both built-in blacklist rules and user-defined rules.
+func (a *App) ListPermissionRules(args json.RawMessage) ([]permission.Rule, error) {
+	var req struct {
+		ProjectPath string `json:"projectPath"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, err
+	}
+	userRules, err := permission.LoadRules(a.home, req.ProjectPath)
+	if err != nil {
+		return nil, err
+	}
+	var allRules []permission.Rule
+	if a.pipeline != nil {
+		allRules = a.pipeline.BuiltinRules()
+	}
+	if userRules != nil {
+		allRules = append(allRules, userRules...)
+	}
+	return allRules, nil
+}
+
+// AddPermissionRule adds a new permission rule.
+func (a *App) AddPermissionRule(args json.RawMessage) error {
+	var req struct {
+		Tool     string `json:"tool"`
+		Pattern  string `json:"pattern"`
+		Decision string `json:"decision"`
+		Source   string `json:"source"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	if req.Decision != "allow" && req.Decision != "deny" {
+		return fmt.Errorf("invalid decision: %q, must be 'allow' or 'deny'", req.Decision)
+	}
+	if req.Source != "global" && req.Source != "project" {
+		return fmt.Errorf("invalid source: %q, must be 'global' or 'project'", req.Source)
+	}
+	return permission.AddRule(a.home, a.projectPath(), req.Tool, req.Pattern, req.Decision, req.Source)
+}
+
+// DeletePermissionRule removes a rule identified by tool, pattern, and source.
+func (a *App) DeletePermissionRule(args json.RawMessage) error {
+	var req struct {
+		Tool    string `json:"tool"`
+		Pattern string `json:"pattern"`
+		Source  string `json:"source"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	return permission.DeleteRule(a.home, a.projectPath(), req.Tool, req.Pattern, req.Source)
+}
+
+func (a *App) projectPath() string {
+	if cp := a.GetCurrentProject(); cp != nil {
+		return cp.Path
+	}
+	return a.startupCwd
 }

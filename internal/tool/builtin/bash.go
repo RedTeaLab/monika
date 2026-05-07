@@ -94,9 +94,15 @@ func (b *bashTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		if err != nil {
 			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 		}
+		if real, err := filepath.EvalSymlinks(absProject); err == nil {
+			absProject = real
+		}
 		absWD, err := filepath.Abs(params.Workdir)
 		if err != nil {
 			return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
+		}
+		if real, err := filepath.EvalSymlinks(absWD); err == nil {
+			absWD = real
 		}
 		rel, err := filepath.Rel(absProject, absWD)
 		if err != nil || strings.HasPrefix(rel, "..") {

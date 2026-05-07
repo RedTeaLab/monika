@@ -326,8 +326,8 @@ func TestPipeline_Auto_SecurityModel_Nil_FallsToConfirm(t *testing.T) {
 func TestPipeline_AllowAlways_PersistsRule(t *testing.T) {
 	savedRule := ""
 	oldFunc := AddAlwaysAllowRule
-	AddAlwaysAllowRule = func(homeDir, projectSlug, tool, pattern string) error {
-		savedRule = fmt.Sprintf("%s:%s:%s:%s", homeDir, projectSlug, tool, pattern)
+	AddAlwaysAllowRule = func(projectDir, tool, pattern string) error {
+		savedRule = fmt.Sprintf("%s:%s:%s", projectDir, tool, pattern)
 		return nil
 	}
 	defer func() { AddAlwaysAllowRule = oldFunc }()
@@ -361,8 +361,8 @@ func TestPipeline_AllowAlways_PersistsRule(t *testing.T) {
 func TestPipeline_AllowAlways_ExtractsBashCommand(t *testing.T) {
 	savedRule := ""
 	oldFunc := AddAlwaysAllowRule
-	AddAlwaysAllowRule = func(homeDir, projectSlug, tool, pattern string) error {
-		savedRule = fmt.Sprintf("%s:%s:%s:%s", homeDir, projectSlug, tool, pattern)
+	AddAlwaysAllowRule = func(projectDir, tool, pattern string) error {
+		savedRule = fmt.Sprintf("%s:%s:%s", projectDir, tool, pattern)
 		return nil
 	}
 	defer func() { AddAlwaysAllowRule = oldFunc }()
@@ -390,8 +390,8 @@ func TestPipeline_AllowAlways_ExtractsBashCommand(t *testing.T) {
 	}
 	if savedRule == "" {
 		t.Error("allow_always should persist rule with extracted pattern when RulePattern is empty")
-	} else if savedRule != "/home/user:my-project:bash:go test ./..." {
-		t.Errorf("savedRule = %q, want %q", savedRule, "/home/user:my-project:bash:go test ./...")
+	} else if savedRule != "/home/user/projects/my-project:bash:go test ./..." {
+		t.Errorf("savedRule = %q, want %q", savedRule, "/home/user/projects/my-project:bash:go test ./...")
 	}
 }
 

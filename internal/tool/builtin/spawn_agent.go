@@ -122,6 +122,7 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 		ID:          toolCallID,
 		SessionID:   toolCallID, // frontend loads child session by this ID
 		ParentID:    tool.SessionIDFromContext(ctx),
+		ProjectDir:  tool.ProjectDirFromContext(ctx),
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,
@@ -206,6 +207,7 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 		ID:          toolCallID,
 		SessionID:   toolCallID,
 		ParentID:    tool.SessionIDFromContext(ctx),
+		ProjectDir:  tool.ProjectDirFromContext(ctx),
 		Type:        agent.TaskSubtask,
 		Agent:       ag.Name,
 		Description: params.Description,

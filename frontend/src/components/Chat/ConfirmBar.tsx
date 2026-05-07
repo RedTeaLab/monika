@@ -35,7 +35,7 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
     }
   }
 
-  const modeLabel = pendingPermission.mode === 'manual' ? '手动模式 — 确认操作' : '确认工具执行'
+  const modeLabel = pendingPermission.mode === 'manual' ? 'Manual mode — Confirm action' : 'Confirm tool execution'
 
   return (
     <div
@@ -64,14 +64,14 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
           onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'deny' })}
           className="px-3.5 py-1.5 rounded-md border border-[var(--border)] bg-transparent text-[var(--text-secondary)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)]"
         >
-          拒绝 (Esc)
+          Deny (Esc)
         </button>
         <button
           ref={allowRef}
           onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'allow' })}
           className="px-3.5 py-1.5 rounded-md border-none bg-[var(--accent)] text-white text-[11px] cursor-pointer font-medium hover:opacity-90"
         >
-          允许 (Enter)
+          Allow (Enter)
         </button>
         <button
           onClick={() => respondPermission({
@@ -81,7 +81,7 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
           })}
           className="px-3.5 py-1.5 rounded-md border border-[var(--accent)] bg-transparent text-[var(--accent)] text-[11px] cursor-pointer hover:bg-[var(--accent-muted)]"
         >
-          始终允许 (Ctrl+Enter)
+          Always Allow (Ctrl+Enter)
         </button>
       </div>
     </div>

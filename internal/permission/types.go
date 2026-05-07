@@ -10,6 +10,13 @@ const (
 	Deny  Decision = "deny"
 )
 
+// Rule source constants.
+const (
+	SourceBuiltin = "builtin"
+	SourceGlobal  = "global"
+	SourceProject = "project"
+)
+
 // Mode is the session-level permission mode.
 type Mode string
 
@@ -34,7 +41,7 @@ type CheckContext struct {
 	ProjectDir string
 }
 
-// Rule is a single permission rule stored in rules.json.
+// Rule is a single permission rule. Source indicates origin: builtin, global, or project.
 type Rule struct {
 	Tool      string `json:"tool"`
 	Pattern   string `json:"pattern"`
