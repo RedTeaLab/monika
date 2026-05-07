@@ -1,8 +1,18 @@
 import { create } from 'zustand'
-import { Events } from '@wailsio/runtime'
+import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat } from '../../bindings/monika'
 import type { DockviewApi } from 'dockview'
+
+export interface PermissionRequiredEvent {
+  type: string
+  sessionId: string
+  tool: string
+  args: string
+  reason: string
+  mode: string
+  requestId: string
+}
 
 export interface TaskItem {
   id: string
@@ -87,8 +97,13 @@ interface AppState {
   selectedProvider: string
   modelsByProvider: Record<string, ModelInfo[]>
   selectedModel: string
+  pendingPermission: PermissionRequiredEvent | null
+  permissionMode: 'auto' | 'manual'
+  settingsOpen: boolean
 
   addMessage: (msg: Message) => void
+  setPermissionMode: (mode: 'auto' | 'manual') => void
+  toggleSettings: () => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
   addToolStart: (tool: ToolCall) => void
   updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
@@ -142,6 +157,7 @@ interface AppState {
   setSelectedProvider: (providerId: string) => Promise<void>
   loadModelsForProvider: (providerId: string) => Promise<void>
   setChangeStats: (st: Partial<{ stats: ChangeStat[]; loading: boolean; error: string }>) => void
+  respondPermission: (resp: { requestId: string; decision: string; rulePattern?: string }) => Promise<void>
   resetProjectState: () => void
 }
 
@@ -177,6 +193,9 @@ export const useStore = create<AppState>((set, get) => ({
   selectedProvider: '',
   modelsByProvider: {},
   selectedModel: '',
+  pendingPermission: null as PermissionRequiredEvent | null,
+  permissionMode: 'auto',
+  settingsOpen: false,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -380,6 +399,14 @@ export const useStore = create<AppState>((set, get) => ({
   setSessionError: (sessionId, error) =>
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
   setSelectedModel: (model) => set({ selectedModel: model }),
+  setPermissionMode: (mode) => {
+    set({ permissionMode: mode })
+    // Notify backend to update pipeline mode
+    Call.ByName('monika/internal/api.App.SetPermissionMode', JSON.stringify({ mode })).catch(() => {
+      // RPC may not be registered yet (happens during store init)
+    })
+  },
+  toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -827,6 +854,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   setChangeStats: (st) => set((s) => ({ changeStats: { ...s.changeStats, ...st } })),
 
+  respondPermission: async (resp) => {
+    await Call.ByName('monika/internal/api.App.RespondPermission', JSON.stringify(resp))
+    set({ pendingPermission: null })
+  },
+
   resetProjectState: () => {
     console.log('[monika] resetProjectState called');
     set({
@@ -854,6 +886,9 @@ export const useStore = create<AppState>((set, get) => ({
       selectedProvider: '',
       modelsByProvider: {},
       selectedModel: '',
+      pendingPermission: null,
+      permissionMode: 'auto',
+      settingsOpen: false,
       fileTreeVersion: 0,
       sessionListVersion: 0,
     });
@@ -928,6 +963,15 @@ export function setupWailsEvents() {
       useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
       store = useStore.getState()
     }
+
+    // Handle permission_required events — they carry a session_id but may
+    // arrive before the session tab is opened in the frontend.
+    const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
+    if (data.type === 'permission_required' && permPayload) {
+      useStore.setState({ pendingPermission: permPayload })
+      return
+    }
+
     // Drop events with no session_id or session that was explicitly closed
     if (!sid || !store.sessionMessages[sid]) {
       console.warn('[monika] stream event dropped: no session_id or session closed', data.type)

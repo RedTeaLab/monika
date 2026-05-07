@@ -2,6 +2,7 @@ package api
 
 import (
 	"monika/internal/agent"
+	"monika/internal/permission"
 	"monika/internal/tool"
 )
 
@@ -15,7 +16,8 @@ type StreamEvent struct {
 	FileChange *FileChangeEvent       `json:"file_change,omitempty"`
 	Compacting *agent.CompactingEvent `json:"compacting,omitempty"`
 	Compaction *agent.CompactionEvent `json:"compaction,omitempty"`
-	Tasks      []agent.TaskItem  `json:"tasks,omitempty"`
+	Tasks      []agent.TaskItem         `json:"tasks,omitempty"`
+	Permission *permission.PermissionRequiredEvent `json:"permission,omitempty"`
 }
 
 type FileChangeEvent struct {

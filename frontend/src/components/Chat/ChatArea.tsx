@@ -4,6 +4,7 @@ import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
+import ConfirmBar from './ConfirmBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
@@ -17,6 +18,8 @@ function ChatArea(props: IDockviewPanelProps) {
   const projectPath = useStore((s) => s.projectPath)
   const sessionParents = useStore((s) => s.sessionParents)
   const sessionMessages = useStore((s) => s.sessionMessages)
+  const pendingPermission = useStore((s) => s.pendingPermission)
+  const setGeneratingSessionId = useStore((s) => s.setGeneratingSessionId)
 
   const messages = sessionMessages[sessionId] || []
 
@@ -112,7 +115,9 @@ function ChatArea(props: IDockviewPanelProps) {
         collapsed={isTodoCollapsed}
         onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
       />
-      {!isDefaultChat && !isChildSession && (
+      {!isDefaultChat && (pendingPermission && pendingPermission.sessionId === sessionId ? (
+        <ConfirmBar sessionId={sessionId} />
+      ) : !isChildSession ? (
         <ChatInput
           key={sessionId}
           onSend={handleSend}
@@ -120,8 +125,7 @@ function ChatArea(props: IDockviewPanelProps) {
           disabled={generatingSessionId !== ''}
           compacting={compactingSessionId !== ''}
         />
-      )}
-      {isChildSession && (
+      ) : (
         <SubagentFooter />
       )}
     </div>

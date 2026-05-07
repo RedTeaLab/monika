@@ -13,6 +13,7 @@ import (
 	"monika/internal/agent"
 	"monika/internal/api"
 	"monika/internal/bootstrap"
+	"monika/internal/permission"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
 	engine2 "monika/pkg/engine"
@@ -74,6 +75,14 @@ func main() {
 		agent.WithModel(pr.Model),
 		agent.WithSystemPrompt(systemPrompt),
 	}
+
+	// Wire permission pipeline
+	rules, _ := permission.LoadRules(home, filepath.Base(cwd))
+	hardRuleEngine := permission.NewHardRuleEngine(rules, cwd)
+	securityModel := permission.NewSecurityModel(nil, "") // provider wired later
+	pipeline := permission.NewPipeline(permission.Auto, hardRuleEngine, securityModel, nil)
+	pipeline.SetProject(home, cwd)
+	loopOpts = append(loopOpts, agent.WithPermissionPipeline(pipeline))
 
 	// Build agent registry with builtin agents
 	agentRegistry := agent.NewAgentRegistry([]agent.Agent{
@@ -146,6 +155,13 @@ func main() {
 	}
 
 	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
+
+	// Wire permission pipeline ConfirmUI to appService so the pipeline
+	// can request user confirmation via the frontend.
+	// The RespondPermission method on App is automatically available as a
+	// Wails service bound method via Call.ByName.
+	pipeline.SetConfirmUI(appService)
+	appService.SetPipeline(pipeline)
 
 	// Wire task change callback so TaskStore mutations push events to the frontend
 	builtin.SetTaskStoreCallback(taskStore, func(sessionID string, tasks []tool.Task) {

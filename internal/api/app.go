@@ -14,6 +14,7 @@ import (
 
 	agent2 "monika/internal/agent"
 	config2 "monika/internal/config"
+	"monika/internal/permission"
 	tool2 "monika/internal/tool"
 	engine2 "monika/pkg/engine"
 
@@ -54,6 +55,11 @@ type App struct {
 	childSessions   map[string]*agent2.ChildSession // keyed by child session ID
 	pendingChildren map[string]string               // parentSessionID → childSessionID
 	loopOpts        []agent2.LoopOption
+
+	permissionRequests map[string]chan permission.PermissionResponse
+	permMu             sync.Mutex
+
+	pipeline *permission.Pipeline
 }
 
 func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner) *App {
@@ -1144,5 +1150,73 @@ func (a *App) CreateBranch(projectPath, name, baseBranch string) error {
 		_ = autoStashPop(projectPath)
 	}
 
+	return nil
+}
+
+// RequestConfirm implements permission.ConfirmUI.
+func (a *App) RequestConfirm(ctx context.Context, ev permission.PermissionRequiredEvent) (permission.PermissionResponse, error) {
+	ch := make(chan permission.PermissionResponse, 1)
+	a.permMu.Lock()
+	if a.permissionRequests == nil {
+		a.permissionRequests = make(map[string]chan permission.PermissionResponse)
+	}
+	a.permissionRequests[ev.RequestID] = ch
+	a.permMu.Unlock()
+
+	// Emit event to frontend via existing stream channel
+	se := StreamEvent{
+		Type:       "permission_required",
+		SessionID:  ev.SessionID,
+		Permission: &ev,
+	}
+	application.Get().Event.Emit("stream", se)
+
+	// Block until response or context cancellation
+	select {
+	case resp := <-ch:
+		return resp, nil
+	case <-ctx.Done():
+		a.permMu.Lock()
+		delete(a.permissionRequests, ev.RequestID)
+		a.permMu.Unlock()
+		return permission.PermissionResponse{}, ctx.Err()
+	}
+}
+
+// RespondPermission handles the frontend's response to a permission request.
+func (a *App) RespondPermission(args json.RawMessage) error {
+	var resp permission.PermissionResponse
+	if err := json.Unmarshal(args, &resp); err != nil {
+		return err
+	}
+	a.permMu.Lock()
+	ch, ok := a.permissionRequests[resp.RequestID]
+	if ok {
+		delete(a.permissionRequests, resp.RequestID)
+	}
+	a.permMu.Unlock()
+	if ok {
+		ch <- resp
+	}
+	return nil
+}
+
+// SetPipeline stores the permission pipeline reference for runtime mode changes.
+func (a *App) SetPipeline(p *permission.Pipeline) {
+	a.pipeline = p
+}
+
+// SetPermissionMode updates the session-level permission mode ("auto" or "manual").
+func (a *App) SetPermissionMode(args json.RawMessage) error {
+	var req struct{ Mode string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	if req.Mode != "auto" && req.Mode != "manual" {
+		return fmt.Errorf("invalid permission mode: %q", req.Mode)
+	}
+	if a.pipeline != nil {
+		a.pipeline.SetMode(permission.Mode(req.Mode))
+	}
 	return nil
 }

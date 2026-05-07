@@ -7,6 +7,7 @@ import FileTree from './components/FileTree/FileTree'
 import FileEditor from './components/FileTree/FileEditor'
 import Console from './components/Console/Console'
 import StatusBar from './components/StatusBar/StatusBar'
+import SettingsPage from './components/Settings/SettingsPage'
 import { ChatTab } from './components/Panel/ChatTab'
 import { EditorTab } from './components/Panel/EditorTab'
 import { SessionTab } from './components/Panel/SessionTab'
@@ -38,6 +39,8 @@ function App() {
   const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const dockviewApi = useStore((s) => s.dockviewApi)
   const setDockviewApi = useStore((s) => s.setDockviewApi)
+  const settingsOpen = useStore((s) => s.settingsOpen)
+  const toggleSettings = useStore((s) => s.toggleSettings)
 
   useChangeWatcher(projectPath, fileTreeVersion)
   useLayoutPersistence(dockviewApi, projectPath)
@@ -90,6 +93,7 @@ function App() {
         />
       </div>
       <StatusBar />
+      {settingsOpen && <SettingsPage onClose={toggleSettings} />}
     </div>
   )
 }
