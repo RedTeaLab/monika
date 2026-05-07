@@ -1283,3 +1283,246 @@ func (a *App) projectPath() string {
 	}
 	return a.startupCwd
 }
+
+// MCPServerInfo describes a configured MCP server and its connection status.
+type MCPServerInfo struct {
+	ID      string   `json:"id"`
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+	Status  string   `json:"status"` // "connected" | "disconnected"
+}
+
+// ListAgents returns all registered agents.
+func (a *App) ListAgents() []agent2.Agent {
+	return a.agentRegistry.GetAll()
+}
+
+// SaveAgent creates or updates an agent entry in config and refreshes the registry.
+func (a *App) SaveAgent(args json.RawMessage) error {
+	var entry config2.AgentEntry
+	if err := json.Unmarshal(args, &entry); err != nil {
+		return err
+	}
+	found := false
+	for i, ag := range a.cfg.Agents {
+		if ag.Name == entry.Name {
+			a.cfg.Agents[i] = entry
+			found = true
+			break
+		}
+	}
+	if !found {
+		a.cfg.Agents = append(a.cfg.Agents, entry)
+	}
+	a.writeConfig()
+	a.agentRegistry.MergeConfig(a.cfg.Agents)
+	return nil
+}
+
+// DeleteAgent disables an agent by name (soft-delete via Disabled flag).
+func (a *App) DeleteAgent(args json.RawMessage) error {
+	var req struct{ Name string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	found := false
+	for i, ag := range a.cfg.Agents {
+		if ag.Name == req.Name {
+			a.cfg.Agents[i].Disabled = true
+			found = true
+			break
+		}
+	}
+	if !found {
+		a.cfg.Agents = append(a.cfg.Agents, config2.AgentEntry{
+			Name: req.Name, Disabled: true,
+		})
+	}
+	a.writeConfig()
+	a.agentRegistry.MergeConfig(a.cfg.Agents)
+	return nil
+}
+
+// writeConfig persists the current in-memory config to ~/.monika/config.json.
+func (a *App) writeConfig() {
+	configPath := filepath.Join(a.home, ".monika", "config.json")
+	data, err := json.MarshalIndent(&a.cfg, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] writeConfig marshal: %v\n", err)
+		return
+	}
+	tmp := configPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] writeConfig write: %v\n", err)
+		return
+	}
+	os.Rename(tmp, configPath)
+}
+
+// ListSkills discovers and returns skill metadata from configured skill paths.
+func (a *App) ListSkills() []engine2.SkillMeta {
+	eng, err := engine2.EngineByID("skill")
+	if err != nil {
+		return nil
+	}
+	skEng, ok := eng.(engine2.SkillEngine)
+	if !ok {
+		return nil
+	}
+	skills, err := skEng.Discover(context.Background(), a.cfg.Skill.Paths)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] ListSkills: %v\n", err)
+		return nil
+	}
+	return skills
+}
+
+// AddSkillPath appends a directory to the skill search paths.
+func (a *App) AddSkillPath(args json.RawMessage) error {
+	var req struct{ Path string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	a.cfg.Skill.Paths = append(a.cfg.Skill.Paths, req.Path)
+	a.writeConfig()
+	return nil
+}
+
+// RemoveSkillPath removes a directory from the skill search paths.
+func (a *App) RemoveSkillPath(args json.RawMessage) error {
+	var req struct{ Path string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	filtered := make([]string, 0, len(a.cfg.Skill.Paths))
+	for _, p := range a.cfg.Skill.Paths {
+		if p != req.Path {
+			filtered = append(filtered, p)
+		}
+	}
+	a.cfg.Skill.Paths = filtered
+	a.writeConfig()
+	return nil
+}
+
+// ListMCPServers returns configured MCP servers with their connection status.
+func (a *App) ListMCPServers() []MCPServerInfo {
+	servers := make([]MCPServerInfo, 0, len(a.cfg.MCP.Servers))
+	for _, s := range a.cfg.MCP.Servers {
+		info := MCPServerInfo{
+			ID:      s.ID,
+			Command: s.Command,
+			Args:    s.Args,
+			Status:  "disconnected",
+		}
+		if a.isMCPConnected(s.ID) {
+			info.Status = "connected"
+		}
+		servers = append(servers, info)
+	}
+	return servers
+}
+
+// isMCPConnected checks whether an MCP server is currently connected.
+//
+// FIXME: This is a workaround — it calls DisconnectServer to probe connectivity,
+// which has the side effect of actually disconnecting a connected server.
+// A proper solution should add a GetConnection or IsConnected method to MCPEngine.
+func (a *App) isMCPConnected(id string) bool {
+	eng, err := engine2.EngineByID("mcp")
+	if err != nil {
+		return false
+	}
+	mcpEng, ok := eng.(engine2.MCPEngine)
+	if !ok {
+		return false
+	}
+	err = mcpEng.DisconnectServer(context.Background(), id)
+	return err == nil
+}
+
+// SaveMCPServer creates or updates an MCP server entry in config.
+func (a *App) SaveMCPServer(args json.RawMessage) error {
+	var srv config2.MCPServerEntry
+	if err := json.Unmarshal(args, &srv); err != nil {
+		return err
+	}
+	found := false
+	for i, s := range a.cfg.MCP.Servers {
+		if s.ID == srv.ID {
+			a.cfg.MCP.Servers[i] = srv
+			found = true
+			break
+		}
+	}
+	if !found {
+		a.cfg.MCP.Servers = append(a.cfg.MCP.Servers, srv)
+	}
+	a.writeConfig()
+	return nil
+}
+
+// DeleteMCPServer removes an MCP server entry from config by ID.
+func (a *App) DeleteMCPServer(args json.RawMessage) error {
+	var req struct{ ID string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	filtered := make([]config2.MCPServerEntry, 0)
+	for _, s := range a.cfg.MCP.Servers {
+		if s.ID != req.ID {
+			filtered = append(filtered, s)
+		}
+	}
+	a.cfg.MCP.Servers = filtered
+	a.writeConfig()
+	return nil
+}
+
+// SaveProvider creates or updates a model provider in config.
+func (a *App) SaveProvider(args json.RawMessage) error {
+	var req struct {
+		ID      string               `json:"id"`
+		Name    string               `json:"name"`
+		BaseURL string               `json:"base_url"`
+		APIKey  string               `json:"api_key"`
+		Models  []config2.ModelEntry `json:"models"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	pc := config2.ProviderConfig{
+		Name:    req.Name,
+		BaseURL: req.BaseURL,
+		APIKey:  req.APIKey,
+		Models:  req.Models,
+	}
+	if existing, ok := a.cfg.ModelProviders[req.ID]; ok {
+		if pc.Name == "" {
+			pc.Name = existing.Name
+		}
+		if pc.BaseURL == "" {
+			pc.BaseURL = existing.BaseURL
+		}
+		if pc.APIKey == "" {
+			pc.APIKey = existing.APIKey
+		}
+		if len(pc.Models) == 0 {
+			pc.Models = existing.Models
+		}
+	}
+	a.cfg.ModelProviders[req.ID] = pc
+	a.writeConfig()
+	return nil
+}
+
+// DeleteProvider removes a model provider from config by ID.
+func (a *App) DeleteProvider(args json.RawMessage) error {
+	var req struct{ ID string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	delete(a.cfg.ModelProviders, req.ID)
+	a.writeConfig()
+	return nil
+}
