@@ -1,12 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -524,6 +526,61 @@ func (a *App) CancelGeneration(sessionID string) {
 			}
 		}
 	}
+}
+
+func resolveShellAPI() (string, string) {
+	if runtime.GOOS == "windows" {
+		if path, err := exec.LookPath("pwsh"); err == nil {
+			return path, "-Command"
+		}
+		if path, err := exec.LookPath("powershell"); err == nil {
+			return path, "-Command"
+		}
+		if path, err := exec.LookPath("cmd"); err == nil {
+			return path, "/C"
+		}
+		return "", ""
+	}
+	if path, err := exec.LookPath("sh"); err == nil {
+		return path, "-c"
+	}
+	if path, err := exec.LookPath("bash"); err == nil {
+		return path, "-c"
+	}
+	return "", ""
+}
+
+// RunShellCommand executes a shell command in the project directory and returns merged stdout+stderr.
+// Commands timeout after 120 seconds.
+func (a *App) RunShellCommand(projectPath, command string) (string, error) {
+	shell, shellArg := resolveShellAPI()
+	if shell == "" {
+		return "", fmt.Errorf("no shell found on system")
+	}
+
+	timeoutCtx, cancel := context.WithTimeout(a.ctx, 120*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(timeoutCtx, shell, shellArg, command)
+	cmd.Dir = projectPath
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	out := stdout.String()
+	if errStderr := stderr.String(); errStderr != "" {
+		if out != "" {
+			out += "\n"
+		}
+		out += errStderr
+	}
+	if out == "" && err != nil {
+		out = err.Error()
+	}
+
+	return strings.TrimSpace(out), nil
 }
 
 func (a *App) ReadFile(projectPath, filePath string) (*FileContent, error) {
