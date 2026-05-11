@@ -41,14 +41,11 @@ func (e *HardRuleEngine) CheckBuiltinBlacklist(ctx CheckContext) *Decision {
 }
 
 // Check checks user-defined rules.
-// Returns Allow/Deny on match, nil otherwise.
+// Returns Allow/Ask/Deny on match, nil otherwise.
 func (e *HardRuleEngine) Check(ctx CheckContext) *Decision {
 	for _, r := range e.rules {
 		if e.matchRule(r, ctx) {
-			d := Allow
-			if r.Decision == "deny" {
-				d = Deny
-			}
+			d := Decision(r.Decision)
 			return &d
 		}
 	}

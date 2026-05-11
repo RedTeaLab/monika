@@ -34,12 +34,12 @@ var writeOps = map[string]bool{
 	"spawn_agent": true,
 }
 
-// Pipeline ties together HardRuleEngine, SecurityModel, and ConfirmUI
-// into a single permission check orchestrator.
+// Pipeline ties together HardRuleEngine and ConfirmUI into a single permission
+// check orchestrator. The mode (Auto / Manual) controls the default action when
+// no user rule matches.
 type Pipeline struct {
 	mode        Mode
 	rules       *HardRuleEngine
-	security    *SecurityModel
 	confirmUI   ConfirmUI
 	auditLog    string
 	homeDir     string
@@ -48,11 +48,10 @@ type Pipeline struct {
 }
 
 // NewPipeline creates a new Pipeline.
-func NewPipeline(mode Mode, rules *HardRuleEngine, security *SecurityModel, confirmUI ConfirmUI) *Pipeline {
+func NewPipeline(mode Mode, rules *HardRuleEngine, confirmUI ConfirmUI) *Pipeline {
 	return &Pipeline{
 		mode:      mode,
 		rules:     rules,
-		security:  security,
 		confirmUI: confirmUI,
 	}
 }
@@ -110,26 +109,32 @@ func (p *Pipeline) checkAuto(ctx context.Context, cctx CheckContext) Decision {
 	// Stage 1: User rules
 	if p.rules != nil {
 		if d := p.rules.Check(cctx); d != nil {
+			if *d == Ask {
+				return p.requestConfirm(ctx, cctx, "user rule: ask")
+			}
 			p.logAudit(cctx, *d, "hard_rule", "", "")
 			return *d
 		}
 	}
 
-	// Stage 2: Security model (write ops only)
-	if p.security != nil && writeOps[cctx.ToolName] {
-		verdict, reason := p.security.Check(ctx, cctx)
-		if verdict == "safe" {
-			p.logAudit(cctx, Allow, "security_model", reason, "")
-			return Allow
-		}
-		return p.requestConfirm(ctx, cctx, reason)
-	}
-
-	// No security model: go to confirmation
-	return p.requestConfirm(ctx, cctx, "security model unavailable")
+	// Default: allow
+	p.logAudit(cctx, Allow, "auto_default_allow", "", "")
+	return Allow
 }
 
 func (p *Pipeline) checkManual(ctx context.Context, cctx CheckContext) Decision {
+	// Stage 1: User rules
+	if p.rules != nil {
+		if d := p.rules.Check(cctx); d != nil {
+			if *d == Ask {
+				return p.requestConfirm(ctx, cctx, "user rule: ask")
+			}
+			p.logAudit(cctx, *d, "hard_rule", "", "")
+			return *d
+		}
+	}
+
+	// Default: ask
 	return p.requestConfirm(ctx, cctx, "")
 }
 

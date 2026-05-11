@@ -33,17 +33,16 @@ func TestPipeline_Auto_ReadOp_Bypass(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.toolName, func(t *testing.T) {
 			rules := NewHardRuleEngine(nil, "/test/project")
-			security := NewSecurityModel(nil, "")
 			mock := &mockConfirmUI{
 				response: PermissionResponse{Decision: "deny"},
 			}
 
-			p := NewPipeline(Auto, rules, security, mock)
+			p := NewPipeline(Auto, rules, mock)
 			p.SetProject("/tmp", "/test/project")
 
 			cctx := CheckContext{
-				ToolName: tt.toolName,
-				Args:     tt.args,
+				ToolName:  tt.toolName,
+				Args:      tt.args,
 				SessionID: "sess_1",
 			}
 
@@ -57,12 +56,11 @@ func TestPipeline_Auto_ReadOp_Bypass(t *testing.T) {
 
 func TestPipeline_Auto_BuiltinBlacklist_Deny(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
-	security := NewSecurityModel(nil, "")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Auto, rules, security, mock)
+	p := NewPipeline(Auto, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -79,12 +77,11 @@ func TestPipeline_Auto_BuiltinBlacklist_Deny(t *testing.T) {
 
 func TestPipeline_Manual_BuiltinBlacklist_Deny(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
-	security := NewSecurityModel(nil, "")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Manual, rules, security, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -104,12 +101,11 @@ func TestPipeline_Auto_UserRule_Allow(t *testing.T) {
 		{Tool: "bash", Pattern: "npm test", Decision: "allow", Source: "user_always"},
 	}
 	rules := NewHardRuleEngine(userRules, "/test/project")
-	security := NewSecurityModel(nil, "")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "deny"},
 	}
 
-	p := NewPipeline(Auto, rules, security, mock)
+	p := NewPipeline(Auto, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -129,12 +125,11 @@ func TestPipeline_Auto_UserRule_Deny(t *testing.T) {
 		{Tool: "bash", Pattern: "npm test", Decision: "deny", Source: "user_always"},
 	}
 	rules := NewHardRuleEngine(userRules, "/test/project")
-	security := NewSecurityModel(nil, "")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Auto, rules, security, mock)
+	p := NewPipeline(Auto, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -149,14 +144,86 @@ func TestPipeline_Auto_UserRule_Deny(t *testing.T) {
 	}
 }
 
-func TestPipeline_Manual_ConfirmUI_Allow(t *testing.T) {
-	rules := NewHardRuleEngine(nil, "/test/project")
-	security := NewSecurityModel(nil, "")
+func TestPipeline_Auto_UserRule_Ask_Confirm(t *testing.T) {
+	userRules := []Rule{
+		{Tool: "bash", Pattern: "docker", Decision: "ask", Source: "project"},
+	}
+	rules := NewHardRuleEngine(userRules, "/test/project")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Manual, rules, security, mock)
+	p := NewPipeline(Auto, rules, mock)
+	p.SetProject("/tmp", "/test/project")
+
+	cctx := CheckContext{
+		ToolName:  "bash",
+		Args:      json.RawMessage(`{"command": "docker ps"}`),
+		SessionID: "sess_1",
+	}
+
+	got := p.Check(context.Background(), cctx)
+	if got != Allow {
+		t.Errorf("Check(docker with ask rule + allow confirm) = %v, want %v", got, Allow)
+	}
+}
+
+func TestPipeline_Manual_UserRule_Allow(t *testing.T) {
+	userRules := []Rule{
+		{Tool: "bash", Pattern: "npm test", Decision: "allow", Source: "project"},
+	}
+	rules := NewHardRuleEngine(userRules, "/test/project")
+	// confirm would deny, but user rule should skip confirm entirely
+	mock := &mockConfirmUI{
+		response: PermissionResponse{Decision: "deny"},
+	}
+
+	p := NewPipeline(Manual, rules, mock)
+	p.SetProject("/tmp", "/test/project")
+
+	cctx := CheckContext{
+		ToolName:  "bash",
+		Args:      json.RawMessage(`{"command": "npm test"}`),
+		SessionID: "sess_1",
+	}
+
+	got := p.Check(context.Background(), cctx)
+	if got != Allow {
+		t.Errorf("Check(Manual with allow rule) = %v, want %v (user rules should apply in Manual too)", got, Allow)
+	}
+}
+
+func TestPipeline_Manual_UserRule_Deny(t *testing.T) {
+	userRules := []Rule{
+		{Tool: "bash", Pattern: "rm -r", Decision: "deny", Source: "project"},
+	}
+	rules := NewHardRuleEngine(userRules, "/test/project")
+	mock := &mockConfirmUI{
+		response: PermissionResponse{Decision: "allow"}, // would allow, but deny rule wins
+	}
+
+	p := NewPipeline(Manual, rules, mock)
+	p.SetProject("/tmp", "/test/project")
+
+	cctx := CheckContext{
+		ToolName:  "bash",
+		Args:      json.RawMessage(`{"command": "rm -r node_modules"}`),
+		SessionID: "sess_1",
+	}
+
+	got := p.Check(context.Background(), cctx)
+	if got != Deny {
+		t.Errorf("Check(Manual with deny rule) = %v, want %v (user rules should apply in Manual too)", got, Deny)
+	}
+}
+
+func TestPipeline_Manual_ConfirmUI_Allow(t *testing.T) {
+	rules := NewHardRuleEngine(nil, "/test/project")
+	mock := &mockConfirmUI{
+		response: PermissionResponse{Decision: "allow"},
+	}
+
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -173,12 +240,11 @@ func TestPipeline_Manual_ConfirmUI_Allow(t *testing.T) {
 
 func TestPipeline_Manual_ConfirmUI_Deny(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
-	security := NewSecurityModel(nil, "")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "deny"},
 	}
 
-	p := NewPipeline(Manual, rules, security, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -193,14 +259,13 @@ func TestPipeline_Manual_ConfirmUI_Deny(t *testing.T) {
 	}
 }
 
-func TestPipeline_Auto_NoMatch_GoesToConfirm(t *testing.T) {
-	// No user rules, no security model — should fall through to confirm UI
+func TestPipeline_Auto_NoUserRule_DefaultsAllow(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
 	mock := &mockConfirmUI{
-		response: PermissionResponse{Decision: "allow"},
+		response: PermissionResponse{Decision: "deny"}, // would deny if confirm was called
 	}
 
-	p := NewPipeline(Auto, rules, nil, mock)
+	p := NewPipeline(Auto, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -211,18 +276,17 @@ func TestPipeline_Auto_NoMatch_GoesToConfirm(t *testing.T) {
 
 	got := p.Check(context.Background(), cctx)
 	if got != Allow {
-		t.Errorf("Check(Auto no match) = %v, want %v (should go to confirm UI)", got, Allow)
+		t.Errorf("Check(Auto no user rule) = %v, want %v (should default to allow)", got, Allow)
 	}
 }
 
-func TestPipeline_ReadOp_Manual_Confirm(t *testing.T) {
-	// In manual mode, even read ops should go to confirm UI
+func TestPipeline_Manual_NoUserRule_DefaultsAsk(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
 	mock := &mockConfirmUI{
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Manual, rules, nil, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -233,14 +297,14 @@ func TestPipeline_ReadOp_Manual_Confirm(t *testing.T) {
 
 	got := p.Check(context.Background(), cctx)
 	if got != Allow {
-		t.Errorf("Check(Manual file_read) = %v, want %v (read ops should confirm in Manual)", got, Allow)
+		t.Errorf("Check(Manual read op, no rule) = %v, want %v (should confirm, user allowed)", got, Allow)
 	}
 }
 
 func TestPipeline_NoConfirmUI_Deny(t *testing.T) {
 	rules := NewHardRuleEngine(nil, "/test/project")
 
-	p := NewPipeline(Manual, rules, nil, nil)
+	p := NewPipeline(Manual, rules, nil)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -261,7 +325,7 @@ func TestPipeline_ConfirmUI_Error_Deny(t *testing.T) {
 		err: fmt.Errorf("timeout"),
 	}
 
-	p := NewPipeline(Manual, rules, nil, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/tmp", "/test/project")
 
 	cctx := CheckContext{
@@ -273,53 +337,6 @@ func TestPipeline_ConfirmUI_Error_Deny(t *testing.T) {
 	got := p.Check(context.Background(), cctx)
 	if got != Deny {
 		t.Errorf("Check(confirm error) = %v, want %v", got, Deny)
-	}
-}
-
-func TestPipeline_Auto_SecurityModel_Denied(t *testing.T) {
-	// Security model checks write ops in degraded mode (returns "unsafe"),
-	// then falls through to confirm UI. If confirm UI denies, result is Deny.
-	rules := NewHardRuleEngine(nil, "/test/project")
-	security := NewSecurityModel(nil, "") // degraded mode: returns "unsafe"
-	mock := &mockConfirmUI{
-		response: PermissionResponse{Decision: "deny"},
-	}
-
-	p := NewPipeline(Auto, rules, security, mock)
-	p.SetProject("/tmp", "/test/project")
-
-	cctx := CheckContext{
-		ToolName:  "bash",
-		Args:      json.RawMessage(`{"command": "echo hello"}`),
-		SessionID: "sess_1",
-	}
-
-	got := p.Check(context.Background(), cctx)
-	if got != Deny {
-		t.Errorf("Check(Auto security degraded + confirm deny) = %v, want %v", got, Deny)
-	}
-}
-
-func TestPipeline_Auto_SecurityModel_Nil_FallsToConfirm(t *testing.T) {
-	// When security model is nil and write op has no matching user rules,
-	// the pipeline falls through to requestConfirm.
-	rules := NewHardRuleEngine(nil, "/test/project")
-	mock := &mockConfirmUI{
-		response: PermissionResponse{Decision: "allow"},
-	}
-
-	p := NewPipeline(Auto, rules, nil, mock)
-	p.SetProject("/tmp", "/test/project")
-
-	cctx := CheckContext{
-		ToolName:  "bash",
-		Args:      json.RawMessage(`{"command": "echo hello"}`),
-		SessionID: "sess_1",
-	}
-
-	got := p.Check(context.Background(), cctx)
-	if got != Allow {
-		t.Errorf("Check(Auto no security + confirm allow) = %v, want %v", got, Allow)
 	}
 }
 
@@ -340,7 +357,7 @@ func TestPipeline_AllowAlways_PersistsRule(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline(Auto, rules, nil, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/home/user", "/home/user/projects/my-project")
 
 	cctx := CheckContext{
@@ -375,7 +392,7 @@ func TestPipeline_AllowAlways_ExtractsBashCommand(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline(Auto, rules, nil, mock)
+	p := NewPipeline(Manual, rules, mock)
 	p.SetProject("/home/user", "/home/user/projects/my-project")
 
 	cctx := CheckContext{
@@ -409,7 +426,7 @@ func TestPipeline_AuditLog_Written(t *testing.T) {
 		response: PermissionResponse{Decision: "allow"},
 	}
 
-	p := NewPipeline(Auto, rules, nil, mock)
+	p := NewPipeline(Auto, rules, mock)
 	p.SetProject(tmpDir, projectDir)
 
 	cctx := CheckContext{
@@ -438,8 +455,8 @@ func TestPipeline_AuditLog_Written(t *testing.T) {
 	if err := json.Unmarshal(data[:len(data)-1], &entry); err != nil { // -1 to strip newline
 		t.Errorf("audit log entry is not valid JSON: %v", err)
 	}
-	if entry.Stage != "user_confirmation" {
-		t.Errorf("audit stage = %q, want %q", entry.Stage, "user_confirmation")
+	if entry.Stage != "auto_default_allow" {
+		t.Errorf("audit stage = %q, want %q", entry.Stage, "auto_default_allow")
 	}
 	if entry.Tool != "bash" {
 		t.Errorf("audit tool = %q, want %q", entry.Tool, "bash")
@@ -450,7 +467,7 @@ func TestPipeline_AuditLog_Written(t *testing.T) {
 }
 
 func TestPipeline_SetProject(t *testing.T) {
-	p := NewPipeline(Auto, nil, nil, nil)
+	p := NewPipeline(Auto, nil, nil)
 	p.SetProject("/home/user", "/home/user/projects/hello-world")
 
 	if p.homeDir != "/home/user" {
@@ -493,7 +510,7 @@ func TestPipeline_ExtractBashCommand(t *testing.T) {
 		},
 	}
 
-	p := NewPipeline(Auto, nil, nil, nil)
+	p := NewPipeline(Auto, nil, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cctx := CheckContext{Args: tt.args, ToolName: "bash"}
@@ -506,7 +523,6 @@ func TestPipeline_ExtractBashCommand(t *testing.T) {
 }
 
 func TestPipeline_Auto_ReadOpsAreComplete(t *testing.T) {
-	// Verify all read ops defined in the pipeline match our expectations
 	expectedReadOps := []string{"file_read", "grep", "glob", "file_list"}
 	for _, op := range expectedReadOps {
 		if !readOps[op] {
@@ -516,7 +532,6 @@ func TestPipeline_Auto_ReadOpsAreComplete(t *testing.T) {
 }
 
 func TestPipeline_Auto_WriteOpsAreComplete(t *testing.T) {
-	// Verify all write ops defined in the pipeline match our expectations
 	expectedWriteOps := []string{"bash", "file_write", "file_edit", "task_create", "task_update", "spawn_agent"}
 	for _, op := range expectedWriteOps {
 		if !writeOps[op] {

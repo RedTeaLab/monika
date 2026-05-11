@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { useStore } from '../../store'
 import { sanitizeArgs } from './sanitize'
 
@@ -9,12 +8,6 @@ interface ConfirmBarProps {
 function ConfirmBar({ sessionId }: ConfirmBarProps) {
   const pendingPermission = useStore((s) => s.pendingPermission)
   const respondPermission = useStore((s) => s.respondPermission)
-  const allowRef = useRef<HTMLButtonElement>(null)
-
-  // Auto-focus the allow button on mount
-  useEffect(() => {
-    allowRef.current?.focus()
-  }, [])
 
   if (!pendingPermission || pendingPermission.sessionId !== sessionId) return null
 
@@ -35,43 +28,47 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
     }
   }
 
-  const modeLabel = pendingPermission.mode === 'manual' ? 'Manual mode — Confirm action' : 'Confirm tool execution'
-
   return (
     <div
-      className="flex flex-col gap-2 p-3 border-t-2 border-[var(--yellow)] bg-[var(--bg-elevated)] animate-slide-up"
+      className="border-t px-4 py-2.5 flex flex-col gap-2"
+      style={{ background: 'var(--bg-sidebar)', borderColor: 'var(--border)' }}
       onKeyDown={handleKeyDown}
       role="alertdialog"
-      aria-label={modeLabel}
+      aria-label="Confirm tool execution"
     >
-      <div className="flex items-center gap-2">
-        <span className="text-[14px]" aria-hidden="true">{'⚠'}</span>
-        <span className="text-[12px] font-semibold">{modeLabel}</span>
-        {pendingPermission.mode === 'auto' && pendingPermission.reason && (
-          <span className="text-[11px] text-[var(--text-dim)] ml-1">— {pendingPermission.reason}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-2 px-2.5 py-2 bg-[var(--bg-card)] rounded-md">
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[rgba(212,168,67,0.2)] text-[var(--yellow)] font-mono">
+      <span className="text-[11px] font-semibold" style={{ color: 'var(--accent)' }}>
+        Confirm
+      </span>
+
+      <div className="flex items-center gap-2 min-w-0">
+        <span
+          className="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold font-mono shrink-0"
+          style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
+        >
           {pendingPermission.tool}
         </span>
-        <code className="text-[12px] text-[var(--text-primary)] truncate">
+        <code className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
           {sanitizeArgs(pendingPermission.args)}
         </code>
+        {pendingPermission.reason && (
+          <span className="text-[10px] shrink-0" style={{ color: 'var(--text-dim)' }}>
+            {pendingPermission.reason}
+          </span>
+        )}
       </div>
-      <div className="flex justify-end gap-2">
+
+      <div className="flex justify-end gap-1.5">
         <button
           onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'deny' })}
-          className="px-3.5 py-1.5 rounded-md border border-[var(--border)] bg-transparent text-[var(--text-secondary)] text-[11px] cursor-pointer hover:bg-[var(--bg-hover)]"
+          className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer outline-none"
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border)',
+            color: 'var(--text-dim)',
+            fontFamily: 'inherit',
+          }}
         >
-          Deny (Esc)
-        </button>
-        <button
-          ref={allowRef}
-          onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'allow' })}
-          className="px-3.5 py-1.5 rounded-md border-none bg-[var(--accent)] text-white text-[11px] cursor-pointer font-medium hover:opacity-90"
-        >
-          Allow (Enter)
+          Deny
         </button>
         <button
           onClick={() => respondPermission({
@@ -79,9 +76,27 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
             decision: 'allow_always',
             rulePattern: pendingPermission.args,
           })}
-          className="px-3.5 py-1.5 rounded-md border border-[var(--accent)] bg-transparent text-[var(--accent)] text-[11px] cursor-pointer hover:bg-[var(--accent-muted)]"
+          className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer outline-none"
+          style={{
+            background: 'transparent',
+            border: '1px solid var(--border-strong)',
+            color: 'var(--text-secondary)',
+            fontFamily: 'inherit',
+          }}
         >
-          Always Allow (Ctrl+Enter)
+          Always
+        </button>
+        <button
+          onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'allow' })}
+          className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer font-medium outline-none"
+          style={{
+            background: 'var(--accent)',
+            border: 'none',
+            color: '#fff',
+            fontFamily: 'inherit',
+          }}
+        >
+          Allow
         </button>
       </div>
     </div>

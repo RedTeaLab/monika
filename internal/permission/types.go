@@ -7,6 +7,7 @@ type Decision string
 
 const (
 	Allow Decision = "allow"
+	Ask   Decision = "ask"
 	Deny  Decision = "deny"
 )
 

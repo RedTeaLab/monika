@@ -102,6 +102,10 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 	if s.Status == "" {
 		s.Status = StatusIdle
 	}
+	// Repair title truncated mid-rune from old byte-based slicing
+	if s.Title != "" && len(s.Messages) > 0 {
+		sm.SetTitle(&s)
+	}
 	return &s, nil
 }
 
@@ -159,9 +163,11 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 func (sm *SessionManager) SetTitle(s *Session) {
 	for _, m := range s.Messages {
 		if m.Role == "user" && m.Content != "" {
-			s.Title = m.Content
-			if len(s.Title) > 40 {
-				s.Title = s.Title[:40]
+			runes := []rune(m.Content)
+			if len(runes) > 40 {
+				s.Title = string(runes[:40])
+			} else {
+				s.Title = m.Content
 			}
 			return
 		}

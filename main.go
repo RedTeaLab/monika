@@ -79,8 +79,7 @@ func main() {
 	// Wire permission pipeline
 	rules, _ := permission.LoadRules(home, cwd)
 	hardRuleEngine := permission.NewHardRuleEngine(rules, cwd)
-	securityModel := permission.NewSecurityModel(nil, "") // provider wired later
-	pipeline := permission.NewPipeline(permission.Auto, hardRuleEngine, securityModel, nil)
+	pipeline := permission.NewPipeline(permission.Auto, hardRuleEngine, nil)
 	pipeline.SetProject(home, cwd)
 	loopOpts = append(loopOpts, agent.WithPermissionPipeline(pipeline))
 

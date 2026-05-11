@@ -7,6 +7,124 @@ const TOOLS = [
   'grep', 'glob', 'task_create', 'task_update', 'task_list', 'spawn_agent',
 ] as const
 
+const DECISIONS = [
+  { value: 'allow', label: 'allow' },
+  { value: 'ask', label: 'ask' },
+  { value: 'deny', label: 'deny' },
+] as const
+
+const SOURCES = [
+  { value: 'project', label: 'project' },
+  { value: 'global', label: 'global' },
+] as const
+
+function DropdownSelect<T extends string>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T
+  options: readonly { value: T; label: string }[]
+  onChange: (v: T) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [focusIdx, setFocusIdx] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (open) setFocusIdx(0)
+  }, [open])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { setOpen(false); return }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setFocusIdx((prev) => Math.min(prev + 1, options.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setFocusIdx((prev) => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      onChange(options[focusIdx].value)
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center justify-between w-full"
+        style={{
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-primary)',
+          fontFamily: 'inherit',
+        }}
+      >
+        <span>{value}</span>
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <polyline points="2,3 4,5 6,3" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: 0,
+            marginBottom: '4px',
+            minWidth: '100%',
+            maxHeight: '240px',
+            overflowY: 'auto',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md, 6px)',
+            padding: '4px',
+            zIndex: 1000,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}
+          onKeyDown={handleKeyDown}
+        >
+          {options.map((opt, idx) => {
+            const isSelected = opt.value === value
+            return (
+              <button
+                key={opt.value}
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                onMouseEnter={() => setFocusIdx(idx)}
+                className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer"
+                style={{
+                  background:
+                    idx === focusIdx
+                      ? 'var(--bg-hover)'
+                      : isSelected
+                        ? 'var(--accent-muted)'
+                        : 'transparent',
+                  color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                  border: 'none',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AddRuleModal({
   onClose,
   onAdd,
@@ -16,7 +134,7 @@ function AddRuleModal({
 }) {
   const [tool, setTool] = useState('bash')
   const [pattern, setPattern] = useState('')
-  const [decision, setDecision] = useState<'allow' | 'deny'>('allow')
+  const [decision, setDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
   const [source, setSource] = useState<'global' | 'project'>('project')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -84,15 +202,11 @@ function AddRuleModal({
             <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
               Tool
             </label>
-            <select
+            <DropdownSelect
               value={tool}
-              onChange={(e) => setTool(e.target.value)}
-              className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-            >
-              {TOOLS.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+              options={TOOLS.map((t) => ({ value: t, label: t }))}
+              onChange={setTool}
+            />
           </div>
           <div>
             <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
@@ -112,27 +226,21 @@ function AddRuleModal({
             <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
               Decision
             </label>
-            <select
+            <DropdownSelect
               value={decision}
-              onChange={(e) => setDecision(e.target.value as 'allow' | 'deny')}
-              className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-            >
-              <option value="allow">allow</option>
-              <option value="deny">deny</option>
-            </select>
+              options={DECISIONS}
+              onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')}
+            />
           </div>
           <div>
             <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
               Source
             </label>
-            <select
+            <DropdownSelect
               value={source}
-              onChange={(e) => setSource(e.target.value as 'global' | 'project')}
-              className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-            >
-              <option value="project">project</option>
-              <option value="global">global</option>
-            </select>
+              options={SOURCES}
+              onChange={(v) => setSource(v as 'global' | 'project')}
+            />
           </div>
         </div>
         {error && (
@@ -239,6 +347,8 @@ function PermissionsTab() {
                       className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
                         rule.decision === 'allow'
                           ? 'bg-green-500/15 text-green-400'
+                          : rule.decision === 'ask'
+                          ? 'bg-yellow-500/15 text-yellow-400'
                           : 'bg-red-500/15 text-red-400'
                       }`}
                     >

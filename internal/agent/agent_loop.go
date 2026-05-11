@@ -74,8 +74,11 @@ func outputLimit(model string) int64 {
 	return 32768
 }
 
-func contextLimit(model string) int64 {
-	if limit, ok := modelContextLimits[model]; ok {
+func (a *AgentLoop) contextLimit() int64 {
+	if a.modelContextLimit > 0 {
+		return a.modelContextLimit
+	}
+	if limit, ok := modelContextLimits[a.model]; ok {
 		return limit
 	}
 	return 128000
@@ -93,7 +96,7 @@ type Conversation struct {
 const compactionBuffer = 20_000
 
 func (a *AgentLoop) isOverflow(conv *Conversation) bool {
-	limit := contextLimit(a.model)
+	limit := a.contextLimit()
 	outputMax := outputLimit(a.model)
 	usable := limit - outputMax - compactionBuffer
 	if usable <= 0 {
@@ -144,7 +147,7 @@ func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
 	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
 	copy(conv.ArchivedMessages, conv.Messages)
 
-	limit := contextLimit(a.model)
+	limit := a.contextLimit()
 	preserveBudget := int64(float64(limit) * 0.25)
 
 	// Walk backwards from end to find token-based retention window
@@ -299,7 +302,7 @@ func (a *AgentLoop) rewriteMessagesTruncate(conv *Conversation) {
 	conv.ArchivedMessages = make([]engine.ChatMessage, len(conv.Messages))
 	copy(conv.ArchivedMessages, conv.Messages)
 
-	limit := contextLimit(a.model)
+	limit := a.contextLimit()
 	budget := int64(float64(limit) * 0.25)
 	var running int64
 	keepFrom := len(conv.Messages) - 1
@@ -389,6 +392,12 @@ func WithProvider(id string) LoopOption {
 // WithSessionID sets the session ID injected into tool context.
 func WithSessionID(id string) LoopOption {
 	return func(a *AgentLoop) { a.sessionID = id }
+}
+
+// WithModelContextLimit sets an explicit context window limit (in tokens) for the
+// model used by this loop. When set (>0), it overrides the hardcoded lookup.
+func WithModelContextLimit(limit int64) LoopOption {
+	return func(a *AgentLoop) { a.modelContextLimit = limit }
 }
 
 func WithAgent(agent Agent) LoopOption {
@@ -501,7 +510,6 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 				pctx := permission.CheckContext{
 					ToolName:   tc.Function.Name,
 					Args:       json.RawMessage(tc.Function.Arguments),
-					Mode:       permission.Auto,
 					SessionID:  a.sessionID,
 					ProjectDir: a.projectDir,
 				}
@@ -615,7 +623,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 
 		if turn == 0 {
 			conv.TokenCount = a.estimateContextTokens(conv)
-			conv.TokenMax = contextLimit(a.model)
+			conv.TokenMax = a.contextLimit()
 			ch <- Event{
 				Type: EventUsage,
 				Usage: UsageEvent{
@@ -712,7 +720,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 							CacheReadTokens:  totalUsage.CacheReadTokens,
 							CacheWriteTokens: totalUsage.CacheWriteTokens,
 							ContextTokens:    totalUsage.ContextTokens(),
-							MaxContext:       contextLimit(a.model),
+							MaxContext:       a.contextLimit(),
 						},
 					}
 				case engine.EventError:
@@ -816,7 +824,6 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				pctx := permission.CheckContext{
 					ToolName:   tc.Function.Name,
 					Args:       json.RawMessage(tc.Function.Arguments),
-					Mode:       permission.Auto,
 					SessionID:  a.sessionID,
 					ProjectDir: a.projectDir,
 				}

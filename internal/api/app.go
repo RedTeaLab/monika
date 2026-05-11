@@ -439,6 +439,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		agent2.WithSessionID(sessionID),
 	)
 	generalAgent, _ := a.agentRegistry.Get("general")
+if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
+			opts = append(opts, agent2.WithModelContextLimit(limit))
+		}
 	opts = append(opts, agent2.WithAgent(generalAgent))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q provider=%q\n", projectPath, providerID)
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
@@ -446,9 +449,6 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		return a.taskRunner.Dispatch(ctx, task, loop)
 	})
 
-	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
-		fmt.Fprintf(os.Stderr, "[monika DEBUG] context limit from config: %d for %s/%s\n", limit, providerID, model)
-	}
 	go func() {
 		defer cancel()
 		defer func() {
@@ -1255,8 +1255,8 @@ func (a *App) AddPermissionRule(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	if req.Decision != "allow" && req.Decision != "deny" {
-		return fmt.Errorf("invalid decision: %q, must be 'allow' or 'deny'", req.Decision)
+	if req.Decision != "allow" && req.Decision != "ask" && req.Decision != "deny" {
+		return fmt.Errorf("invalid decision: %q, must be 'allow', 'ask', or 'deny'", req.Decision)
 	}
 	if req.Source != "global" && req.Source != "project" {
 		return fmt.Errorf("invalid source: %q, must be 'global' or 'project'", req.Source)

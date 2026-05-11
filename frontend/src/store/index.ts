@@ -720,6 +720,10 @@ export const useStore = create<AppState>((set, get) => ({
               max: (session as any)?.token_max ?? 0,
             },
           },
+          // Repair title from backend (fixes garbled titles from old byte-based truncation)
+          openSessions: s.openSessions.map((sess) =>
+            sess.id === tab.id && session?.title ? { ...sess, title: session.title } : sess
+          ),
         }))
       } catch {
         set((s) => ({
