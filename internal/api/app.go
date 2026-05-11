@@ -563,6 +563,7 @@ func (a *App) RunShellCommand(projectPath, command string) (string, error) {
 
 	cmd := exec.CommandContext(timeoutCtx, shell, shellArg, command)
 	cmd.Dir = projectPath
+	hideWindow(cmd)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -580,7 +581,7 @@ func (a *App) RunShellCommand(projectPath, command string) (string, error) {
 		out = err.Error()
 	}
 
-	return strings.TrimSpace(out), nil
+	return strings.TrimSpace(out), err
 }
 
 func (a *App) ReadFile(projectPath, filePath string) (*FileContent, error) {

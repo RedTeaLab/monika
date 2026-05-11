@@ -7,3 +7,5 @@ import "os/exec"
 func command(name string, arg ...string) *exec.Cmd {
 	return exec.Command(name, arg...)
 }
+
+func hideWindow(cmd *exec.Cmd) {}
