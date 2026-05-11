@@ -40,7 +40,7 @@ interface ToolCall {
 
 interface Message {
   id: string
-  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask'
+  role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask' | 'shell'
   content: string
   thinking?: string
   tools?: ToolCall[]
