@@ -34,6 +34,7 @@ const ROLE_LABEL: Record<string, { text: string; color: string }> = {
   error:      { text: 'Error',     color: 'var(--red)' },
   compaction: { text: 'Compacted', color: 'var(--compaction)' },
   subtask:   { text: 'Subtask',   color: 'var(--subtask)' },
+  shell:     { text: 'Shell',     color: 'var(--yellow)' },
 }
 
 function RoleLabel({ role, isGenerating, model, duration }: {
@@ -438,6 +439,22 @@ interface MessageBubbleProps {
 
 function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
   const { role, content, thinking, tools, model, duration, subtaskAgent } = message
+
+  if (role === 'shell') {
+    return (
+      <div className="flex flex-col gap-1.5 mb-1.5">
+        <RoleLabel role="shell" />
+        <MsgBlock accent="var(--yellow)">
+          <div
+            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
+            style={{ fontFamily: 'var(--font-mono)' }}
+          >
+            {content}
+          </div>
+        </MsgBlock>
+      </div>
+    )
+  }
 
   if (role === 'subtask') {
     return (
