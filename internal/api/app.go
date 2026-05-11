@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -577,11 +578,25 @@ func (a *App) RunShellCommand(projectPath, command string) (string, error) {
 		}
 		out += errStderr
 	}
-	if out == "" && err != nil {
-		out = err.Error()
+
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			// Command ran but exited non-zero: include exit info in output, don't return error
+			if out != "" {
+				out += "\n"
+			}
+			out += fmt.Sprintf("exit code: %d", exitErr.ExitCode())
+			return strings.TrimSpace(out), nil
+		}
+		// System error (timeout, etc.): propagate as error
+		if out == "" {
+			out = err.Error()
+		}
+		return strings.TrimSpace(out), err
 	}
 
-	return strings.TrimSpace(out), err
+	return strings.TrimSpace(out), nil
 }
 
 func (a *App) ReadFile(projectPath, filePath string) (*FileContent, error) {

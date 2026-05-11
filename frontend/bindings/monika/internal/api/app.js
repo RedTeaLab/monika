@@ -278,6 +278,16 @@ export function ResolveChildSession(parentID) {
 }
 
 /**
+ * RunShellCommand executes a shell command in the project directory and returns merged stdout+stderr.
+ * @param {string} projectPath
+ * @param {string} command
+ * @returns {$CancellablePromise<string>}
+ */
+export function RunShellCommand(projectPath, command) {
+    return $Call.ByID(4233179062, projectPath, command);
+}
+
+/**
  * SaveChildSession stores a completed child agent session.
  * @param {string} sessionID
  * @param {agent$0.ChildSession | null} child
