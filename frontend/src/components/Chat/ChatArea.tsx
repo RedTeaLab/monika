@@ -35,6 +35,23 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }
 
+  const handleRunShell = async (command: string) => {
+    if (!projectPath || !sessionId) return
+
+    const store = useStore.getState()
+    const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: `$ ${command}` }
+    store.appendToSession(sessionId, [userMsg])
+
+    try {
+      const output = await App.RunShellCommand(projectPath, command)
+      const shellMsg = { id: crypto.randomUUID(), role: 'shell' as const, content: `$ ${command}\n${output}` }
+      store.appendToSession(sessionId, [shellMsg])
+    } catch (err) {
+      const errorMsg = { id: crypto.randomUUID(), role: 'shell' as const, content: `$ ${command}\nError: ${String(err)}` }
+      store.appendToSession(sessionId, [errorMsg])
+    }
+  }
+
   const handleSend = async (text: string) => {
     if (!text.trim()) return
 
@@ -121,6 +138,7 @@ function ChatArea(props: IDockviewPanelProps) {
           key={sessionId}
           onSend={handleSend}
           onStop={handleStop}
+          onRunShell={handleRunShell}
           disabled={generatingSessionId !== ''}
           compacting={compactingSessionId !== ''}
         />
