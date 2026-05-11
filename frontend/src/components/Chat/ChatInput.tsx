@@ -4,9 +4,19 @@ import { formatTokens } from '../../lib/format'
 import ModelPicker from './ModelPicker'
 import PermissionModePicker from './PermissionModePicker'
 
-function ChatInput({ onSend, onStop, disabled, compacting }: {
+const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` file in the project root. The file should contain:
+
+1. Build, test, and run commands specific to this project
+2. Project structure overview (key directories and their purposes)
+3. Coding conventions and patterns used
+4. Framework and library specifics
+
+First, explore the codebase to understand the project, then create the agent.md file with compact, actionable information. Every line should answer "would an agent likely miss this without help?"`
+
+function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   onSend: (text: string) => void
   onStop: () => void
+  onRunShell: (command: string) => void
   disabled: boolean
   compacting: boolean
 }) {
@@ -46,15 +56,40 @@ function ChatInput({ onSend, onStop, disabled, compacting }: {
     setValue(e.target.value)
   }
 
+  const handleSubmit = () => {
+    const trimmed = value.trim()
+    if (!trimmed || disabled || compacting) return
+
+    // $ shell command
+    if (trimmed.startsWith('$')) {
+      const command = trimmed.slice(1).trim()
+      if (!command) { onSend(trimmed); setValue(''); return }
+      onRunShell(command)
+      setValue('')
+      return
+    }
+
+    // /init command
+    if (trimmed === '/init') {
+      onSend(INIT_TEMPLATE)
+      setValue('')
+      return
+    }
+
+    // Normal message
+    onSend(trimmed)
+    setValue('')
+  }
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      if (value.trim() && !disabled && !compacting) { onSend(value); setValue('') }
+      handleSubmit()
     }
   }
 
   const handleSendClick = () => {
-    if (value.trim() && !disabled && !compacting) { onSend(value); setValue('') }
+    handleSubmit()
   }
 
   const tokenText = tokenMax > 0
