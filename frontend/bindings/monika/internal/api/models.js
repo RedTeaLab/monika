@@ -11,6 +11,9 @@ import { Create as $Create } from "@wailsio/runtime";
 import * as agent$0 from "../agent/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as permission$0 from "../permission/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as tool$0 from "../tool/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
@@ -738,6 +741,13 @@ export class StreamEvent {
              */
             this["tasks"] = undefined;
         }
+        if (/** @type {any} */(false)) {
+            /**
+             * @member
+             * @type {permission$0.PermissionRequiredEvent | null | undefined}
+             */
+            this["permission"] = undefined;
+        }
 
         Object.assign(this, $$source);
     }
@@ -754,6 +764,7 @@ export class StreamEvent {
         const $$createField7_0 = $$createType16;
         const $$createField8_0 = $$createType18;
         const $$createField9_0 = $$createType20;
+        const $$createField10_0 = $$createType22;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool" in $$parsedSource) {
             $$parsedSource["tool"] = $$createField4_0($$parsedSource["tool"]);
@@ -772,6 +783,9 @@ export class StreamEvent {
         }
         if ("tasks" in $$parsedSource) {
             $$parsedSource["tasks"] = $$createField9_0($$parsedSource["tasks"]);
+        }
+        if ("permission" in $$parsedSource) {
+            $$parsedSource["permission"] = $$createField10_0($$parsedSource["permission"]);
         }
         return new StreamEvent(/** @type {Partial<StreamEvent>} */($$parsedSource));
     }
@@ -834,3 +848,5 @@ const $$createType17 = agent$0.CompactionEvent.createFrom;
 const $$createType18 = $Create.Nullable($$createType17);
 const $$createType19 = agent$0.TaskItem.createFrom;
 const $$createType20 = $Create.Array($$createType19);
+const $$createType21 = permission$0.PermissionRequiredEvent.createFrom;
+const $$createType22 = $Create.Nullable($$createType21);

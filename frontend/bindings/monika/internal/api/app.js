@@ -8,7 +8,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as json$0 from "../../../encoding/json/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as agent$0 from "../agent/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as permission$0 from "../permission/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as engine$0 from "../../pkg/engine/models.js";
@@ -16,6 +22,15 @@ import * as engine$0 from "../../pkg/engine/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * AddPermissionRule adds a new permission rule.
+ * @param {json$0.RawMessage} args
+ * @returns {$CancellablePromise<void>}
+ */
+export function AddPermissionRule(args) {
+    return $Call.ByID(621401762, args);
+}
 
 /**
  * @param {string} sessionID
@@ -34,6 +49,15 @@ export function CancelGeneration(sessionID) {
  */
 export function CreateBranch(projectPath, name, baseBranch) {
     return $Call.ByID(2177215684, projectPath, name, baseBranch);
+}
+
+/**
+ * DeletePermissionRule removes a rule identified by tool, pattern, and source.
+ * @param {json$0.RawMessage} args
+ * @returns {$CancellablePromise<void>}
+ */
+export function DeletePermissionRule(args) {
+    return $Call.ByID(2803374586, args);
 }
 
 /**
@@ -156,11 +180,23 @@ export function ListFileTree(projectPath) {
 }
 
 /**
+ * ListPermissionRules returns all permission rules for the given project,
+ * including both built-in blacklist rules and user-defined rules.
+ * @param {json$0.RawMessage} args
+ * @returns {$CancellablePromise<permission$0.Rule[]>}
+ */
+export function ListPermissionRules(args) {
+    return $Call.ByID(1886094366, args).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType19($result);
+    }));
+}
+
+/**
  * @returns {$CancellablePromise<$models.ProjectInfo[]>}
  */
 export function ListProjects() {
     return $Call.ByID(1837161474).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType18($result);
+        return $$createType20($result);
     }));
 }
 
@@ -170,7 +206,7 @@ export function ListProjects() {
  */
 export function ListSessions(projectPath) {
     return $Call.ByID(116118957, projectPath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType20($result);
+        return $$createType22($result);
     }));
 }
 
@@ -181,7 +217,7 @@ export function ListSessions(projectPath) {
  */
 export function LoadChildSession(sessionID) {
     return $Call.ByID(1226969414, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType22($result);
+        return $$createType24($result);
     }));
 }
 
@@ -193,7 +229,7 @@ export function LoadChildSession(sessionID) {
  */
 export function LoadChildSessionFromDisk(projectPath, sessionID) {
     return $Call.ByID(987540711, projectPath, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType22($result);
+        return $$createType24($result);
     }));
 }
 
@@ -204,7 +240,7 @@ export function LoadChildSessionFromDisk(projectPath, sessionID) {
  */
 export function LoadSession(projectPath, sessionID) {
     return $Call.ByID(665171952, projectPath, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType24($result);
+        return $$createType26($result);
     }));
 }
 
@@ -216,7 +252,7 @@ export function LoadSession(projectPath, sessionID) {
  */
 export function NewSession(projectPath, providerID, model) {
     return $Call.ByID(3342623882, projectPath, providerID, model).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType25($result);
+        return $$createType27($result);
     }));
 }
 
@@ -264,7 +300,18 @@ export function QuitApp() {
  */
 export function ReadFile(projectPath, filePath) {
     return $Call.ByID(984933914, projectPath, filePath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType27($result);
+        return $$createType29($result);
+    }));
+}
+
+/**
+ * RequestConfirm implements permission.ConfirmUI.
+ * @param {permission$0.PermissionRequiredEvent} ev
+ * @returns {$CancellablePromise<permission$0.PermissionResponse>}
+ */
+export function RequestConfirm(ev) {
+    return $Call.ByID(1950638859, ev).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType30($result);
     }));
 }
 
@@ -278,13 +325,23 @@ export function ResolveChildSession(parentID) {
 }
 
 /**
+ * RespondPermission handles the frontend's response to a permission request.
+ * @param {json$0.RawMessage} args
+ * @returns {$CancellablePromise<void>}
+ */
+export function RespondPermission(args) {
+    return $Call.ByID(3191520234, args);
+}
+
+/**
  * RunShellCommand executes a shell command in the project directory and returns merged stdout+stderr.
+ * Commands timeout after 120 seconds.
  * @param {string} projectPath
  * @param {string} command
  * @returns {$CancellablePromise<string>}
  */
 export function RunShellCommand(projectPath, command) {
-    return $Call.ByID(4233179062, projectPath, command);
+    return $Call.ByID(1244365094, projectPath, command);
 }
 
 /**
@@ -318,6 +375,24 @@ export function SaveChildSessionToDisk(sessionID, child) {
  */
 export function SendMessage(projectPath, sessionID, text, providerID, model) {
     return $Call.ByID(4233179061, projectPath, sessionID, text, providerID, model);
+}
+
+/**
+ * SetPermissionMode updates the session-level permission mode ("auto" or "manual").
+ * @param {json$0.RawMessage} args
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetPermissionMode(args) {
+    return $Call.ByID(2712857384, args);
+}
+
+/**
+ * SetPipeline stores the permission pipeline reference for runtime mode changes.
+ * @param {permission$0.Pipeline | null} p
+ * @returns {$CancellablePromise<void>}
+ */
+export function SetPipeline(p) {
+    return $Call.ByID(2022465590, p);
 }
 
 /**
@@ -362,13 +437,16 @@ const $$createType14 = $models.FileNode.createFrom;
 const $$createType15 = $Create.Array($$createType14);
 const $$createType16 = $models.FileChange.createFrom;
 const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = $Create.Array($$createType0);
-const $$createType19 = $models.SessionInfo.createFrom;
-const $$createType20 = $Create.Array($$createType19);
-const $$createType21 = agent$0.ChildSession.createFrom;
-const $$createType22 = $Create.Nullable($$createType21);
-const $$createType23 = $models.Session.createFrom;
+const $$createType18 = permission$0.Rule.createFrom;
+const $$createType19 = $Create.Array($$createType18);
+const $$createType20 = $Create.Array($$createType0);
+const $$createType21 = $models.SessionInfo.createFrom;
+const $$createType22 = $Create.Array($$createType21);
+const $$createType23 = agent$0.ChildSession.createFrom;
 const $$createType24 = $Create.Nullable($$createType23);
-const $$createType25 = $Create.Nullable($$createType19);
-const $$createType26 = $models.FileContent.createFrom;
-const $$createType27 = $Create.Nullable($$createType26);
+const $$createType25 = $models.Session.createFrom;
+const $$createType26 = $Create.Nullable($$createType25);
+const $$createType27 = $Create.Nullable($$createType21);
+const $$createType28 = $models.FileContent.createFrom;
+const $$createType29 = $Create.Nullable($$createType28);
+const $$createType30 = permission$0.PermissionResponse.createFrom;
