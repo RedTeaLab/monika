@@ -86,6 +86,21 @@ function ChatArea(props: IDockviewPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const lastScrollRef = useRef(0)
 
+  // Force scroll to bottom on mount and when switching back to this tab
+  useEffect(() => {
+    const scrollToBottom = () => {
+      const el = scrollRef.current
+      if (el && el.scrollHeight > el.clientHeight) {
+        el.scrollTop = el.scrollHeight
+      }
+    }
+    requestAnimationFrame(scrollToBottom)
+    const disp = props.api.onDidActiveChange((active) => {
+      if (active) requestAnimationFrame(scrollToBottom)
+    })
+    return () => disp.dispose()
+  }, [])
+
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
