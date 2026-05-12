@@ -211,13 +211,25 @@ export function ListSessions(projectPath) {
 }
 
 /**
+ * ListSystemCommands searches PATH for executable files matching prefix.
+ * Returns up to 20 results, sorted alphabetically.
+ * @param {string} prefix
+ * @returns {$CancellablePromise<string[]>}
+ */
+export function ListSystemCommands(prefix) {
+    return $Call.ByID(905674791, prefix).then(/** @type {($result: any) => any} */(($result) => {
+        return $$createType23($result);
+    }));
+}
+
+/**
  * LoadChildSession returns a completed child agent session, or nil.
  * @param {string} sessionID
  * @returns {$CancellablePromise<agent$0.ChildSession | null>}
  */
 export function LoadChildSession(sessionID) {
     return $Call.ByID(1226969414, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType24($result);
+        return $$createType25($result);
     }));
 }
 
@@ -229,7 +241,7 @@ export function LoadChildSession(sessionID) {
  */
 export function LoadChildSessionFromDisk(projectPath, sessionID) {
     return $Call.ByID(987540711, projectPath, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType24($result);
+        return $$createType25($result);
     }));
 }
 
@@ -240,7 +252,7 @@ export function LoadChildSessionFromDisk(projectPath, sessionID) {
  */
 export function LoadSession(projectPath, sessionID) {
     return $Call.ByID(665171952, projectPath, sessionID).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType26($result);
+        return $$createType27($result);
     }));
 }
 
@@ -252,7 +264,7 @@ export function LoadSession(projectPath, sessionID) {
  */
 export function NewSession(projectPath, providerID, model) {
     return $Call.ByID(3342623882, projectPath, providerID, model).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType27($result);
+        return $$createType28($result);
     }));
 }
 
@@ -300,7 +312,7 @@ export function QuitApp() {
  */
 export function ReadFile(projectPath, filePath) {
     return $Call.ByID(984933914, projectPath, filePath).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType29($result);
+        return $$createType30($result);
     }));
 }
 
@@ -311,7 +323,7 @@ export function ReadFile(projectPath, filePath) {
  */
 export function RequestConfirm(ev) {
     return $Call.ByID(1950638859, ev).then(/** @type {($result: any) => any} */(($result) => {
-        return $$createType30($result);
+        return $$createType31($result);
     }));
 }
 
@@ -442,11 +454,12 @@ const $$createType19 = $Create.Array($$createType18);
 const $$createType20 = $Create.Array($$createType0);
 const $$createType21 = $models.SessionInfo.createFrom;
 const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = agent$0.ChildSession.createFrom;
-const $$createType24 = $Create.Nullable($$createType23);
-const $$createType25 = $models.Session.createFrom;
-const $$createType26 = $Create.Nullable($$createType25);
-const $$createType27 = $Create.Nullable($$createType21);
-const $$createType28 = $models.FileContent.createFrom;
-const $$createType29 = $Create.Nullable($$createType28);
-const $$createType30 = permission$0.PermissionResponse.createFrom;
+const $$createType23 = $Create.Array($Create.Any);
+const $$createType24 = agent$0.ChildSession.createFrom;
+const $$createType25 = $Create.Nullable($$createType24);
+const $$createType26 = $models.Session.createFrom;
+const $$createType27 = $Create.Nullable($$createType26);
+const $$createType28 = $Create.Nullable($$createType21);
+const $$createType29 = $models.FileContent.createFrom;
+const $$createType30 = $Create.Nullable($$createType29);
+const $$createType31 = permission$0.PermissionResponse.createFrom;

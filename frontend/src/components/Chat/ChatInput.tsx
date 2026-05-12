@@ -1,8 +1,10 @@
-import { useState, KeyboardEvent, useEffect, useRef } from 'react'
+import { useState, KeyboardEvent, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '../../store'
 import { formatTokens } from '../../lib/format'
 import ModelPicker from './ModelPicker'
 import PermissionModePicker from './PermissionModePicker'
+import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
+import { App } from '../../../bindings/monika'
 
 const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` file in the project root. The file should contain:
 
@@ -27,6 +29,11 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   const tokens = sessionTokens[activeSessionId] || { count: 0, max: 0 }
   const tokenCount = tokens.count
   const tokenMax = tokens.max
+
+  const [ac, setAc] = useState<AcState>({ open: false, items: [], selectedIdx: 0, prefix: '' })
+  const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const projectPath = useStore((s) => s.projectPath)
+
   // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
   onStopRef.current = onStop
@@ -56,6 +63,111 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     setValue(e.target.value)
   }
 
+  const COMMANDS: AcItem[] = [
+    { name: 'init', detail: 'Create agent.md from project analysis', icon: '/', insert: '/init ' },
+  ]
+
+  const getQueryAtCursor = (): { prefix: string; query: string } | null => {
+    const el = textareaRef.current
+    if (!el) return null
+    const cursor = el.selectionStart
+    const text = value.slice(0, cursor)
+
+    // $ at line start or after space
+    const dollarMatch = text.match(/(?:^|\s)(\$)([^\s]*)$/)
+    if (dollarMatch) return { prefix: '$', query: dollarMatch[2] }
+
+    // @ anywhere
+    const atMatch = text.match(/@([^\s]*)$/)
+    if (atMatch) return { prefix: '@', query: atMatch[1] }
+
+    // / at line start
+    const slashMatch = text.match(/^\/([^\s]*)$/)
+    if (slashMatch) return { prefix: '/', query: slashMatch[1] }
+
+    return null
+  }
+
+  const fetchAutocomplete = useCallback(async (prefix: string, query: string) => {
+    let items: AcItem[] = []
+    const lq = query.toLowerCase()
+
+    if (prefix === '/') {
+      items = COMMANDS.filter(c => c.name.toLowerCase().startsWith(lq))
+    } else if (prefix === '$') {
+      const [commands, files] = await Promise.all([
+        App.ListSystemCommands(query).catch(() => [] as string[]),
+        projectPath ? App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[]) : Promise.resolve([]),
+      ])
+      const cmdItems: AcItem[] = (commands || [])
+        .filter(c => c.toLowerCase().startsWith(lq))
+        .map(c => ({ name: c, detail: 'system command', icon: '>', insert: `$${c} ` }))
+
+      const fileItems: AcItem[] = (files || [])
+        .filter(f => f.name.toLowerCase().startsWith(lq))
+        .slice(0, 15)
+        .map(f => ({
+          name: f.name,
+          detail: f.is_dir ? 'directory' : 'file',
+          icon: f.is_dir ? '▸' : '▹',
+          insert: `$${f.path} `,
+        }))
+      items = [...cmdItems, ...fileItems]
+    } else if (prefix === '@') {
+      const files = projectPath
+        ? await App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[])
+        : []
+      items = (files || [])
+        .filter(f => f.path.toLowerCase().includes(lq) || f.name.toLowerCase().includes(lq))
+        .slice(0, 15)
+        .map(f => ({
+          name: f.path,
+          detail: f.is_dir ? 'directory' : 'file',
+          icon: f.is_dir ? '▸' : '▹',
+          insert: f.path,
+        }))
+    }
+
+    setAc({ open: true, items, selectedIdx: 0, prefix })
+  }, [projectPath])
+
+  const updateAutocomplete = useCallback(() => {
+    const match = getQueryAtCursor()
+    if (!match) {
+      setAc(s => s.open ? { ...s, open: false } : s)
+      return
+    }
+    if (acDebounceRef.current) clearTimeout(acDebounceRef.current)
+    acDebounceRef.current = setTimeout(() => {
+      fetchAutocomplete(match.prefix, match.query)
+    }, 300)
+  }, [value, fetchAutocomplete])
+
+  useEffect(() => {
+    updateAutocomplete()
+  }, [value, updateAutocomplete])
+
+  const selectAcItem = (item: AcItem) => {
+    const match = getQueryAtCursor()
+    if (!match) return
+
+    const el = textareaRef.current!
+    const cursor = el.selectionStart
+    const replaceStart = cursor - match.query.length
+    const newText = value.slice(0, replaceStart) + item.insert + value.slice(cursor)
+    setValue(newText)
+    setAc({ open: false, items: [], selectedIdx: 0, prefix: '' })
+    requestAnimationFrame(() => {
+      const pos = replaceStart + item.insert.length
+      el.setSelectionRange(pos, pos)
+      el.focus()
+    })
+  }
+
+  const closeAutocomplete = useCallback(() => {
+    setAc(s => ({ ...s, open: false }))
+  }, [])
+
   const handleSubmit = () => {
     const trimmed = value.trim()
     if (!trimmed || disabled || compacting) return
@@ -82,6 +194,30 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (ac.open && ac.items.length > 0) {
+      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
+        e.preventDefault()
+        const item = ac.items[ac.selectedIdx]
+        if (item) { selectAcItem(item) }
+        return
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setAc(s => ({ ...s, selectedIdx: Math.min(s.selectedIdx + 1, s.items.length - 1) }))
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setAc(s => ({ ...s, selectedIdx: Math.max(s.selectedIdx - 1, 0) }))
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeAutocomplete()
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
@@ -99,12 +235,17 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   return (
     <div className="border-t border-[var(--border)] px-4 py-3" style={{ background: 'var(--bg-sidebar)' }}>
       <div
-        className="rounded-md border transition-colors"
+        className="rounded-md border transition-colors relative"
         style={{
           background: 'var(--bg-card)',
           borderColor: 'var(--border)',
         }}
       >
+        <AutocompleteDropdown
+          state={ac}
+          onSelect={selectAcItem}
+          onClose={closeAutocomplete}
+        />
         <textarea
           ref={textareaRef}
           value={value}
