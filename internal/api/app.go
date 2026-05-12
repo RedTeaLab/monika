@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -551,6 +552,12 @@ func resolveShellAPI() (string, string) {
 	return "", ""
 }
 
+var ansiRE = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+func stripANSI(s string) string {
+	return ansiRE.ReplaceAllString(s, "")
+}
+
 // RunShellCommand executes a shell command in the project directory and returns merged stdout+stderr.
 // Commands timeout after 120 seconds.
 func (a *App) RunShellCommand(projectPath, command string) (string, error) {
@@ -587,16 +594,16 @@ func (a *App) RunShellCommand(projectPath, command string) (string, error) {
 				out += "\n"
 			}
 			out += fmt.Sprintf("exit code: %d", exitErr.ExitCode())
-			return strings.TrimSpace(out), nil
+			return strings.TrimSpace(stripANSI(out)), nil
 		}
 		// System error (timeout, etc.): propagate as error
 		if out == "" {
 			out = err.Error()
 		}
-		return strings.TrimSpace(out), err
+		return strings.TrimSpace(stripANSI(out)), err
 	}
 
-	return strings.TrimSpace(out), nil
+	return strings.TrimSpace(stripANSI(out)), nil
 }
 
 func (a *App) ReadFile(projectPath, filePath string) (*FileContent, error) {
