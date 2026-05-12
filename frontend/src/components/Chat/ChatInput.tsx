@@ -32,6 +32,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
 
   const [ac, setAc] = useState<AcState>({ open: false, items: [], selectedIdx: 0, prefix: '' })
   const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const historyRef = useRef<string[]>([])
   const projectPath = useStore((s) => s.projectPath)
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
@@ -99,9 +100,15 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
         App.ListSystemCommands(query).catch(() => [] as string[]),
         projectPath ? App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[]) : Promise.resolve([]),
       ])
+
+      const histItems: AcItem[] = historyRef.current
+        .filter(h => h.toLowerCase().startsWith(lq))
+        .slice(0, 5)
+        .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: `$${h} ` }))
+
       const cmdItems: AcItem[] = (commands || [])
         .filter(c => c.toLowerCase().startsWith(lq))
-        .map(c => ({ name: c, detail: 'system command', icon: '>', insert: `$${c} ` }))
+        .map(c => ({ name: c, detail: 'command', icon: '>', insert: `$${c} ` }))
 
       const fileItems: AcItem[] = (files || [])
         .filter(f => f.name.toLowerCase().startsWith(lq))
@@ -112,7 +119,9 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
           icon: f.is_dir ? '▸' : '▹',
           insert: `$${f.path} `,
         }))
-      items = [...cmdItems, ...fileItems]
+
+      const seen = new Set(histItems.map(h => h.name))
+      items = [...histItems, ...cmdItems.filter(c => !seen.has(c.name)), ...fileItems]
     } else if (prefix === '@') {
       const files = projectPath
         ? await App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[])
@@ -124,7 +133,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
           name: f.path,
           detail: f.is_dir ? 'directory' : 'file',
           icon: f.is_dir ? '▸' : '▹',
-          insert: f.is_dir ? `@${f.path}/ ` : f.path,
+          insert: f.is_dir ? `@${f.path}/` : f.path,
         }))
     }
 
@@ -185,6 +194,9 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     if (trimmed.startsWith('$')) {
       const command = trimmed.slice(1).trim()
       if (!command) { onSend(trimmed); setValue(''); return }
+      // Record in history (deduped, keep last 50)
+      const h = historyRef.current.filter(c => c !== command)
+      historyRef.current = [command, ...h].slice(0, 50)
       onRunShell(command)
       setValue('')
       return
