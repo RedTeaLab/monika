@@ -15,6 +15,15 @@ const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` fi
 
 First, explore the codebase to understand the project, then create the agent.md file with compact, actionable information. Every line should answer "would an agent likely miss this without help?"`
 
+function loadHistory(): string[] {
+  try {
+    const stored = localStorage.getItem('monika-cmd-history')
+    return stored ? (JSON.parse(stored) as string[]) : []
+  } catch { return [] }
+}
+
+const INITIAL_HISTORY = loadHistory()
+
 function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   onSend: (text: string) => void
   onStop: () => void
@@ -32,8 +41,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
 
   const [ac, setAc] = useState<AcState>({ open: false, items: [], selectedIdx: 0, prefix: '' })
   const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const historyRef = useRef<string[]>([])
   const projectPath = useStore((s) => s.projectPath)
+  const historyRef = useRef<string[]>(INITIAL_HISTORY)
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
@@ -194,9 +203,11 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     if (trimmed.startsWith('$')) {
       const command = trimmed.slice(1).trim()
       if (!command) { onSend(trimmed); setValue(''); return }
-      // Record in history (deduped, keep last 50)
+      // Record in history (deduped, keep last 50, persist)
       const h = historyRef.current.filter(c => c !== command)
-      historyRef.current = [command, ...h].slice(0, 50)
+      const updated = [command, ...h].slice(0, 50)
+      historyRef.current = updated
+      try { localStorage.setItem('monika-cmd-history', JSON.stringify(updated)) } catch { /* ignore */ }
       onRunShell(command)
       setValue('')
       return
