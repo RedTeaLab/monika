@@ -606,6 +606,80 @@ func (a *App) RunShellCommand(projectPath, command string) (string, error) {
 	return strings.TrimSpace(stripANSI(out)), nil
 }
 
+// ListSystemCommands searches PATH for executable files matching prefix.
+// Returns up to 20 results, sorted alphabetically.
+func (a *App) ListSystemCommands(prefix string) ([]string, error) {
+	pathEnv := os.Getenv("PATH")
+	if pathEnv == "" {
+		return nil, nil
+	}
+	exts := []string{""}
+	if runtime.GOOS == "windows" {
+		pathext := os.Getenv("PATHEXT")
+		if pathext != "" {
+			for _, e := range strings.Split(pathext, ";") {
+				exts = append(exts, strings.ToLower(e))
+			}
+		} else {
+			exts = append(exts, ".exe", ".cmd", ".bat", ".ps1", ".com")
+		}
+	}
+
+	seen := make(map[string]bool)
+	var results []string
+	lowerPrefix := strings.ToLower(prefix)
+
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if len(results) >= 20 {
+			break
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, entry := range entries {
+			if len(results) >= 20 {
+				break
+			}
+			name := entry.Name()
+			if !strings.HasPrefix(strings.ToLower(name), lowerPrefix) {
+				continue
+			}
+			if entry.IsDir() {
+				continue
+			}
+			hasExt := false
+			for _, ext := range exts {
+				if ext == "" {
+					continue
+				}
+				if strings.HasSuffix(strings.ToLower(name), ext) {
+					hasExt = true
+					break
+				}
+			}
+			if !hasExt && len(exts) > 1 {
+				continue
+			}
+			baseName := name
+			for _, ext := range exts {
+				if ext != "" && strings.HasSuffix(strings.ToLower(baseName), ext) {
+					baseName = baseName[:len(baseName)-len(ext)]
+					break
+				}
+			}
+			if seen[baseName] {
+				continue
+			}
+			seen[baseName] = true
+			results = append(results, baseName)
+		}
+	}
+
+	sort.Strings(results)
+	return results, nil
+}
+
 func (a *App) ReadFile(projectPath, filePath string) (*FileContent, error) {
 	fs := a.getFileService(projectPath)
 	fc, err := fs.ReadFile(filePath)
