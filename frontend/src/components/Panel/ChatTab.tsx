@@ -4,11 +4,11 @@ import { IconClose } from '../Icons'
 
 export function ChatTab(props: IDockviewPanelHeaderProps) {
   const sessionStatuses = useStore((s) => s.sessionStatuses)
-  const generatingSessionId = useStore((s) => s.generatingSessionId)
+  const generatingSessionIds = useStore((s) => s.generatingSessionIds)
   const openSessions = useStore((s) => s.openSessions)
 
   const sessionId = props.api.id
-  const status = generatingSessionId === sessionId
+  const status = generatingSessionIds.includes(sessionId)
     ? 'generating'
     : sessionStatuses[sessionId] === 'failure'
       ? 'error'

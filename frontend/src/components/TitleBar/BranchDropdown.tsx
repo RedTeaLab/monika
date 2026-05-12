@@ -54,9 +54,9 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
     setError(null);
 
     // Guard: check for dirty files or active generation before switching.
-    const { openFiles, generatingSessionId } = useStore.getState();
+    const { openFiles, generatingSessionIds } = useStore.getState();
     const dirtyCount = openFiles.filter(f => f.isDirty).length;
-    if (dirtyCount > 0 || generatingSessionId) {
+    if (dirtyCount > 0 || generatingSessionIds.length > 0) {
       setDirtyConfirm({ branchName, remote });
       return;
     }
@@ -186,7 +186,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const confirmMessage = dirtyConfirm
     ? buildDirtyGuardMessage(
         useStore.getState().openFiles.filter(f => f.isDirty).length,
-        useStore.getState().generatingSessionId !== '',
+        useStore.getState().generatingSessionIds.length > 0,
         'branches',
       )
     : '';

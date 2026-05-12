@@ -67,7 +67,7 @@ interface FileTabInfo {
 
 interface AppState {
   messages: Message[]
-  generatingSessionId: string
+  generatingSessionIds: string[]
   sessionStatuses: Record<string, string>
   sessionErrors: Record<string, string>
   compactingSessionId: string
@@ -115,7 +115,8 @@ interface AppState {
   addSessionError: (id: string, content: string) => void
   updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
   updateSessionToolInput: (id: string, name: string, input: string) => void
-  setGeneratingSessionId: (sessionId: string) => void
+  addGeneratingSession: (sessionId: string) => void
+  removeGeneratingSession: (sessionId: string) => void
   setSessionStatus: (sessionId: string, status: string) => void
   setSessionError: (sessionId: string, error: string) => void
   setSelectedModel: (model: string) => void
@@ -167,7 +168,7 @@ interface AppState {
 
 export const useStore = create<AppState>((set, get) => ({
   messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika. Type /help for commands.' }],
-  generatingSessionId: '',
+  generatingSessionIds: [],
   sessionStatuses: {},
   sessionErrors: {},
   compactingSessionId: '',
@@ -398,7 +399,14 @@ export const useStore = create<AppState>((set, get) => ({
     }))
   },
 
-  setGeneratingSessionId: (sessionId) => set({ generatingSessionId: sessionId }),
+  addGeneratingSession: (sessionId) => set((s) => ({
+    generatingSessionIds: s.generatingSessionIds.includes(sessionId)
+      ? s.generatingSessionIds
+      : [...s.generatingSessionIds, sessionId],
+  })),
+  removeGeneratingSession: (sessionId) => set((s) => ({
+    generatingSessionIds: s.generatingSessionIds.filter((id) => id !== sessionId),
+  })),
   setSessionStatus: (sessionId, status) =>
     set((s) => ({ sessionStatuses: { ...s.sessionStatuses, [sessionId]: status } })),
   setSessionError: (sessionId, error) =>
@@ -640,7 +648,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   closeSessionTab: async (id) => {
     // Cancel backend generation if the closed tab was generating
-    if (get().generatingSessionId === id) {
+    if (get().generatingSessionIds.includes(id)) {
       try { await App.CancelGeneration(id) } catch { /* best-effort */ }
     }
     set((s) => {
@@ -668,7 +676,7 @@ export const useStore = create<AppState>((set, get) => ({
         sessionMessages: msgCache,
         activeSessionId: newActive,
         messages: newMessages,
-        generatingSessionId: s.generatingSessionId === id ? '' : s.generatingSessionId,
+        generatingSessionIds: s.generatingSessionIds.filter((sid) => sid !== id),
         sessionParents: newParents,
       }
     })
@@ -907,7 +915,7 @@ export const useStore = create<AppState>((set, get) => ({
     console.log('[monika] resetProjectState called');
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
-      generatingSessionId: '',
+      generatingSessionIds: [],
       sessionStatuses: {},
       sessionErrors: {},
       compactingSessionId: '',
@@ -1086,9 +1094,7 @@ export function setupWailsEvents() {
 
       case 'error':
         if (data.content === 'cancelled') {
-          if (sid === store.generatingSessionId) {
-            store.setGeneratingSessionId('')
-          }
+          store.removeGeneratingSession(sid)
           store.setSessionStatus(sid, 'idle')
           store.setSessionError(sid, '')
           store.bumpSessionListVersion()
@@ -1099,9 +1105,7 @@ export function setupWailsEvents() {
         if (sid === store.activeSessionId) {
           store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         }
-        if (sid === store.generatingSessionId) {
-          store.setGeneratingSessionId('')
-        }
+        store.removeGeneratingSession(sid)
         store.setSessionStatus(sid, 'failure')
         store.setSessionError(sid, data.content || 'Unknown error')
         break
@@ -1114,9 +1118,7 @@ export function setupWailsEvents() {
         break
 
       case 'done': {
-        if (sid === store.generatingSessionId) {
-          store.setGeneratingSessionId('')
-        }
+        store.removeGeneratingSession(sid)
         const sessionMsgs = store.sessionMessages[sid] || []
         for (let i = sessionMsgs.length - 1; i >= 0; i--) {
           if (sessionMsgs[i].role === 'assistant' && sessionMsgs[i].startedAt) {
@@ -1141,7 +1143,7 @@ export function setupWailsEvents() {
         const newMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now(), model: data.model || undefined }
         store.appendToSession(sid, [newMsg])
         store.setSessionStatus(sid, 'generating')
-        store.setGeneratingSessionId(sid)
+        store.addGeneratingSession(sid)
         break
       }
 
@@ -1153,7 +1155,7 @@ export function setupWailsEvents() {
 
       case 'compacting':
         store.setCompacting(sid, true)
-        store.setGeneratingSessionId('')
+        store.removeGeneratingSession(sid)
         break
 
       case 'compaction':

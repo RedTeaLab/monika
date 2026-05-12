@@ -101,22 +101,47 @@ function MsgBlock({
   accent,
   header,
   background,
+  copyContent,
   children,
 }: {
   accent?: string
   header?: React.ReactNode
   background?: string
+  copyContent?: string
   children: React.ReactNode
 }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (copyContent) {
+      navigator.clipboard.writeText(copyContent)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+
   return (
     <div
-      className="rounded-lg border px-[14px] py-[10px] w-full"
+      className="rounded-lg border px-[12px] py-[8px] w-full relative group/msg"
       style={{
         background: background || 'var(--bg-card)',
         borderColor: 'var(--border)',
         ...(accent ? { borderLeftColor: accent, borderLeftWidth: '2px' } : {}),
       }}
     >
+      {copyContent && (
+        <button
+          className="absolute top-[3px] right-[3px] opacity-0 group-hover/msg:opacity-100 transition-opacity z-10
+                     text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
+                     hover:bg-[var(--bg-hover)] cursor-pointer"
+          style={{ color: 'var(--text-dim)' }}
+          onClick={handleCopy}
+          aria-label="Copy"
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      )}
       {header && <div className={children ? 'mb-2' : ''}>{header}</div>}
       {children}
     </div>
@@ -161,7 +186,7 @@ function ThinkingBlock({ content, isGenerating }: { content: string; isGeneratin
 
 function TextBlock({ content, borderColor }: { content: string; borderColor: string }) {
   return (
-    <MsgBlock accent={borderColor}>
+    <MsgBlock accent={borderColor} copyContent={content}>
       <div
         className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
         style={{ fontFamily: 'var(--font-mono)' }}
@@ -225,6 +250,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const [open, setOpen] = useState(false)
   const [linesExpanded, setLinesExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [inputCopied, setInputCopied] = useState(false)
 
   const isJson = useMemo(() => {
     if (!tool.output) return false
@@ -258,6 +284,15 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
       navigator.clipboard.writeText(tool.output)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
+    }
+  }
+
+  const handleInputCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (tool.input) {
+      navigator.clipboard.writeText(tool.input)
+      setInputCopied(true)
+      setTimeout(() => setInputCopied(false), 1500)
     }
   }
 
@@ -297,7 +332,17 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   return (
     <MsgBlock header={header} background="var(--bg-sidebar)">
       {open && hasInput && (
-        <div className="mb-2">
+        <div className="mb-2 relative group/input">
+          <button
+            className="absolute top-0 right-0 opacity-0 group-hover/input:opacity-100 transition-opacity z-10
+                       text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
+                       hover:bg-[var(--bg-hover)] cursor-pointer"
+            style={{ color: 'var(--text-dim)' }}
+            onClick={handleInputCopy}
+            aria-label="Copy input"
+          >
+            {inputCopied ? 'Copied' : 'Copy'}
+          </button>
           <div
             className="text-[10px] font-semibold uppercase tracking-[0.04em] mb-1"
             style={{ color: 'var(--text-dim)' }}
@@ -444,7 +489,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
     return (
       <div className="flex flex-col gap-1.5 mb-1.5">
         <RoleLabel role="shell" />
-        <MsgBlock accent="var(--yellow)">
+        <MsgBlock accent="var(--yellow)" copyContent={content}>
           <div
             className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
             style={{ fontFamily: 'var(--font-mono)' }}
@@ -470,7 +515,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
             </span>
           )}
         </div>
-        <MsgBlock accent="var(--subtask)">
+        <MsgBlock accent="var(--subtask)" copyContent={content}>
           <div className="text-[13px] text-[var(--text-dim)]">{content}</div>
         </MsgBlock>
       </div>
@@ -499,7 +544,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
       {role === 'user' ? (
         <div>
           <RoleLabel role="user" />
-          <MsgBlock accent="var(--accent)">
+          <MsgBlock accent="var(--accent)" copyContent={content}>
             <MarkdownBlock content={content} />
           </MsgBlock>
         </div>
@@ -514,7 +559,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
           {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
 
           {content && (
-            <MsgBlock>
+            <MsgBlock copyContent={content}>
               <MarkdownBlock content={content} />
             </MsgBlock>
           )}

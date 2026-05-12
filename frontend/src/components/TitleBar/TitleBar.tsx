@@ -15,7 +15,7 @@ import { buildDirtyGuardMessage } from './dropdownHelpers'
 
 function TitleBar() {
   const {
-    projectPath, branch, openFiles, generatingSessionId,
+    projectPath, branch, openFiles, generatingSessionIds,
     resetProjectState, setProjectPath, setBranch,
     loadBranches, loadRecentProjects, loadProviders,
   } = useStore()
@@ -61,7 +61,7 @@ function TitleBar() {
   const handleProjectSelect = useCallback(async (targetPath: string) => {
     console.log('[monika] handleProjectSelect: targetPath:', targetPath)
     const dirtyCount = openFiles.filter(f => f.isDirty).length
-    const isGenerating = generatingSessionId !== ''
+    const isGenerating = generatingSessionIds.length > 0
     console.log('[monika] handleProjectSelect: dirtyCount:', dirtyCount, 'isGenerating:', isGenerating)
 
     if (dirtyCount > 0 || isGenerating) {
@@ -72,7 +72,7 @@ function TitleBar() {
     }
 
     await doSwitchProject(targetPath)
-  }, [openFiles, generatingSessionId])
+  }, [openFiles, generatingSessionIds])
 
   return (
     <div

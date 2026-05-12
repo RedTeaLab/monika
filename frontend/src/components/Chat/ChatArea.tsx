@@ -11,7 +11,7 @@ import TodoPanel from '../TodoPanel/TodoPanel'
 function ChatArea(props: IDockviewPanelProps) {
   const sessionId = (props.params as { sessionId?: string } | undefined)?.sessionId || props.api.id
 
-  const generatingSessionId = useStore((s) => s.generatingSessionId)
+  const generatingSessionIds = useStore((s) => s.generatingSessionIds)
   const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
@@ -30,7 +30,7 @@ function ChatArea(props: IDockviewPanelProps) {
   const isChildSession = sessionParents[sessionId] !== undefined
 
   const handleStop = () => {
-    if (generatingSessionId === sessionId) {
+    if (generatingSessionIds.includes(sessionId)) {
       App.CancelGeneration(sessionId)
     }
   }
@@ -62,8 +62,8 @@ function ChatArea(props: IDockviewPanelProps) {
       return
     }
 
-    if (generatingSessionId !== '') {
-      useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: 'Another session is generating. Please wait.' })
+    if (generatingSessionIds.includes(sessionId)) {
+      useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: 'This session is already generating.' })
       return
     }
 
@@ -71,13 +71,13 @@ function ChatArea(props: IDockviewPanelProps) {
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
     store.appendToSession(sessionId, [userMsg, assistantMsg])
-    store.setGeneratingSessionId(sessionId)
+    store.addGeneratingSession(sessionId)
 
     try {
       await App.SendMessage(projectPath, sessionId, text, selectedProvider, selectedModel)
     } catch (err) {
       useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
-      store.setGeneratingSessionId('')
+      store.removeGeneratingSession(sessionId)
       const currentMsgs = useStore.getState().sessionMessages[sessionId] || []
       useStore.getState().setMessages(currentMsgs.filter(m => m.id !== assistantMsg.id))
     }
@@ -98,7 +98,7 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }, [messages])
 
-  const isGenerating = generatingSessionId !== '' && generatingSessionId === sessionId
+  const isGenerating = generatingSessionIds.includes(sessionId)
   let generatingIdx = -1
   if (isGenerating) {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -139,7 +139,7 @@ function ChatArea(props: IDockviewPanelProps) {
           onSend={handleSend}
           onStop={handleStop}
           onRunShell={handleRunShell}
-          disabled={generatingSessionId !== ''}
+          disabled={generatingSessionIds.includes(sessionId)}
           compacting={compactingSessionId !== ''}
         />
       ) : (

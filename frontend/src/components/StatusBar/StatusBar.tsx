@@ -6,7 +6,7 @@ import { applyLayoutSizes } from '../Panel/applyLayoutSizes'
 const STORAGE_PREFIX = 'monika_layout_'
 
 function StatusBar() {
-  const generating = useStore((s) => s.generatingSessionId !== '')
+  const generating = useStore((s) => s.generatingSessionIds.length > 0)
   const consoleVisible = useStore((s) => s.consoleVisible)
   const toggleConsole = useStore((s) => s.toggleConsole)
   const dockviewApi = useStore((s) => s.dockviewApi)

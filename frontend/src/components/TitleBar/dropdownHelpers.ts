@@ -7,7 +7,8 @@ type StoreForAI = {
   selectedModel: string;
   openSessionTab: (id: string, title: string) => Promise<void>;
   addMessage: (msg: { id: string; role: 'user' | 'assistant' | 'system' | 'error'; content: string }) => void;
-  setGeneratingSessionId: (id: string) => void;
+  addGeneratingSession: (id: string) => void;
+  removeGeneratingSession: (id: string) => void;
 };
 
 export async function resolveUnmergedWithAI(
@@ -36,13 +37,13 @@ export async function resolveUnmergedWithAI(
 
   store.addMessage({ id: crypto.randomUUID(), role: 'user', content: prompt });
   store.addMessage({ id: crypto.randomUUID(), role: 'assistant', content: '' });
-  store.setGeneratingSessionId(sid);
+  store.addGeneratingSession(sid);
 
   try {
     await App.SendMessage(projectPath, sid, prompt, store.selectedProvider, store.selectedModel);
   } catch (err) {
     store.addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) });
-    store.setGeneratingSessionId('');
+    store.removeGeneratingSession(sid);
     throw err;
   }
 }

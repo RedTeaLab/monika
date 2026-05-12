@@ -68,14 +68,14 @@
   /* ── Surface Hierarchy (Linear-inspired solid depth) ── */
   --bg-root:     #08090d;
   --bg-sidebar:  #0c0d12;
-  --bg-card:     #111318;
+  --bg-card:     #0e1015;
   --bg-elevated: #161820;
   --bg-hover:    rgba(255,255,255,0.04);
   --bg-active:   rgba(255,255,255,0.06);
 
   /* ── Tool colors (mapped from semantic) ── */
-  --compaction:   #c6902f;
-  --subtask:      #a89cc4;
+  --compaction:   #aa7b28;
+  --subtask:      #9380b1;
   --bg-console:   #080a10;
   --tool-bash:    var(--yellow);
   --tool-file:    var(--blue);
@@ -95,17 +95,17 @@
   --text-dim:       #5e5e6e;
 
   /* ── Accent (single, restrained) ── */
-  --accent:        #5b8def;
-  --accent-hover:  #739df2;
-  --accent-muted:  rgba(91,141,239,0.12);
+  --accent:        #4b7ddb;
+  --accent-hover:  #6490e0;
+  --accent-muted:  rgba(75,125,219,0.12);
 
   /* ── Semantic ── */
-  --green:  #54c08a;
-  --red:    #e06060;
-  --yellow: #d4a843;
-  --orange: #d4844a;
-  --purple: #9b8ecc;
-  --blue:   #6b9ee6;
+  --green:  #44a573;
+  --red:    #cd5454;
+  --yellow: #b89238;
+  --orange: #b5723f;
+  --purple: #877bb5;
+  --blue:   #588dd5;
 
   /* ── Typography ── */
   --font-sans: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;

@@ -16,7 +16,7 @@
   /* ── Surface Hierarchy ── */
   --bg-root:     #08090d;
   --bg-sidebar:  #0c0d12;
-  --bg-card:     #111318;
+  --bg-card:     #0e1015;
   --bg-elevated: #161820;
   --bg-hover:    rgba(255,255,255,0.04);
   --bg-active:   rgba(255,255,255,0.06);
@@ -31,17 +31,17 @@
   --text-dim:       #5e5e6e;
 
   /* ── Accent ── */
-  --accent:        #5b8def;
-  --accent-hover:  #739df2;
-  --accent-muted:  rgba(91,141,239,0.12);
+  --accent:        #4b7ddb;
+  --accent-hover:  #6490e0;
+  --accent-muted:  rgba(75,125,219,0.12);
 
   /* ── Semantic ── */
-  --green:  #54c08a;
-  --red:    #e06060;
-  --yellow: #d4a843;
-  --orange: #d4844a;
-  --purple: #9b8ecc;
-  --blue:   #6b9ee6;
+  --green:  #44a573;
+  --red:    #cd5454;
+  --yellow: #b89238;
+  --orange: #b5723f;
+  --purple: #877bb5;
+  --blue:   #588dd5;
 
   /* ── Typography ── */
   --font-ui:   'Inter', system-ui, -apple-system, sans-serif;
@@ -263,7 +263,7 @@ body {
 /* ── Chat ── */
 .chat-list { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .chat-list .msg {
-  padding: 10px 14px; border-radius: var(--radius-md);
+  padding: 8px 12px; border-radius: var(--radius-md);
   border: 1px solid var(--border); background: var(--bg-card);
   font-size: 13px; line-height: 1.6; max-width: 580px;
 }
@@ -285,7 +285,7 @@ body {
 }
 
 .chat-list .tool {
-  padding: 8px 14px; border-radius: var(--radius-sm);
+  padding: 8px 12px; border-radius: var(--radius-sm);
   border: 1px solid var(--border); background: var(--bg-sidebar);
   font-family: var(--font-mono); font-size: 12px; max-width: 580px;
 }
@@ -491,8 +491,8 @@ body {
   <div class="swatch-group">
     <div class="swatch-group-title">Accent</div>
     <div class="swatch-row">
-      <div><div class="swatch" style="background:var(--accent);"></div><div class="swatch-label">#5b8def</div><div class="swatch-usage">focus · active · user border</div></div>
-      <div><div class="swatch" style="background:var(--accent-hover);"></div><div class="swatch-label">#739df2</div><div class="swatch-usage">hover brighten</div></div>
+      <div><div class="swatch" style="background:var(--accent);"></div><div class="swatch-label">#4b7ddb</div><div class="swatch-usage">focus · active · user border</div></div>
+      <div><div class="swatch" style="background:var(--accent-hover);"></div><div class="swatch-label">#6490e0</div><div class="swatch-usage">hover brighten</div></div>
       <div><div class="swatch" style="background:var(--accent-muted);"></div><div class="swatch-label">12% tint</div><div class="swatch-usage">focus ring glow</div></div>
       <div style="display:flex; flex-direction:column; justify-content:flex-end; margin-left:8px;">
         <div style="font-size:11px; color:var(--text-dim); line-height:1.7;">
@@ -511,12 +511,12 @@ body {
   <div class="swatch-group">
     <div class="swatch-group-title">Semantic</div>
     <div class="swatch-row">
-      <div><div class="swatch" style="background:var(--green);"></div><div class="swatch-label">#54c08a</div><div class="swatch-usage">success / ready / added</div></div>
-      <div><div class="swatch" style="background:var(--red);"></div><div class="swatch-label">#e06060</div><div class="swatch-usage">error / delete / close hover</div></div>
-      <div><div class="swatch" style="background:var(--yellow);"></div><div class="swatch-label">#d4a843</div><div class="swatch-usage">thinking / running / modified</div></div>
-      <div><div class="swatch" style="background:var(--orange);"></div><div class="swatch-label">#d4844a</div><div class="swatch-usage">write · edit · inline code</div></div>
-      <div><div class="swatch" style="background:var(--purple);"></div><div class="swatch-label">#9b8ecc</div><div class="swatch-usage">glob · search · import</div></div>
-      <div><div class="swatch" style="background:var(--blue);"></div><div class="swatch-label">#6b9ee6</div><div class="swatch-usage">read · file · link</div></div>
+      <div><div class="swatch" style="background:var(--green);"></div><div class="swatch-label">#44a573</div><div class="swatch-usage">success / ready / added</div></div>
+      <div><div class="swatch" style="background:var(--red);"></div><div class="swatch-label">#cd5454</div><div class="swatch-usage">error / delete / close hover</div></div>
+      <div><div class="swatch" style="background:var(--yellow);"></div><div class="swatch-label">#b89238</div><div class="swatch-usage">thinking / running / modified</div></div>
+      <div><div class="swatch" style="background:var(--orange);"></div><div class="swatch-label">#b5723f</div><div class="swatch-usage">write · edit · inline code</div></div>
+      <div><div class="swatch" style="background:var(--purple);"></div><div class="swatch-label">#877bb5</div><div class="swatch-usage">glob · search · import</div></div>
+      <div><div class="swatch" style="background:var(--blue);"></div><div class="swatch-label">#588dd5</div><div class="swatch-usage">read · file · link</div></div>
     </div>
   </div>
 
@@ -724,11 +724,11 @@ body {
         <tr><td>User</td><td>"You" · 10px/600/overline · --text-dim</td><td>1px --border + 2px left --accent</td><td>--bg-card</td><td>13px / --text-primary / markdown rendered</td></tr>
         <tr><td>Assistant</td><td>"Assistant" · 10px/600/overline · --text-dim</td><td>1px --border</td><td>--bg-card</td><td>13px / --text-primary / GFM markdown</td></tr>
         <tr><td>Assistant (generating)</td><td>"Assistant" · 10px/600/overline · --accent + label-blink 1.4s</td><td>1px --border</td><td>--bg-card</td><td>13px / --text-primary / GFM markdown</td></tr>
-        <tr><td>Thinking</td><td>"Thinking" · 10px/600/overline · --yellow (#a68432)</td><td>1px --border + 2px left --yellow</td><td>--bg-sidebar</td><td>13px / --text-dim / muted markdown variant</td></tr>
+        <tr><td>Thinking</td><td>"Thinking" · 10px/600/overline · --yellow (#b89238)</td><td>1px --border + 2px left --yellow</td><td>--bg-sidebar</td><td>13px / --text-dim / muted markdown variant</td></tr>
         <tr><td>Error</td><td>"Error" · 10px/600/overline · --red</td><td>1px --border + 2px left --red</td><td>--bg-card</td><td>13px / --text-primary / mono font / pre-wrap</td></tr>
         <tr><td>Tool block</td><td>Tool name badge (code) + status label</td><td>1px --border</td><td>--bg-sidebar</td><td>12px / Maple Mono NF / color-coded badge by tool type</td></tr>
         <tr><td>System</td><td>No label</td><td>none</td><td>transparent</td><td>12px / --text-dim / centered</td></tr>
-        <tr><td>Padding</td><td colspan="4">All message blocks: 10px 14px / radius-md / max-width 580px</td></tr>
+        <tr><td>Padding</td><td colspan="4">All message blocks: 8px 12px / radius-md / max-width 580px</td></tr>
       </table>
       <div class="live-wrap" style="margin-top:16px; background:var(--bg-root); padding:12px;">
         <div class="chat-list" style="gap:8px; padding:8px;">
@@ -1143,17 +1143,17 @@ body {
 <span style="color:var(--text-link);">--text-dim</span>:       <span style="color:var(--orange);">#5e5e6e</span>;
 
 <span style="color:var(--text-dim);">/* ── Accent ── */</span>
-<span style="color:var(--text-link);">--accent</span>:       <span style="color:var(--orange);">#5b8def</span>;
-<span style="color:var(--text-link);">--accent-hover</span>:  <span style="color:var(--orange);">#739df2</span>;
+<span style="color:var(--text-link);">--accent</span>:       <span style="color:var(--orange);">#4b7ddb</span>;
+<span style="color:var(--text-link);">--accent-hover</span>:  <span style="color:var(--orange);">#6490e0</span>;
 <span style="color:var(--text-link);">--accent-muted</span>:  <span style="color:var(--orange);">rgba(91,141,239,0.12)</span>;
 
 <span style="color:var(--text-dim);">/* ── Semantic ── */</span>
-<span style="color:var(--text-link);">--green</span>:   <span style="color:var(--orange);">#54c08a</span>;   <span style="color:var(--text-dim);">/* success, ready, added */</span>
-<span style="color:var(--text-link);">--red</span>:     <span style="color:var(--orange);">#e06060</span>;   <span style="color:var(--text-dim);">/* error, delete, close-hover */</span>
-<span style="color:var(--text-link);">--yellow</span>:  <span style="color:var(--orange);">#d4a843</span>;   <span style="color:var(--text-dim);">/* thinking, running, modified */</span>
-<span style="color:var(--text-link);">--orange</span>:  <span style="color:var(--orange);">#d4844a</span>;   <span style="color:var(--text-dim);">/* write, edit, inline-code */</span>
-<span style="color:var(--text-link);">--purple</span>:  <span style="color:var(--orange);">#9b8ecc</span>;   <span style="color:var(--text-dim);">/* glob, search, import */</span>
-<span style="color:var(--text-link);">--blue</span>:    <span style="color:var(--orange);">#6b9ee6</span>;   <span style="color:var(--text-dim);">/* read, file, link */</span>
+<span style="color:var(--text-link);">--green</span>:   <span style="color:var(--orange);">#44a573</span>;   <span style="color:var(--text-dim);">/* success, ready, added */</span>
+<span style="color:var(--text-link);">--red</span>:     <span style="color:var(--orange);">#cd5454</span>;   <span style="color:var(--text-dim);">/* error, delete, close-hover */</span>
+<span style="color:var(--text-link);">--yellow</span>:  <span style="color:var(--orange);">#b89238</span>;   <span style="color:var(--text-dim);">/* thinking, running, modified */</span>
+<span style="color:var(--text-link);">--orange</span>:  <span style="color:var(--orange);">#b5723f</span>;   <span style="color:var(--text-dim);">/* write, edit, inline-code */</span>
+<span style="color:var(--text-link);">--purple</span>:  <span style="color:var(--orange);">#877bb5</span>;   <span style="color:var(--text-dim);">/* glob, search, import */</span>
+<span style="color:var(--text-link);">--blue</span>:    <span style="color:var(--orange);">#588dd5</span>;   <span style="color:var(--text-dim);">/* read, file, link */</span>
 
 <span style="color:var(--text-dim);">/* ── Typography ── */</span>
 <span style="color:var(--text-link);">--font-ui</span>:   <span style="color:var(--orange);">'Inter', system-ui, -apple-system, sans-serif</span>;
