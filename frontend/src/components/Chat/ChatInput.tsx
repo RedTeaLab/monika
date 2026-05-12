@@ -15,6 +15,17 @@ const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` fi
 
 First, explore the codebase to understand the project, then create the agent.md file with compact, actionable information. Every line should answer "would an agent likely miss this without help?"`
 
+interface FileEntry { name: string; path: string; is_dir: boolean; children?: FileEntry[] }
+
+function flattenFiles(nodes: FileEntry[]): FileEntry[] {
+  const result: FileEntry[] = []
+  for (const n of nodes) {
+    result.push(n)
+    if (n.is_dir && n.children) result.push(...flattenFiles(n.children))
+  }
+  return result
+}
+
 function loadHistory(): string[] {
   try {
     const stored = localStorage.getItem('monika-cmd-history')
@@ -107,7 +118,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     } else if (prefix === '$') {
       const [commands, files] = await Promise.all([
         App.ListSystemCommands(query).catch(() => [] as string[]),
-        projectPath ? App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[]) : Promise.resolve([]),
+        projectPath ? App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[]) : Promise.resolve([] as FileEntry[]),
       ])
 
       const histItems: AcItem[] = historyRef.current
@@ -133,7 +144,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       items = [...histItems, ...cmdItems.filter(c => !seen.has(c.name)), ...fileItems]
     } else if (prefix === '@') {
       const files = projectPath
-        ? await App.ListFileTree(projectPath).catch(() => [] as { name: string; path: string; is_dir: boolean }[])
+        ? await App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
         : []
       items = (files || [])
         .filter(f => f.path.toLowerCase().includes(lq) || f.name.toLowerCase().includes(lq))
