@@ -124,7 +124,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
           name: f.path,
           detail: f.is_dir ? 'directory' : 'file',
           icon: f.is_dir ? '▸' : '▹',
-          insert: f.path,
+          insert: f.is_dir ? `@${f.path}/ ` : f.path,
         }))
     }
 
@@ -153,9 +153,18 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
 
     const el = textareaRef.current!
     const cursor = el.selectionStart
-    const replaceStart = cursor - match.query.length
+    const replaceStart = cursor - match.prefix.length - match.query.length
     const newText = value.slice(0, replaceStart) + item.insert + value.slice(cursor)
     setValue(newText)
+    // For @ directory drill-down: keep autocomplete open to browse deeper
+    if (match.prefix === '@' && item.detail === 'directory') {
+      requestAnimationFrame(() => {
+        const pos = replaceStart + item.insert.length
+        el.setSelectionRange(pos, pos)
+        el.focus()
+      })
+      return
+    }
     setAc({ open: false, items: [], selectedIdx: 0, prefix: '' })
     requestAnimationFrame(() => {
       const pos = replaceStart + item.insert.length
