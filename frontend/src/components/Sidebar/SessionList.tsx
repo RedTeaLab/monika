@@ -11,6 +11,7 @@ function SessionList(props: IDockviewPanelProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const projectPath = useStore((s) => s.projectPath)
   const sessionListVersion = useStore((s) => s.sessionListVersion)
+  const sessionStatuses = useStore((s) => s.sessionStatuses)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
@@ -122,14 +123,14 @@ function SessionList(props: IDockviewPanelProps) {
             >
               <span className="flex items-center gap-1.5 truncate min-w-0">
                 <span
-                  className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                  className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${(sessionStatuses[s.id] || s.status) === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
                   style={{
                     background:
-                      s.status === 'generating' ? 'var(--accent)'
-                      : s.status === 'success' ? 'var(--green)'
-                      : s.status === 'failure' ? 'var(--red)'
+                      (sessionStatuses[s.id] || s.status) === 'generating' ? 'var(--accent)'
+                      : (sessionStatuses[s.id] || s.status) === 'success' ? 'var(--green)'
+                      : (sessionStatuses[s.id] || s.status) === 'failure' ? 'var(--red)'
                       : 'var(--text-dim)',
-                    opacity: s.status === 'generating' ? 1 : 0.6,
+                    opacity: (sessionStatuses[s.id] || s.status) === 'generating' ? 1 : 0.6,
                   }}
                 />
                 <span className="truncate">{s.title || 'Untitled'}</span>

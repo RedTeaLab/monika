@@ -48,6 +48,12 @@
   flex-direction: column;
 }
 
+/* Kill dockview's default overflow:auto on view containers —
+   each panel manages its own scrolling internally */
+.dv-split-view-container .dv-view-container .dv-view {
+  overflow: hidden;
+}
+
 @font-face {
   font-family: 'Maple Mono NF';
   src: url('./assets/fonts/MapleMono-NF-Regular.ttf') format('truetype');

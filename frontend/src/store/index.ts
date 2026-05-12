@@ -1108,6 +1108,7 @@ export function setupWailsEvents() {
         store.removeGeneratingSession(sid)
         store.setSessionStatus(sid, 'failure')
         store.setSessionError(sid, data.content || 'Unknown error')
+        store.bumpSessionListVersion()
         break
 
       case 'file_changed':
@@ -1144,6 +1145,7 @@ export function setupWailsEvents() {
         store.appendToSession(sid, [newMsg])
         store.setSessionStatus(sid, 'generating')
         store.addGeneratingSession(sid)
+        store.bumpSessionListVersion()
         break
       }
 

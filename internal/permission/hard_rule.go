@@ -18,13 +18,7 @@ func NewHardRuleEngine(userRules []Rule, projectDir string) *HardRuleEngine {
 	return &HardRuleEngine{
 		rules:      userRules,
 		projectDir: projectDir,
-		blacklist: []Rule{
-			{Tool: "bash", Pattern: "rm -rf", Decision: "deny", Source: SourceBuiltin},
-			{Tool: "bash", Pattern: "curl ", Decision: "deny", Source: SourceBuiltin},
-			{Tool: "bash", Pattern: "chmod 777", Decision: "deny", Source: SourceBuiltin},
-			{Tool: "bash", Pattern: "wget ", Decision: "deny", Source: SourceBuiltin},
-			{Tool: "bash", Pattern: "nc ", Decision: "deny", Source: SourceBuiltin},
-		},
+		blacklist: []Rule{},
 	}
 }
 

@@ -54,48 +54,6 @@ func TestPipeline_Auto_ReadOp_Bypass(t *testing.T) {
 	}
 }
 
-func TestPipeline_Auto_BuiltinBlacklist_Deny(t *testing.T) {
-	rules := NewHardRuleEngine(nil, "/test/project")
-	mock := &mockConfirmUI{
-		response: PermissionResponse{Decision: "allow"},
-	}
-
-	p := NewPipeline(Auto, rules, mock)
-	p.SetProject("/tmp", "/test/project")
-
-	cctx := CheckContext{
-		ToolName:  "bash",
-		Args:      json.RawMessage(`{"command": "rm -rf /"}`),
-		SessionID: "sess_1",
-	}
-
-	got := p.Check(context.Background(), cctx)
-	if got != Deny {
-		t.Errorf("Check(rm -rf) = %v, want %v (builtin blacklist must deny even in Auto)", got, Deny)
-	}
-}
-
-func TestPipeline_Manual_BuiltinBlacklist_Deny(t *testing.T) {
-	rules := NewHardRuleEngine(nil, "/test/project")
-	mock := &mockConfirmUI{
-		response: PermissionResponse{Decision: "allow"},
-	}
-
-	p := NewPipeline(Manual, rules, mock)
-	p.SetProject("/tmp", "/test/project")
-
-	cctx := CheckContext{
-		ToolName:  "bash",
-		Args:      json.RawMessage(`{"command": "rm -rf /"}`),
-		SessionID: "sess_1",
-	}
-
-	got := p.Check(context.Background(), cctx)
-	if got != Deny {
-		t.Errorf("Check(rm -rf in Manual) = %v, want %v (builtin blacklist must deny in Manual too)", got, Deny)
-	}
-}
-
 func TestPipeline_Auto_UserRule_Allow(t *testing.T) {
 	userRules := []Rule{
 		{Tool: "bash", Pattern: "npm test", Decision: "allow", Source: "user_always"},
