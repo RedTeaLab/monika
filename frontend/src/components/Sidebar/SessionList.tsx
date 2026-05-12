@@ -120,7 +120,20 @@ function SessionList(props: IDockviewPanelProps) {
               onMouseEnter={() => setHoveredId(s.id)}
               onMouseLeave={() => setHoveredId(null)}
             >
-              <span className="truncate">{s.title || 'Untitled'}</span>
+              <span className="flex items-center gap-1.5 truncate min-w-0">
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{
+                    background:
+                      s.status === 'generating' ? 'var(--accent)'
+                      : s.status === 'success' ? 'var(--green)'
+                      : s.status === 'failure' ? 'var(--red)'
+                      : 'var(--text-dim)',
+                    opacity: s.status === 'generating' ? 1 : 0.6,
+                  }}
+                />
+                <span className="truncate">{s.title || 'Untitled'}</span>
+              </span>
               <button
                 onClick={(e) => handleDeleteClick(s, e)}
                 aria-label={`Delete ${s.title || 'session'}`}
