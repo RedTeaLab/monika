@@ -31,6 +31,7 @@ tasks:
       - dist/**/*
     deps:
       - task: install:frontend:deps
+      - task: generate:bindings
     cmds:
       - npm run {{.BUILD_COMMAND}} -q
     env:
@@ -49,7 +50,7 @@ tasks:
     generates:
       - frontend/bindings/**/*
     cmds:
-      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -ts
 
   dev:frontend:
     summary: Runs the frontend in development mode
