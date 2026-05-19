@@ -21,18 +21,24 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
   }
 
   return (
-    <div className="flex items-center gap-1 px-[16px] h-full text-[12px] select-none"
-      style={{ fontFamily: 'var(--font-sans)' }}>
+    <div
+      className="group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150"
+      style={{ fontFamily: 'var(--font-sans)', padding: '0 10px' }}
+    >
       {isDirty && (
-        <span className="text-[8px] flex-shrink-0" style={{ color: 'var(--text-dim)' }}>●</span>
+        <span className="text-[8px] flex-shrink-0 leading-none" style={{ color: 'var(--text-dim)' }}>
+          ●
+        </span>
       )}
-      <span className="truncate flex-1">{title}</span>
-
+      <span className="truncate flex-1 min-w-0">{title}</span>
       {!isDefaultPanel && (
         <button
-          onClick={(e) => { e.stopPropagation(); handleClose() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            handleClose()
+          }}
           aria-label={`Close ${title}`}
-          className="text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-colors"
+          className="opacity-0 group-hover:opacity-100 text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] w-4 h-4 flex items-center justify-center rounded flex-shrink-0 transition-all duration-100"
         >
           <IconClose size={10} />
         </button>

@@ -26,10 +26,10 @@ export function SessionTab(props: IDockviewPanelHeaderProps) {
 
   return (
     <div
-      className="flex items-center gap-1 px-[16px] h-full text-[12px] select-none"
-      style={{ fontFamily: 'var(--font-sans)' }}
+      className="flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150"
+      style={{ fontFamily: 'var(--font-sans)', padding: '0 10px' }}
     >
-      <span className="truncate flex-1">{props.api.title || 'SESSIONS'}</span>
+      <span className="truncate flex-1 min-w-0">{props.api.title || 'SESSIONS'}</span>
       <button
         onClick={handleNewSession}
         className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"

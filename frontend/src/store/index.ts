@@ -221,6 +221,9 @@ export const useStore = create<AppState>((set, get) => ({
       const msgs = [...s.messages]
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
+          if (tool.id && msgs[i].tools && msgs[i].tools!.some((t) => t.id === tool.id)) {
+            return {}
+          }
           msgs[i] = { ...msgs[i], tools: [...(msgs[i].tools || []), tool] }
           break
         }
@@ -267,7 +270,7 @@ export const useStore = create<AppState>((set, get) => ({
       const sessionMsgs = [...(s.sessionMessages[id] || [])]
       let found = false
       for (let i = sessionMsgs.length - 1; i >= 0; i--) {
-        if (sessionMsgs[i].role === 'assistant') {
+        if (sessionMsgs[i].role === 'assistant' && !(sessionMsgs[i].tools && sessionMsgs[i].tools!.length > 0)) {
           sessionMsgs[i] = { ...sessionMsgs[i], content: sessionMsgs[i].content + delta }
           found = true
           break
@@ -283,7 +286,7 @@ export const useStore = create<AppState>((set, get) => ({
         const activeMsgs = [...s.messages]
         let activeFound = false
         for (let i = activeMsgs.length - 1; i >= 0; i--) {
-          if (activeMsgs[i].role === 'assistant') {
+          if (activeMsgs[i].role === 'assistant' && !(activeMsgs[i].tools && activeMsgs[i].tools!.length > 0)) {
             activeMsgs[i] = { ...activeMsgs[i], content: activeMsgs[i].content + delta }
             activeFound = true
             break
@@ -303,7 +306,7 @@ export const useStore = create<AppState>((set, get) => ({
       const sessionMsgs = [...(s.sessionMessages[id] || [])]
       let found = false
       for (let i = sessionMsgs.length - 1; i >= 0; i--) {
-        if (sessionMsgs[i].role === 'assistant') {
+        if (sessionMsgs[i].role === 'assistant' && !(sessionMsgs[i].tools && sessionMsgs[i].tools!.length > 0)) {
           sessionMsgs[i] = { ...sessionMsgs[i], thinking: (sessionMsgs[i].thinking || '') + delta }
           found = true
           break
@@ -319,7 +322,7 @@ export const useStore = create<AppState>((set, get) => ({
         const activeMsgs = [...s.messages]
         let activeFound = false
         for (let i = activeMsgs.length - 1; i >= 0; i--) {
-          if (activeMsgs[i].role === 'assistant') {
+          if (activeMsgs[i].role === 'assistant' && !(activeMsgs[i].tools && activeMsgs[i].tools!.length > 0)) {
             activeMsgs[i] = { ...activeMsgs[i], thinking: (activeMsgs[i].thinking || '') + delta }
             activeFound = true
             break
@@ -337,6 +340,14 @@ export const useStore = create<AppState>((set, get) => ({
   addSessionToolStart: (id, tool) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant' && msgs[i].tools) {
+          if (tool.id && msgs[i].tools!.some((t) => t.id === tool.id)) {
+            return {}
+          }
+          break
+        }
+      }
       let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
@@ -1050,7 +1061,6 @@ export function setupWailsEvents() {
       case 'tool_start':
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-          store.addToolEntry(data.tool.name, data.tool.input || '')
           if (sid === store.activeSessionId) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           }
@@ -1060,6 +1070,7 @@ export function setupWailsEvents() {
       case 'tool_output':
         if (data.tool) {
           store.appendToolOutput(data.tool.output || '')
+          store.finishToolEntry(data.tool.status === 'error' ? 'error' : 'done')
           store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
           if (data.tool.input) {
             store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
@@ -1075,13 +1086,10 @@ export function setupWailsEvents() {
 
       case 'tool_done':
         if (data.tool) {
-          const status = (data.tool.status === 'done' || data.tool.status === 'error') ? data.tool.status : 'done'
-          store.finishToolEntry(status)
-          if (data.tool.input) {
-            store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
-            if (sid === store.activeSessionId) {
-              store.updateToolInput(data.tool.name, data.tool.input)
-            }
+          store.addToolEntry(data.tool.name, data.tool.input || '')
+          store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+          if (sid === store.activeSessionId) {
+            store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           }
         }
         break

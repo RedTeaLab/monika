@@ -8,6 +8,8 @@ export function DefaultTab(props: IDockviewDefaultTabProps) {
       style={{
         ...(props.style || {}),
         fontFamily: 'var(--font-sans)',
+        fontSize: '12px',
+        padding: '0 10px',
       }}
     />
   )
