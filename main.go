@@ -84,16 +84,23 @@ func main() {
 
 	// Discover skills
 	var skillList []engine2.SkillMeta
+	var skEngine engine2.SkillEngine
 	skillEng, err := engine2.EngineByID("skill")
 	if err == nil {
 		if sk, ok := skillEng.(engine2.SkillEngine); ok {
-			discovered, err := sk.Discover(ctx, pr.Config.Skill.Paths)
+			skEngine = sk
+			discovered, err := sk.Discover(ctx, home, cwd, pr.Config.Skill.Paths)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "[monika] skill discover: %v\n", err)
 			} else {
 				skillList = discovered
 			}
 		}
+	}
+
+	// Register skill tool for on-demand skill loading
+	if skEngine != nil {
+		builtin.RegisterSkillTool(registry, skEngine, home, cwd, &pr.Config)
 	}
 
 	application.RegisterEvent[api.StreamEvent]("stream")
@@ -119,6 +126,10 @@ func main() {
 		agent.WithModel(pr.Model),
 		agent.WithSystemPrompt(systemPrompt),
 	}
+
+	// baseSystemPrompt is the system prompt without the skill section,
+	// used by refreshSkillPrompt() to rebuild after install/uninstall.
+	baseSystemPrompt := strings.Join(systemParts, "\n\n")
 
 	// Wire permission pipeline
 	rules, _ := permission.LoadRules(home, cwd)
@@ -204,7 +215,7 @@ func main() {
 		taskStoreAccessor = accessor
 	}
 
-	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner)
+	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, baseSystemPrompt)
 
 	// Wire permission pipeline ConfirmUI to appService so the pipeline
 	// can request user confirmation via the frontend.

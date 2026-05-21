@@ -18,7 +18,7 @@ func NewHardRuleEngine(userRules []Rule, projectDir string) *HardRuleEngine {
 	return &HardRuleEngine{
 		rules:      userRules,
 		projectDir: projectDir,
-		blacklist: []Rule{},
+		blacklist:  []Rule{},
 	}
 }
 
@@ -84,6 +84,10 @@ func (e *HardRuleEngine) extractMatchValue(ctx CheckContext) string {
 	case "file_write", "file_edit":
 		if path, ok := args["path"].(string); ok {
 			return path
+		}
+	case "skill":
+		if name, ok := args["name"].(string); ok {
+			return name
 		}
 	}
 	return ""

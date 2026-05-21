@@ -23,6 +23,7 @@ var readOps = map[string]bool{
 	"grep":      true,
 	"glob":      true,
 	"file_list": true,
+	"skill":     true,
 }
 
 var writeOps = map[string]bool{
@@ -73,7 +74,6 @@ func (p *Pipeline) SetProject(homeDir, projectDir string) {
 	p.projectSlug = filepath.Base(projectDir)
 	p.auditLog = filepath.Join(homeDir, ".monika", "projects", p.projectSlug, "audit.log")
 }
-
 
 // BuiltinRules returns a copy of the built-in blacklist rules.
 func (p *Pipeline) BuiltinRules() []Rule {

@@ -3,6 +3,7 @@ package skill
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -31,38 +32,81 @@ func (e *SkillEngine) Shutdown(_ context.Context) error {
 	return nil
 }
 
-func (e *SkillEngine) Discover(_ context.Context, paths []string) ([]engine.SkillMeta, error) {
+type scanLocation struct {
+	root   string
+	relDir string // e.g. ".opencode/skills" or ".claude/skills"
+	source string
+}
+
+func (e *SkillEngine) Discover(_ context.Context, homeDir string, projectDir string, manualPaths []string) ([]engine.SkillMeta, error) {
+	seen := make(map[string]bool)
 	var skills []engine.SkillMeta
-	for _, p := range paths {
-		entries, err := os.ReadDir(p)
-		if os.IsNotExist(err) {
+
+	locations := []scanLocation{
+		{projectDir, ".opencode/skills", "project-opencode"},
+		{projectDir, ".opencode/skill", "project-opencode"},
+		{projectDir, ".claude/skills", "project-claude"},
+		{projectDir, ".agents/skills", "project-agents"},
+		{homeDir, ".monika/skills", "global-monika"},
+		{homeDir, ".claude/skills", "global-claude"},
+		{homeDir, ".agents/skills", "global-agents"},
+	}
+
+	for _, loc := range locations {
+		found := scanSkillDir(loc.root, loc.relDir, loc.source, seen)
+		skills = append(skills, found...)
+	}
+
+	for _, p := range manualPaths {
+		expanded := p
+		if len(p) > 1 && p[:2] == "~/" {
+			expanded = filepath.Join(homeDir, p[2:])
+		}
+		found := scanSkillDir(expanded, "", "manual", seen)
+		skills = append(skills, found...)
+	}
+
+	return skills, nil
+}
+
+// scanSkillDir scans root/relDir for subdirectories containing SKILL.md.
+// If relDir is empty, scans root directly.
+func scanSkillDir(root, relDir, source string, seen map[string]bool) []engine.SkillMeta {
+	var skills []engine.SkillMeta
+	scanRoot := root
+	if relDir != "" {
+		scanRoot = filepath.Join(root, relDir)
+	}
+	entries, err := os.ReadDir(scanRoot)
+	if err != nil {
+		return nil
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			continue
 		}
+		skillFile := filepath.Join(scanRoot, entry.Name(), "SKILL.md")
+		data, err := os.ReadFile(skillFile)
 		if err != nil {
-			return nil, err
+			continue
 		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			skillPath := filepath.Join(p, entry.Name())
-			skillFile := filepath.Join(skillPath, "SKILL.md")
-			data, err := os.ReadFile(skillFile)
-			if err != nil {
-				continue
-			}
-			name, desc := parseFrontmatter(data)
-			if name == "" {
-				continue
-			}
-			skills = append(skills, engine.SkillMeta{
-				Name:        name,
-				Description: desc,
-				Path:        skillPath,
-			})
+		name, desc := parseFrontmatter(data)
+		if name == "" {
+			continue
 		}
+		if seen[name] {
+			fmt.Fprintf(os.Stderr, "[monika] skill: duplicate name %q, skipping %s\n", name, skillFile)
+			continue
+		}
+		seen[name] = true
+		skills = append(skills, engine.SkillMeta{
+			Name:        name,
+			Description: desc,
+			Path:        filepath.Dir(skillFile),
+			Source:      source,
+		})
 	}
-	return skills, nil
+	return skills
 }
 
 func (e *SkillEngine) Activate(_ context.Context, skill engine.SkillMeta) (engine.SkillContent, error) {

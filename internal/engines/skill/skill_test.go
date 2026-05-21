@@ -35,7 +35,7 @@ func TestSkillDiscoverFindsSKILLMD(t *testing.T) {
 	}
 
 	e := &SkillEngine{}
-	skills, err := e.Discover(context.Background(), []string{dir})
+	skills, err := e.Discover(context.Background(), "", dir, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestSkillDiscoverFindsSKILLMD(t *testing.T) {
 
 func TestSkillDiscoverSkipsMissingDir(t *testing.T) {
 	e := &SkillEngine{}
-	skills, err := e.Discover(context.Background(), []string{"/nonexistent/path"})
+	skills, err := e.Discover(context.Background(), "", "", []string{"/nonexistent/path"})
 	if err != nil {
 		t.Fatal(err)
 	}

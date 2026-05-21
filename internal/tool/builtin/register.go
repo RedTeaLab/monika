@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"monika/internal/agent"
+	"monika/internal/config"
 	"monika/internal/tool"
+	"monika/pkg/engine"
 )
 
 func RegisterDefaults(r *tool.ToolRegistry, projectDir string) error {
@@ -34,4 +36,9 @@ func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
 // Called after AgentRegistry and TaskRunner are created in main.
 func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dispatchFn func(ctx context.Context, task agent.SubTask) <-chan agent.Event, pendingStore func(parentID, childID string)) {
 	r.Register(NewSpawnAgent(registry, dispatchFn, pendingStore))
+}
+
+// RegisterSkillTool registers the skill tool for on-demand skill loading.
+func RegisterSkillTool(r *tool.ToolRegistry, skEng engine.SkillEngine, home, cwd string, cfg *config.Config) {
+	r.Register(NewSkillTool(skEng, home, cwd, cfg))
 }

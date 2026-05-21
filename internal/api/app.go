@@ -3,9 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,6 +25,7 @@ import (
 	engine2 "monika/pkg/engine"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"gopkg.in/yaml.v3"
 )
 
 type childSessionDisk struct {
@@ -53,11 +56,13 @@ type App struct {
 	cancelFuncs map[string]context.CancelFunc
 	cancelMu    sync.Mutex
 
-	agentRegistry   *agent2.AgentRegistry
-	taskRunner      *agent2.TaskRunner
-	childSessions   map[string]*agent2.ChildSession // keyed by child session ID
-	pendingChildren map[string]string               // parentSessionID → childSessionID
-	loopOpts        []agent2.LoopOption
+	agentRegistry     *agent2.AgentRegistry
+	taskRunner        *agent2.TaskRunner
+	childSessions     map[string]*agent2.ChildSession // keyed by child session ID
+	pendingChildren   map[string]string               // parentSessionID → childSessionID
+	loopOpts          []agent2.LoopOption
+	baseLoopOptsCount int // number of opts passed at construction (before refreshSkillPrompt appends)
+	baseSystemPrompt  string
 
 	permissionRequests map[string]chan permission.PermissionResponse
 	permMu             sync.Mutex
@@ -65,7 +70,7 @@ type App struct {
 	pipeline *permission.Pipeline
 }
 
-func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner) *App {
+func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner, baseSystemPrompt string) *App {
 	return &App{
 		home:              home,
 		cfg:               cfg,
@@ -84,7 +89,28 @@ func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.P
 		childSessions:     make(map[string]*agent2.ChildSession),
 		pendingChildren:   make(map[string]string),
 		loopOpts:          loopOpts,
+		baseSystemPrompt:  baseSystemPrompt,
+		baseLoopOptsCount: len(loopOpts),
 	}
+}
+
+// refreshSkillPrompt rebuilds the system prompt in loopOpts with the current skill list.
+// Future sessions will see the updated skills; running sessions keep their existing prompt.
+func (a *App) refreshSkillPrompt() {
+	eng, err := engine2.EngineByID("skill")
+	if err != nil {
+		return
+	}
+	skEng, ok := eng.(engine2.SkillEngine)
+	if !ok {
+		return
+	}
+	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	if err != nil {
+		return
+	}
+	fullPrompt := a.baseSystemPrompt + agent2.BuildSkillsPrompt(skills)
+	a.loopOpts = append(a.loopOpts[:a.baseLoopOptsCount], agent2.WithSystemPrompt(fullPrompt))
 }
 
 // SaveChildSession stores a completed child agent session.
@@ -321,12 +347,38 @@ func (a *App) GetProviders() []ProviderInfo {
 		if displayName == "" {
 			displayName = id
 		}
-		result = append(result, ProviderInfo{ID: id, DisplayName: displayName})
+		models := make([]ModelEntryJSON, 0, len(pc.Models))
+		for _, m := range pc.Models {
+			models = append(models, ModelEntryJSON{
+				ID:           m.ID,
+				Name:         m.DisplayName,
+				ContextLimit: int64(m.ContextLimit),
+			})
+		}
+		result = append(result, ProviderInfo{
+			ID:          id,
+			DisplayName: displayName,
+			BaseURL:     pc.BaseURL,
+			APIKey:      pc.APIKey,
+			WireAPI:     pc.WireAPI,
+			Models:      models,
+		})
 	}
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].ID < result[j].ID
 	})
 	return result
+}
+
+func (a *App) GetDefaultModel() map[string]string {
+	return map[string]string{
+		"provider": a.cfg.ModelProvider,
+		"model":    a.cfg.Model,
+	}
+}
+
+func (a *App) SetDefaultModel(providerID, modelID string) {
+	a.PersistSelection(providerID, modelID)
 }
 
 func (a *App) GetModels(providerID string) ([]engine2.Model, error) {
@@ -442,9 +494,9 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		agent2.WithSessionID(sessionID),
 	)
 	generalAgent, _ := a.agentRegistry.Get("general")
-if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
-			opts = append(opts, agent2.WithModelContextLimit(limit))
-		}
+	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
+		opts = append(opts, agent2.WithModelContextLimit(limit))
+	}
 	opts = append(opts, agent2.WithAgent(generalAgent))
 	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q provider=%q\n", projectPath, providerID)
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
@@ -1522,7 +1574,7 @@ func (a *App) ListSkills() []engine2.SkillMeta {
 	if !ok {
 		return nil
 	}
-	skills, err := skEng.Discover(context.Background(), a.cfg.Skill.Paths)
+	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] ListSkills: %v\n", err)
 		return nil
@@ -1558,7 +1610,243 @@ func (a *App) RemoveSkillPath(args json.RawMessage) error {
 	return nil
 }
 
-// ListMCPServers returns configured MCP servers with their connection status.
+// GetSkillContent returns the SKILL.md content and sibling files for a given skill name.
+func (a *App) GetSkillContent(args json.RawMessage) (SkillContentResult, error) {
+	var req struct{ Name string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return SkillContentResult{}, err
+	}
+	eng, err := engine2.EngineByID("skill")
+	if err != nil {
+		return SkillContentResult{}, err
+	}
+	skEng, ok := eng.(engine2.SkillEngine)
+	if !ok {
+		return SkillContentResult{}, fmt.Errorf("skill engine not available")
+	}
+	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	if err != nil {
+		return SkillContentResult{}, err
+	}
+	var meta *engine2.SkillMeta
+	for i := range skills {
+		if skills[i].Name == req.Name {
+			meta = &skills[i]
+			break
+		}
+	}
+	if meta == nil {
+		return SkillContentResult{}, fmt.Errorf("skill %q not found", req.Name)
+	}
+	content, err := skEng.Activate(context.Background(), *meta)
+	if err != nil {
+		return SkillContentResult{}, err
+	}
+	var files []string
+	entries, _ := os.ReadDir(meta.Path)
+	for _, e := range entries {
+		if e.Name() == "SKILL.md" {
+			continue
+		}
+		files = append(files, filepath.Join(meta.Path, e.Name()))
+	}
+	return SkillContentResult{
+		Content: content.Instructions,
+		Files:   files,
+	}, nil
+}
+
+// InstallSkillFromURL downloads a GitHub repo and installs skills found in it.
+func (a *App) InstallSkillFromURL(args json.RawMessage) ([]string, error) {
+	var req struct {
+		URL   string `json:"url"`
+		Scope string `json:"scope"` // "project" or "global"
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, err
+	}
+	if req.Scope == "" {
+		req.Scope = "project"
+	}
+	owner, repo, err := parseGitHubURL(req.URL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid GitHub URL: %w", err)
+	}
+	zipURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/zipball/main", owner, repo)
+	tmpDir, err := os.MkdirTemp("", "monika-skill-install-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir)
+	zipPath := filepath.Join(tmpDir, "repo.zip")
+	if err := downloadFile(zipURL, zipPath); err != nil {
+		// Retry with master branch
+		zipURL = fmt.Sprintf("https://api.github.com/repos/%s/%s/zipball/master", owner, repo)
+		if err := downloadFile(zipURL, zipPath); err != nil {
+			return nil, fmt.Errorf("failed to download repo (tried main and master): %w", err)
+		}
+	}
+	extractDir := filepath.Join(tmpDir, "extracted")
+	if err := extractZip(zipPath, extractDir); err != nil {
+		return nil, fmt.Errorf("failed to extract zip: %w", err)
+	}
+	installed, err := a.installSkillsFromDir(extractDir, req.Scope)
+	if err == nil {
+		a.refreshSkillPrompt()
+	}
+	return installed, err
+}
+
+// InstallSkillFromZip installs skills from a base64-encoded ZIP file.
+func (a *App) InstallSkillFromZip(args json.RawMessage) ([]string, error) {
+	var req struct {
+		Data  string `json:"data"`
+		Scope string `json:"scope"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, err
+	}
+	if req.Scope == "" {
+		req.Scope = "project"
+	}
+	zipData, err := base64.StdEncoding.DecodeString(req.Data)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base64 data: %w", err)
+	}
+	tmpDir, err := os.MkdirTemp("", "monika-skill-install-*")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir)
+	zipPath := filepath.Join(tmpDir, "upload.zip")
+	if err := os.WriteFile(zipPath, zipData, 0o644); err != nil {
+		return nil, err
+	}
+	extractDir := filepath.Join(tmpDir, "extracted")
+	if err := extractZip(zipPath, extractDir); err != nil {
+		return nil, fmt.Errorf("failed to extract zip: %w", err)
+	}
+	installed, err := a.installSkillsFromDir(extractDir, req.Scope)
+	if err == nil {
+		a.refreshSkillPrompt()
+	}
+	return installed, err
+}
+
+// UninstallSkill removes an installed skill by name.
+func (a *App) UninstallSkill(args json.RawMessage) error {
+	var req struct{ Name string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	eng, err := engine2.EngineByID("skill")
+	if err != nil {
+		return err
+	}
+	skEng, ok := eng.(engine2.SkillEngine)
+	if !ok {
+		return fmt.Errorf("skill engine not available")
+	}
+	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	if err != nil {
+		return err
+	}
+	for _, s := range skills {
+		if s.Name == req.Name {
+			if s.Source != "project-opencode" && s.Source != "global-monika" && s.Source != "manual" {
+				return fmt.Errorf("cannot uninstall auto-discovered skill %q (source: %s)", req.Name, s.Source)
+			}
+			if err := os.RemoveAll(s.Path); err != nil {
+				return err
+			}
+			a.refreshSkillPrompt()
+			return nil
+		}
+	}
+	return fmt.Errorf("skill %q not found", req.Name)
+}
+
+// installSkillsFromDir scans a directory for SKILL.md files and copies them to the target skill directory.
+func (a *App) installSkillsFromDir(scanDir string, scope string) ([]string, error) {
+	var installed []string
+	skillBase := a.skillBaseDir(scope)
+
+	err := filepath.WalkDir(scanDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.Name() != "SKILL.md" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+		name, _ := parseSkillFrontmatter(data)
+		if name == "" || !isValidSkillName(name) {
+			return nil
+		}
+		srcDir := filepath.Dir(path)
+		dstDir := filepath.Join(skillBase, name)
+		if err := copySkillDir(srcDir, dstDir); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] install skill %q: %v\n", name, err)
+			return nil
+		}
+		installed = append(installed, name)
+		return nil
+	})
+	return installed, err
+}
+
+func (a *App) skillBaseDir(scope string) string {
+	if scope == "global" {
+		return filepath.Join(a.home, ".monika", "skills")
+	}
+	return filepath.Join(a.startupCwd, ".opencode", "skills")
+}
+
+// parseGitHubURL extracts owner and repo from various GitHub URL formats.
+func parseGitHubURL(rawURL string) (owner, repo string, err error) {
+	u := strings.TrimSpace(rawURL)
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	u = strings.TrimPrefix(u, "github.com/")
+	u = strings.TrimSuffix(u, ".git")
+	u = strings.TrimSuffix(u, "/")
+	parts := strings.SplitN(u, "/", 3)
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("expected github.com/owner/repo format")
+	}
+	return parts[0], parts[1], nil
+}
+
+// parseSkillFrontmatter parses YAML frontmatter from SKILL.md data.
+
+var skillNameRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
+func isValidSkillName(name string) bool {
+	return len(name) > 0 && len(name) <= 64 && skillNameRE.MatchString(name)
+}
+
+func parseSkillFrontmatter(data []byte) (string, string) {
+	delimiter := []byte("---\n")
+	if !bytes.HasPrefix(data, delimiter) {
+		return "", ""
+	}
+	rest := data[len(delimiter):]
+	end := bytes.Index(rest, delimiter)
+	if end == -1 {
+		return "", ""
+	}
+	var fm struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}
+	if err := yaml.Unmarshal(rest[:end], &fm); err != nil {
+		return "", ""
+	}
+	return fm.Name, fm.Description
+}
 func (a *App) ListMCPServers() []MCPServerInfo {
 	servers := make([]MCPServerInfo, 0, len(a.cfg.MCP.Servers))
 	for _, s := range a.cfg.MCP.Servers {
@@ -1639,6 +1927,7 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 		Name    string               `json:"name"`
 		BaseURL string               `json:"base_url"`
 		APIKey  string               `json:"api_key"`
+		WireAPI string               `json:"wire_api"`
 		Models  []config2.ModelEntry `json:"models"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
@@ -1648,6 +1937,7 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 		Name:    req.Name,
 		BaseURL: req.BaseURL,
 		APIKey:  req.APIKey,
+		WireAPI: req.WireAPI,
 		Models:  req.Models,
 	}
 	if existing, ok := a.cfg.ModelProviders[req.ID]; ok {
@@ -1659,6 +1949,9 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 		}
 		if pc.APIKey == "" {
 			pc.APIKey = existing.APIKey
+		}
+		if pc.WireAPI == "" {
+			pc.WireAPI = existing.WireAPI
 		}
 		if len(pc.Models) == 0 {
 			pc.Models = existing.Models

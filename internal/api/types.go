@@ -7,16 +7,16 @@ import (
 )
 
 type StreamEvent struct {
-	Type       string            `json:"type"`
-	Content    string            `json:"content,omitempty"`
-	SessionID  string            `json:"session_id,omitempty"`
-	Model      string            `json:"model,omitempty"`
-	Tool       *agent.ToolEvent  `json:"tool,omitempty"`
-	AgentUsage *agent.UsageEvent `json:"usage,omitempty"`
-	FileChange *FileChangeEvent       `json:"file_change,omitempty"`
-	Compacting *agent.CompactingEvent `json:"compacting,omitempty"`
-	Compaction *agent.CompactionEvent `json:"compaction,omitempty"`
-	Tasks      []agent.TaskItem         `json:"tasks,omitempty"`
+	Type       string                              `json:"type"`
+	Content    string                              `json:"content,omitempty"`
+	SessionID  string                              `json:"session_id,omitempty"`
+	Model      string                              `json:"model,omitempty"`
+	Tool       *agent.ToolEvent                    `json:"tool,omitempty"`
+	AgentUsage *agent.UsageEvent                   `json:"usage,omitempty"`
+	FileChange *FileChangeEvent                    `json:"file_change,omitempty"`
+	Compacting *agent.CompactingEvent              `json:"compacting,omitempty"`
+	Compaction *agent.CompactionEvent              `json:"compaction,omitempty"`
+	Tasks      []agent.TaskItem                    `json:"tasks,omitempty"`
 	Permission *permission.PermissionRequiredEvent `json:"permission,omitempty"`
 }
 
@@ -85,8 +85,18 @@ type ChangeStat struct {
 
 // ProviderInfo identifies a configured provider for the frontend selector.
 type ProviderInfo struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"display_name"`
+	ID          string           `json:"id"`
+	DisplayName string           `json:"display_name"`
+	BaseURL     string           `json:"base_url"`
+	APIKey      string           `json:"api_key"`
+	WireAPI     string           `json:"wire_api,omitempty"`
+	Models      []ModelEntryJSON `json:"models"`
+}
+
+type ModelEntryJSON struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	ContextLimit int64  `json:"context_limit"`
 }
 
 // TaskStoreAccessor provides access to per-session task storage.
@@ -94,4 +104,10 @@ type TaskStoreAccessor interface {
 	Snapshot() map[string][]tool.Task
 	Restore(sessionID string, tasks []tool.Task)
 	GetTaskStore(sessionID string) tool.TaskStore
+}
+
+// SkillContentResult is the API response for GetSkillContent.
+type SkillContentResult struct {
+	Content string   `json:"content"`
+	Files   []string `json:"files"`
 }

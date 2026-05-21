@@ -7,6 +7,15 @@ import (
 	"monika/pkg/engine"
 )
 
+func xmlEscape(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	s = strings.ReplaceAll(s, "'", "&apos;")
+	s = strings.ReplaceAll(s, "\"", "&quot;")
+	return s
+}
+
 const PromptIdentity = `You are an AI coding assistant running inside Monika, an agentic coding editor.
 
 ## Core Capabilities
@@ -200,16 +209,18 @@ const PromptRemember = `## Remember
 
 // CompactionPrompt is defined in agent_loop.go
 
-// BuildSkillsPrompt returns a system prompt section listing available skills.
+// BuildSkillsPrompt returns a system prompt section listing available skills in XML format.
 func BuildSkillsPrompt(skills []engine.SkillMeta) string {
 	if len(skills) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n\n## Available Skills\n\n")
-	b.WriteString("Use the skill command to invoke a skill by name.\n\n")
+	b.WriteString("\n\nSkills provide specialized instructions and workflows for specific tasks.\n")
+	b.WriteString("Use the skill tool to load a skill when a task matches its description.\n\n")
+	b.WriteString("<available_skills>\n")
 	for _, s := range skills {
-		fmt.Fprintf(&b, "- **%s**: %s\n", s.Name, s.Description)
+		fmt.Fprintf(&b, "  <skill>\n    <name>%s</name>\n    <description>%s</description>\n  </skill>\n", xmlEscape(s.Name), xmlEscape(s.Description))
 	}
+	b.WriteString("</available_skills>")
 	return b.String()
 }
