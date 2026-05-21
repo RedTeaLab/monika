@@ -348,6 +348,8 @@ type AgentLoop struct {
 	providerID        string
 	modelContextLimit int64 // 0 = use hardcoded map + default
 	dispatchFn        func(ctx context.Context, task SubTask) <-chan Event
+	mcpTools          []engine.MCPTool
+	mcpConns          map[string]engine.MCPServerConnection
 }
 
 // SetDispatchFn sets the child dispatch function for this loop.
@@ -417,6 +419,14 @@ func WithAgent(agent Agent) LoopOption {
 
 func WithParent(parent *AgentLoop) LoopOption {
 	return func(a *AgentLoop) { a.parent = parent }
+}
+
+func WithMCPTools(tools []engine.MCPTool) LoopOption {
+	return func(a *AgentLoop) { a.mcpTools = tools }
+}
+
+func WithMCPConnections(conns map[string]engine.MCPServerConnection) LoopOption {
+	return func(a *AgentLoop) { a.mcpConns = conns }
 }
 
 func NewLoop(provider engine.ProviderEngine, tools *tool.ToolRegistry, opts ...LoopOption) *AgentLoop {
@@ -498,11 +508,47 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 		for _, tc := range result.ToolCalls {
 			t, ok := a.tools.Get(tc.Function.Name)
 			if !ok {
-				conv.Messages = append(conv.Messages, engine.ChatMessage{
-					Role:       "tool",
-					Content:    fmt.Sprintf("tool %s not found", tc.Function.Name),
-					ToolCallID: tc.ID,
-				})
+				// Try MCP tools
+				found := false
+				for _, conn := range a.mcpConns {
+					tools, lerr := conn.ListTools(context.Background())
+					if lerr != nil {
+						continue
+					}
+					for _, mt := range tools {
+						if mt.Name == tc.Function.Name {
+							result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+							if cerr != nil {
+								conv.Messages = append(conv.Messages, engine.ChatMessage{
+									Role:       "tool",
+									Content:    fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr),
+									ToolCallID: tc.ID,
+									Name:       tc.Function.Name,
+								})
+							} else {
+								content := string(result)
+								conv.Messages = append(conv.Messages, engine.ChatMessage{
+									Role:       "tool",
+									Content:    content,
+									ToolCallID: tc.ID,
+									Name:       tc.Function.Name,
+								})
+							}
+							found = true
+							break
+						}
+					}
+					if found {
+						break
+					}
+				}
+				if !found {
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role:       "tool",
+						Content:    fmt.Sprintf("tool %s not found", tc.Function.Name),
+						ToolCallID: tc.ID,
+					})
+				}
 				continue
 			}
 
@@ -800,23 +846,68 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 
 			t, ok := a.tools.Get(tc.Function.Name)
 			if !ok {
-				ch <- Event{
-					Type: EventToolOutput,
-					Tool: &ToolEvent{
-						ID:     tc.ID,
-						Name:   tc.Function.Name,
-						Input:  tc.Function.Arguments,
-						Output: fmt.Sprintf("tool %s not found", tc.Function.Name),
-						Status: "error",
-					},
+				// Try MCP tools
+				found := false
+				for _, conn := range a.mcpConns {
+					tools, lerr := conn.ListTools(context.Background())
+					if lerr != nil {
+						continue
+					}
+					for _, mt := range tools {
+						if mt.Name == tc.Function.Name {
+							result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+							if cerr != nil {
+								errMsg := fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr)
+								ch <- Event{
+									Type: EventToolOutput,
+									Tool: &ToolEvent{
+										ID: tc.ID, Name: tc.Function.Name,
+										Input: tc.Function.Arguments, Output: errMsg, Status: "error",
+									},
+								}
+								executed[dk] = cachedResult{output: errMsg, status: "error"}
+								conv.Messages = append(conv.Messages, engine.ChatMessage{
+									Role: "tool", Content: errMsg,
+									ToolCallID: tc.ID, Name: tc.Function.Name,
+								})
+							} else {
+								content := string(result)
+								ch <- Event{
+									Type: EventToolOutput,
+									Tool: &ToolEvent{
+										ID: tc.ID, Name: tc.Function.Name,
+										Input: tc.Function.Arguments, Output: content, Status: "done",
+									},
+								}
+								executed[dk] = cachedResult{output: content, status: "done"}
+								conv.Messages = append(conv.Messages, engine.ChatMessage{
+									Role: "tool", Content: content,
+									ToolCallID: tc.ID, Name: tc.Function.Name,
+								})
+							}
+							found = true
+							break
+						}
+					}
+					if found {
+						break
+					}
 				}
-				errMsg := fmt.Sprintf("tool %s not found", tc.Function.Name)
-				executed[dk] = cachedResult{output: errMsg, status: "error"}
-				conv.Messages = append(conv.Messages, engine.ChatMessage{
-					Role:       "tool",
-					Content:    errMsg,
-					ToolCallID: tc.ID,
-				})
+				if !found {
+					errMsg := fmt.Sprintf("tool %s not found", tc.Function.Name)
+					ch <- Event{
+						Type: EventToolOutput,
+						Tool: &ToolEvent{
+							ID: tc.ID, Name: tc.Function.Name,
+							Input: tc.Function.Arguments, Output: errMsg, Status: "error",
+						},
+					}
+					executed[dk] = cachedResult{output: errMsg, status: "error"}
+					conv.Messages = append(conv.Messages, engine.ChatMessage{
+						Role: "tool", Content: errMsg,
+						ToolCallID: tc.ID,
+					})
+				}
 				continue
 			}
 
@@ -999,7 +1090,8 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 
 func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 	tools := a.tools.List()
-	defs := make([]engine.ToolDef, 0, len(tools))
+	n := len(tools) + len(a.mcpTools)
+	defs := make([]engine.ToolDef, 0, n)
 	isChild := strings.HasPrefix(a.sessionID, "call_") || strings.HasPrefix(a.sessionID, "sub_")
 	for _, t := range tools {
 		if isChild && t.Name() == "spawn_agent" {
@@ -1011,6 +1103,21 @@ func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 				Name:        t.Name(),
 				Description: t.Description(),
 				Parameters:  t.Parameters(),
+			},
+		})
+	}
+	// Append MCP tools
+	for _, mt := range a.mcpTools {
+		var params map[string]any
+		if len(mt.InputSchema) > 0 {
+			json.Unmarshal(mt.InputSchema, &params)
+		}
+		defs = append(defs, engine.ToolDef{
+			Type: "function",
+			Function: engine.ToolFunction{
+				Name:        mt.Name,
+				Description: mt.Description,
+				Parameters:  params,
 			},
 		})
 	}

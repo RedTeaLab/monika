@@ -54,6 +54,48 @@ func main() {
 	taskStore := builtin.NewTaskStore(nil)
 	builtin.RegisterTasks(registry, taskStore)
 
+	// Connect MCP servers and collect tools
+	var mcpConns map[string]engine2.MCPServerConnection
+	var mcpToolList []engine2.MCPTool
+	mcpEng, err := engine2.EngineByID("mcp")
+	if err == nil {
+		if mcp, ok := mcpEng.(engine2.MCPEngine); ok {
+			mcpConns = make(map[string]engine2.MCPServerConnection)
+			for _, srv := range pr.Config.MCP.Servers {
+				cfg := engine2.MCPServerConfig{
+					ID: srv.ID, Command: srv.Command,
+					Args: srv.Args, Env: srv.Env,
+				}
+				conn, err := mcp.ConnectServer(ctx, cfg)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[monika] MCP server %q connect failed: %v\n", srv.ID, err)
+					continue
+				}
+				mcpConns[srv.ID] = conn
+				tools, err := conn.ListTools(ctx)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[monika] MCP server %q list tools: %v\n", srv.ID, err)
+					continue
+				}
+				mcpToolList = append(mcpToolList, tools...)
+			}
+		}
+	}
+
+	// Discover skills
+	var skillList []engine2.SkillMeta
+	skillEng, err := engine2.EngineByID("skill")
+	if err == nil {
+		if sk, ok := skillEng.(engine2.SkillEngine); ok {
+			discovered, err := sk.Discover(ctx, pr.Config.Skill.Paths)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[monika] skill discover: %v\n", err)
+			} else {
+				skillList = discovered
+			}
+		}
+	}
+
 	application.RegisterEvent[api.StreamEvent]("stream")
 
 	systemParts := []string{
@@ -70,6 +112,8 @@ func main() {
 		systemParts = append(systemParts, p)
 	}
 	systemPrompt := strings.Join(systemParts, "\n\n")
+	skillsPrompt := agent.BuildSkillsPrompt(skillList)
+	systemPrompt = systemPrompt + skillsPrompt
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
@@ -82,6 +126,12 @@ func main() {
 	pipeline := permission.NewPipeline(permission.Auto, hardRuleEngine, nil)
 	pipeline.SetProject(home, cwd)
 	loopOpts = append(loopOpts, agent.WithPermissionPipeline(pipeline))
+
+	// MCP tools and connections
+	loopOpts = append(loopOpts,
+		agent.WithMCPTools(mcpToolList),
+		agent.WithMCPConnections(mcpConns),
+	)
 
 	// Build agent registry with builtin agents
 	agentRegistry := agent.NewAgentRegistry([]agent.Agent{
@@ -102,6 +152,7 @@ func main() {
 			Hidden:       true,
 		},
 	})
+	agentRegistry.MergeConfig(pr.Config.Agents)
 
 	// Resolve default provider engine for task runner
 	defaultProvider, ok := pr.Providers[pr.Config.ModelProvider]

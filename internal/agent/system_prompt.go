@@ -1,5 +1,12 @@
 package agent
 
+import (
+	"fmt"
+	"strings"
+
+	"monika/pkg/engine"
+)
+
 const PromptIdentity = `You are an AI coding assistant running inside Monika, an agentic coding editor.
 
 ## Core Capabilities
@@ -192,3 +199,17 @@ const PromptRemember = `## Remember
 - When in doubt, do the smallest thing that works`
 
 // CompactionPrompt is defined in agent_loop.go
+
+// BuildSkillsPrompt returns a system prompt section listing available skills.
+func BuildSkillsPrompt(skills []engine.SkillMeta) string {
+	if len(skills) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\n## Available Skills\n\n")
+	b.WriteString("Use the skill command to invoke a skill by name.\n\n")
+	for _, s := range skills {
+		fmt.Fprintf(&b, "- **%s**: %s\n", s.Name, s.Description)
+	}
+	return b.String()
+}

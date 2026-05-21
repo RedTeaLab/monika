@@ -341,6 +341,80 @@ func TestParseSizeErrors(t *testing.T) {
 	}
 }
 
+func TestLoadFromJSON(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustWrite(t, filepath.Join(home, ".monika", "config.json"), []byte(`{
+  "model_provider": "openai",
+  "model": "gpt-4"
+}`))
+	cfg, err := Load(Options{HomeDir: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.ModelProvider != "openai" || cfg.Model != "gpt-4" {
+		t.Fatalf("model_provider=%q model=%q", cfg.ModelProvider, cfg.Model)
+	}
+}
+
+func TestLoadMergesJSONAndYAML(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	mustWrite(t, filepath.Join(home, ".monika", "config.yaml"), []byte(`model: gpt-4`))
+	mustWrite(t, filepath.Join(home, ".monika", "config.json"), []byte(`{"model": "gpt-4o"}`))
+	cfg, err := Load(Options{HomeDir: home})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Model != "gpt-4o" {
+		t.Fatalf("expected gpt-4o from JSON, got %q", cfg.Model)
+	}
+}
+
+func TestLoadMergesAgents(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	project := filepath.Join(tmp, "project")
+	mustWrite(t, filepath.Join(home, ".monika", "config.json"), []byte(`{
+  "agents": [{"name": "my-agent", "description": "home desc", "model": "gpt-4"}]
+}`))
+	mustWrite(t, filepath.Join(project, ".monika", "config.json"), []byte(`{
+  "agents": [{"name": "my-agent", "description": "project desc"}]
+}`))
+	cfg, err := Load(Options{HomeDir: home, ProjectDir: project})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Agents) != 1 {
+		t.Fatalf("expected 1 agent, got %d", len(cfg.Agents))
+	}
+	if cfg.Agents[0].Description != "project desc" {
+		t.Fatalf("project should override, got %q", cfg.Agents[0].Description)
+	}
+	if cfg.Agents[0].Model != "gpt-4" {
+		t.Fatalf("home model should survive, got %q", cfg.Agents[0].Model)
+	}
+}
+
+func TestLoadAppendsAgents(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	project := filepath.Join(tmp, "project")
+	mustWrite(t, filepath.Join(home, ".monika", "config.json"), []byte(`{
+  "agents": [{"name": "agent-a"}]
+}`))
+	mustWrite(t, filepath.Join(project, ".monika", "config.json"), []byte(`{
+  "agents": [{"name": "agent-b"}]
+}`))
+	cfg, err := Load(Options{HomeDir: home, ProjectDir: project})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(cfg.Agents))
+	}
+}
+
 func mustWrite(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

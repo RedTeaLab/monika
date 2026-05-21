@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,12 +16,25 @@ type Options struct {
 }
 
 type Config struct {
-	ModelProvider  string                    `yaml:"model_provider"`
-	Model          string                    `yaml:"model"`
-	ModelProviders map[string]ProviderConfig `yaml:"model_providers"`
-	Skill          SkillConfig               `yaml:"skill"`
-	MCP            MCPConfig                 `yaml:"mcp"`
-	Tools          ToolsConfig               `yaml:"tools"`
+	ModelProvider  string                    `yaml:"model_provider" json:"model_provider"`
+	Model          string                    `yaml:"model" json:"model"`
+	ModelProviders map[string]ProviderConfig `yaml:"model_providers" json:"model_providers"`
+	Agents         []AgentEntry              `yaml:"agents" json:"agents"`
+	Skill          SkillConfig               `yaml:"skill" json:"skill"`
+	MCP            MCPConfig                 `yaml:"mcp" json:"mcp"`
+	Tools          ToolsConfig               `yaml:"tools" json:"tools"`
+}
+
+// AgentEntry defines a configurable agent that can be referenced by name.
+type AgentEntry struct {
+	Name         string            `yaml:"name" json:"name"`
+	Description  string            `yaml:"description,omitempty" json:"description,omitempty"`
+	Model        string            `yaml:"model,omitempty" json:"model,omitempty"`
+	SystemPrompt string            `yaml:"system_prompt,omitempty" json:"system_prompt,omitempty"`
+	Temperature  *float64          `yaml:"temperature,omitempty" json:"temperature,omitempty"`
+	Hidden       bool              `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	Disabled     bool              `yaml:"disabled,omitempty" json:"disabled,omitempty"`
+	Permission   map[string]string `yaml:"permission,omitempty" json:"permission,omitempty"`
 }
 
 // ContextLimit is an optional token limit override for a model.
@@ -95,57 +109,75 @@ func parseSize(s string) (int64, error) {
 }
 
 type ModelEntry struct {
-	ID           string       `yaml:"id"`
-	DisplayName  string       `yaml:"name"`
-	ContextLimit ContextLimit `yaml:"context_limit,omitempty"`
+	ID           string       `yaml:"id" json:"id"`
+	DisplayName  string       `yaml:"name" json:"name"`
+	ContextLimit ContextLimit `yaml:"context_limit,omitempty" json:"context_limit,omitempty"`
 }
 
 type ProviderConfig struct {
-	Name    string       `yaml:"name"`
-	BaseURL string       `yaml:"base_url"`
-	APIKey  string       `yaml:"api_key"`
-	WireAPI string       `yaml:"wire_api"`
-	Models  []ModelEntry `yaml:"models"`
+	Name    string       `yaml:"name" json:"name"`
+	BaseURL string       `yaml:"base_url" json:"base_url"`
+	APIKey  string       `yaml:"api_key" json:"api_key"`
+	WireAPI string       `yaml:"wire_api" json:"wire_api"`
+	Models  []ModelEntry `yaml:"models" json:"models"`
 }
 
 type SkillConfig struct {
-	Paths []string `yaml:"paths"`
+	Paths []string `yaml:"paths" json:"paths"`
 }
 
 type MCPConfig struct {
-	Servers []MCPServerEntry `yaml:"servers"`
+	Servers []MCPServerEntry `yaml:"servers" json:"servers"`
 }
 
 type MCPServerEntry struct {
-	ID      string            `yaml:"id"`
-	Command string            `yaml:"command"`
-	Args    []string          `yaml:"args"`
-	Env     map[string]string `yaml:"env"`
+	ID      string            `yaml:"id" json:"id"`
+	Command string            `yaml:"command" json:"command"`
+	Args    []string          `yaml:"args" json:"args"`
+	Env     map[string]string `yaml:"env" json:"env"`
 }
 
 type RuleConfig struct {
-	Tool     string `yaml:"tool"`
-	Pattern  string `yaml:"pattern"`
-	Decision string `yaml:"decision"`
+	Tool     string `yaml:"tool" json:"tool"`
+	Pattern  string `yaml:"pattern" json:"pattern"`
+	Decision string `yaml:"decision" json:"decision"`
 }
 
 type ToolsConfig struct {
-	Confirm  []string     `yaml:"confirm"`
-	Disallow []string     `yaml:"disallow"`
-	Rules    []RuleConfig `yaml:"rules"`
+	Confirm  []string     `yaml:"confirm" json:"confirm"`
+	Disallow []string     `yaml:"disallow" json:"disallow"`
+	Rules    []RuleConfig `yaml:"rules" json:"rules"`
 }
 
 func Load(opts Options) (Config, error) {
 	var cfg Config
 
 	if opts.HomeDir != "" {
-		if err := mergeFile(&cfg, filepath.Join(opts.HomeDir, ".monika", "config.yaml")); err != nil {
-			return Config{}, err
+		jsonPath := filepath.Join(opts.HomeDir, ".monika", "config.json")
+		yamlPath := filepath.Join(opts.HomeDir, ".monika", "config.yaml")
+		if _, err := os.Stat(jsonPath); err == nil {
+			if err := mergeFileJSON(&cfg, jsonPath); err != nil {
+				return Config{}, err
+			}
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			if err := mergeFile(&cfg, yamlPath); err != nil {
+				return Config{}, err
+			}
+			migrateToJSON(jsonPath, cfg)
 		}
 	}
 	if opts.ProjectDir != "" {
-		if err := mergeFile(&cfg, filepath.Join(opts.ProjectDir, ".monika", "config.yaml")); err != nil {
-			return Config{}, err
+		jsonPath := filepath.Join(opts.ProjectDir, ".monika", "config.json")
+		yamlPath := filepath.Join(opts.ProjectDir, ".monika", "config.yaml")
+		if _, err := os.Stat(jsonPath); err == nil {
+			if err := mergeFileJSON(&cfg, jsonPath); err != nil {
+				return Config{}, err
+			}
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			if err := mergeFile(&cfg, yamlPath); err != nil {
+				return Config{}, err
+			}
+			migrateToJSON(jsonPath, cfg)
 		}
 	}
 	return cfg, nil
@@ -162,6 +194,22 @@ func mergeFile(dst *Config, path string) error {
 
 	var src Config
 	if err := yaml.Unmarshal(data, &src); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	merge(dst, src)
+	return nil
+}
+
+func mergeFileJSON(dst *Config, path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var src Config
+	if err := json.Unmarshal(data, &src); err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
 	merge(dst, src)
@@ -216,17 +264,43 @@ func merge(dst *Config, src Config) {
 	if len(src.Tools.Rules) > 0 {
 		dst.Tools.Rules = append(dst.Tools.Rules, src.Tools.Rules...)
 	}
+	if len(src.Agents) > 0 {
+		existingByName := make(map[string]int)
+		for i, a := range dst.Agents {
+			existingByName[a.Name] = i
+		}
+		for _, a := range src.Agents {
+			if idx, ok := existingByName[a.Name]; ok {
+				target := &dst.Agents[idx]
+				if a.Description != "" {
+					target.Description = a.Description
+				}
+				if a.Model != "" {
+					target.Model = a.Model
+				}
+				if a.SystemPrompt != "" {
+					target.SystemPrompt = a.SystemPrompt
+				}
+				if a.Temperature != nil {
+					target.Temperature = a.Temperature
+				}
+				target.Hidden = a.Hidden
+				target.Disabled = a.Disabled
+				if a.Permission != nil {
+					target.Permission = a.Permission
+				}
+			} else {
+				dst.Agents = append(dst.Agents, a)
+			}
+		}
+	}
 }
 
-func mergeMap(dst, src map[string]any) map[string]any {
-	if dst == nil && len(src) == 0 {
-		return dst
+func migrateToJSON(path string, cfg Config) {
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return
 	}
-	if dst == nil {
-		dst = make(map[string]any, len(src))
-	}
-	for key, value := range src {
-		dst[key] = value
-	}
-	return dst
+	os.WriteFile(path, data, 0600)
 }
+

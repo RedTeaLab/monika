@@ -65,6 +65,41 @@ interface FileTabInfo {
   mode: 'edit' | 'diff'
 }
 
+export interface AgentInfo {
+  name: string
+  description: string
+  systemPrompt: string
+  model: string
+  provider: string
+  temperature?: number
+  hidden: boolean
+  disabled: boolean
+  isCustom: boolean
+  source: 'builtin' | 'custom'
+  permission: Record<string, string>
+}
+
+export interface SkillInfo {
+  name: string
+  description: string
+  path: string
+}
+
+export interface MCPServerInfo {
+  id: string
+  command: string
+  args: string[]
+  status: 'connected' | 'disconnected'
+}
+
+export interface ProviderFull {
+  id: string
+  name: string
+  baseURL: string
+  apiKey: string
+  models: { id: string; name: string; contextLimit?: number }[]
+}
+
 interface AppState {
   messages: Message[]
   generatingSessionIds: string[]
@@ -100,6 +135,11 @@ interface AppState {
   pendingPermission: PermissionRequiredEvent | null
   permissionMode: 'auto' | 'manual'
   permissionRules: { tool: string; pattern: string; decision: string; source: string; createdAt: string }[]
+  agents: AgentInfo[]
+  skills: SkillInfo[]
+  skillPaths: string[]
+  mcpServers: MCPServerInfo[]
+  providerDetails: ProviderFull[]
   settingsOpen: boolean
 
   addMessage: (msg: Message) => void
@@ -163,6 +203,18 @@ interface AppState {
   loadPermissionRules: () => Promise<void>
   addPermissionRule: (tool: string, pattern: string, decision: string, source: string) => Promise<void>
   deletePermissionRule: (tool: string, pattern: string, source: string) => Promise<void>
+  loadAgents: () => Promise<void>
+  saveAgent: (agent: AgentInfo) => Promise<void>
+  deleteAgent: (name: string) => Promise<void>
+  loadSkills: () => Promise<void>
+  addSkillPath: (path: string) => Promise<void>
+  removeSkillPath: (path: string) => Promise<void>
+  loadMCPServers: () => Promise<void>
+  saveMCPServer: (srv: MCPServerInfo) => Promise<void>
+  deleteMCPServer: (id: string) => Promise<void>
+  loadProviderDetails: () => Promise<void>
+  saveProviderDetail: (cfg: ProviderFull) => Promise<void>
+  deleteProviderDetail: (id: string) => Promise<void>
   resetProjectState: () => void
 }
 
@@ -201,6 +253,11 @@ export const useStore = create<AppState>((set, get) => ({
   pendingPermission: null as PermissionRequiredEvent | null,
   permissionMode: 'auto',
   permissionRules: [],
+  agents: [],
+  skills: [],
+  skillPaths: [],
+  mcpServers: [],
+  providerDetails: [],
   settingsOpen: false,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
@@ -922,6 +979,74 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
+  loadAgents: async () => {
+    try {
+      const agents = await Call.ByName('monika/internal/api.App.ListAgents')
+      set({ agents: agents || [] })
+    } catch { set({ agents: [] }) }
+  },
+
+  saveAgent: async (agent) => {
+    await Call.ByName('monika/internal/api.App.SaveAgent', agent)
+    await get().loadAgents()
+  },
+
+  deleteAgent: async (name) => {
+    await Call.ByName('monika/internal/api.App.DeleteAgent', { name })
+    await get().loadAgents()
+  },
+
+  loadSkills: async () => {
+    try {
+      const skills = await Call.ByName('monika/internal/api.App.ListSkills')
+      set({ skills: skills || [] })
+    } catch { set({ skills: [] }) }
+  },
+
+  addSkillPath: async (path) => {
+    await Call.ByName('monika/internal/api.App.AddSkillPath', { path })
+    await get().loadSkills()
+  },
+
+  removeSkillPath: async (path) => {
+    await Call.ByName('monika/internal/api.App.RemoveSkillPath', { path })
+    await get().loadSkills()
+  },
+
+  loadMCPServers: async () => {
+    try {
+      const servers = await Call.ByName('monika/internal/api.App.ListMCPServers')
+      set({ mcpServers: servers || [] })
+    } catch { set({ mcpServers: [] }) }
+  },
+
+  saveMCPServer: async (srv) => {
+    await Call.ByName('monika/internal/api.App.SaveMCPServer', srv)
+    await get().loadMCPServers()
+  },
+
+  deleteMCPServer: async (id) => {
+    await Call.ByName('monika/internal/api.App.DeleteMCPServer', { id })
+    await get().loadMCPServers()
+  },
+
+  loadProviderDetails: async () => {
+    try {
+      const providers = await Call.ByName('monika/internal/api.App.GetProviders')
+      set({ providerDetails: providers || [] })
+    } catch { set({ providerDetails: [] }) }
+  },
+
+  saveProviderDetail: async (cfg) => {
+    await Call.ByName('monika/internal/api.App.SaveProvider', cfg)
+    await get().loadProviderDetails()
+  },
+
+  deleteProviderDetail: async (id) => {
+    await Call.ByName('monika/internal/api.App.DeleteProvider', { id })
+    await get().loadProviderDetails()
+  },
+
   resetProjectState: () => {
     console.log('[monika] resetProjectState called');
     set({
@@ -952,6 +1077,11 @@ export const useStore = create<AppState>((set, get) => ({
       pendingPermission: null,
       permissionMode: 'auto',
       permissionRules: [],
+      agents: [],
+      skills: [],
+      skillPaths: [],
+      mcpServers: [],
+      providerDetails: [],
 
       settingsOpen: false,
       fileTreeVersion: 0,
