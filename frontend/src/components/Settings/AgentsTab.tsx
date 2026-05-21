@@ -1,12 +1,215 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore, AgentInfo } from '../../store'
+import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
+
+// ── Inline model picker (same style as Chat ModelPicker) ──────────────
+
+function InlineModelPicker({
+  value,
+  onChange,
+  providers,
+  modelsByProvider,
+  onLoadModels,
+}: {
+  value: string
+  onChange: (v: string) => void
+  providers: ProviderInfo[]
+  modelsByProvider: Record<string, ModelInfo[]>
+  onLoadModels: (id: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [focusIdx, setFocusIdx] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    for (const p of providers) {
+      if (!modelsByProvider[p.id]) onLoadModels(p.id)
+    }
+  }, [open, providers, modelsByProvider, onLoadModels])
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useEffect(() => {
+    if (open) {
+      setSearch('')
+      setFocusIdx(0)
+      setTimeout(() => searchRef.current?.focus(), 0)
+    }
+  }, [open])
+
+  type FlatItem =
+    | { type: 'inherit' }
+    | { type: 'provider'; provider: ProviderInfo }
+    | { type: 'model'; provider: ProviderInfo; model: ModelInfo }
+
+  const flatItems = useMemo((): FlatItem[] => {
+    const items: FlatItem[] = [{ type: 'inherit' }]
+    const q = search.toLowerCase()
+    for (const p of providers) {
+      const models = modelsByProvider[p.id] || []
+      const filtered = q
+        ? models.filter((m) => m.DisplayName.toLowerCase().includes(q) || m.ID.toLowerCase().includes(q))
+        : models
+      if (filtered.length === 0) continue
+      if (providers.length > 1) items.push({ type: 'provider', provider: p })
+      for (const m of filtered) items.push({ type: 'model', provider: p, model: m })
+    }
+    return items
+  }, [providers, modelsByProvider, search])
+
+  useEffect(() => {
+    if (focusIdx >= flatItems.length) setFocusIdx(Math.max(0, flatItems.length - 1))
+  }, [flatItems.length, focusIdx])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { setOpen(false); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusIdx((i) => Math.min(i + 1, flatItems.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusIdx((i) => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      const item = flatItems[focusIdx]
+      if (item?.type === 'inherit') { onChange(''); setOpen(false) }
+      else if (item?.type === 'model') { onChange(`${item.provider.id}/${item.model.ID}`); setOpen(false) }
+    }
+  }
+
+  // Resolve display text for current value
+  let displayText = 'Inherit (use default)'
+  if (value) {
+    const [pid, ...rest] = value.split('/')
+    const mid = rest.join('/')
+    const p = providers.find((x) => x.id === pid)
+    const m = p && (modelsByProvider[p.id] || []).find((x) => x.ID === mid)
+    displayText = m ? `${p.display_name} / ${m.DisplayName}` : value
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-2 py-1.5 text-[12px] rounded border cursor-pointer flex items-center justify-between mb-3"
+        style={{
+          background: 'var(--bg-card)',
+          borderColor: 'var(--border)',
+          color: 'var(--text-primary)',
+          fontFamily: 'inherit',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-dim)' }}>{displayText}</span>
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <polyline points="2,3 4,5 6,3" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: '4px',
+            width: '100%',
+            maxHeight: '260px',
+            overflowY: 'auto',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-strong)',
+            borderRadius: 'var(--radius-md, 6px)',
+            padding: '4px',
+            zIndex: 1000,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          }}
+        >
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setFocusIdx(0) }}
+            onKeyDown={handleKeyDown}
+            placeholder="Search models..."
+            className="text-[11px] w-full px-2 py-1 rounded border mb-1 outline-none"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+          />
+          {flatItems.length === 0 ? (
+            <div className="text-[11px] text-[var(--text-dim)] px-2 py-1">No matches</div>
+          ) : (
+            flatItems.map((item, idx) => {
+              if (item.type === 'inherit') {
+                const active = idx === focusIdx
+                return (
+                  <button
+                    key="__inherit"
+                    type="button"
+                    onClick={() => { onChange(''); setOpen(false) }}
+                    onMouseEnter={() => setFocusIdx(idx)}
+                    className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer flex items-center justify-between"
+                    style={{ background: active ? 'var(--bg-hover)' : 'transparent', color: !value ? 'var(--accent)' : 'var(--text-dim)', border: 'none', fontFamily: 'inherit' }}
+                  >
+                    <span>Inherit (use default)</span>
+                    {!value && (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2,6 5,9 10,3" /></svg>
+                    )}
+                  </button>
+                )
+              }
+              if (item.type === 'provider') {
+                return (
+                  <div key={`p-${item.provider.id}`} className="text-[10px] font-semibold uppercase tracking-[0.05em] px-2 pt-2 pb-0.5" style={{ color: 'var(--text-dim)' }}>
+                    {item.provider.display_name}
+                  </div>
+                )
+              }
+              const m = item.model
+              const isSelected = value === `${item.provider.id}/${m.ID}`
+              const active = idx === focusIdx
+              return (
+                <button
+                  key={`m-${item.provider.id}-${m.ID}`}
+                  type="button"
+                  onClick={() => { onChange(`${item.provider.id}/${m.ID}`); setOpen(false) }}
+                  onMouseEnter={() => setFocusIdx(idx)}
+                  className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer flex items-center justify-between"
+                  style={{
+                    background: active ? 'var(--bg-hover)' : isSelected ? 'var(--accent-muted, var(--bg-hover))' : 'transparent',
+                    color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
+                    border: 'none',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span>{m.DisplayName}</span>
+                  {isSelected && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2,6 5,9 10,3" /></svg>
+                  )}
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── AgentsTab ─────────────────────────────────────────────────────────
 
 function AgentsTab() {
   const agents = useStore((s) => s.agents)
   const loadAgents = useStore((s) => s.loadAgents)
   const saveAgent = useStore((s) => s.saveAgent)
   const deleteAgent = useStore((s) => s.deleteAgent)
+  const availableProviders = useStore((s) => s.availableProviders)
+  const modelsByProvider = useStore((s) => s.modelsByProvider)
+  const loadModelsForProvider = useStore((s) => s.loadModelsForProvider)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<AgentInfo | null>(null)
@@ -22,9 +225,7 @@ function AgentsTab() {
   const [newRuleTool, setNewRuleTool] = useState('')
   const [newRuleDecision, setNewRuleDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
 
-  useEffect(() => {
-    loadAgents()
-  }, [])
+  useEffect(() => { loadAgents() }, [])
 
   const openAdd = () => {
     setEditing(null)
@@ -232,12 +433,12 @@ function AgentsTab() {
               <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
                 Model
               </label>
-              <input
-                type="text"
+              <InlineModelPicker
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-                placeholder="provider/model or empty to inherit"
+                onChange={setModel}
+                providers={availableProviders}
+                modelsByProvider={modelsByProvider}
+                onLoadModels={loadModelsForProvider}
               />
 
               {/* Temperature */}

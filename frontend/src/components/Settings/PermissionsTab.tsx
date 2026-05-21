@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
+import Modal, { ModalActions, ModalButton } from '../ui/Modal'
 
 const TOOLS = [
   'bash', 'file_read', 'file_write', 'file_edit', 'file_list',
@@ -138,34 +138,11 @@ function AddRuleModal({
   const [source, setSource] = useState<'global' | 'project'>('project')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const cancelRef = useRef<HTMLButtonElement>(null)
-  const addRef = useRef<HTMLButtonElement>(null)
-  const triggerRef = useRef<Element | null>(null)
   const patternRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    triggerRef.current = document.activeElement
     patternRef.current?.focus()
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
-      ;(triggerRef.current as HTMLElement)?.focus()
-    }
   }, [])
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && !loading) { onClose(); return }
-    if (e.key === 'Tab') {
-      const cancel = cancelRef.current
-      const add = addRef.current
-      if (e.shiftKey) {
-        if (document.activeElement === cancel) { e.preventDefault(); add?.focus() }
-      } else {
-        if (document.activeElement === add) { e.preventDefault(); cancel?.focus() }
-      }
-    }
-  }, [loading, onClose])
 
   const handleAdd = async () => {
     setError('')
@@ -180,93 +157,45 @@ function AddRuleModal({
     }
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
-      onClick={loading ? undefined : onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="add-rule-title"
-        className="bg-[var(--bg-elevated)] rounded-[var(--radius-lg)] w-[420px] p-5"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        <h2 id="add-rule-title" className="text-[14px] font-semibold text-[var(--text-primary)] m-0 mb-4">
-          Add Permission Rule
-        </h2>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-              Tool
-            </label>
-            <DropdownSelect
-              value={tool}
-              options={TOOLS.map((t) => ({ value: t, label: t }))}
-              onChange={setTool}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-              Pattern
-            </label>
-            <input
-              ref={patternRef}
-              type="text"
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-              placeholder="* wildcard, empty matches all"
-              className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)]"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-              Decision
-            </label>
-            <DropdownSelect
-              value={decision}
-              options={DECISIONS}
-              onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')}
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-              Source
-            </label>
-            <DropdownSelect
-              value={source}
-              options={SOURCES}
-              onChange={(v) => setSource(v as 'global' | 'project')}
-            />
-          </div>
+  return (
+    <Modal onClose={onClose} loading={loading} width={420}>
+      <h2 className="text-[14px] font-semibold text-[var(--text-primary)] m-0 mb-4">
+        Add Permission Rule
+      </h2>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div>
+          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Tool</label>
+          <DropdownSelect value={tool} options={TOOLS.map((t) => ({ value: t, label: t }))} onChange={setTool} />
         </div>
-        {error && (
-          <p className="text-[11px] text-[var(--red)] m-0 mb-3">{error}</p>
-        )}
-        <div className="flex justify-end gap-2">
-          <button
-            ref={cancelRef}
-            onClick={onClose}
-            disabled={loading}
-            className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] px-3 py-1.5 text-[13px] rounded-[2px] transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            ref={addRef}
-            onClick={handleAdd}
-            disabled={loading}
-            className="bg-[var(--accent)] text-white px-3 py-1.5 text-[13px] rounded-[2px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Adding...' : 'Add'}
-          </button>
+        <div>
+          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Pattern</label>
+          <input
+            ref={patternRef}
+            type="text"
+            value={pattern}
+            onChange={(e) => setPattern(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+            placeholder="* wildcard, empty matches all"
+            className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)]"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Decision</label>
+          <DropdownSelect value={decision} options={DECISIONS} onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')} />
+        </div>
+        <div>
+          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Source</label>
+          <DropdownSelect value={source} options={SOURCES} onChange={(v) => setSource(v as 'global' | 'project')} />
         </div>
       </div>
-    </div>,
-    document.body
+      {error && <p className="text-[11px] text-[var(--red)] m-0 mb-3">{error}</p>}
+      <ModalActions>
+        <ModalButton onClick={onClose} disabled={loading}>Cancel</ModalButton>
+        <ModalButton variant="primary" onClick={handleAdd} disabled={loading}>
+          {loading ? 'Adding...' : 'Add'}
+        </ModalButton>
+      </ModalActions>
+    </Modal>
   )
 }
 

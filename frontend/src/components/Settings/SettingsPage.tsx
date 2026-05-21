@@ -8,15 +8,15 @@ import ModelsTab from './ModelsTab'
 type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models'
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'models', label: 'Providers' },
   { id: 'agents', label: 'Agents' },
   { id: 'permissions', label: 'Permissions' },
   { id: 'skills', label: 'Skills' },
   { id: 'mcp', label: 'MCP' },
-  { id: 'models', label: 'Models' },
 ]
 
 function SettingsPage({ onClose }: { onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<Tab>('agents')
+  const [activeTab, setActiveTab] = useState<Tab>('models')
 
   return (
     <div

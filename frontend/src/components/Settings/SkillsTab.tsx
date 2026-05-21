@@ -1,110 +1,332 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useStore } from '../../store'
+import { useStore, SkillInfo } from '../../store'
+import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+
+const SOURCE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
+  'project-opencode': { label: 'Project', color: 'var(--accent)', bg: 'var(--accent-muted)' },
+  'project-claude': { label: 'Claude', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  'project-agents': { label: 'Agents', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+  'global-monika': { label: 'Global', color: 'var(--green)', bg: 'rgba(34,197,94,0.1)' },
+  'global-claude': { label: 'Claude', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  'global-agents': { label: 'Agents', color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)' },
+  manual: { label: 'Manual', color: 'var(--text-dim)', bg: 'var(--bg-sidebar)' },
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const s = SOURCE_STYLES[source] || SOURCE_STYLES.manual
+  return (
+    <span
+      className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
+      style={{ color: s.color, background: s.bg }}
+    >
+      {s.label}
+    </span>
+  )
+}
+
+function SkillCard({
+  skill,
+  onExpand,
+  expanded,
+  content,
+  contentLoading,
+  canUninstall,
+  onUninstall,
+}: {
+  skill: SkillInfo
+  onExpand: () => void
+  expanded: boolean
+  content: { content: string; files: string[] } | null
+  contentLoading: boolean
+  canUninstall: boolean
+  onUninstall: () => void
+}) {
+  const fileCount = content?.files?.length
+
+  return (
+    <div
+      className="rounded-lg border border-[var(--border)] px-4 py-3 w-full"
+      style={{ background: 'var(--bg-card)' }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[13px] font-semibold text-[var(--text-primary)]">{skill.name}</span>
+            <SourceBadge source={skill.source} />
+          </div>
+          <p className="text-[11px] text-[var(--text-dim)] m-0 leading-snug">{skill.description}</p>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {canUninstall && (
+            <button
+              onClick={onUninstall}
+              className="text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1 cursor-pointer bg-transparent border-none"
+            >
+              Uninstall
+            </button>
+          )}
+          <button
+            onClick={onExpand}
+            className="text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1 cursor-pointer bg-transparent border-none"
+          >
+            {expanded ? 'Collapse' : 'Preview'}
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[var(--text-dim)]">
+        <span>SKILL.md</span>
+        {fileCount != null && <span>{fileCount} file{fileCount !== 1 ? 's' : ''}</span>}
+      </div>
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+          {contentLoading ? (
+            <div className="text-[11px] text-[var(--text-dim)]">Loading...</div>
+          ) : content ? (
+            <>
+              <pre className="text-[11px] text-[var(--text-secondary)] whitespace-pre-wrap m-0 max-h-[300px] overflow-y-auto font-mono leading-relaxed">
+                {content.content}
+              </pre>
+              {content.files.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {content.files.map((f) => (
+                    <span key={f} className="text-[10px] text-[var(--text-dim)] px-1.5 py-0.5 rounded bg-[var(--bg-sidebar)] font-mono">
+                      {f.split(/[/\\]/).pop()}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-[11px] text-[var(--text-dim)]">Failed to load content</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function SkillsTab() {
   const skills = useStore((s) => s.skills)
-  const skillPaths = useStore((s) => s.skillPaths)
   const loadSkills = useStore((s) => s.loadSkills)
-  const addSkillPath = useStore((s) => s.addSkillPath)
-  const removeSkillPath = useStore((s) => s.removeSkillPath)
+  const loadSkillContent = useStore((s) => s.loadSkillContent)
+  const installSkillFromURL = useStore((s) => s.installSkillFromURL)
+  const installSkillFromZip = useStore((s) => s.installSkillFromZip)
+  const uninstallSkill = useStore((s) => s.uninstallSkill)
 
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [newPath, setNewPath] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [showInstallModal, setShowInstallModal] = useState(false)
+  const [installTab, setInstallTab] = useState<'github' | 'zip'>('github')
+  const [installScope, setInstallScope] = useState<'project' | 'global'>('project')
+  const [githubURL, setGithubURL] = useState('')
+  const [installing, setInstalling] = useState(false)
+  const [installError, setInstallError] = useState('')
+  const [installResult, setInstallResult] = useState<string[]>([])
+
+  const [expandedSkill, setExpandedSkill] = useState<string | null>(null)
+  const [skillContents, setSkillContents] = useState<Record<string, { content: string; files: string[] } | null>>({})
+  const [loadingContents, setLoadingContents] = useState<Record<string, boolean>>({})
 
   useEffect(() => { loadSkills() }, [loadSkills])
 
-  const handleAdd = useCallback(async () => {
-    const trimmed = newPath.trim()
-    if (!trimmed) return
-    setLoading(true)
-    try {
-      await addSkillPath(trimmed)
-      setNewPath('')
-      setShowAddModal(false)
-    } catch { /* error handled by store */ }
-    finally { setLoading(false) }
-  }, [newPath, addSkillPath])
+  const handleExpand = useCallback(async (name: string) => {
+    if (expandedSkill === name) {
+      setExpandedSkill(null)
+      return
+    }
+    setExpandedSkill(name)
+    if (!skillContents[name]) {
+      setLoadingContents((prev) => ({ ...prev, [name]: true }))
+      try {
+        const result = await loadSkillContent(name)
+        setSkillContents((prev) => ({ ...prev, [name]: result }))
+      } catch {
+        setSkillContents((prev) => ({ ...prev, [name]: null }))
+      } finally {
+        setLoadingContents((prev) => ({ ...prev, [name]: false }))
+      }
+    }
+  }, [expandedSkill, skillContents, loadSkillContent])
 
-  const handleRemove = useCallback(async (path: string) => {
-    await removeSkillPath(path)
-  }, [removeSkillPath])
+  const handleInstall = useCallback(async () => {
+    setInstallError('')
+    setInstallResult([])
+    if (installTab === 'github') {
+      if (!githubURL.trim()) { setInstallError('URL is required'); return }
+      setInstalling(true)
+      try {
+        const names = await installSkillFromURL(githubURL.trim(), installScope)
+        setInstallResult(names)
+        if (names.length === 0) setInstallError('No valid skills found in the repository')
+      } catch (e: any) {
+        setInstallError(e?.message || 'Failed to install')
+      } finally {
+        setInstalling(false)
+      }
+    } else {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.zip'
+      input.onchange = async () => {
+        const file = input.files?.[0]
+        if (!file) return
+        setInstalling(true)
+        const reader = new FileReader()
+        reader.onload = async () => {
+          const base64 = (reader.result as string).split(',')[1]
+          try {
+            const names = await installSkillFromZip(base64, installScope)
+            setInstallResult(names)
+            if (names.length === 0) setInstallError('No valid skills found in the archive')
+          } catch (e: any) {
+            setInstallError(e?.message || 'Failed to install')
+          } finally {
+            setInstalling(false)
+          }
+        }
+        reader.readAsDataURL(file)
+      }
+      input.click()
+    }
+  }, [installTab, githubURL, installScope, installSkillFromURL, installSkillFromZip])
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Escape' && !loading) { setShowAddModal(false); setNewPath('') }
-  }, [loading])
+  const handleUninstall = useCallback(async (name: string) => {
+    await uninstallSkill(name)
+    setExpandedSkill(null)
+    setSkillContents((prev) => {
+      const next = { ...prev }
+      delete next[name]
+      return next
+    })
+  }, [uninstallSkill])
 
-  const isEmpty = skills.length === 0 && skillPaths.length === 0
+  const canUninstall = (source: string) =>
+    source === 'project-opencode' || source === 'global-monika' || source === 'manual'
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-[15px] font-semibold m-0 mb-1">Skills</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">Manage skill search paths and discovered skills</p>
+          <p className="text-[11px] text-[var(--text-dim)] m-0">Discover and manage agent skills</p>
         </div>
+        <button
+          className="px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          onClick={() => {
+            setShowInstallModal(true)
+            setInstallError('')
+            setInstallResult([])
+            setGithubURL('')
+          }}
+        >
+          + Install
+        </button>
       </div>
 
-      {skillPaths.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {skillPaths.map((p) => (
-            <span key={p} className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--text-primary)]">
-              <span className="text-[var(--text-dim)] font-mono text-[10px]">{p}</span>
-              <button onClick={() => handleRemove(p)} className="text-[var(--text-dim)] hover:text-red-400 cursor-pointer bg-transparent border-none p-0 leading-none text-[13px]" title="Remove path">✕</button>
-            </span>
+      {skills.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
+          <span className="text-[13px]">No skills discovered. Click "+ Install" to add skills.</span>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {skills.map((s) => (
+            <SkillCard
+              key={s.name}
+              skill={s}
+              expanded={expandedSkill === s.name}
+              onExpand={() => handleExpand(s.name)}
+              content={skillContents[s.name] || null}
+              contentLoading={!!loadingContents[s.name]}
+              canUninstall={canUninstall(s.source)}
+              onUninstall={() => handleUninstall(s.name)}
+            />
           ))}
         </div>
       )}
 
-      <div className="mb-4">
-        <button
-          className="px-3 py-1.5 text-[11px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-          onClick={() => setShowAddModal(true)}
-        >
-          + Add Path
-        </button>
-      </div>
+      {showInstallModal && (
+        <Modal onClose={() => setShowInstallModal(false)} loading={installing} width={480}>
+          <h4 className="text-[14px] font-semibold m-0 mb-4">Install Skills</h4>
 
-      {skills.length > 0 ? (
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr className="text-left text-[var(--text-dim)] border-b border-[var(--border)]">
-              <th className="py-2 pr-4 font-medium">Name</th>
-              <th className="py-2 pr-4 font-medium">Description</th>
-              <th className="py-2 pr-4 font-medium">Path</th>
-            </tr>
-          </thead>
-          <tbody>
-            {skills.map((s, i) => (
-              <tr key={i} className="border-b border-[var(--border)] hover:bg-[var(--bg-elevated)]">
-                <td className="py-2 pr-4 text-[var(--text-primary)]">{s.name}</td>
-                <td className="py-2 pr-4 text-[var(--text-dim)]">{s.description}</td>
-                <td className="py-2 pr-4 text-[var(--text-dim)] font-mono text-[11px]">{s.path}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
-          <span className="text-[13px]">{isEmpty ? 'No skills discovered. Add a skill path to get started.' : 'No skills discovered. Add a skill path to get started.'}</span>
-        </div>
-      )}
-
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} onClick={loading ? undefined : () => { setShowAddModal(false); setNewPath('') }}>
-          <div role="dialog" aria-modal className="bg-[var(--bg-elevated)] rounded-[var(--radius-lg)] w-[420px] p-5" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
-            <h4 className="text-[14px] font-semibold m-0 mb-4">Add Skill Path</h4>
-            <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Directory Path</label>
-            <input className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)] mb-4"
-              placeholder="/path/to/skills" value={newPath} onChange={(e) => setNewPath(e.target.value)} onKeyDown={handleKeyDown} autoFocus />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => { setShowAddModal(false); setNewPath('') }} disabled={loading}
-                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] px-3 py-1.5 text-[13px] rounded-[2px] transition-colors disabled:opacity-50">Cancel</button>
-              <button onClick={handleAdd} disabled={loading || !newPath.trim()}
-                className="bg-[var(--accent)] text-white px-3 py-1.5 text-[13px] rounded-[2px] hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed">{loading ? 'Adding...' : 'Add'}</button>
-            </div>
+          <div className="flex gap-3 mb-4">
+            <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+              <input
+                type="radio"
+                name="installScope"
+                checked={installScope === 'project'}
+                onChange={() => setInstallScope('project')}
+              />
+              <span className="text-[var(--text-primary)]">Project</span>
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
+              <input
+                type="radio"
+                name="installScope"
+                checked={installScope === 'global'}
+                onChange={() => setInstallScope('global')}
+              />
+              <span className="text-[var(--text-primary)]">Global</span>
+            </label>
           </div>
-        </div>
+
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => { setInstallTab('github'); setInstallError(''); setInstallResult([]) }}
+              className="px-3 py-1 text-[11px] rounded cursor-pointer border-none"
+              style={{
+                background: installTab === 'github' ? 'var(--accent)' : 'var(--bg-sidebar)',
+                color: installTab === 'github' ? '#fff' : 'var(--text-primary)',
+              }}
+            >
+              GitHub URL
+            </button>
+            <button
+              onClick={() => { setInstallTab('zip'); setInstallError(''); setInstallResult([]) }}
+              className="px-3 py-1 text-[11px] rounded cursor-pointer border-none"
+              style={{
+                background: installTab === 'zip' ? 'var(--accent)' : 'var(--bg-sidebar)',
+                color: installTab === 'zip' ? '#fff' : 'var(--text-primary)',
+              }}
+            >
+              Upload ZIP
+            </button>
+          </div>
+
+          {installTab === 'github' && (
+            <div>
+              <input
+                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
+                placeholder="https://github.com/user/skill-repo"
+                value={githubURL}
+                onChange={(e) => setGithubURL(e.target.value)}
+                autoFocus
+              />
+              <ModalActions>
+                <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
+                <ModalButton variant="primary" onClick={handleInstall} disabled={installing || !githubURL.trim()}>
+                  {installing ? 'Installing...' : 'Install'}
+                </ModalButton>
+              </ModalActions>
+            </div>
+          )}
+
+          {installTab === 'zip' && (
+            <div>
+              <p className="text-[11px] text-[var(--text-dim)] m-0 mb-3">Click below to select a ZIP file containing skills.</p>
+              <ModalActions>
+                <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
+                <ModalButton variant="primary" onClick={handleInstall} disabled={installing}>
+                  {installing ? 'Installing...' : 'Select ZIP File'}
+                </ModalButton>
+              </ModalActions>
+            </div>
+          )}
+
+          {installError && <p className="text-[11px] text-[var(--red)] m-0 mt-3">{installError}</p>}
+          {installResult.length > 0 && (
+            <p className="text-[11px] m-0 mt-3" style={{ color: 'var(--green)' }}>
+              Installed: {installResult.join(', ')}
+            </p>
+          )}
+        </Modal>
       )}
     </div>
   )
