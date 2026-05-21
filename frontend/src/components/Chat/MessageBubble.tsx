@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
 import SpawnBlock from './SpawnBlock'
@@ -123,11 +123,9 @@ function MsgBlock({
 
   return (
     <div
-      className="rounded-lg border px-[12px] py-[8px] w-full relative group/msg"
+      className="rounded-lg px-[12px] py-[8px] w-full relative group/msg"
       style={{
         background: background || 'var(--bg-card)',
-        borderColor: 'var(--border)',
-        ...(accent ? { borderLeftColor: accent, borderLeftWidth: '2px' } : {}),
       }}
     >
       {copyContent && (
@@ -150,34 +148,17 @@ function MsgBlock({
 
 /* ---- thinking block ---- */
 
-function ThinkingBlock({ content, isGenerating }: { content: string; isGenerating?: boolean }) {
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    setOpen(!!isGenerating)
-  }, [isGenerating])
-
+function ThinkingBlock({ content }: { content: string; isGenerating?: boolean }) {
   return (
     <MsgBlock
-      accent="var(--yellow)"
       background="var(--bg-sidebar)"
       header={
-        <button
-          className="flex items-center gap-1.5 cursor-pointer w-full text-left"
-          onClick={() => setOpen(!open)}
-        >
-          <IconChevronDown
-            size={10}
-            className="transition-transform duration-200"
-            style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)', color: 'var(--yellow)' }}
-          />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--yellow)' }}>
-            Thinking
-          </span>
-        </button>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--yellow)' }}>
+          Thinking
+        </span>
       }
     >
-      {open && <MarkdownBlock content={content} muted />}
+      <MarkdownBlock content={content} muted />
     </MsgBlock>
   )
 }
@@ -247,7 +228,6 @@ function statusStyle(status: string): { color: string; label: string } {
 }
 
 function ToolBlock({ tool }: { tool: ToolCall }) {
-  const [open, setOpen] = useState(false)
   const [linesExpanded, setLinesExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [inputCopied, setInputCopied] = useState(false)
@@ -274,7 +254,6 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const MAX_PREVIEW = 12
   const overflow = outputLines.length > MAX_PREVIEW
   const displayLines = linesExpanded || !overflow ? outputLines : outputLines.slice(0, MAX_PREVIEW)
-  const inputInfo = formatToolInput(tool.name, tool.input)
   const ts = toolStyle(tool.name)
   const ss = statusStyle(tool.status)
 
@@ -297,41 +276,25 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   }
 
   const header = (
-    <button
-      className="flex items-center gap-2 min-w-0 w-full cursor-pointer text-left"
-      onClick={() => setOpen(!open)}
-    >
-      <IconChevronDown
-        size={10}
-        className="transition-transform duration-200"
-        style={{ transform: open ? 'rotate(180deg)' : 'rotate(-90deg)' }}
-      />
+    <div className="flex items-center gap-2 min-w-0 w-full text-left">
       <span
-        className="text-[10px] font-semibold shrink-0 rounded px-1.5 py-0.5 border"
-        style={{ color: ts.color, borderColor: ts.color, fontFamily: 'var(--font-mono)' }}
+        className="text-[10px] font-semibold shrink-0 rounded px-1.5 py-0.5"
+        style={{ color: ts.color, fontFamily: 'var(--font-mono)' }}
       >
         {tool.name}
       </span>
-      {inputInfo.detail && (
-        <span
-          className="text-[12px] text-[var(--text-dim)] truncate min-w-0"
-          style={{ fontFamily: 'var(--font-mono)' }}
-        >
-          {inputInfo.detail}
-        </span>
-      )}
       <span
         className="text-[10px] font-semibold uppercase tracking-[0.04em] shrink-0 ml-auto"
         style={{ color: ss.color }}
       >
         {ss.label}
       </span>
-    </button>
+    </div>
   )
 
   return (
     <MsgBlock header={header} background="var(--bg-sidebar)">
-      {open && hasInput && (
+      {hasInput && (
         <div className="mb-2 relative group/input">
           <button
             className="absolute top-0 right-0 opacity-0 group-hover/input:opacity-100 transition-opacity z-10
@@ -350,7 +313,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             Input
           </div>
           <div
-            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto"
+            className="text-[13px] text-[var(--text-dim)] whitespace-pre overflow-x-auto"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {inputLines.map((line, i) => (
@@ -367,7 +330,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
           </div>
         </div>
       )}
-      {open && hasOutput && (
+      {hasOutput && (
         <div className="relative group/output">
           <button
             className="absolute top-0 right-0 opacity-0 group-hover/output:opacity-100 transition-opacity z-10
@@ -388,7 +351,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             </div>
           )}
           <div
-            className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap overflow-x-auto mt-1"
+            className="text-[13px] text-[var(--text-dim)] whitespace-pre overflow-x-auto mt-1"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {displayLines.map((line, i) => (
@@ -405,7 +368,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
           </div>
         </div>
       )}
-      {open && overflow && (
+      {overflow && (
         <button
           className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)] mt-2 transition-colors"
           onClick={() => setLinesExpanded(!linesExpanded)}
@@ -424,7 +387,7 @@ function formatJsonLine(line: string): React.ReactNode {
   if (!m) return line
   return (
     <>
-      {m[1]}<span style={{ color: 'var(--accent)' }}>&quot;{m[2]}&quot;</span>{m[3]}{line.slice(m[0].length)}
+      {m[1]}<span style={{ color: 'var(--text-dim)' }}>&quot;{m[2]}&quot;</span>{m[3]}{line.slice(m[0].length)}
     </>
   )
 }

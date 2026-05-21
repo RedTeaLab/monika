@@ -45,6 +45,20 @@ function App() {
   useChangeWatcher(projectPath, fileTreeVersion)
   useLayoutPersistence(dockviewApi, projectPath)
 
+  // Sync dockview active panel changes to store (so session list highlights correctly)
+  useEffect(() => {
+    if (!dockviewApi) return
+    const disp = dockviewApi.onDidActivePanelChange((panel) => {
+      if (!panel) return
+      const id = panel.id
+      const state = useStore.getState()
+      if (id !== state.activeSessionId && state.openSessions.some((s) => s.id === id)) {
+        state.switchSessionTab(id)
+      }
+    })
+    return () => { disp.dispose() }
+  }, [dockviewApi])
+
   // Sync dockview panel removal back to store.
   // Must distinguish panel close from panel move between groups —
   // dockview fires onDidRemovePanel for both. A microtask delay lets
