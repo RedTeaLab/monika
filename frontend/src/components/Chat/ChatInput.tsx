@@ -5,6 +5,7 @@ import ModelPicker from './ModelPicker'
 import PermissionModePicker from './PermissionModePicker'
 import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
 import { App } from '../../../bindings/monika'
+import { Call } from '@wailsio/runtime'
 
 const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` file in the project root. The file should contain:
 
@@ -114,7 +115,20 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     const lq = query.toLowerCase()
 
     if (prefix === '/') {
-      items = COMMANDS.filter(c => c.name.toLowerCase().startsWith(lq))
+      let currentSkills: any[] = []
+      try {
+        currentSkills = await Call.ByName('monika/internal/api.App.ListSkills') || []
+      } catch { /* ignore */ }
+      const allItems = [
+        ...COMMANDS,
+        ...currentSkills.map((sk: any) => ({
+          name: sk.name || sk.Name || '',
+          detail: (sk.description || sk.Description || '').slice(0, 60),
+          icon: '/',
+          insert: `/${sk.name || sk.Name || ''} `,
+        })),
+      ]
+      items = allItems.filter(c => c.name.toLowerCase().startsWith(lq))
     } else if (prefix === '$') {
       const [commands, files] = await Promise.all([
         App.ListSystemCommands(query).catch(() => [] as string[]),
@@ -229,6 +243,17 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       onSend(INIT_TEMPLATE)
       setValue('')
       return
+    }
+
+    // /skill-name command
+    if (trimmed.startsWith('/') && trimmed.length > 1 && !trimmed.includes(' ')) {
+      const skillName = trimmed.slice(1)
+      const skill = useStore.getState().skills.find((s: any) => (s.name || s.Name) === skillName)
+      if (skill) {
+        onSend(`Use the skill tool to load the "${skillName}" skill, then follow its instructions.`)
+        setValue('')
+        return
+      }
     }
 
     // Normal message

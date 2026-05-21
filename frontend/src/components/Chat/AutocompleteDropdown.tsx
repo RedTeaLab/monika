@@ -64,32 +64,41 @@ function AutocompleteDropdown({ state, onSelect, onClose }: Props) {
         marginBottom: 4,
         background: 'var(--bg-card)',
         borderColor: 'var(--border)',
-        maxHeight: `${MAX_ITEMS * 36 + 24}px`,
+        maxHeight: `${MAX_ITEMS * 50 + 24}px`,
         animation: 'ac-enter 150ms ease-out',
       }}
       onBlur={handleBlur}
       tabIndex={-1}
     >
-      <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: `${MAX_ITEMS * 36}px` }}>
+      <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: `${MAX_ITEMS * 50}px` }}>
         {state.items.slice(0, MAX_ITEMS).map((item, i) => (
           <div
             key={item.name}
-            className="flex items-center gap-2 px-3 cursor-pointer text-[13px]"
+            className="flex items-start gap-2 px-3 cursor-pointer"
             style={{
-              height: 36,
+              minHeight: 36,
+              padding: '6px 12px',
               background: i === state.selectedIdx ? 'var(--bg-active)' : 'transparent',
             }}
             onMouseDown={(e) => { e.preventDefault(); onSelect(item) }}
           >
-            <span className="shrink-0 w-4 text-center text-[11px]" style={{ color: 'var(--text-dim)' }}>
+            <span className="shrink-0 w-4 text-center text-[11px] mt-px" style={{ color: 'var(--text-dim)' }}>
               {item.icon}
             </span>
-            <span className="truncate" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-              {highlightMatch(item.name, '' /* query is implicit via filter */)}
-            </span>
-            <span className="shrink-0 text-[10px] ml-auto" style={{ color: 'var(--text-dim)' }}>
-              {item.detail}
-            </span>
+            <div className="flex-1 min-w-0">
+              <div className="truncate text-[13px]" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                {highlightMatch(item.name, '')}
+              </div>
+              {item.detail && (
+                <div
+                  className="truncate text-[11px]"
+                  style={{ color: 'var(--text-dim)' }}
+                  title={item.detail}
+                >
+                  {item.detail}
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
