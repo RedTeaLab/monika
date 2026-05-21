@@ -3,6 +3,7 @@ package bootstrap
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,8 +11,6 @@ import (
 
 	"monika/internal/config"
 	"monika/pkg/engine"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Result struct {
@@ -25,6 +24,15 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 	if err != nil {
 		return nil, fmt.Errorf("config: %w", err)
 	}
+
+	yamlPath := filepath.Join(home, ".monika", "config.yaml")
+	jsonPath := filepath.Join(home, ".monika", "config.json")
+	if _, err := os.Stat(yamlPath); err == nil {
+		if _, err := os.Stat(jsonPath); err == nil {
+			fmt.Fprintf(os.Stderr, "[monika] config migrated from config.yaml to config.json\n")
+		}
+	}
+
 	if len(cfg.ModelProviders) == 0 {
 		if err := setupConfig(home); err != nil {
 			return nil, err
@@ -102,16 +110,16 @@ var providerDefaults = map[string]struct {
 }
 
 type writeConfig struct {
-	ModelProvider  string                  `yaml:"model_provider"`
-	Model          string                  `yaml:"model"`
-	ModelProviders map[string]providerItem `yaml:"model_providers"`
+	ModelProvider  string                  `json:"model_provider"`
+	Model          string                  `json:"model"`
+	ModelProviders map[string]providerItem `json:"model_providers"`
 }
 
 type providerItem struct {
-	Name    string             `yaml:"name"`
-	BaseURL string             `yaml:"base_url"`
-	APIKey  string             `yaml:"api_key"`
-	Models  []config.ModelEntry `yaml:"models"`
+	Name    string             `json:"name"`
+	BaseURL string             `json:"base_url"`
+	APIKey  string             `json:"api_key"`
+	Models  []config.ModelEntry `json:"models"`
 }
 
 func setupConfig(home string) error {
@@ -206,12 +214,12 @@ func setupConfig(home string) error {
 		return fmt.Errorf("create config dir: %w", err)
 	}
 
-	data, err := yaml.Marshal(&cfg)
+	data, err := json.MarshalIndent(&cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	configPath := filepath.Join(configDir, "config.yaml")
+	configPath := filepath.Join(configDir, "config.json")
 	if err := os.WriteFile(configPath, data, 0o600); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
