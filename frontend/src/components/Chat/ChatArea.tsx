@@ -83,36 +83,6 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const lastScrollRef = useRef(0)
-
-  // Force scroll to bottom on mount and when switching back to this tab
-  useEffect(() => {
-    const scrollToBottom = () => {
-      const el = scrollRef.current
-      if (el && el.scrollHeight > el.clientHeight) {
-        el.scrollTop = el.scrollHeight
-      }
-    }
-    requestAnimationFrame(scrollToBottom)
-    const disp = props.api.onDidActiveChange((active) => {
-      if (active) requestAnimationFrame(scrollToBottom)
-    })
-    return () => disp.dispose()
-  }, [])
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const now = performance.now()
-    if (now - lastScrollRef.current < 50) return
-    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150
-    if (nearBottom) {
-      lastScrollRef.current = now
-      el.scrollTop = el.scrollHeight
-    }
-  }, [messages])
-
   const isGenerating = generatingSessionIds.includes(sessionId)
   let generatingIdx = -1
   if (isGenerating) {
@@ -123,6 +93,71 @@ function ChatArea(props: IDockviewPanelProps) {
       }
     }
   }
+
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const stickToBottomRef = useRef(true)
+
+  // Detect user scrolling up via wheel (only fires on real input, not programmatic scrollTop)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0) stickToBottomRef.current = false
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'PageUp' || e.key === 'ArrowUp' || e.key === 'Home') {
+        stickToBottomRef.current = false
+      }
+    }
+    el.addEventListener('wheel', onWheel, { passive: true })
+    el.addEventListener('keydown', onKeyDown)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('keydown', onKeyDown)
+    }
+  }, [])
+
+  // Force scroll to bottom on mount and when switching back to this tab
+  useEffect(() => {
+    const scrollToBottom = () => {
+      const el = scrollRef.current
+      if (!el) return
+      el.scrollTop = el.scrollHeight
+      stickToBottomRef.current = true
+    }
+    requestAnimationFrame(scrollToBottom)
+    const disp = props.api.onDidActiveChange((active) => {
+      if (active) requestAnimationFrame(scrollToBottom)
+    })
+    return () => disp.dispose()
+  }, [])
+
+  // Auto-scroll on new content
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || !stickToBottomRef.current) return
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [messages, isGenerating])
+
+  // Re-enable auto-scroll when user scrolls back to bottom
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      if (stickToBottomRef.current) return
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+      if (nearBottom) stickToBottomRef.current = true
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Reset on new generation
+  useEffect(() => {
+    stickToBottomRef.current = true
+  }, [isGenerating])
 
   return (
     <div className="flex flex-col h-full bg-[var(--bg-root)]">

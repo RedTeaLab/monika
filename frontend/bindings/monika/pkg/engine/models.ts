@@ -66,6 +66,43 @@ export class Model {
     }
 }
 
+export class SkillMeta {
+    "name": string;
+    "description": string;
+    "path": string;
+
+    /**
+     * "project-opencode" | "project-claude" | "project-agents" | "global-monika" | "global-claude" | "global-agents" | "manual"
+     */
+    "source": string;
+
+    /** Creates a new SkillMeta instance. */
+    constructor($$source: Partial<SkillMeta> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("description" in $$source)) {
+            this["description"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SkillMeta instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SkillMeta {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SkillMeta($$parsedSource as Partial<SkillMeta>);
+    }
+}
+
 export class ToolCall {
     "id": string;
     "type": string;

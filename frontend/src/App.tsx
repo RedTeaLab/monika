@@ -41,6 +41,10 @@ function App() {
   const setDockviewApi = useStore((s) => s.setDockviewApi)
   const settingsOpen = useStore((s) => s.settingsOpen)
   const toggleSettings = useStore((s) => s.toggleSettings)
+  const loadSkills = useStore((s) => s.loadSkills)
+
+  // Load skills on startup so / command autocomplete works
+  useEffect(() => { loadSkills() }, [loadSkills])
 
   useChangeWatcher(projectPath, fileTreeVersion)
   useLayoutPersistence(dockviewApi, projectPath)

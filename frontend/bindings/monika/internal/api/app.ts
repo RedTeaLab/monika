@@ -29,6 +29,13 @@ export function AddPermissionRule(args: json$0.RawMessage): $CancellablePromise<
     return $Call.ByID(621401762, args);
 }
 
+/**
+ * AddSkillPath appends a directory to the skill search paths.
+ */
+export function AddSkillPath(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(110335, args);
+}
+
 export function CancelGeneration(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2154546860, sessionID);
 }
@@ -41,10 +48,31 @@ export function CreateBranch(projectPath: string, name: string, baseBranch: stri
 }
 
 /**
+ * DeleteAgent disables an agent by name (soft-delete via Disabled flag).
+ */
+export function DeleteAgent(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(3042182576, args);
+}
+
+/**
+ * DeleteMCPServer removes an MCP server entry from config by ID.
+ */
+export function DeleteMCPServer(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(2274596006, args);
+}
+
+/**
  * DeletePermissionRule removes a rule identified by tool, pattern, and source.
  */
 export function DeletePermissionRule(args: json$0.RawMessage): $CancellablePromise<void> {
     return $Call.ByID(2803374586, args);
+}
+
+/**
+ * DeleteProvider removes a model provider from config by ID.
+ */
+export function DeleteProvider(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(3540968018, args);
 }
 
 export function DeleteSession(projectPath: string, sessionID: string): $CancellablePromise<void> {
@@ -61,21 +89,27 @@ export function GetCurrentProject(): $CancellablePromise<$models.ProjectInfo | n
     });
 }
 
+export function GetDefaultModel(): $CancellablePromise<{ [_ in string]?: string }> {
+    return $Call.ByID(3464228622).then(($result: any) => {
+        return $$createType2($result);
+    });
+}
+
 export function GetFileDiff(projectPath: string, filePath: string): $CancellablePromise<$models.DiffResult | null> {
     return $Call.ByID(3432667145, projectPath, filePath).then(($result: any) => {
-        return $$createType3($result);
+        return $$createType4($result);
     });
 }
 
 export function GetModels(providerID: string): $CancellablePromise<engine$0.Model[]> {
     return $Call.ByID(2740169318, providerID).then(($result: any) => {
-        return $$createType5($result);
+        return $$createType6($result);
     });
 }
 
 export function GetProviders(): $CancellablePromise<$models.ProviderInfo[]> {
     return $Call.ByID(2466924902).then(($result: any) => {
-        return $$createType7($result);
+        return $$createType8($result);
     });
 }
 
@@ -84,7 +118,43 @@ export function GetProviders(): $CancellablePromise<$models.ProviderInfo[]> {
  */
 export function GetRecentProjects(): $CancellablePromise<$models.RecentProject[]> {
     return $Call.ByID(541402157).then(($result: any) => {
-        return $$createType9($result);
+        return $$createType10($result);
+    });
+}
+
+/**
+ * GetSkillContent returns the SKILL.md content and sibling files for a given skill name.
+ */
+export function GetSkillContent(args: json$0.RawMessage): $CancellablePromise<$models.SkillContentResult> {
+    return $Call.ByID(3735502862, args).then(($result: any) => {
+        return $$createType11($result);
+    });
+}
+
+/**
+ * InstallSkillFromURL downloads a GitHub repo and installs skills found in it.
+ */
+export function InstallSkillFromURL(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(3775411401, args).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
+/**
+ * InstallSkillFromZip installs skills from a base64-encoded ZIP file.
+ */
+export function InstallSkillFromZip(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(165010839, args).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
+/**
+ * ListAgents returns all registered agents.
+ */
+export function ListAgents(): $CancellablePromise<agent$0.Agent[]> {
+    return $Call.ByID(1523826198).then(($result: any) => {
+        return $$createType14($result);
     });
 }
 
@@ -93,13 +163,13 @@ export function GetRecentProjects(): $CancellablePromise<$models.RecentProject[]
  */
 export function ListBranches(projectPath: string): $CancellablePromise<$models.BranchInfo[]> {
     return $Call.ByID(2066625236, projectPath).then(($result: any) => {
-        return $$createType11($result);
+        return $$createType16($result);
     });
 }
 
 export function ListChangeStats(projectPath: string): $CancellablePromise<$models.ChangeStat[]> {
     return $Call.ByID(2025730651, projectPath).then(($result: any) => {
-        return $$createType13($result);
+        return $$createType18($result);
     });
 }
 
@@ -108,19 +178,25 @@ export function ListChangeStats(projectPath: string): $CancellablePromise<$model
  */
 export function ListDirectory(parentPath: string): $CancellablePromise<$models.FileNode[]> {
     return $Call.ByID(2022278691, parentPath).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType20($result);
     });
 }
 
 export function ListFileChanges(projectPath: string): $CancellablePromise<$models.FileChange[]> {
     return $Call.ByID(3265914211, projectPath).then(($result: any) => {
-        return $$createType17($result);
+        return $$createType22($result);
     });
 }
 
 export function ListFileTree(projectPath: string): $CancellablePromise<$models.FileNode[]> {
     return $Call.ByID(2046651834, projectPath).then(($result: any) => {
-        return $$createType15($result);
+        return $$createType20($result);
+    });
+}
+
+export function ListMCPServers(): $CancellablePromise<$models.MCPServerInfo[]> {
+    return $Call.ByID(2784883516).then(($result: any) => {
+        return $$createType24($result);
     });
 }
 
@@ -130,19 +206,28 @@ export function ListFileTree(projectPath: string): $CancellablePromise<$models.F
  */
 export function ListPermissionRules(args: json$0.RawMessage): $CancellablePromise<permission$0.Rule[]> {
     return $Call.ByID(1886094366, args).then(($result: any) => {
-        return $$createType19($result);
+        return $$createType26($result);
     });
 }
 
 export function ListProjects(): $CancellablePromise<$models.ProjectInfo[]> {
     return $Call.ByID(1837161474).then(($result: any) => {
-        return $$createType20($result);
+        return $$createType27($result);
     });
 }
 
 export function ListSessions(projectPath: string): $CancellablePromise<$models.SessionInfo[]> {
     return $Call.ByID(116118957, projectPath).then(($result: any) => {
-        return $$createType22($result);
+        return $$createType29($result);
+    });
+}
+
+/**
+ * ListSkills discovers and returns skill metadata from configured skill paths.
+ */
+export function ListSkills(): $CancellablePromise<engine$0.SkillMeta[]> {
+    return $Call.ByID(4241996650).then(($result: any) => {
+        return $$createType31($result);
     });
 }
 
@@ -152,7 +237,7 @@ export function ListSessions(projectPath: string): $CancellablePromise<$models.S
  */
 export function ListSystemCommands(prefix: string): $CancellablePromise<string[]> {
     return $Call.ByID(905674791, prefix).then(($result: any) => {
-        return $$createType23($result);
+        return $$createType12($result);
     });
 }
 
@@ -161,7 +246,7 @@ export function ListSystemCommands(prefix: string): $CancellablePromise<string[]
  */
 export function LoadChildSession(sessionID: string): $CancellablePromise<agent$0.ChildSession | null> {
     return $Call.ByID(1226969414, sessionID).then(($result: any) => {
-        return $$createType25($result);
+        return $$createType33($result);
     });
 }
 
@@ -170,19 +255,19 @@ export function LoadChildSession(sessionID: string): $CancellablePromise<agent$0
  */
 export function LoadChildSessionFromDisk(projectPath: string, sessionID: string): $CancellablePromise<agent$0.ChildSession | null> {
     return $Call.ByID(987540711, projectPath, sessionID).then(($result: any) => {
-        return $$createType25($result);
+        return $$createType33($result);
     });
 }
 
 export function LoadSession(projectPath: string, sessionID: string): $CancellablePromise<$models.Session | null> {
     return $Call.ByID(665171952, projectPath, sessionID).then(($result: any) => {
-        return $$createType27($result);
+        return $$createType35($result);
     });
 }
 
 export function NewSession(projectPath: string, providerID: string, model: string): $CancellablePromise<$models.SessionInfo | null> {
     return $Call.ByID(3342623882, projectPath, providerID, model).then(($result: any) => {
-        return $$createType28($result);
+        return $$createType36($result);
     });
 }
 
@@ -210,8 +295,15 @@ export function QuitApp(): $CancellablePromise<void> {
 
 export function ReadFile(projectPath: string, filePath: string): $CancellablePromise<$models.FileContent | null> {
     return $Call.ByID(984933914, projectPath, filePath).then(($result: any) => {
-        return $$createType30($result);
+        return $$createType38($result);
     });
+}
+
+/**
+ * RemoveSkillPath removes a directory from the skill search paths.
+ */
+export function RemoveSkillPath(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(2181192798, args);
 }
 
 /**
@@ -219,7 +311,7 @@ export function ReadFile(projectPath: string, filePath: string): $CancellablePro
  */
 export function RequestConfirm(ev: permission$0.PermissionRequiredEvent): $CancellablePromise<permission$0.PermissionResponse> {
     return $Call.ByID(1950638859, ev).then(($result: any) => {
-        return $$createType31($result);
+        return $$createType39($result);
     });
 }
 
@@ -246,6 +338,13 @@ export function RunShellCommand(projectPath: string, command: string): $Cancella
 }
 
 /**
+ * SaveAgent creates or updates an agent entry in config and refreshes the registry.
+ */
+export function SaveAgent(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(1441435542, args);
+}
+
+/**
  * SaveChildSession stores a completed child agent session.
  */
 export function SaveChildSession(sessionID: string, child: agent$0.ChildSession | null): $CancellablePromise<void> {
@@ -260,8 +359,26 @@ export function SaveChildSessionToDisk(sessionID: string, child: agent$0.ChildSe
     return $Call.ByID(2797708895, sessionID, child);
 }
 
+/**
+ * SaveMCPServer creates or updates an MCP server entry in config.
+ */
+export function SaveMCPServer(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(1078817744, args);
+}
+
+/**
+ * SaveProvider creates or updates a model provider in config.
+ */
+export function SaveProvider(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(3581091756, args);
+}
+
 export function SendMessage(projectPath: string, sessionID: string, text: string, providerID: string, model: string): $CancellablePromise<void> {
     return $Call.ByID(4233179061, projectPath, sessionID, text, providerID, model);
+}
+
+export function SetDefaultModel(providerID: string, modelID: string): $CancellablePromise<void> {
+    return $Call.ByID(155267082, providerID, modelID);
 }
 
 /**
@@ -288,6 +405,13 @@ export function SwitchBranch(projectPath: string, name: string): $CancellablePro
     return $Call.ByID(589566188, projectPath, name);
 }
 
+/**
+ * UninstallSkill removes an installed skill by name.
+ */
+export function UninstallSkill(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(555328523, args);
+}
+
 export function WriteFile(projectPath: string, filePath: string, content: string): $CancellablePromise<void> {
     return $Call.ByID(677390425, projectPath, filePath, content);
 }
@@ -295,33 +419,41 @@ export function WriteFile(projectPath: string, filePath: string, content: string
 // Private type creation functions
 const $$createType0 = $models.ProjectInfo.createFrom;
 const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = $models.DiffResult.createFrom;
-const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = engine$0.Model.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = $models.ProviderInfo.createFrom;
-const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = $models.RecentProject.createFrom;
-const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = $models.BranchInfo.createFrom;
-const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = $models.ChangeStat.createFrom;
-const $$createType13 = $Create.Array($$createType12);
-const $$createType14 = $models.FileNode.createFrom;
-const $$createType15 = $Create.Array($$createType14);
-const $$createType16 = $models.FileChange.createFrom;
-const $$createType17 = $Create.Array($$createType16);
-const $$createType18 = permission$0.Rule.createFrom;
-const $$createType19 = $Create.Array($$createType18);
-const $$createType20 = $Create.Array($$createType0);
-const $$createType21 = $models.SessionInfo.createFrom;
+const $$createType2 = $Create.Map($Create.Any, $Create.Any);
+const $$createType3 = $models.DiffResult.createFrom;
+const $$createType4 = $Create.Nullable($$createType3);
+const $$createType5 = engine$0.Model.createFrom;
+const $$createType6 = $Create.Array($$createType5);
+const $$createType7 = $models.ProviderInfo.createFrom;
+const $$createType8 = $Create.Array($$createType7);
+const $$createType9 = $models.RecentProject.createFrom;
+const $$createType10 = $Create.Array($$createType9);
+const $$createType11 = $models.SkillContentResult.createFrom;
+const $$createType12 = $Create.Array($Create.Any);
+const $$createType13 = agent$0.Agent.createFrom;
+const $$createType14 = $Create.Array($$createType13);
+const $$createType15 = $models.BranchInfo.createFrom;
+const $$createType16 = $Create.Array($$createType15);
+const $$createType17 = $models.ChangeStat.createFrom;
+const $$createType18 = $Create.Array($$createType17);
+const $$createType19 = $models.FileNode.createFrom;
+const $$createType20 = $Create.Array($$createType19);
+const $$createType21 = $models.FileChange.createFrom;
 const $$createType22 = $Create.Array($$createType21);
-const $$createType23 = $Create.Array($Create.Any);
-const $$createType24 = agent$0.ChildSession.createFrom;
-const $$createType25 = $Create.Nullable($$createType24);
-const $$createType26 = $models.Session.createFrom;
-const $$createType27 = $Create.Nullable($$createType26);
-const $$createType28 = $Create.Nullable($$createType21);
-const $$createType29 = $models.FileContent.createFrom;
-const $$createType30 = $Create.Nullable($$createType29);
-const $$createType31 = permission$0.PermissionResponse.createFrom;
+const $$createType23 = $models.MCPServerInfo.createFrom;
+const $$createType24 = $Create.Array($$createType23);
+const $$createType25 = permission$0.Rule.createFrom;
+const $$createType26 = $Create.Array($$createType25);
+const $$createType27 = $Create.Array($$createType0);
+const $$createType28 = $models.SessionInfo.createFrom;
+const $$createType29 = $Create.Array($$createType28);
+const $$createType30 = engine$0.SkillMeta.createFrom;
+const $$createType31 = $Create.Array($$createType30);
+const $$createType32 = agent$0.ChildSession.createFrom;
+const $$createType33 = $Create.Nullable($$createType32);
+const $$createType34 = $models.Session.createFrom;
+const $$createType35 = $Create.Nullable($$createType34);
+const $$createType36 = $Create.Nullable($$createType28);
+const $$createType37 = $models.FileContent.createFrom;
+const $$createType38 = $Create.Nullable($$createType37);
+const $$createType39 = permission$0.PermissionResponse.createFrom;

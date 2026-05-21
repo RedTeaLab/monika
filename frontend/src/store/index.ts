@@ -83,6 +83,7 @@ export interface SkillInfo {
   name: string
   description: string
   path: string
+  source: string
 }
 
 export interface MCPServerInfo {
@@ -94,10 +95,12 @@ export interface MCPServerInfo {
 
 export interface ProviderFull {
   id: string
-  name: string
-  baseURL: string
-  apiKey: string
-  models: { id: string; name: string; contextLimit?: number }[]
+  display_name: string
+  name?: string
+  base_url: string
+  api_key: string
+  wire_api: string
+  models: { id: string; name: string; context_limit?: number }[]
 }
 
 interface AppState {
@@ -209,6 +212,10 @@ interface AppState {
   loadSkills: () => Promise<void>
   addSkillPath: (path: string) => Promise<void>
   removeSkillPath: (path: string) => Promise<void>
+  loadSkillContent: (name: string) => Promise<{ content: string; files: string[] }>
+  installSkillFromURL: (url: string, scope: 'project' | 'global') => Promise<string[]>
+  installSkillFromZip: (data: string, scope: 'project' | 'global') => Promise<string[]>
+  uninstallSkill: (name: string) => Promise<void>
   loadMCPServers: () => Promise<void>
   saveMCPServer: (srv: MCPServerInfo) => Promise<void>
   deleteMCPServer: (id: string) => Promise<void>
@@ -1013,6 +1020,27 @@ export const useStore = create<AppState>((set, get) => ({
     await get().loadSkills()
   },
 
+  loadSkillContent: async (name: string) => {
+    return await Call.ByName('monika/internal/api.App.GetSkillContent', { name })
+  },
+
+  installSkillFromURL: async (url: string, scope: 'project' | 'global') => {
+    const names = await Call.ByName('monika/internal/api.App.InstallSkillFromURL', { url, scope })
+    await get().loadSkills()
+    return names || []
+  },
+
+  installSkillFromZip: async (data: string, scope: 'project' | 'global') => {
+    const names = await Call.ByName('monika/internal/api.App.InstallSkillFromZip', { data, scope })
+    await get().loadSkills()
+    return names || []
+  },
+
+  uninstallSkill: async (name: string) => {
+    await Call.ByName('monika/internal/api.App.UninstallSkill', { name })
+    await get().loadSkills()
+  },
+
   loadMCPServers: async () => {
     try {
       const servers = await Call.ByName('monika/internal/api.App.ListMCPServers')
@@ -1032,8 +1060,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadProviderDetails: async () => {
     try {
-      const providers = await Call.ByName('monika/internal/api.App.GetProviders')
-      set({ providerDetails: providers || [] })
+      const [providers, defaults] = await Promise.all([
+        Call.ByName('monika/internal/api.App.GetProviders'),
+        Call.ByName('monika/internal/api.App.GetDefaultModel'),
+      ])
+      set({
+        providerDetails: providers || [],
+        ...(defaults ? { selectedProvider: defaults.provider || '', selectedModel: defaults.model || '' } : {}),
+      })
     } catch { set({ providerDetails: [] }) }
   },
 

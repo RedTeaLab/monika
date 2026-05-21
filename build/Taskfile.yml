@@ -43,14 +43,9 @@ tasks:
     summary: Generates bindings for the frontend
     deps:
       - task: go:mod:tidy
-    sources:
-      - "**/*.go"
-      - go.mod
-      - go.sum
-    generates:
-      - frontend/bindings/**/*
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -ts
+      - node -e "require('fs').copyFileSync('build/barrel_index.ts','frontend/bindings/monika/index.ts')"
 
   dev:frontend:
     summary: Runs the frontend in development mode

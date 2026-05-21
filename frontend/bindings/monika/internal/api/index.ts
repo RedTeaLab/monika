@@ -14,11 +14,14 @@ export {
     FileChangeEvent,
     FileContent,
     FileNode,
+    MCPServerInfo,
+    ModelEntryJSON,
     ProjectInfo,
     ProviderInfo,
     RecentProject,
     Session,
     SessionInfo,
+    SkillContentResult,
     StreamEvent,
     WorktreeInfo
 } from "./models.js";

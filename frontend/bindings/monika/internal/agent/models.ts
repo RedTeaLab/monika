@@ -9,6 +9,71 @@ import { Create as $Create } from "@wailsio/runtime";
 // @ts-ignore: Unused imports
 import * as engine$0 from "../../pkg/engine/models.js";
 
+export class Agent {
+    "name": string;
+    "description"?: string;
+    "systemPrompt"?: string;
+
+    /**
+     * "provider/model"，空则继承
+     */
+    "model"?: string;
+
+    /**
+     * 保留兼容
+     */
+    "provider"?: string;
+
+    /**
+     * nil 用默认
+     */
+    "temperature"?: number | null;
+    "hidden"?: boolean;
+
+    /**
+     * 内置 agent 被 config 禁用
+     */
+    "disabled"?: boolean;
+
+    /**
+     * tool → allow/ask/deny
+     */
+    "permission"?: { [_ in string]?: string };
+    "isCustom": boolean;
+
+    /**
+     * "builtin" | "custom"
+     */
+    "source": string;
+
+    /** Creates a new Agent instance. */
+    constructor($$source: Partial<Agent> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("isCustom" in $$source)) {
+            this["isCustom"] = false;
+        }
+        if (!("source" in $$source)) {
+            this["source"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Agent instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Agent {
+        const $$createField8_0 = $$createType0;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("permission" in $$parsedSource) {
+            $$parsedSource["permission"] = $$createField8_0($$parsedSource["permission"]);
+        }
+        return new Agent($$parsedSource as Partial<Agent>);
+    }
+}
+
 /**
  * ChildSession holds the result of a completed child agent run.
  */
@@ -44,7 +109,7 @@ export class ChildSession {
      * Creates a new ChildSession instance from a string or object.
      */
     static createFrom($$source: any = {}): ChildSession {
-        const $$createField0_0 = $$createType1;
+        const $$createField0_0 = $$createType2;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("Messages" in $$parsedSource) {
             $$parsedSource["Messages"] = $$createField0_0($$parsedSource["Messages"]);
@@ -137,7 +202,7 @@ export class TaskItem {
      * Creates a new TaskItem instance from a string or object.
      */
     static createFrom($$source: any = {}): TaskItem {
-        const $$createField4_0 = $$createType2;
+        const $$createField4_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("blockedBy" in $$parsedSource) {
             $$parsedSource["blockedBy"] = $$createField4_0($$parsedSource["blockedBy"]);
@@ -233,6 +298,7 @@ export class UsageEvent {
 }
 
 // Private type creation functions
-const $$createType0 = engine$0.ChatMessage.createFrom;
-const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = $Create.Array($Create.Any);
+const $$createType0 = $Create.Map($Create.Any, $Create.Any);
+const $$createType1 = engine$0.ChatMessage.createFrom;
+const $$createType2 = $Create.Array($$createType1);
+const $$createType3 = $Create.Array($Create.Any);

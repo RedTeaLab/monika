@@ -4,6 +4,7 @@
 export {
     ChatMessage,
     Model,
+    SkillMeta,
     ToolCall,
     ToolCallFunc
 } from "./models.js";
