@@ -1156,7 +1156,7 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
               }
               j++
             }
-            tools.push({ name: tc.function.name, input: tc.function.arguments, output, status })
+            tools.push({ id: tc.id, name: tc.function.name, input: tc.function.arguments, output, status })
           }
         }
         result.push({

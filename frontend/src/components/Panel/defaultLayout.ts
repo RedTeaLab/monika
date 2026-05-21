@@ -31,11 +31,11 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
             },
           ],
         },
-        {
-          type: 'leaf',
-          size: 120,
-          data: { id: 'console-group', views: ['console'], activeView: 'console' },
-        },
+        // {
+        //   type: 'leaf',
+        //   size: 120,
+        //   data: { id: 'console-group', views: ['console'], activeView: 'console' },
+        // },
       ],
     },
     orientation: Orientation.VERTICAL,
@@ -78,13 +78,13 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       title: 'CHANGES',
       renderer: 'always',
     },
-    console: {
-      id: 'console',
-      contentComponent: 'console',
-      tabComponent: 'default-tab',
-      title: 'CONSOLE',
-      renderer: 'always',
-    },
+    // console: {
+    //   id: 'console',
+    //   contentComponent: 'console',
+    //   tabComponent: 'default-tab',
+    //   title: 'CONSOLE',
+    //   renderer: 'always',
+    // },
   },
   activeGroup: 'chat-group',
 }

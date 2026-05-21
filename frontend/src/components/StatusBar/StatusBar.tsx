@@ -7,8 +7,6 @@ const STORAGE_PREFIX = 'monika_layout_'
 
 function StatusBar() {
   const generating = useStore((s) => s.generatingSessionIds.length > 0)
-  const consoleVisible = useStore((s) => s.consoleVisible)
-  const toggleConsole = useStore((s) => s.toggleConsole)
   const dockviewApi = useStore((s) => s.dockviewApi)
   const projectPath = useStore((s) => s.projectPath)
   const toggleSettings = useStore((s) => s.toggleSettings)
@@ -50,14 +48,6 @@ function StatusBar() {
         <span className="text-[var(--text-secondary)]">
           {generating ? 'generating...' : 'ready'}
         </span>
-        <button
-          onClick={toggleConsole}
-          title={consoleVisible ? 'Hide Console' : 'Show Console'}
-          className="flex items-center justify-center bg-transparent border-none cursor-pointer p-[2px] rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-          style={{ opacity: consoleVisible ? 1 : 0.5 }}
-        >
-          <span className="text-[12px] leading-none font-mono">{'>_'}</span>
-        </button>
       </div>
       <div className="flex-1" />
       <div className="flex items-center gap-2">

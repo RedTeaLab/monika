@@ -124,7 +124,7 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 			r.onComplete(task, &ChildSession{
 				Messages:   childConv.Messages,
 				Agent:      ag.Name,
-				ParentID:   task.SessionID,
+				ParentID:   task.ParentID,
 				Title:      task.Description,
 				TokenCount: childConv.TokenCount,
 			})

@@ -5,6 +5,7 @@ import SpawnBlock from './SpawnBlock'
 import { formatTokens } from '../../lib/format'
 
 interface ToolCall {
+  id?: string
   name: string
   input: string
   output?: string
