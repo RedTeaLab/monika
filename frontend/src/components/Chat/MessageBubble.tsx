@@ -228,7 +228,8 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const hasOutput = outputLines.length > 1 || (outputLines.length === 1 && outputLines[0])
   const MAX_PREVIEW = 12
   const overflow = outputLines.length > MAX_PREVIEW
-  const displayLines = linesExpanded || !overflow ? outputLines : outputLines.slice(0, MAX_PREVIEW)
+  const displayLines = linesExpanded || !overflow ? outputLines : outputLines.slice(-MAX_PREVIEW)
+  const lineOffset = linesExpanded || !overflow ? 0 : Math.max(0, outputLines.length - MAX_PREVIEW)
   const ts = toolStyle(tool.name)
   const ss = statusStyle(tool.status)
 
@@ -335,7 +336,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
                   className="inline-block w-[2.8em] mr-[1.2em] text-right select-none shrink-0"
                   style={{ color: 'var(--text-dim)', opacity: 0.35 }}
                 >
-                  {i + 1}
+                  {i + 1 + lineOffset}
                 </span>
                 <span>{isJson ? formatJsonLine(line) : line}</span>
               </span>
