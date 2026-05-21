@@ -194,31 +194,6 @@ function toolStyle(name: string) {
   return TOOL_STYLES[name] || TOOL_STYLES.default
 }
 
-function formatToolInput(name: string, input: string): { label: string; detail: string } {
-  if (!input) return { label: name, detail: '' }
-  try {
-    const obj = JSON.parse(input)
-    const keys = Object.keys(obj).filter(k => k !== 'description')
-    if (keys.length === 0) return { label: name, detail: '' }
-    if (keys.length === 1) {
-      const k = keys[0]
-      const val = String(obj[k])
-      const maxLen = 80
-      const truncated = val.length > maxLen ? val.slice(0, maxLen) + '...' : val
-      return { label: name, detail: `${k}: ${truncated}` }
-    }
-    const shown = keys.slice(0, 2).map(k => {
-      const val = String(obj[k])
-      const truncated = val.length > 30 ? val.slice(0, 30) + '...' : val
-      return `${k}: ${truncated}`
-    }).join(', ')
-    const more = keys.length > 2 ? `, +${keys.length - 2} more` : ''
-    return { label: name, detail: shown + more }
-  } catch {
-    return { label: name, detail: input.length > 120 ? input.slice(0, 120) + '...' : input }
-  }
-}
-
 function statusStyle(status: string): { color: string; label: string } {
   switch (status) {
     case 'running': return { color: 'var(--yellow)', label: 'running' }
