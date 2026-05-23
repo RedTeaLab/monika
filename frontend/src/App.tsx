@@ -116,6 +116,7 @@ function App() {
           defaultTabComponent={DefaultTab}
           onReady={handleReady}
           className="h-full"
+          disableDnd={true}
         />
       </div>
       <StatusBar />

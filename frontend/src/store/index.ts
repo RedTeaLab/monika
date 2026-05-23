@@ -734,7 +734,15 @@ export const useStore = create<AppState>((set, get) => ({
     const state = useStore.getState()
     const project = state.projectPath
 
-    set({ sessionParents: { ...state.sessionParents, [subagentId]: parentId } })
+    // Push overlay synchronously so it appears immediately
+    set((s) => ({
+      sessionParents: { ...s.sessionParents, [subagentId]: parentId },
+      subagentStack: { ...s.subagentStack, [parentId]: [...(s.subagentStack[parentId] || []), subagentId] },
+    }))
+
+    // If messages already loaded from streaming, skip backend reload
+    const existing = useStore.getState().sessionMessages[subagentId]
+    if (existing && existing.length > 0) return
 
     try {
       const session = await App.LoadSession(project, subagentId)
@@ -754,25 +762,16 @@ export const useStore = create<AppState>((set, get) => ({
         max: (session as any)?.token_max ?? 0,
       }
 
-      set((s) => {
-        const stack = [...(s.subagentStack[parentId] || []), subagentId]
-        return {
-          subagentStack: { ...s.subagentStack, [parentId]: stack },
-          sessionMessages: { ...s.sessionMessages, [subagentId]: msgs },
-          sessionTokens: { ...s.sessionTokens, [subagentId]: tokData },
-        }
-      })
+      set((s) => ({
+        sessionMessages: { ...s.sessionMessages, [subagentId]: msgs },
+        sessionTokens: { ...s.sessionTokens, [subagentId]: tokData },
+      }))
     } catch {
-      set((s) => {
-        const stack = [...(s.subagentStack[parentId] || []), subagentId]
-        return {
-          subagentStack: { ...s.subagentStack, [parentId]: stack },
-          sessionMessages: { ...s.sessionMessages, [subagentId]: [{ id: crypto.randomUUID(), role: "error" as const, content: "Failed to load subagent session." }] },
-        }
-      })
+      set((s) => ({
+        sessionMessages: { ...s.sessionMessages, [subagentId]: [{ id: crypto.randomUUID(), role: "error" as const, content: "Failed to load subagent session." }] },
+      }))
     }
   },
-
   popSubagentOverlay: (parentId) => {
     set((s) => {
       const stack = [...(s.subagentStack[parentId] || [])]
