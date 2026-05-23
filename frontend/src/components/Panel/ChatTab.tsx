@@ -1,6 +1,7 @@
 import { IDockviewPanelHeaderProps } from 'dockview'
 import { useStore } from '../../store'
 import { IconClose } from '../Icons'
+import { deriveStatus } from '../Sidebar/SessionList'
 
 export function ChatTab(props: IDockviewPanelHeaderProps) {
   const sessionStatuses = useStore((s) => s.sessionStatuses)
@@ -8,40 +9,29 @@ export function ChatTab(props: IDockviewPanelHeaderProps) {
   const openSessions = useStore((s) => s.openSessions)
 
   const sessionId = props.api.id
-  const status = generatingSessionIds.includes(sessionId)
-    ? 'generating'
-    : sessionStatuses[sessionId] === 'failure'
-      ? 'error'
-      : sessionStatuses[sessionId] === 'success'
-        ? 'completed'
-        : 'idle'
+  const status = deriveStatus(sessionId, { id: sessionId, title: '', status: '', updated_at: '' } as any, generatingSessionIds, sessionStatuses)
 
   const storeTitle = openSessions.find((s) => s.id === sessionId)?.title
   const title = storeTitle || props.api.title || 'CHAT'
+
+  const dotColor =
+    status === 'generating' ? 'var(--accent)'
+    : status === 'failure' ? 'var(--red)'
+    : status === 'stopped' ? 'var(--yellow)'
+    : 'var(--green)'
 
   return (
     <div
       className="group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150 max-w-[172px]"
       style={{ fontFamily: 'var(--font-sans)', padding: '0 10px' }}
     >
-      {/* Status indicator */}
-      {status === 'generating' && (
-        <span
-          className="inline-block w-[7px] h-[7px] rounded-full flex-shrink-0 animate-pulse"
-          style={{ backgroundColor: 'var(--yellow)', boxShadow: '0 0 5px var(--yellow)' }}
-        />
-      )}
-      {status === 'completed' && (
-        <span className="text-[10px] flex-shrink-0 leading-none" style={{ color: 'var(--green)' }}>
-          ✓
-        </span>
-      )}
-      {status === 'error' && (
-        <span
-          className="inline-block w-[7px] h-[7px] rounded-full flex-shrink-0"
-          style={{ backgroundColor: 'var(--red)' }}
-        />
-      )}
+      <span
+        className={`inline-block w-[7px] h-[7px] rounded-full flex-shrink-0 ${status === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
+        style={{
+          backgroundColor: dotColor,
+          opacity: status === 'generating' ? 1 : 0.6,
+        }}
+      />
       <span className="truncate flex-1 min-w-0">{title}</span>
       {sessionId !== 'chat' && (
         <button

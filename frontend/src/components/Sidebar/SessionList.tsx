@@ -5,13 +5,25 @@ import { useStore } from '../../store'
 import { IconTrash } from '../Icons'
 import ConfirmModal from '../Chat/ConfirmModal'
 
+export function deriveStatus(sessionId: string, s: SessionInfo, generatingIds: string[], sessionStatuses: Record<string, string>): string {
+  if (generatingIds.includes(sessionId)) return 'generating'
+  const st = sessionStatuses[sessionId] || s.status
+  if (st === 'generating') return 'generating'
+  if (st === 'failure') return 'failure'
+  if (st === 'success') return 'success'
+  if (st === 'stopped') return 'stopped'
+  return 'idle'
+}
+
 function SessionList(props: IDockviewPanelProps) {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
   const sessionListVersion = useStore((s) => s.sessionListVersion)
   const sessionStatuses = useStore((s) => s.sessionStatuses)
+  const generatingSessionIds = useStore((s) => s.generatingSessionIds)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
@@ -35,10 +47,38 @@ function SessionList(props: IDockviewPanelProps) {
     setSessionToDelete(null)
   }, [projectPath])
 
-  const sortedSessions = useMemo(() => {
+  const groupedSessions = useMemo(() => {
     const list = Array.isArray(sessions) ? sessions : []
-    return [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-  }, [sessions])
+    const sorted = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    const generating: SessionInfo[] = []
+    const idle: SessionInfo[] = []
+    const stopped: SessionInfo[] = []
+    const completed: SessionInfo[] = []
+    for (const s of sorted) {
+      const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
+      if (st === 'generating') generating.push(s)
+      else if (st === 'stopped') stopped.push(s)
+      else if (st === 'success' || st === 'failure') completed.push(s)
+      else idle.push(s)
+    }
+    return [
+      { label: 'Active', items: generating },
+      { label: 'Not Started', items: idle },
+      { label: 'Stopped', items: stopped },
+      { label: 'Completed', items: completed },
+    ].filter((g) => g.items.length > 0)
+  }, [sessions, sessionStatuses, generatingSessionIds])
+
+  const totalSessions = sessions.length
+
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(label)) next.delete(label)
+      else next.add(label)
+      return next
+    })
+  }
 
   const handleSelect = async (id: string) => {
     const session = sessions.find((s) => s.id === id)
@@ -98,52 +138,76 @@ function SessionList(props: IDockviewPanelProps) {
       style={{ background: 'var(--bg-sidebar)', padding: '0 12px' }}
     >
       <div className="flex-1 overflow-y-auto">
-        {sortedSessions.length === 0 ? (
+        {totalSessions === 0 ? (
           <div className="py-4">
             <div className="text-[12px] text-[var(--text-dim)]">No sessions yet</div>
             <div className="text-[12px] text-[var(--text-dim)] mt-0.5">Click + to create one</div>
           </div>
         ) : (
-          sortedSessions.map((s) => (
-            <div
-              key={s.id}
-              id={`session-${s.id}`}
-              onClick={() => handleSelect(s.id)}
-              onKeyDown={(e) => handleRowKeyDown(s, e)}
-              tabIndex={0}
-              role="button"
-              aria-label={`Select ${s.title || 'session'}`}
-              className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
-              style={{
-                color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
-              }}
-              onMouseEnter={() => setHoveredId(s.id)}
-              onMouseLeave={() => setHoveredId(null)}
-            >
-              <span className="flex items-center gap-1.5 truncate min-w-0">
-                <span
-                  className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${(sessionStatuses[s.id] || s.status) === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
-                  style={{
-                    background:
-                      (sessionStatuses[s.id] || s.status) === 'generating' ? 'var(--accent)'
-                      : (sessionStatuses[s.id] || s.status) === 'success' ? 'var(--green)'
-                      : (sessionStatuses[s.id] || s.status) === 'failure' ? 'var(--red)'
-                      : 'var(--text-dim)',
-                    opacity: (sessionStatuses[s.id] || s.status) === 'generating' ? 1 : 0.6,
-                  }}
-                />
-                <span className="truncate">{s.title || 'Untitled'}</span>
-              </span>
-              <button
-                onClick={(e) => handleDeleteClick(s, e)}
-                aria-label={`Delete ${s.title || 'session'}`}
-                className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors flex-shrink-0 ml-2"
-              >
-                <IconTrash size={14} />
-              </button>
-            </div>
-          ))
+          groupedSessions.map((group) => {
+            const collapsed = collapsedGroups.has(group.label)
+            return (
+              <div key={group.label}>
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleGroup(group.label)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label) }}
+                  className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-3 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors"
+                >
+                  <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-90'}`}>
+                    &#9654;
+                  </span>
+                  <span>{group.label}</span>
+                  <span className="ml-auto">{group.items.length}</span>
+                </div>
+                {!collapsed && group.items.map((s) => {
+                  const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
+                  return (
+                    <div
+                      key={s.id}
+                      id={`session-${s.id}`}
+                      onClick={() => handleSelect(s.id)}
+                      onKeyDown={(e) => handleRowKeyDown(s, e)}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Select ${s.title || 'session'}`}
+                      className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+                      style={{
+                        color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
+                        background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
+                      }}
+                      onMouseEnter={() => setHoveredId(s.id)}
+                      onMouseLeave={() => setHoveredId(null)}
+                    >
+                      <span className="flex items-center gap-1.5 truncate min-w-0">
+                        <span
+                          className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${st === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
+                          style={{
+                            background:
+                              st === 'generating' ? 'var(--accent)'
+                              : st === 'success' ? 'var(--green)'
+                              : st === 'failure' ? 'var(--red)'
+                              : st === 'stopped' ? 'var(--yellow)'
+                              : 'var(--text-dim)',
+                            opacity: st === 'generating' ? 1 : 0.6,
+                          }}
+                        />
+                        <span className="truncate">{s.title || 'Untitled'}</span>
+                      </span>
+                      <button
+                        onClick={(e) => handleDeleteClick(s, e)}
+                        aria-label={`Delete ${s.title || 'session'}`}
+                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors flex-shrink-0 ml-2"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })
         )}
       </div>
       {sessionToDelete && (
