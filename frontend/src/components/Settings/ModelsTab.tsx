@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import { Call } from '@wailsio/runtime'
 import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import ConfirmModal from '../Chat/ConfirmModal'
+import { IconDatabase, IconEdit, IconTrash, IconPlus } from '../Icons'
 
 interface ModelEntry {
   id: string
@@ -123,6 +125,7 @@ export default function ModelsTab() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   useEffect(() => { loadProviders() }, [loadProviders])
 
@@ -248,12 +251,14 @@ export default function ModelsTab() {
           <h3 className="text-[15px] font-semibold m-0 mb-1">Providers</h3>
           <p className="text-[11px] text-[var(--text-dim)] m-0">Manage model providers</p>
         </div>
-        <button onClick={openAdd} className="px-3 py-1.5 text-[11px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">+ Add Provider</button>
+        <button onClick={openAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"><IconPlus size={12} /> Add Provider</button>
       </div>
 
       {providers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
-          <span className="text-[13px]">No model providers configured.</span>
+        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
+          <IconDatabase size={32} />
+          <span className="text-[13px] mt-3">No model providers configured.</span>
+          <span className="text-[11px] mt-1">Click "Add Provider" to configure one.</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -263,22 +268,25 @@ export default function ModelsTab() {
               className="rounded-lg px-4 py-3 w-full relative group/card"
               style={{ background: 'var(--bg-card)' }}
             >
-              <div className="flex items-start justify-between mb-2">
-                <div>
+              <div className="flex items-start gap-3 mb-2">
+                <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
+                  <IconDatabase size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
                   <span className="text-[14px] font-semibold text-[var(--text-primary)]">{p.display_name}</span>
                   <span className="text-[11px] text-[var(--text-dim)] font-mono ml-2">{p.id}</span>
                 </div>
                 <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
-                  <button onClick={() => openEdit(p)} className="text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1 cursor-pointer bg-transparent border-none">Edit</button>
-                  <button onClick={() => handleDelete(p.id)} className="text-[var(--text-dim)] hover:text-red-400 text-[11px] px-1 cursor-pointer bg-transparent border-none">✕</button>
+                  <button onClick={() => openEdit(p)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Edit ${p.display_name}`}><IconEdit size={13} /></button>
+                  <button onClick={() => setConfirmDelete(p.id)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Delete ${p.display_name}`}><IconTrash size={13} /></button>
                 </div>
-              </div>
-              <div className="flex gap-4 text-[11px] text-[var(--text-dim)] mb-2">
-                <span className="font-mono">{p.base_url || '—'}</span>
-                <span>Key: {maskKey(p.api_key)}</span>
-              </div>
-              {(p.models || []).length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                </div>
+                <div className="flex gap-4 text-[11px] text-[var(--text-dim)] mb-2 ml-7">
+                  <span className="font-mono">{p.base_url || '—'}</span>
+                  <span>Key: {maskKey(p.api_key)}</span>
+                </div>
+                {(p.models || []).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 ml-7">
                   {p.models.map(m => {
                     const isDefault = p.id === selectedProvider && m.id === selectedModel
                     return (
@@ -411,6 +419,16 @@ export default function ModelsTab() {
             </>
           )}
         </Modal>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Provider"
+          message={`Are you sure you want to delete this provider? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   )

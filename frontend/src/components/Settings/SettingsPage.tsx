@@ -4,15 +4,16 @@ import PermissionsTab from './PermissionsTab'
 import SkillsTab from './SkillsTab'
 import McpTab from './McpTab'
 import ModelsTab from './ModelsTab'
+import { IconDatabase, IconBot, IconShield, IconStar, IconPlug } from '../Icons'
 
 type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models'
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'models', label: 'Providers' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'permissions', label: 'Permissions' },
-  { id: 'skills', label: 'Skills' },
-  { id: 'mcp', label: 'MCP' },
+const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'models', label: 'Providers', icon: <IconDatabase size={14} /> },
+  { id: 'agents', label: 'Agents', icon: <IconBot size={14} /> },
+  { id: 'permissions', label: 'Permissions', icon: <IconShield size={14} /> },
+  { id: 'skills', label: 'Skills', icon: <IconStar size={14} /> },
+  { id: 'mcp', label: 'MCP', icon: <IconPlug size={14} /> },
 ]
 
 function SettingsPage({ onClose }: { onClose: () => void }) {
@@ -42,7 +43,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full text-left text-[13px] cursor-pointer border-none bg-transparent transition-colors px-3 py-1 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] ${
+              className={`w-full text-left text-[13px] cursor-pointer border-none bg-transparent transition-colors px-3 py-1.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'text-[var(--text-primary)] bg-[var(--bg-active)] font-medium'
                   : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
@@ -50,6 +51,9 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
               role="tab"
               aria-selected={activeTab === tab.id}
             >
+              <span className="shrink-0" style={{ color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-dim)' }}>
+                {tab.icon}
+              </span>
               {tab.label}
             </button>
           ))}

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { createPortal } from 'react-dom'
 import { useStore, AgentInfo } from '../../store'
 import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
+import { IconBot, IconEdit, IconTrash, IconPlus, IconShield } from '../Icons'
+import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import ConfirmModal from '../Chat/ConfirmModal'
 
-// ── Inline model picker (same style as Chat ModelPicker) ──────────────
+// ── Inline model picker ───────────────────────────────────────────────
 
 function InlineModelPicker({
   value,
@@ -84,7 +86,6 @@ function InlineModelPicker({
     }
   }
 
-  // Resolve display text for current value
   let displayText = 'Inherit (use default)'
   if (value) {
     const [pid, ...rest] = value.split('/')
@@ -200,7 +201,21 @@ function InlineModelPicker({
   )
 }
 
-// ── AgentsTab ─────────────────────────────────────────────────────────
+// ── AgentsTab ──────────────────────────────────────────────────────────
+
+const badgeColors: Record<string, string> = {
+  builtin: 'text-[var(--accent)] bg-[var(--accent-muted)]',
+  custom: 'text-[var(--green)] bg-[var(--green)]/10',
+}
+
+const inputCls = 'w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]'
+const labelCls = 'block text-[10px] font-medium text-[var(--text-dim)] mb-1'
+
+const decisionColors: Record<string, string> = {
+  allow: 'text-green-400 bg-green-400/10',
+  ask: 'text-yellow-400 bg-yellow-400/10',
+  deny: 'text-red-400 bg-red-400/10',
+}
 
 function AgentsTab() {
   const agents = useStore((s) => s.agents)
@@ -215,7 +230,6 @@ function AgentsTab() {
   const [editing, setEditing] = useState<AgentInfo | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Form state
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [model, setModel] = useState('')
@@ -224,6 +238,7 @@ function AgentsTab() {
   const [permission, setPermission] = useState<Record<string, string>>({})
   const [newRuleTool, setNewRuleTool] = useState('')
   const [newRuleDecision, setNewRuleDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   useEffect(() => { loadAgents() }, [])
 
@@ -293,14 +308,8 @@ function AgentsTab() {
     setPermission(next)
   }
 
-  const badgeColors: Record<string, string> = {
-    builtin: 'text-[var(--accent)] bg-[var(--accent-muted)]',
-    custom: 'text-[var(--green)] bg-[var(--green)]/10',
-  }
-
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-[15px] font-semibold m-0 mb-1">Agents</h3>
@@ -308,257 +317,201 @@ function AgentsTab() {
         </div>
         <button
           onClick={openAdd}
-          className="px-3 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
-          + Add Agent
+          <IconPlus size={12} />
+          Add Agent
         </button>
       </div>
 
-      {/* Empty state */}
-      {agents.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-48 text-[var(--text-dim)]">
-          <span className="text-[24px] mb-2">🤖</span>
-          <span className="text-[13px]">No agents. Click "+ Add Agent" to create one</span>
+      {agents.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
+          <IconBot size={32} />
+          <span className="text-[13px] mt-3">No agents configured.</span>
+          <span className="text-[11px] mt-1">Click "Add Agent" to create a new one.</span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {agents.map((agent) => (
+            <div
+              key={agent.name}
+              className="rounded-lg px-4 py-3 w-full relative group/card"
+              style={{ background: 'var(--bg-card)' }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
+                  <IconBot size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[14px] font-semibold text-[var(--text-primary)]">{agent.name}</span>
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${badgeColors[agent.source] || badgeColors.custom}`}>
+                      {agent.source}
+                    </span>
+                  </div>
+                  {agent.description && (
+                    <p className="text-[11px] text-[var(--text-secondary)] m-0 mb-1 leading-snug">{agent.description}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--text-dim)]">
+                    <span className="font-mono">
+                      {agent.model || <span className="italic">inherit</span>}
+                    </span>
+                    {agent.temperature !== undefined && agent.temperature !== null && (
+                      <span>Temp: {agent.temperature}</span>
+                    )}
+                    {agent.systemPrompt && (
+                      <span className="truncate max-w-[300px]">Prompt: {agent.systemPrompt.slice(0, 60)}{agent.systemPrompt.length > 60 ? '...' : ''}</span>
+                    )}
+                  </div>
+                </div>
+                {agent.source === 'custom' && (
+                  <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
+                    <button
+                      onClick={() => openEdit(agent)}
+                      className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+                      aria-label={`Edit ${agent.name}`}
+                    >
+                      <IconEdit size={13} />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(agent.name)}
+                      className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+                      aria-label={`Delete ${agent.name}`}
+                    >
+                      <IconTrash size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Table */}
-      {agents.length > 0 && (
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr>
-              <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1.5 font-normal w-[120px]">
-                Name
-              </th>
-              <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1.5 font-normal">
-                Description
-              </th>
-              <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1.5 font-normal w-[160px]">
-                Model
-              </th>
-              <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1.5 font-normal w-[80px]">
-                Source
-              </th>
-              <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1.5 font-normal w-[80px]">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {agents.map((agent) => (
-              <tr key={agent.name} className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)]">
-                <td className="px-2 py-1.5 font-mono text-[var(--text-primary)]">
-                  {agent.name}
-                </td>
-                <td className="px-2 py-1.5 text-[var(--text-secondary)] max-w-[300px] truncate">
-                  {agent.description}
-                </td>
-                <td className="px-2 py-1.5 text-[var(--text-dim)]">
-                  {agent.model || (
-                    <span className="italic text-[var(--text-dim)]">inherit</span>
-                  )}
-                </td>
-                <td className="px-2 py-1.5">
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${badgeColors[agent.source] || badgeColors.custom}`}>
-                    {agent.source}
-                  </span>
-                </td>
-                <td className="px-2 py-1.5">
-                  {agent.source === 'custom' ? (
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => openEdit(agent)}
-                        className="px-1.5 py-0.5 text-[11px] rounded border border-[var(--border)] bg-transparent text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(agent.name)}
-                        className="px-1.5 py-0.5 text-[11px] rounded border border-transparent bg-transparent text-[var(--text-dim)] cursor-pointer hover:text-[var(--red)] hover:bg-[var(--red)]/10 transition-colors"
-                      >
-                        Del
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[var(--text-dim)] text-[11px]">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {modalOpen && (
+        <Modal onClose={() => setModalOpen(false)} loading={saving} width={520}>
+          <h4 className="text-[14px] font-semibold m-0 mb-4">
+            {editing ? 'Edit Agent' : 'Add Agent'}
+          </h4>
+
+          <label className={labelCls}>Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={editing !== null}
+            className={inputCls + ' mb-3'}
+            placeholder="my-agent"
+          />
+
+          <label className={labelCls}>Description</label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className={inputCls + ' mb-3'}
+            placeholder="What this agent does"
+          />
+
+          <label className={labelCls}>Model</label>
+          <InlineModelPicker
+            value={model}
+            onChange={setModel}
+            providers={availableProviders}
+            modelsByProvider={modelsByProvider}
+            onLoadModels={loadModelsForProvider}
+          />
+
+          <label className={labelCls}>Temperature</label>
+          <input
+            type="number"
+            value={temperature}
+            onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
+            min={0}
+            max={2}
+            step={0.1}
+            className="w-[80px] px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
+          />
+
+          <label className={labelCls}>System Prompt</label>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            rows={6}
+            className={inputCls + ' mb-4 font-mono resize-vertical'}
+            placeholder="Custom system prompt (empty to use default)"
+          />
+
+          <label className={labelCls}>Permission Rules</label>
+          {Object.keys(permission).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {Object.entries(permission).map(([tool, decision]) => (
+                <span
+                  key={tool}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border border-[var(--border)]"
+                  style={{ background: 'var(--bg-card)' }}
+                >
+                  <IconShield size={10} />
+                  <span className="font-mono text-[var(--text-primary)]">{tool}</span>
+                  <span className={`px-1 py-px rounded text-[10px] font-medium ${decisionColors[decision] || ''}`}>{decision}</span>
+                  <button
+                    onClick={() => removeRule(tool)}
+                    className="ml-0.5 bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[12px] leading-none p-0"
+                    aria-label={`Remove rule for ${tool}`}
+                  >
+                    &#10005;
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 mb-4">
+            <input
+              type="text"
+              value={newRuleTool}
+              onChange={(e) => setNewRuleTool(e.target.value)}
+              className="flex-1 px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+              placeholder="tool name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addRule()
+              }}
+            />
+            <select
+              value={newRuleDecision}
+              onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
+              className="w-[80px] px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
+            >
+              <option value="allow">allow</option>
+              <option value="ask">ask</option>
+              <option value="deny">deny</option>
+            </select>
+            <button
+              onClick={addRule}
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            >
+              <IconPlus size={10} />
+            </button>
+          </div>
+
+          <ModalActions>
+            <ModalButton onClick={() => setModalOpen(false)} disabled={saving}>Cancel</ModalButton>
+            <ModalButton variant="primary" onClick={handleSave} disabled={saving || !name.trim()}>
+              {saving ? 'Saving...' : 'Save'}
+            </ModalButton>
+          </ModalActions>
+        </Modal>
       )}
 
-      {/* Add / Edit Modal */}
-      {modalOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setModalOpen(false)
-            }}
-          >
-            <div className="bg-[var(--bg-elevated)] rounded-[var(--radius-lg)] w-[520px] p-5 max-h-[80vh] overflow-y-auto">
-              <h4 className="text-[14px] font-semibold m-0 mb-4">
-                {editing ? 'Edit Agent' : 'Add Agent'}
-              </h4>
-
-              {/* Name */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={editing !== null}
-                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-                placeholder="my-agent"
-              />
-
-              {/* Description */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                Description
-              </label>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-                placeholder="What this agent does"
-              />
-
-              {/* Model */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                Model
-              </label>
-              <InlineModelPicker
-                value={model}
-                onChange={setModel}
-                providers={availableProviders}
-                modelsByProvider={modelsByProvider}
-                onLoadModels={loadModelsForProvider}
-              />
-
-              {/* Temperature */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                Temperature
-              </label>
-              <input
-                type="number"
-                value={temperature}
-                onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
-                min={0}
-                max={2}
-                step={0.1}
-                className="w-[80px] px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-              />
-
-              {/* System Prompt */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                System Prompt
-              </label>
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                rows={6}
-                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-4 font-mono resize-vertical"
-                placeholder="Custom system prompt (empty to use default)"
-              />
-
-              {/* Permission Rules */}
-              <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">
-                Permission Rules
-              </label>
-              {Object.keys(permission).length > 0 && (
-                <table className="w-full text-[12px] border-collapse mb-2">
-                  <thead>
-                    <tr>
-                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal">Tool</th>
-                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal w-[100px]">Decision</th>
-                      <th className="text-left text-[var(--text-dim)] border-b border-[var(--border)] px-2 py-1 font-normal w-[40px]" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(permission).map(([tool, decision]) => (
-                      <tr key={tool} className="border-b border-[var(--border)]">
-                        <td className="px-2 py-1 font-mono text-[var(--text-primary)]">{tool}</td>
-                        <td className="px-2 py-1">
-                          <select
-                            value={decision}
-                            onChange={(e) => setPermission({ ...permission, [tool]: e.target.value })}
-                            className="w-full px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-                          >
-                            <option value="allow">allow</option>
-                            <option value="ask">ask</option>
-                            <option value="deny">deny</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-1 text-center">
-                          <button
-                            onClick={() => removeRule(tool)}
-                            className="bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[14px] leading-none p-0"
-                            aria-label={`Remove rule for ${tool}`}
-                          >
-                            &#10005;
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-
-              {/* Add permission row */}
-              <div className="flex items-center gap-2 mb-4">
-                <input
-                  type="text"
-                  value={newRuleTool}
-                  onChange={(e) => setNewRuleTool(e.target.value)}
-                  className="flex-1 px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-                  placeholder="tool name"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') addRule()
-                  }}
-                />
-                <select
-                  value={newRuleDecision}
-                  onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
-                  className="w-[80px] px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-                >
-                  <option value="allow">allow</option>
-                  <option value="ask">ask</option>
-                  <option value="deny">deny</option>
-                </select>
-                <button
-                  onClick={addRule}
-                  className="px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Footer buttons */}
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setModalOpen(false)}
-                  className="px-3 py-1.5 text-[12px] rounded border border-[var(--border)] bg-transparent text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving || !name.trim()}
-                  className="px-3 py-1.5 text-[12px] rounded border border-[var(--accent)] bg-[var(--accent)] text-white cursor-pointer hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {saving ? 'Saving...' : 'Save'}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Agent"
+          message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }

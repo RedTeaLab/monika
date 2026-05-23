@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore, SkillInfo } from '../../store'
 import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import ConfirmModal from '../Chat/ConfirmModal'
+import { IconStar, IconPlus, IconTrash } from '../Icons'
 
 const SOURCE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   'project-opencode': { label: 'Project', color: 'var(--accent)', bg: 'var(--accent-muted)' },
@@ -26,56 +28,66 @@ function SourceBadge({ source }: { source: string }) {
 
 function SkillCard({
   skill,
-  onExpand,
   expanded,
   content,
   contentLoading,
-  canUninstall,
   onUninstall,
+  onOpenDir,
+  onToggleEnabled,
+  onClick,
 }: {
   skill: SkillInfo
-  onExpand: () => void
   expanded: boolean
   content: { content: string; files: string[] } | null
   contentLoading: boolean
-  canUninstall: boolean
   onUninstall: () => void
+  onOpenDir: () => void
+  onToggleEnabled: () => void
+  onClick: () => void
 }) {
-  const fileCount = content?.files?.length
-
   return (
     <div
-      className="rounded-lg border border-[var(--border)] px-4 py-3 w-full"
-      style={{ background: 'var(--bg-card)' }}
+      className="rounded-lg border border-[var(--border)] px-4 py-3 w-full cursor-pointer select-none"
+      style={{ background: 'var(--bg-card)', opacity: skill.enabled === false ? 0.5 : 1 }}
+      onClick={onClick}
     >
       <div className="flex items-start justify-between gap-3">
+        <div className="shrink-0 mt-0.5" style={{ color: 'var(--text-dim)' }}>
+          <IconStar size={16} />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[13px] font-semibold text-[var(--text-primary)]">{skill.name}</span>
+            <span className="text-[14px] font-semibold text-[var(--text-primary)]">{skill.name}</span>
             <SourceBadge source={skill.source} />
           </div>
           <p className="text-[11px] text-[var(--text-dim)] m-0 leading-snug">{skill.description}</p>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {canUninstall && (
-            <button
-              onClick={onUninstall}
-              className="text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1 cursor-pointer bg-transparent border-none"
-            >
-              Uninstall
-            </button>
-          )}
-          <button
-            onClick={onExpand}
-            className="text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1 cursor-pointer bg-transparent border-none"
+          <span
+            className="inline-block font-mono truncate text-[10px] text-[var(--text-dim)] mt-1.5 underline decoration-[var(--text-dim)] underline-offset-2 hover:text-[var(--text-primary)] hover:decoration-[var(--text-primary)] cursor-pointer max-w-full"
+            title={skill.path}
+            onClick={(e) => { e.stopPropagation(); onOpenDir() }}
           >
-            {expanded ? 'Collapse' : 'Preview'}
+            {skill.path}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleEnabled() }}
+            className="relative w-8 h-[18px] rounded-full border-none cursor-pointer transition-colors"
+            style={{ background: skill.enabled !== false ? 'var(--accent)' : 'var(--border)' }}
+          >
+            <span
+              className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all"
+              style={{ left: skill.enabled !== false ? '14px' : '2px' }}
+            />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onUninstall() }}
+            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] px-1 cursor-pointer bg-transparent border-none rounded transition-colors"
+            aria-label={`Uninstall ${skill.name}`}
+          >
+            <IconTrash size={13} />
           </button>
         </div>
-      </div>
-      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-[var(--text-dim)]">
-        <span>SKILL.md</span>
-        {fileCount != null && <span>{fileCount} file{fileCount !== 1 ? 's' : ''}</span>}
       </div>
       {expanded && (
         <div className="mt-3 pt-3 border-t border-[var(--border)]">
@@ -112,6 +124,8 @@ export default function SkillsTab() {
   const installSkillFromURL = useStore((s) => s.installSkillFromURL)
   const installSkillFromZip = useStore((s) => s.installSkillFromZip)
   const uninstallSkill = useStore((s) => s.uninstallSkill)
+  const openInFileManager = useStore((s) => s.openInFileManager)
+  const setSkillEnabled = useStore((s) => s.setSkillEnabled)
 
   const [showInstallModal, setShowInstallModal] = useState(false)
   const [installTab, setInstallTab] = useState<'github' | 'zip'>('github')
@@ -124,6 +138,7 @@ export default function SkillsTab() {
   const [expandedSkill, setExpandedSkill] = useState<string | null>(null)
   const [skillContents, setSkillContents] = useState<Record<string, { content: string; files: string[] } | null>>({})
   const [loadingContents, setLoadingContents] = useState<Record<string, boolean>>({})
+  const [confirmUninstall, setConfirmUninstall] = useState<string | null>(null)
 
   useEffect(() => { loadSkills() }, [loadSkills])
 
@@ -198,8 +213,11 @@ export default function SkillsTab() {
     })
   }, [uninstallSkill])
 
-  const canUninstall = (source: string) =>
-    source === 'project-opencode' || source === 'global-monika' || source === 'manual'
+  const handleToggle = useCallback(async (name: string) => {
+    await setSkillEnabled(name)
+  }, [setSkillEnabled])
+
+
 
   return (
     <div>
@@ -209,7 +227,7 @@ export default function SkillsTab() {
           <p className="text-[11px] text-[var(--text-dim)] m-0">Discover and manage agent skills</p>
         </div>
         <button
-          className="px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
           onClick={() => {
             setShowInstallModal(true)
             setInstallError('')
@@ -217,26 +235,29 @@ export default function SkillsTab() {
             setGithubURL('')
           }}
         >
-          + Install
+          <IconPlus size={12} /> Install
         </button>
       </div>
 
       {skills.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
-          <span className="text-[13px]">No skills discovered. Click "+ Install" to add skills.</span>
+        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
+          <IconStar size={32} />
+          <span className="text-[13px] mt-3">No skills discovered.</span>
+          <span className="text-[11px] mt-1">Click "Install" to add skills.</span>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {skills.map((s) => (
             <SkillCard
               key={s.name}
               skill={s}
               expanded={expandedSkill === s.name}
-              onExpand={() => handleExpand(s.name)}
               content={skillContents[s.name] || null}
               contentLoading={!!loadingContents[s.name]}
-              canUninstall={canUninstall(s.source)}
-              onUninstall={() => handleUninstall(s.name)}
+              onUninstall={() => setConfirmUninstall(s.name)}
+              onOpenDir={() => openInFileManager(s.path)}
+              onToggleEnabled={() => handleToggle(s.name)}
+              onClick={() => handleExpand(s.name)}
             />
           ))}
         </div>
@@ -327,6 +348,21 @@ export default function SkillsTab() {
             </p>
           )}
         </Modal>
+      )}
+
+      {confirmUninstall && (
+        <ConfirmModal
+          title="Uninstall Skill"
+          message={`Are you sure you want to uninstall "${confirmUninstall}"?`}
+          confirmLabel="Uninstall"
+          onConfirm={async () => {
+            await handleUninstall(confirmUninstall)
+            setSkillContents((prev) => { const next = { ...prev }; delete next[confirmUninstall]; return next })
+            setExpandedSkill(null)
+            setConfirmUninstall(null)
+          }}
+          onCancel={() => setConfirmUninstall(null)}
+        />
       )}
     </div>
   )

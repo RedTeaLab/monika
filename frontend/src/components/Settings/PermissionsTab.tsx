@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import ConfirmModal from '../Chat/ConfirmModal'
+import { IconShield, IconTrash, IconPlus } from '../Icons'
 
 const TOOLS = [
   'bash', 'file_read', 'file_write', 'file_edit', 'file_list',
@@ -125,6 +127,18 @@ function DropdownSelect<T extends string>({
   )
 }
 
+const decisionStyles: Record<string, string> = {
+  allow: 'text-green-400 bg-green-400/10',
+  ask: 'text-yellow-400 bg-yellow-400/10',
+  deny: 'text-red-400 bg-red-400/10',
+}
+
+const sourceStyles: Record<string, { color: string; bg: string }> = {
+  builtin: { color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
+  global: { color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
+  project: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)' },
+}
+
 function AddRuleModal({
   onClose,
   onAdd,
@@ -207,6 +221,7 @@ function PermissionsTab() {
   const deletePermissionRule = useStore((s) => s.deletePermissionRule)
 
   const [showAddModal, setShowAddModal] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ tool: string; pattern: string; source: string } | null>(null)
 
   useEffect(() => {
     if (projectPath) {
@@ -226,16 +241,17 @@ function PermissionsTab() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-[14px] font-semibold m-0 mb-1">Permissions</h3>
-          <p className="text-[12px] text-[var(--text-dim)] m-0">
+          <h3 className="text-[15px] font-semibold m-0 mb-1">Permissions</h3>
+          <p className="text-[11px] text-[var(--text-dim)] m-0">
             Manage tool execution permissions and auto rules
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-1.5 text-[11px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
-          + Add Rule
+          <IconPlus size={12} />
+          Add Rule
         </button>
       </div>
 
@@ -244,76 +260,71 @@ function PermissionsTab() {
       )}
 
       {permissionRules.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
-          <span className="text-[12px]">
-            No permission rules yet. Click "+ Add Rule" to create one
-          </span>
+        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
+          <IconShield size={32} />
+          <span className="text-[13px] mt-3">No permission rules configured.</span>
+          <span className="text-[11px] mt-1">Click "Add Rule" to create one.</span>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-[12px] border-collapse">
-            <thead>
-              <tr className="text-left text-[var(--text-dim)] border-b border-[var(--border)]">
-                <th className="py-2 pr-4 font-medium">Tool</th>
-                <th className="py-2 pr-4 font-medium">Pattern</th>
-                <th className="py-2 pr-4 font-medium">Decision</th>
-                <th className="py-2 pr-4 font-medium">Source</th>
-                <th className="py-2 font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {permissionRules.map((rule, idx) => (
-                <tr
-                  key={`${rule.tool}-${rule.pattern}-${rule.source}-${idx}`}
-                  className="border-b border-[var(--border)] hover:bg-[var(--bg-elevated)]"
-                >
-                  <td className="py-2 pr-4 font-mono text-[11px]">{rule.tool}</td>
-                  <td className="py-2 pr-4 font-mono text-[11px] max-w-[400px] truncate" title={rule.pattern}>
-                    {rule.pattern || '—'}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <span
-                      className={`inline-block px-1.5 py-0.5 rounded text-[10px] ${
-                        rule.decision === 'allow'
-                          ? 'bg-green-500/15 text-green-400'
-                          : rule.decision === 'ask'
-                          ? 'bg-yellow-500/15 text-yellow-400'
-                          : 'bg-red-500/15 text-red-400'
-                      }`}
-                    >
-                      {rule.decision}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-4">
-                    {rule.source === 'builtin' && (
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-gray-500/15 text-gray-400">builtin</span>
-                    )}
-                    {rule.source === 'global' && (
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-blue-500/15 text-blue-400">global</span>
-                    )}
-                    {rule.source === 'project' && (
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-green-500/15 text-green-400">project</span>
-                    )}
-                    {rule.source !== 'builtin' && rule.source !== 'global' && rule.source !== 'project' && (
-                      <span className="text-[var(--text-dim)] text-[11px]">{rule.source}</span>
-                    )}
-                  </td>
-                  <td className="py-2">
-                    {rule.source !== 'builtin' && (
-                      <button
-                        onClick={() => handleDelete(rule.tool, rule.pattern, rule.source)}
-                        className="bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-red-400 text-[11px] px-1"
-                        title="Delete rule"
+        <div className="space-y-3">
+          {permissionRules.map((rule, idx) => {
+            const ds = decisionStyles[rule.decision] || ''
+            const ss = sourceStyles[rule.source] || sourceStyles['project']
+            return (
+              <div
+                key={`${rule.tool}-${rule.pattern}-${rule.source}-${idx}`}
+                className="rounded-lg px-4 py-3 w-full relative group/card"
+                style={{ background: 'var(--bg-card)' }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
+                    <IconShield size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-[14px] font-semibold text-[var(--text-primary)]">{rule.tool}</span>
+                      <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${ds}`}>
+                        {rule.decision}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 text-[11px]">
+                      <span className="font-mono text-[var(--text-dim)]">
+                        {rule.pattern || <span className="italic">match all</span>}
+                      </span>
+                      <span
+                        className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium"
+                        style={{ color: ss.color, background: ss.bg }}
                       >
-                        ✕
+                        {rule.source}
+                      </span>
+                    </div>
+                  </div>
+                  {rule.source !== 'builtin' && (
+                    <div className="opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
+                      <button
+                        onClick={() => setConfirmDelete({ tool: rule.tool, pattern: rule.pattern, source: rule.source })}
+                        className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+                        aria-label={`Delete rule for ${rule.tool}`}
+                      >
+                        <IconTrash size={13} />
                       </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete Permission Rule"
+          message={`Are you sure you want to delete the rule for "${confirmDelete.tool}"?`}
+          confirmLabel="Delete"
+          onConfirm={async () => { await handleDelete(confirmDelete.tool, confirmDelete.pattern, confirmDelete.source); setConfirmDelete(null) }}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   )

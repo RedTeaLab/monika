@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import ConfirmModal from '../Chat/ConfirmModal'
+import { IconServer, IconEdit, IconTrash, IconPlus } from '../Icons'
 
 export default function McpTab() {
   const servers = useStore((s) => s.mcpServers)
@@ -16,6 +18,7 @@ export default function McpTab() {
   const [envStr, setEnvStr] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   useEffect(() => { loadServers() }, [loadServers])
 
@@ -60,43 +63,72 @@ export default function McpTab() {
           <h3 className="text-[15px] font-semibold m-0 mb-1">MCP</h3>
           <p className="text-[11px] text-[var(--text-dim)] m-0">Manage MCP server connections</p>
         </div>
-        <button onClick={openAdd} className="px-3 py-1.5 text-[11px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">+ Add Server</button>
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+        >
+          <IconPlus size={12} />
+          Add Server
+        </button>
       </div>
 
       {servers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-32 text-[var(--text-dim)]">
-          <span className="text-[13px]">No MCP servers configured.</span>
+        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
+          <IconServer size={32} />
+          <span className="text-[13px] mt-3">No MCP servers configured.</span>
+          <span className="text-[11px] mt-1">Click "Add Server" to configure one.</span>
         </div>
       ) : (
-        <table className="w-full text-[12px] border-collapse">
-          <thead>
-            <tr className="text-left text-[var(--text-dim)] border-b border-[var(--border)]">
-              <th className="py-2 pr-4 font-medium">ID</th>
-              <th className="py-2 pr-4 font-medium">Command</th>
-              <th className="py-2 pr-4 font-medium">Status</th>
-              <th className="py-2 font-medium w-[100px]"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {servers.map((srv) => (
-              <tr key={srv.id} className="border-b border-[var(--border)] hover:bg-[var(--bg-elevated)]">
-                <td className="py-2 pr-4 font-mono text-[11px]">{srv.id}</td>
-                <td className="py-2 pr-4 font-mono text-[10px] text-[var(--text-dim)]">{srv.command} {(srv.args || []).join(' ')}</td>
-                <td className="py-2 pr-4">
-                  {srv.status === 'connected' ? (
-                    <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" /><span className="text-green-400 text-[11px]">connected</span></span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" /><span className="text-red-400 text-[11px]">disconnected</span></span>
-                  )}
-                </td>
-                <td className="py-2">
-                  <button onClick={() => openEdit(srv)} className="text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1">Edit</button>
-                  <button onClick={() => handleDelete(srv.id)} className="text-[var(--text-dim)] hover:text-red-400 text-[11px] px-1">✕</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="space-y-3">
+          {servers.map((srv) => (
+            <div
+              key={srv.id}
+              className="rounded-lg px-4 py-3 w-full relative group/card"
+              style={{ background: 'var(--bg-card)' }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
+                  <IconServer size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="font-mono text-[14px] font-semibold text-[var(--text-primary)]">{srv.id}</span>
+                    {srv.status === 'connected' ? (
+                      <span className="inline-flex items-center gap-1 text-green-400 text-[10px]">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                        connected
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-red-400 text-[10px]">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
+                        disconnected
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--text-dim)]">
+                    <span className="font-mono text-[11px]">{srv.command} {(srv.args || []).join(' ')}</span>
+                  </div>
+                </div>
+                <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
+                  <button
+                    onClick={() => openEdit(srv)}
+                    className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+                    aria-label={`Edit ${srv.id}`}
+                  >
+                    <IconEdit size={13} />
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(srv.id)}
+                    className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+                    aria-label={`Delete ${srv.id}`}
+                  >
+                    <IconTrash size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {showModal && (
@@ -120,6 +152,16 @@ export default function McpTab() {
             </ModalButton>
           </ModalActions>
         </Modal>
+      )}
+
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete MCP Server"
+          message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </div>
   )
