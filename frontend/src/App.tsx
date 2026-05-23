@@ -53,6 +53,16 @@ function App() {
     const disp = dockviewApi.onDidActivePanelChange((panel) => {
       if (!panel) return
       const id = panel.id
+
+      // Redirect placeholder tab if it has siblings (e.g. activated via keyboard)
+      if ((id === 'chat' || id === 'editor') && panel.group && panel.group.panels.length > 1) {
+        const other = panel.group.panels.find((p) => p.id !== id)
+        if (other) {
+          other.api.setActive()
+          return
+        }
+      }
+
       const state = useStore.getState()
       if (id !== state.activeSessionId && state.openSessions.some((s) => s.id === id)) {
         state.switchSessionTab(id)

@@ -60,6 +60,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   const onStopRef = useRef(onStop)
   onStopRef.current = onStop
 
+  const prevDisabledRef = useRef(disabled)
+
   // ESC key to stop generation
   useEffect(() => {
     if (!disabled) return
@@ -73,6 +75,17 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [disabled])
 
+  // Auto-focus when generation completes
+  useEffect(() => {
+    const wasDisabled = prevDisabledRef.current
+    prevDisabledRef.current = disabled
+    if (wasDisabled && !disabled && !compacting) {
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+      })
+    }
+  }, [disabled, compacting])
+
   // Auto-resize textarea after value changes
   useEffect(() => {
     const el = textareaRef.current
@@ -80,7 +93,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     el.style.height = 'auto'
     const h = el.scrollHeight
     if (h > 0) {
-      el.style.height = `${Math.min(h, 160)}px`
+      el.style.height = `${Math.min(h, 300)}px`
     }
   }, [value])
 
@@ -91,7 +104,10 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       if (!el) return
       el.style.height = 'auto'
       const h = el.scrollHeight
-      el.style.height = h > 0 ? `${Math.min(h, 160)}px` : ''
+      el.style.height = h > 0 ? `${Math.min(h, 300)}px` : ''
+      if (!disabled && !compacting) {
+        el.focus()
+      }
     })
     return () => cancelAnimationFrame(timer)
   }, [])
@@ -341,7 +357,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
             : 'Send a message... (Enter to submit, Shift+Enter for newline)'
           }
           className="text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent"
-          rows={2}
+          rows={4}
         />
 
         <div

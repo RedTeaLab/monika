@@ -20,18 +20,23 @@ export function ChatTab(props: IDockviewPanelHeaderProps) {
     : status === 'stopped' ? 'var(--yellow)'
     : 'var(--green)'
 
+  const isPlaceholder = sessionId === 'chat'
+  const hasSiblings = isPlaceholder && (props.api.group?.panels.length ?? 0) > 1
+
   return (
     <div
-      className="group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150 max-w-[172px]"
+      className={`group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150 max-w-[172px]${hasSiblings ? ' pointer-events-none opacity-40' : ''}`}
       style={{ fontFamily: 'var(--font-sans)', padding: '0 10px' }}
     >
-      <span
-        className={`inline-block w-[7px] h-[7px] rounded-full flex-shrink-0 ${status === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
-        style={{
-          backgroundColor: dotColor,
-          opacity: status === 'generating' ? 1 : 0.6,
-        }}
-      />
+      {!isPlaceholder && (
+        <span
+          className={`inline-block w-[7px] h-[7px] rounded-full flex-shrink-0 ${status === 'generating' ? 'motion-safe:animate-pulse' : ''}`}
+          style={{
+            backgroundColor: dotColor,
+            opacity: status === 'generating' ? 1 : 0.6,
+          }}
+        />
+      )}
       <span className="truncate flex-1 min-w-0">{title}</span>
       {sessionId !== 'chat' && (
         <button

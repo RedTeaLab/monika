@@ -1,3 +1,4 @@
+import { useRef, useEffect } from 'react'
 import { useStore, TaskItem } from '../../store'
 
 function StatusIcon({ status }: { status: TaskItem['status'] }) {
@@ -50,6 +51,13 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
   onToggle: () => void
 }) {
   const tasks = useStore((s) => (sessionId ? s.tasks[sessionId] : undefined))
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!collapsed && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight
+    }
+  }, [tasks, collapsed])
 
   if (!sessionId || !tasks || tasks.length === 0) return null
 
@@ -77,7 +85,7 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
       </div>
 
       {!collapsed && (
-        <div style={{ overflowY: 'auto', flex: 1 }} aria-live="polite">
+        <div ref={listRef} style={{ overflowY: 'auto', flex: 1 }} aria-live="polite">
           <span className="sr-only">{completedCount} of {tasks.length} tasks complete</span>
           {tasks.map((task) => {
             const depth = computeDepth(task, tasks)

@@ -12,6 +12,9 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
     : (filePath.split('/').pop() || filePath.split('\\').pop() || filePath)
   const isDirty = file?.isDirty || false
 
+  const isPlaceholder = filePath === 'editor'
+  const hasSiblings = isPlaceholder && (props.api.group?.panels.length ?? 0) > 1
+
   const handleClose = () => {
     if (isDirty && !window.confirm(`Close "${title}" without saving?`)) {
       return
@@ -22,7 +25,7 @@ export function EditorTab(props: IDockviewPanelHeaderProps) {
 
   return (
     <div
-      className="group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150"
+      className={`group flex items-center gap-1.5 h-full text-[12px] select-none transition-colors duration-150${hasSiblings ? ' pointer-events-none opacity-40' : ''}`}
       style={{ fontFamily: 'var(--font-sans)', padding: '0 10px' }}
     >
       {isDirty && (

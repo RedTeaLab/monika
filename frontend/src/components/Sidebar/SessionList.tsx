@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconTrash } from '../Icons'
+import { IconTrash, IconPlus } from '../Icons'
+import { logger } from '../../lib/logger'
 import ConfirmModal from '../Chat/ConfirmModal'
 
 export function deriveStatus(sessionId: string, s: SessionInfo, generatingIds: string[], sessionStatuses: Record<string, string>): string {
@@ -28,6 +29,22 @@ function SessionList(props: IDockviewPanelProps) {
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
   const openSessionTab = useStore((s) => s.openSessionTab)
+  const selectedModel = useStore((s) => s.selectedModel)
+  const selectedProvider = useStore((s) => s.selectedProvider)
+  const bumpSessionListVersion = useStore((s) => s.bumpSessionListVersion)
+
+  const handleNewSession = async () => {
+    if (!projectPath) return
+    try {
+      const info = await App.NewSession(projectPath, selectedProvider, selectedModel)
+      if (!info) return
+      bumpSessionListVersion()
+      const title = info.title || 'Untitled'
+      await openSessionTab(info.id, title)
+    } catch (err) {
+      logger.error('Failed to create session:', err)
+    }
+  }
 
   useEffect(() => {
     if (!projectPath) return
@@ -135,9 +152,24 @@ function SessionList(props: IDockviewPanelProps) {
   return (
     <div
       className="flex flex-col h-full"
-      style={{ background: 'var(--bg-sidebar)', padding: '0 12px' }}
+      style={{ background: 'var(--bg-sidebar)' }}
     >
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex items-center gap-1.5 text-[12px] select-none shrink-0"
+        style={{ fontFamily: 'var(--font-sans)', padding: '6px 10px', background: 'var(--bg-sidebar)' }}
+      >
+        <span className="truncate min-w-0">SESSIONS</span>
+        <div className="flex-1" />
+        <button
+          onClick={handleNewSession}
+          className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+          aria-label="New session"
+          id="new-session-btn"
+        >
+          <IconPlus size={12} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-[12px]">
         {totalSessions === 0 ? (
           <div className="py-4">
             <div className="text-[12px] text-[var(--text-dim)]">No sessions yet</div>

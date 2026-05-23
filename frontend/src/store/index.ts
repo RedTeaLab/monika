@@ -109,6 +109,7 @@ interface AppState {
   branch: string
   activeSessionId: string
   sessionParents: Record<string, string>
+  subagentStack: Record<string, string[]>
   activeFilePath: string
   fileTreeVersion: number
   sessionListVersion: number
@@ -169,6 +170,8 @@ interface AppState {
   updateSessionTitle: (id: string, title: string) => void
   setSessionTasks: (sessionId: string, tasks: TaskItem[]) => void
   setTodoCollapsed: (sessionId: string, collapsed: boolean) => void
+  pushSubagentOverlay: (parentId: string, subagentId: string, title: string) => Promise<void>
+  popSubagentOverlay: (parentId: string) => void
 
   openSessionTab: (id: string, title: string) => Promise<void>
   closeSessionTab: (id: string) => void
@@ -226,6 +229,7 @@ export const useStore = create<AppState>((set, get) => ({
   branch: '',
   activeSessionId: '',
   sessionParents: {},
+  subagentStack: {},
   activeFilePath: '',
   fileTreeVersion: 0,
   sessionListVersion: 0,
@@ -725,6 +729,57 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
+
+  pushSubagentOverlay: async (parentId, subagentId, title) => {
+    const state = useStore.getState()
+    const project = state.projectPath
+
+    set({ sessionParents: { ...state.sessionParents, [subagentId]: parentId } })
+
+    try {
+      const session = await App.LoadSession(project, subagentId)
+      let msgs = session?.messages
+        ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
+        : []
+
+      if ((subagentId.startsWith("sub_") || subagentId.startsWith("call_")) && msgs.length > 0 && msgs[0].role === "user") {
+        const agentName = title?.split(" · ")[0] || ""
+        msgs = msgs.map((m, i) =>
+          i === 0 ? { ...m, role: "subtask" as const, subtaskAgent: agentName } : m
+        )
+      }
+
+      const tokData = {
+        count: (session as any)?.token_count ?? 0,
+        max: (session as any)?.token_max ?? 0,
+      }
+
+      set((s) => {
+        const stack = [...(s.subagentStack[parentId] || []), subagentId]
+        return {
+          subagentStack: { ...s.subagentStack, [parentId]: stack },
+          sessionMessages: { ...s.sessionMessages, [subagentId]: msgs },
+          sessionTokens: { ...s.sessionTokens, [subagentId]: tokData },
+        }
+      })
+    } catch {
+      set((s) => {
+        const stack = [...(s.subagentStack[parentId] || []), subagentId]
+        return {
+          subagentStack: { ...s.subagentStack, [parentId]: stack },
+          sessionMessages: { ...s.sessionMessages, [subagentId]: [{ id: crypto.randomUUID(), role: "error" as const, content: "Failed to load subagent session." }] },
+        }
+      })
+    }
+  },
+
+  popSubagentOverlay: (parentId) => {
+    set((s) => {
+      const stack = [...(s.subagentStack[parentId] || [])]
+      stack.pop()
+      return { subagentStack: { ...s.subagentStack, [parentId]: stack } }
+    })
+  },
   restoreSessionTabs: async (tabs: { id: string; title: string }[]) => {
     const project = get().projectPath
     if (!project || tabs.length === 0) return
@@ -855,7 +910,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       providers = await App.GetProviders();
     } catch {
-      // Keep providers empty on failure — dropdown will show "No providers"
+      // Keep providers empty on failure �?dropdown will show "No providers"
     }
     const state = get();
     const valid = state.selectedProvider && providers.some((p) => p.id === state.selectedProvider);
@@ -1047,6 +1102,7 @@ export const useStore = create<AppState>((set, get) => ({
       tokenMax: 0,
       activeSessionId: '',
       sessionParents: {},
+      subagentStack: {},
       activeFilePath: '',
       openSessions: [],
       sessionMessages: {},
@@ -1160,7 +1216,7 @@ export function setupWailsEvents() {
       store = useStore.getState()
     }
 
-    // Handle permission_required events — they carry a session_id but may
+    // Handle permission_required events �?they carry a session_id but may
     // arrive before the session tab is opened in the frontend.
     const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
     if (data.type === 'permission_required' && permPayload) {

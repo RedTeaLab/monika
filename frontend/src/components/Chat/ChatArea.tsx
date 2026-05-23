@@ -20,20 +20,28 @@ function ChatArea(props: IDockviewPanelProps) {
   const projectPath = useStore((s) => s.projectPath)
   const sessionParents = useStore((s) => s.sessionParents)
   const sessionMessages = useStore((s) => s.sessionMessages)
+  const subagentStack = useStore((s) => s.subagentStack)
+  const popSubagentOverlay = useStore((s) => s.popSubagentOverlay)
   const pendingPermission = useStore((s) => s.pendingPermission)
 
-  const messages = sessionMessages[sessionId] || EMPTY_ARR
+  const overlayStack = subagentStack[sessionId] || []
+  const overlaySessionId = overlayStack.length > 0 ? overlayStack[overlayStack.length - 1] : null
+
+  const parentMessages = sessionMessages[sessionId] || EMPTY_ARR
+  const overlayMessages = overlaySessionId ? (sessionMessages[overlaySessionId] || EMPTY_ARR) : EMPTY_ARR
+
+  const isDefaultChat = sessionId === 'chat'
+  const isChildSession = sessionParents[sessionId] !== undefined
+  const isOverlay = overlaySessionId !== null
 
   const todoCollapsed = useStore((s) => s.todoCollapsed)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const isTodoCollapsed = todoCollapsed[sessionId] || false
 
-  const isDefaultChat = sessionId === 'chat'
-  const isChildSession = sessionParents[sessionId] !== undefined
-
   const handleStop = () => {
-    if (generatingSessionIds.includes(sessionId)) {
-      App.CancelGeneration(sessionId)
+    const targetId = overlaySessionId || sessionId
+    if (generatingSessionIds.includes(targetId)) {
+      App.CancelGeneration(targetId)
     }
   }
 
@@ -85,7 +93,9 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }
 
-  const isGenerating = generatingSessionIds.includes(sessionId)
+  const messages = isOverlay ? overlayMessages : parentMessages
+  const effectiveSessionId = isOverlay ? overlaySessionId! : sessionId
+  const isGenerating = generatingSessionIds.includes(effectiveSessionId)
   let generatingIdx = -1
   if (isGenerating) {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -161,12 +171,47 @@ function ChatArea(props: IDockviewPanelProps) {
     stickToBottomRef.current = true
   }, [isGenerating])
 
+  // Reset scroll when overlay changes
+  useEffect(() => {
+    if (isOverlay) {
+      stickToBottomRef.current = true
+    }
+  }, [isOverlay])
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-root)]">
+      {isOverlay && (
+        <div
+          className="flex items-center gap-2 px-4 py-1.5 text-[11px] border-b border-[var(--border)] shrink-0"
+          style={{ background: 'var(--bg-sidebar)' }}
+        >
+          <button
+            onClick={() => popSubagentOverlay(sessionId)}
+            className="text-[11px] px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] cursor-pointer font-medium"
+          >
+            ← Back
+          </button>
+          <span className="text-[var(--text-dim)] truncate">
+            Viewing subagent
+            {overlayStack.length > 1 && (
+              <span className="ml-1">({overlayStack.length} layers deep)</span>
+            )}
+          </span>
+          {isGenerating && (
+            <button
+              onClick={handleStop}
+              className="ml-auto text-[11px] px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] cursor-pointer"
+              style={{ color: 'var(--accent)' }}
+            >
+              Stop
+            </button>
+          )}
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
-            No messages yet. Start a conversation.
+            {isOverlay ? 'Loading subagent...' : 'No messages yet. Start a conversation.'}
           </div>
         ) : (
           messages.map((msg, idx) => (
@@ -178,25 +223,29 @@ function ChatArea(props: IDockviewPanelProps) {
           ))
         )}
       </div>
-      <TodoPanel
-        sessionId={sessionId}
-        collapsed={isTodoCollapsed}
-        onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
-      />
-      {!isDefaultChat && (pendingPermission && pendingPermission.sessionId === sessionId ? (
-        <ConfirmBar sessionId={sessionId} />
-      ) : !isChildSession ? (
-        <ChatInput
-          key={sessionId}
-          onSend={handleSend}
-          onStop={handleStop}
-          onRunShell={handleRunShell}
-          disabled={generatingSessionIds.includes(sessionId)}
-          compacting={compactingSessionId !== ''}
-        />
-      ) : (
-        <SubagentFooter />
-      ))}
+      {!isOverlay && (
+        <>
+          <TodoPanel
+            sessionId={sessionId}
+            collapsed={isTodoCollapsed}
+            onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
+          />
+          {!isDefaultChat && (pendingPermission && pendingPermission.sessionId === sessionId ? (
+            <ConfirmBar sessionId={sessionId} />
+          ) : !isChildSession ? (
+            <ChatInput
+              key={sessionId}
+              onSend={handleSend}
+              onStop={handleStop}
+              onRunShell={handleRunShell}
+              disabled={generatingSessionIds.includes(sessionId)}
+              compacting={compactingSessionId !== ''}
+            />
+          ) : (
+            <SubagentFooter />
+          ))}
+        </>
+      )}
     </div>
   )
 }

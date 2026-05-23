@@ -49,7 +49,8 @@ interface SpawnBlockProps {
 }
 
 export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
-  const openSessionTab = useStore((s) => s.openSessionTab)
+  const pushSubagentOverlay = useStore((s) => s.pushSubagentOverlay)
+  const activeSessionId = useStore((s) => s.activeSessionId)
   const info = useMemo(() => parseSpawnInput(tool.input), [tool.input])
   const taskId = useMemo(() => tool.output ? extractTaskId(tool.output) : null, [tool.output])
   const runningDetail = useMemo(() => parseRunningDetail(tool.output), [tool.output])
@@ -67,7 +68,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
     // Falls back to taskId for the rare non-streaming Execute path.
     const sessionId = tool.id || taskId
     if (sessionId) {
-      openSessionTab(sessionId, `${subagentType} · ${info.description}`)
+      pushSubagentOverlay(activeSessionId, sessionId, `${subagentType} · ${info.description}`)
     }
   }
 
@@ -103,8 +104,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
             </span>
           )}
           {isRunning && runningDetail && (
-            <span className="text-[10px] text-[var(--text-dim)] truncate font-mono flex items-center gap-1">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--yellow)] motion-safe:animate-pulse" />
+            <span className="text-[10px] text-[var(--text-dim)] truncate font-mono">
               {runningDetail}
             </span>
           )}
@@ -116,10 +116,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
           style={{ color: isRunning ? 'var(--yellow)' : tool.status === 'error' ? 'var(--red)' : 'var(--green)' }}
         >
           {isRunning ? (
-            <>
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--yellow)] motion-safe:animate-pulse" />
-              running
-            </>
+            'running'
           ) : tool.status === 'error' ? (
             'error'
           ) : (
