@@ -7,6 +7,14 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      window.onerror = function(msg, url, line, col, err) {
+        var el = document.getElementById('root');
+        if (el) {
+          el.innerHTML = '<div style="padding:40px;color:#d4d4dc;background:#08090d;height:100%;overflow:auto;font-family:monospace"><h2 style="color:#cd5454">Fatal Error</h2><pre style="font-size:13px;white-space:pre-wrap;word-break:break-word">' + (err ? err.stack || err.message : msg) + '</pre></div>';
+        }
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
