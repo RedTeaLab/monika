@@ -75,13 +75,13 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
     <div
       className="rounded-lg border"
       style={{
-        background: 'var(--bg-card)',
+        background: 'var(--bg-elevated)',
         borderColor: 'var(--border)',
         cursor: (isRunning && !tool.id) ? 'default' : 'pointer',
       }}
       onClick={handleClick}
       onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-card)' }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-elevated)' }}
     >
       <div className="flex items-center gap-2.5 px-[14px] py-[8px] min-w-0">
         {/* Agent badge */}

@@ -8,6 +8,8 @@ import ConfirmBar from './ConfirmBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
+const EMPTY_ARR: any[] = []
+
 function ChatArea(props: IDockviewPanelProps) {
   const sessionId = (props.params as { sessionId?: string } | undefined)?.sessionId || props.api.id
 
@@ -20,7 +22,7 @@ function ChatArea(props: IDockviewPanelProps) {
   const sessionMessages = useStore((s) => s.sessionMessages)
   const pendingPermission = useStore((s) => s.pendingPermission)
 
-  const messages = sessionMessages[sessionId] || []
+  const messages = sessionMessages[sessionId] || EMPTY_ARR
 
   const todoCollapsed = useStore((s) => s.todoCollapsed)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)

@@ -310,4 +310,92 @@
   .markdown-body--muted code {
     color: var(--text-dim);
   }
+
+  /* ── highlight.js dark theme ── */
+  .markdown-body pre code.hljs { display: block; overflow-x: auto; padding: 0; }
+
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-doctag,
+  .hljs-section,
+  .hljs-type,
+  .hljs-selector-id,
+  .hljs-selector-class,
+  .hljs-title.class_ { color: var(--blue); }
+
+  .hljs-string,
+  .hljs-regexp,
+  .hljs-addition,
+  .hljs-attribute,
+  .hljs-meta-string { color: var(--green); }
+
+  .hljs-number,
+  .hljs-literal,
+  .hljs-variable,
+  .hljs-template-variable,
+  .hljs-tag .hljs-attr { color: var(--orange); }
+
+  .hljs-title,
+  .hljs-title.class_,
+  .hljs-title.function_,
+  .hljs-title.function { color: var(--yellow); }
+
+  .hljs-comment,
+  .hljs-quote,
+  .hljs-deletion,
+  .hljs-meta { color: var(--text-dim); font-style: italic; }
+
+  .hljs-built_in,
+  .hljs-function .hljs-keyword,
+  .hljs-name,
+  .hljs-selector-pseudo { color: var(--purple); }
+
+  .hljs-attr,
+  .hljs-params,
+  .hljs-symbol,
+  .hljs-bullet,
+  .hljs-link { color: var(--accent); }
+
+  .hljs-subst { color: var(--text-secondary); }
+
+  .hljs-emphasis { font-style: italic; }
+  .hljs-strong { font-weight: 600; color: var(--text-primary); }
+
+  /* ── Enhanced markdown colors ── */
+  .markdown-body h1,
+  .markdown-body h2 { color: var(--accent); }
+
+  .markdown-body ul { list-style: none; padding-left: 0; }
+  .markdown-body ul li::before {
+    content: "—";
+    display: inline-block;
+    width: 1.2em;
+    margin-left: -1.2em;
+    color: var(--text-dim);
+  }
+
+  .markdown-body ul ul li::before {
+    content: "·";
+    color: var(--accent);
+  }
+
+  .markdown-body ol {
+    list-style: none;
+    counter-reset: md-ol;
+    padding-left: 0;
+  }
+  .markdown-body ol li { counter-increment: md-ol; }
+  .markdown-body ol li::before {
+    content: counter(md-ol) ".";
+    display: inline-block;
+    width: 1.5em;
+    margin-left: -1.5em;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.85em;
+  }
+
+  .markdown-body strong { color: var(--yellow); }
+  .markdown-body em { color: var(--text-secondary); }
 }

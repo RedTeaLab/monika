@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
 import SpawnBlock from './SpawnBlock'
@@ -126,7 +126,7 @@ function MsgBlock({
     <div
       className="rounded-lg px-[12px] py-[8px] w-full relative group/msg"
       style={{
-        background: background || 'var(--bg-card)',
+        background: background || 'var(--bg-elevated)',
       }}
     >
       {copyContent && (
@@ -152,14 +152,14 @@ function MsgBlock({
 function ThinkingBlock({ content }: { content: string; isGenerating?: boolean }) {
   return (
     <MsgBlock
-      background="var(--bg-sidebar)"
+      background="var(--bg-card)"
       header={
         <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--yellow)' }}>
           Thinking
         </span>
       }
     >
-      <MarkdownBlock content={content} muted />
+      <MarkdownBlock content={content} />
     </MsgBlock>
   )
 }
@@ -208,20 +208,22 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   const [copied, setCopied] = useState(false)
   const [inputCopied, setInputCopied] = useState(false)
 
+  const isRunning = tool.status === 'running'
+
   const isJson = useMemo(() => {
-    if (!tool.output) return false
+    if (!tool.output || isRunning) return false
     try { JSON.parse(tool.output); return true } catch { return false }
-  }, [tool.output])
+  }, [tool.output, isRunning])
 
   const formattedInput = useMemo(() => {
-    if (!tool.input) return ''
+    if (!tool.input || isRunning) return tool.input || ''
     try { return JSON.stringify(JSON.parse(tool.input), null, 2) } catch { return tool.input }
-  }, [tool.input])
+  }, [tool.input, isRunning])
 
   const formattedOutput = useMemo(() => {
-    if (!tool.output) return ''
+    if (!tool.output || isRunning) return tool.output || ''
     return isJson ? JSON.stringify(JSON.parse(tool.output), null, 2) : tool.output
-  }, [tool.output, isJson])
+  }, [tool.output, isJson, isRunning])
 
   const inputLines = formattedInput.split('\n')
   const outputLines = formattedOutput.split('\n')
@@ -339,7 +341,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
                 >
                   {i + 1 + lineOffset}
                 </span>
-                <span>{isJson ? formatJsonLine(line) : line}</span>
+                <span>{isJson ? formatJsonLine(line) : formatPlainLine(line, tool.name)}</span>
               </span>
             ))}
           </div>
@@ -358,15 +360,134 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
   )
 }
 
-const JSON_KEY_RE = /^(\s*)"([^"]+)"(\s*:\s*)/
+const JSON_KEY_RE = /^(\s*)\"([^\"]+)\"(\s*:\s*)(.*)$/
 function formatJsonLine(line: string): React.ReactNode {
   const m = line.match(JSON_KEY_RE)
-  if (!m) return line
+  if (!m) return <JsonValue line={line} />
   return (
     <>
-      {m[1]}<span style={{ color: 'var(--text-dim)' }}>&quot;{m[2]}&quot;</span>{m[3]}{line.slice(m[0].length)}
+      {m[1]}<span style={{ color: 'var(--blue)' }}>&quot;{m[2]}&quot;</span>{m[3]}<JsonValue value={m[4]} />
     </>
   )
+}
+
+
+function JsonValue({ value, line }: { value?: string; line?: string }) {
+  const s = (value ?? line ?? '').trimEnd()
+  const nodes: React.ReactNode[] = []
+  let i = 0
+
+  while (i < s.length) {
+    if (s[i] === '"') {
+      const end = findStrEnd(s, i + 1)
+      nodes.push(<span key={i} style={{ color: 'var(--green)' }}>{s.slice(i, end + 1)}</span>)
+      i = end + 1
+      continue
+    }
+    const numMatch = s.slice(i).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/)
+    if (numMatch && (s[i] === '-' || (s[i] >= '0' && s[i] <= '9'))) {
+      nodes.push(<span key={i} style={{ color: 'var(--orange)' }}>{numMatch[0]}</span>)
+      i += numMatch[0].length
+      continue
+    }
+    const wordMatch = s.slice(i).match(/^(true|false|null)\b/)
+    if (wordMatch) {
+      nodes.push(<span key={i} style={{ color: 'var(--purple)' }}>{wordMatch[0]}</span>)
+      i += wordMatch[0].length
+      continue
+    }
+    if ('{}[]'.includes(s[i])) {
+      nodes.push(<span key={i} style={{ color: 'var(--text-dim)' }}>{s[i]}</span>)
+      i++
+      continue
+    }
+    if (s[i] === ',') {
+      nodes.push(<span key={i} style={{ color: 'var(--text-dim)' }}>,</span>)
+      i++
+      continue
+    }
+    nodes.push(s[i])
+    i++
+  }
+
+  return <>{nodes}</>
+}
+
+function findStrEnd(s: string, start: number): number {
+  for (let i = start; i < s.length; i++) {
+    if (s[i] === '\\') { i++; continue }
+    if (s[i] === '"') return i
+  }
+  return s.length - 1
+}
+
+function formatPlainLine(line: string, toolName: string): React.ReactNode {
+  const nodes: React.ReactNode[] = []
+  let i = 0
+
+  while (i < line.length) {
+    // ANSI escape sequence
+    if (line[i] === '\x1b' && line[i + 1] === '[') {
+      const end = line.indexOf('m', i)
+      if (end !== -1) { i = end + 1; continue }
+    }
+
+    // File path (Unix: /path/to/file, Windows: C:\path, relative: ./path)
+    const pathMatch = line.slice(i).match(/^(?:\/[\w.\-/~]*|\.\/[\w.\-/]*|\.\.[\w.\-/]*|[A-Za-z]:\\[\w.\\\-]*|[~\w.\-/]+\/\S*\.\w+)/)
+    if (pathMatch && pathMatch[0].length > 2) {
+      nodes.push(<span key={i} style={{ color: 'var(--blue)', opacity: 0.8 }}>{pathMatch[0]}</span>)
+      i += pathMatch[0].length
+      continue
+    }
+
+    // Number
+    const numMatch = line.slice(i).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?=[\s,;)\]}]|$)/)
+    if (numMatch) {
+      nodes.push(<span key={i} style={{ color: 'var(--orange)' }}>{numMatch[0]}</span>)
+      i += numMatch[0].length
+      continue
+    }
+
+    // Keywords
+    const kwMatch = line.slice(i).match(/^(error|fail|fatal|Error|ERROR|FAIL)\b/)
+    if (kwMatch) {
+      nodes.push(<span key={i} style={{ color: 'var(--red)', fontWeight: 600 }}>{kwMatch[0]}</span>)
+      i += kwMatch[0].length
+      continue
+    }
+    const warnMatch = line.slice(i).match(/^(warn|warning|WARN|Warning)\b/)
+    if (warnMatch) {
+      nodes.push(<span key={i} style={{ color: 'var(--yellow)' }}>{warnMatch[0]}</span>)
+      i += warnMatch[0].length
+      continue
+    }
+    const okMatch = line.slice(i).match(/^(success|done|ok|pass|OK|DONE)\b/)
+    if (okMatch) {
+      nodes.push(<span key={i} style={{ color: 'var(--green)' }}>{okMatch[0]}</span>)
+      i += okMatch[0].length
+      continue
+    }
+
+    // grep-style output: file:line:
+    if (toolName === 'grep') {
+      const grepMatch = line.slice(i).match(/^([\w.\-/\\]+):(\d+):/)
+      if (grepMatch) {
+        nodes.push(
+          <span key={i}>
+            <span style={{ color: 'var(--blue)' }}>{grepMatch[1]}</span>
+            <span style={{ color: 'var(--text-dim)' }}>:{grepMatch[2]}:</span>
+          </span>
+        )
+        i += grepMatch[0].length
+        continue
+      }
+    }
+
+    nodes.push(line[i])
+    i++
+  }
+
+  return <>{nodes}</>
 }
 
 /* ---- compaction card ---- */
@@ -383,7 +504,7 @@ function CompactionCard({ message }: { message: Message }) {
   return (
     <MsgBlock
       accent="var(--compaction)"
-      background="var(--bg-sidebar)"
+      background="var(--bg-card)"
       header={
         <button
           className="flex items-center gap-1.5 cursor-pointer w-full text-left"
@@ -500,7 +621,7 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
 
           {content && (
             <MsgBlock copyContent={content}>
-              <MarkdownBlock content={content} />
+              <MarkdownBlock content={content} streaming={isGenerating} />
             </MsgBlock>
           )}
 
@@ -535,4 +656,4 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
   )
 }
 
-export default MessageBubble
+export default React.memo(MessageBubble)

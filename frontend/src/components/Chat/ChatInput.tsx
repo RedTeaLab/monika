@@ -78,8 +78,23 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+    const h = el.scrollHeight
+    if (h > 0) {
+      el.style.height = `${Math.min(h, 160)}px`
+    }
   }, [value])
+
+  // Re-calc height after layout is ready (fixes squished input on reopened sessions)
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.style.height = 'auto'
+      const h = el.scrollHeight
+      el.style.height = h > 0 ? `${Math.min(h, 160)}px` : ''
+    })
+    return () => cancelAnimationFrame(timer)
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value)
@@ -121,7 +136,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       } catch { /* ignore */ }
       const allItems = [
         ...COMMANDS,
-        ...currentSkills.map((sk: any) => ({
+        ...currentSkills.filter((sk: any) => sk.enabled !== false).map((sk: any) => ({
           name: sk.name || sk.Name || '',
           detail: (sk.description || sk.Description || '').slice(0, 60),
           icon: '/',
