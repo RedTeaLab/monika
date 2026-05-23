@@ -1,4 +1,4 @@
-import { create } from 'zustand'
+import { create } from 'zustand'
 import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat } from '../../bindings/monika'
@@ -20,14 +20,6 @@ export interface TaskItem {
   description?: string
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled'
   blockedBy?: string[]
-}
-
-export interface ConsoleEntry {
-  type: 'system' | 'tool' | 'error' | 'file'
-  text: string
-  meta?: string
-  output?: string
-  status?: 'running' | 'done' | 'error'
 }
 
 interface ToolCall {
@@ -84,6 +76,7 @@ export interface SkillInfo {
   description: string
   path: string
   source: string
+  enabled?: boolean
 }
 
 export interface MCPServerInfo {
@@ -116,8 +109,6 @@ interface AppState {
   branch: string
   activeSessionId: string
   sessionParents: Record<string, string>
-  consoleEntries: ConsoleEntry[]
-  consoleVisible: boolean
   activeFilePath: string
   fileTreeVersion: number
   sessionListVersion: number
@@ -172,11 +163,6 @@ interface AppState {
   setProjectPath: (path: string) => void
   setBranch: (branch: string) => void
   setActiveSessionId: (id: string) => void
-  addConsoleEntry: (entry: ConsoleEntry) => void
-  addToolEntry: (name: string, input: string) => void
-  appendToolOutput: (text: string) => void
-  finishToolEntry: (status: 'done' | 'error') => void
-  toggleConsole: () => void
   setDockviewApi: (api: DockviewApi | null) => void
   bumpFileTreeVersion: () => void
   bumpSessionListVersion: () => void
@@ -216,6 +202,8 @@ interface AppState {
   installSkillFromURL: (url: string, scope: 'project' | 'global') => Promise<string[]>
   installSkillFromZip: (data: string, scope: 'project' | 'global') => Promise<string[]>
   uninstallSkill: (name: string) => Promise<void>
+  openInFileManager: (path: string) => Promise<void>
+  setSkillEnabled: (name: string) => Promise<void>
   loadMCPServers: () => Promise<void>
   saveMCPServer: (srv: MCPServerInfo) => Promise<void>
   deleteMCPServer: (id: string) => Promise<void>
@@ -238,8 +226,6 @@ export const useStore = create<AppState>((set, get) => ({
   branch: '',
   activeSessionId: '',
   sessionParents: {},
-  consoleEntries: [{ type: 'system', text: 'ready' }],
-  consoleVisible: true,
   activeFilePath: '',
   fileTreeVersion: 0,
   sessionListVersion: 0,
@@ -575,48 +561,6 @@ export const useStore = create<AppState>((set, get) => ({
     set({ branch });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
-  addConsoleEntry: (entry) => set((s) => ({ consoleEntries: [...s.consoleEntries, entry] })),
-  addToolEntry: (name, input) =>
-    set((s) => ({
-      consoleEntries: [...s.consoleEntries, { type: 'tool', text: name, meta: input || '', output: '', status: 'running' }],
-    })),
-  appendToolOutput: (text) =>
-    set((s) => {
-      const entries = [...s.consoleEntries]
-      const last = entries[entries.length - 1]
-      if (last && last.type === 'tool') {
-        const sep = last.output ? '\n' : ''
-        entries[entries.length - 1] = { ...last, output: (last.output || '') + sep + text }
-      }
-      return { consoleEntries: entries }
-    }),
-  finishToolEntry: (status) =>
-    set((s) => {
-      const entries = [...s.consoleEntries]
-      const last = entries[entries.length - 1]
-      if (last && last.type === 'tool' && last.status === 'running') {
-        entries[entries.length - 1] = { ...last, status }
-      }
-      return { consoleEntries: entries }
-    }),
-  toggleConsole: () => {
-    const { dockviewApi, consoleVisible } = get()
-    if (!dockviewApi) return
-    if (consoleVisible) {
-      dockviewApi.getPanel('console')?.api.close()
-      set({ consoleVisible: false })
-    } else {
-      dockviewApi.addPanel({
-        id: 'console',
-        component: 'console',
-        tabComponent: 'default-tab',
-        title: 'CONSOLE',
-        position: { direction: 'below' },
-        initialHeight: 120,
-      })
-      set({ consoleVisible: true })
-    }
-  },
   setDockviewApi: (api) => set({ dockviewApi: api }),
 
   openSessionTab: async (id, title) => {
@@ -1041,6 +985,15 @@ export const useStore = create<AppState>((set, get) => ({
     await get().loadSkills()
   },
 
+  openInFileManager: async (path: string) => {
+    await Call.ByName('monika/internal/api.App.OpenInFileManager', { path })
+  },
+
+  setSkillEnabled: async (name: string) => {
+    await Call.ByName('monika/internal/api.App.ToggleSkillEnabled', { name })
+    await get().loadSkills()
+  },
+
   loadMCPServers: async () => {
     try {
       const servers = await Call.ByName('monika/internal/api.App.ListMCPServers')
@@ -1095,8 +1048,6 @@ export const useStore = create<AppState>((set, get) => ({
       activeSessionId: '',
       sessionParents: {},
       activeFilePath: '',
-      consoleEntries: [{ type: 'system', text: 'ready' }],
-      consoleVisible: true,
       openSessions: [],
       sessionMessages: {},
       tasks: {},
@@ -1182,6 +1133,22 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
 
 export function setupWailsEvents() {
   console.log('[monika] setupWailsEvents: subscribing to stream')
+
+  // Batch text_delta and thinking events per session to reduce re-renders
+  const textBatch: Record<string, { text: string; thinking: string; model?: string }> = {}
+  let rafScheduled = false
+
+  function flushTextBatch() {
+    rafScheduled = false
+    const store = useStore.getState()
+    for (const [sid, batch] of Object.entries(textBatch)) {
+      if (batch.text) store.updateSessionMessage(sid, batch.text)
+      if (batch.thinking) store.updateSessionThinking(sid, batch.thinking)
+      if (batch.model) store.setLastAssistantMeta(sid, { model: batch.model })
+    }
+    for (const k of Object.keys(textBatch)) delete textBatch[k]
+  }
+
   Events.On('stream', (ev) => {
     let store = useStore.getState()
     const data = ev.data as StreamEvent
@@ -1209,17 +1176,17 @@ export function setupWailsEvents() {
 
     switch (data.type) {
       case 'text_delta':
-        store.updateSessionMessage(sid, data.content || '')
-        if (data.model) {
-          store.setLastAssistantMeta(sid, { model: data.model })
-        }
+        if (!textBatch[sid]) textBatch[sid] = { text: '', thinking: '' }
+        textBatch[sid].text += data.content || ''
+        if (data.model) textBatch[sid].model = data.model
+        if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
         break
 
       case 'thinking':
-        store.updateSessionThinking(sid, data.content || '')
-        if (data.model) {
-          store.setLastAssistantMeta(sid, { model: data.model })
-        }
+        if (!textBatch[sid]) textBatch[sid] = { text: '', thinking: '' }
+        textBatch[sid].thinking += data.content || ''
+        if (data.model) textBatch[sid].model = data.model
+        if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
         break
 
       case 'tool_start':
@@ -1233,8 +1200,6 @@ export function setupWailsEvents() {
 
       case 'tool_output':
         if (data.tool) {
-          store.appendToolOutput(data.tool.output || '')
-          store.finishToolEntry(data.tool.status === 'error' ? 'error' : 'done')
           store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
           if (data.tool.input) {
             store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
@@ -1250,7 +1215,6 @@ export function setupWailsEvents() {
 
       case 'tool_done':
         if (data.tool) {
-          store.addToolEntry(data.tool.name, data.tool.input || '')
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           if (sid === store.activeSessionId) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
@@ -1267,12 +1231,11 @@ export function setupWailsEvents() {
       case 'error':
         if (data.content === 'cancelled') {
           store.removeGeneratingSession(sid)
-          store.setSessionStatus(sid, 'idle')
+          store.setSessionStatus(sid, 'stopped')
           store.setSessionError(sid, '')
           store.bumpSessionListVersion()
           break
         }
-        store.addConsoleEntry({ type: 'error', text: data.content || 'Unknown error' })
         store.addSessionError(sid, data.content || 'Unknown error')
         if (sid === store.activeSessionId) {
           store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
@@ -1285,7 +1248,6 @@ export function setupWailsEvents() {
 
       case 'file_changed':
         if (data.file_change) {
-          store.addConsoleEntry({ type: 'file', text: data.file_change.path, meta: data.file_change.status })
         }
         store.bumpFileTreeVersion()
         break
