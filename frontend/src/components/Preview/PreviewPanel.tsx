@@ -11,14 +11,12 @@ import { go } from '@codemirror/lang-go'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 
-const monoFont = "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace"
-
 const monoTheme = EditorView.theme({
-  '&': { fontFamily: monoFont, backgroundColor: '#08090d' },
+  '&': { fontFamily: 'var(--font-mono)', backgroundColor: '#08090d' },
   '.cm-scroller': { backgroundColor: '#08090d' },
-  '.cm-gutters': { fontFamily: monoFont, backgroundColor: '#08090d', color: 'var(--text-dim)', borderRight: '1px solid var(--border)' },
-  '.cm-content': { fontFamily: monoFont },
-  '.cm-line': { fontFamily: monoFont },
+  '.cm-gutters': { fontFamily: 'var(--font-mono)', backgroundColor: '#08090d', color: 'var(--text-dim)', borderRight: '1px solid var(--border)' },
+  '.cm-content': { fontFamily: 'var(--font-mono)' },
+  '.cm-line': { fontFamily: 'var(--font-mono)' },
 }, { dark: true })
 
 function getLangExtension(filePath: string) {
@@ -139,7 +137,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
   }, [preview.mode, preview.fileContent, preview.filePath])
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#11111a' }}>
+    <div className="flex flex-col h-full" style={{ background: '#08090d' }}>
       <div ref={headerRef} style={{ display: 'none' }} />
       {preview.mode === null ? (
         <div className="flex-1 flex items-center justify-center">
@@ -148,7 +146,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
       ) : preview.mode === 'file' ? (
         <div ref={containerRef} className="flex-1 overflow-hidden" />
       ) : preview.diffLines ? (
-        <div className="flex-1 overflow-auto" style={{ fontFamily: monoFont, fontSize: '12px', lineHeight: '20px' }}>
+        <div className="flex-1 overflow-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '20px' }}>
           {preview.diffLines.map((line, i) => {
             const bg = line.startsWith('+') ? 'rgba(100,255,100,0.08)'
               : line.startsWith('-') ? 'rgba(255,100,100,0.08)'

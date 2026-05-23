@@ -161,19 +161,14 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       ]
       items = allItems.filter(c => c.name.toLowerCase().startsWith(lq))
     } else if (prefix === '$') {
-      const [commands, files] = await Promise.all([
-        App.ListSystemCommands(query).catch(() => [] as string[]),
-        projectPath ? App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[]) : Promise.resolve([] as FileEntry[]),
-      ])
-
       const histItems: AcItem[] = historyRef.current
         .filter(h => h.toLowerCase().startsWith(lq))
         .slice(0, 5)
         .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: `$${h} ` }))
 
-      const cmdItems: AcItem[] = (commands || [])
-        .filter(c => c.toLowerCase().startsWith(lq))
-        .map(c => ({ name: c, detail: 'command', icon: '>', insert: `$${c} ` }))
+      const files = projectPath
+        ? await App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
+        : []
 
       const fileItems: AcItem[] = (files || [])
         .filter(f => f.name.toLowerCase().startsWith(lq))
@@ -186,7 +181,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
         }))
 
       const seen = new Set(histItems.map(h => h.name))
-      items = [...histItems, ...cmdItems.filter(c => !seen.has(c.name)), ...fileItems]
+      items = [...histItems, ...fileItems.filter(f => !seen.has(f.name))]
     } else if (prefix === '@') {
       const files = projectPath
         ? await App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
