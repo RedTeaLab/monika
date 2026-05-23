@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
@@ -29,6 +29,7 @@ function SessionList(props: IDockviewPanelProps) {
   const setActiveSessionId = useStore((s) => s.setActiveSessionId)
   const setMessages = useStore((s) => s.setMessages)
   const openSessionTab = useStore((s) => s.openSessionTab)
+  const openSessions = useStore((s) => s.openSessions)
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const bumpSessionListVersion = useStore((s) => s.bumpSessionListVersion)
@@ -58,6 +59,17 @@ function SessionList(props: IDockviewPanelProps) {
       })
     return () => { cancelled = true }
   }, [projectPath, sessionListVersion])
+
+  // Auto-open most recent session on first load
+  const didAutoOpen = useRef(false)
+  useEffect(() => {
+    if (!projectPath || sessions.length === 0) return
+    if (didAutoOpen.current) return
+    if (activeSessionId && openSessions.some((s) => s.id === activeSessionId)) return
+    const sorted = [...sessions].sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    didAutoOpen.current = true
+    openSessionTab(sorted[0].id, sorted[0].title || 'Untitled')
+  }, [projectPath, sessions])
 
   // Dismiss modal when project changes
   useEffect(() => {

@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import type { DockviewApi } from 'dockview'
 import { DEFAULT_LAYOUT } from './defaultLayout'
 import { applyLayoutSizes } from './applyLayoutSizes'
-import { useStore } from '../../store'
 
 const STORAGE_PREFIX = 'monika_layout_'
 const LAYOUT_VERSION = 15
@@ -25,13 +24,6 @@ export function useLayoutPersistence(
       if (saved) {
         const parsed = JSON.parse(saved)
         api.fromJSON(parsed)
-
-        // Load sessions from backend (no longer extracted from layout panels)
-        if (projectPath) {
-          setTimeout(() => {
-            useStore.getState().loadSessionList()
-          }, 100)
-        }
         return
       }
 
@@ -54,12 +46,6 @@ export function useLayoutPersistence(
         }
       } catch { /* ignore */ }
     }, 400)
-    // Load sessions even on first open
-    if (projectPath) {
-      setTimeout(() => {
-        useStore.getState().loadSessionList()
-      }, 500)
-    }
   }, [api, projectPath])
 
   useEffect(() => {
