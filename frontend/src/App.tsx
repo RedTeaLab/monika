@@ -5,7 +5,6 @@ import SessionList from './components/Sidebar/SessionList'
 import ChatArea from './components/Chat/ChatArea'
 import FileTree from './components/FileTree/FileTree'
 import FileEditor from './components/FileTree/FileEditor'
-// import Console from './components/Console/Console'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsPage from './components/Settings/SettingsPage'
 import { ChatTab } from './components/Panel/ChatTab'
@@ -23,7 +22,6 @@ const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> =
   filetree: FileTree,
   changes: ChangesList,
   session: SessionList,
-  // console: Console,
 }
 
 const tabComponents = {
