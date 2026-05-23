@@ -75,6 +75,7 @@ export class SkillMeta {
      * "project-opencode" | "project-claude" | "project-agents" | "global-monika" | "global-claude" | "global-agents" | "manual"
      */
     "source": string;
+    "enabled"?: boolean | null;
 
     /** Creates a new SkillMeta instance. */
     constructor($$source: Partial<SkillMeta> = {}) {

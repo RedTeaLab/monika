@@ -573,7 +573,7 @@ func (a *App) CancelGeneration(sessionID string) {
 		if sm := a.getSessionManagerForSession(sessionID); sm != nil {
 			if s, err := sm.Load(sessionID); err == nil {
 				sm.Lock()
-				sm.SetStatus(s, StatusIdle)
+				sm.SetStatus(s, StatusStopped)
 				sm.Save(s)
 				sm.Unlock()
 			}
@@ -914,7 +914,7 @@ func (a *App) resetStaleSessions(projectPath string) {
 				continue
 			}
 			sm.Lock()
-			sm.SetStatus(s, StatusIdle)
+			sm.SetStatus(s, StatusStopped)
 			sm.Save(s)
 			sm.Unlock()
 		}
@@ -1579,7 +1579,42 @@ func (a *App) ListSkills() []engine2.SkillMeta {
 		fmt.Fprintf(os.Stderr, "[monika] ListSkills: %v\n", err)
 		return nil
 	}
+	disabledSet := make(map[string]bool, len(a.cfg.Skill.DisabledSkills))
+	for _, n := range a.cfg.Skill.DisabledSkills {
+		disabledSet[n] = true
+	}
+	for i := range skills {
+		if disabledSet[skills[i].Name] {
+			skills[i].Enabled = ptrBool(false)
+		}
+	}
 	return skills
+}
+
+func ptrBool(v bool) *bool { return &v }
+
+// ToggleSkillEnabled toggles the enabled state of a skill by name.
+func (a *App) ToggleSkillEnabled(args json.RawMessage) error {
+	var req struct{ Name string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	disabled := a.cfg.Skill.DisabledSkills
+	found := false
+	filtered := make([]string, 0, len(disabled))
+	for _, n := range disabled {
+		if n == req.Name {
+			found = true
+		} else {
+			filtered = append(filtered, n)
+		}
+	}
+	if !found {
+		filtered = append(filtered, req.Name)
+	}
+	a.cfg.Skill.DisabledSkills = filtered
+	a.writeConfig()
+	return nil
 }
 
 // AddSkillPath appends a directory to the skill search paths.
@@ -1753,9 +1788,6 @@ func (a *App) UninstallSkill(args json.RawMessage) error {
 	}
 	for _, s := range skills {
 		if s.Name == req.Name {
-			if s.Source != "project-opencode" && s.Source != "global-monika" && s.Source != "manual" {
-				return fmt.Errorf("cannot uninstall auto-discovered skill %q (source: %s)", req.Name, s.Source)
-			}
 			if err := os.RemoveAll(s.Path); err != nil {
 				return err
 			}
@@ -1803,6 +1835,36 @@ func (a *App) skillBaseDir(scope string) string {
 		return filepath.Join(a.home, ".monika", "skills")
 	}
 	return filepath.Join(a.startupCwd, ".opencode", "skills")
+}
+
+// OpenInFileManager opens the given directory path in the system file manager.
+func (a *App) OpenInFileManager(args json.RawMessage) error {
+	var req struct{ Path string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(req.Path)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("path not found: %w", err)
+	}
+	target := absPath
+	if !info.IsDir() {
+		target = filepath.Dir(absPath)
+	}
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", target)
+	case "darwin":
+		cmd = exec.Command("open", target)
+	default:
+		cmd = exec.Command("xdg-open", target)
+	}
+	return cmd.Start()
 }
 
 // parseGitHubURL extracts owner and repo from various GitHub URL formats.

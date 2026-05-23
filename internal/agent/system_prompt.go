@@ -219,6 +219,9 @@ func BuildSkillsPrompt(skills []engine.SkillMeta) string {
 	b.WriteString("Use the skill tool to load a skill when a task matches its description.\n\n")
 	b.WriteString("<available_skills>\n")
 	for _, s := range skills {
+		if s.Enabled != nil && !*s.Enabled {
+			continue
+		}
 		fmt.Fprintf(&b, "  <skill>\n    <name>%s</name>\n    <description>%s</description>\n  </skill>\n", xmlEscape(s.Name), xmlEscape(s.Description))
 	}
 	b.WriteString("</available_skills>")

@@ -20,6 +20,7 @@ const (
 	StatusGenerating = "generating"
 	StatusSuccess    = "success"
 	StatusFailure    = "failure"
+	StatusStopped    = "stopped"
 )
 
 type Session struct {

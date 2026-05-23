@@ -123,7 +123,8 @@ type ProviderConfig struct {
 }
 
 type SkillConfig struct {
-	Paths []string `yaml:"paths" json:"paths"`
+	Paths          []string `yaml:"paths" json:"paths"`
+	DisabledSkills []string `yaml:"disabled_skills,omitempty" json:"disabled_skills,omitempty"`
 }
 
 type MCPConfig struct {

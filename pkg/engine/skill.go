@@ -7,6 +7,7 @@ type SkillMeta struct {
 	Description string `json:"description"`
 	Path        string `json:"path"`
 	Source      string `json:"source"` // "project-opencode" | "project-claude" | "project-agents" | "global-monika" | "global-claude" | "global-agents" | "manual"
+	Enabled     *bool  `json:"enabled,omitempty"`
 }
 
 type SkillContent struct {

@@ -271,6 +271,13 @@ export function NewSession(projectPath: string, providerID: string, model: strin
     });
 }
 
+/**
+ * OpenInFileManager opens the given directory path in the system file manager.
+ */
+export function OpenInFileManager(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(4046586048, args);
+}
+
 export function OpenProject(path: string): $CancellablePromise<$models.ProjectInfo | null> {
     return $Call.ByID(2628211045, path).then(($result: any) => {
         return $$createType1($result);
@@ -403,6 +410,13 @@ export function SetPipeline(p: permission$0.Pipeline | null): $CancellablePromis
  */
 export function SwitchBranch(projectPath: string, name: string): $CancellablePromise<void> {
     return $Call.ByID(589566188, projectPath, name);
+}
+
+/**
+ * ToggleSkillEnabled toggles the enabled state of a skill by name.
+ */
+export function ToggleSkillEnabled(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(3070293474, args);
 }
 
 /**
