@@ -15,7 +15,7 @@ import { buildDirtyGuardMessage } from './dropdownHelpers'
 
 function TitleBar() {
   const {
-    projectPath, branch, openFiles, generatingSessionIds,
+    projectPath, branch, generatingSessionIds,
     resetProjectState, setProjectPath, setBranch,
     loadBranches, loadRecentProjects, loadProviders,
   } = useStore()
@@ -60,19 +60,18 @@ function TitleBar() {
 
   const handleProjectSelect = useCallback(async (targetPath: string) => {
     console.log('[monika] handleProjectSelect: targetPath:', targetPath)
-    const dirtyCount = openFiles.filter(f => f.isDirty).length
     const isGenerating = generatingSessionIds.length > 0
-    console.log('[monika] handleProjectSelect: dirtyCount:', dirtyCount, 'isGenerating:', isGenerating)
+    console.log('[monika] handleProjectSelect: isGenerating:', isGenerating)
 
-    if (dirtyCount > 0 || isGenerating) {
+    if (isGenerating) {
       console.log('[monika] handleProjectSelect: showing confirm modal (dirty/generating)')
-      const message = buildDirtyGuardMessage(dirtyCount, isGenerating, 'projects');
+      const message = buildDirtyGuardMessage(0, isGenerating, 'projects');
       setConfirmModal({ title: 'Switch Project', message, targetPath })
       return
     }
 
     await doSwitchProject(targetPath)
-  }, [openFiles, generatingSessionIds])
+  }, [generatingSessionIds])
 
   return (
     <div

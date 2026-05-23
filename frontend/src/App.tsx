@@ -4,11 +4,10 @@ import TitleBar from './components/TitleBar/TitleBar'
 import SessionList from './components/Sidebar/SessionList'
 import ChatArea from './components/Chat/ChatArea'
 import FileTree from './components/FileTree/FileTree'
-import FileEditor from './components/FileTree/FileEditor'
+import PreviewPanel from './components/Preview/PreviewPanel'
 import StatusBar from './components/StatusBar/StatusBar'
 import SettingsPage from './components/Settings/SettingsPage'
 import { ChatTab } from './components/Panel/ChatTab'
-import { EditorTab } from './components/Panel/EditorTab'
 import { SessionTab } from './components/Panel/SessionTab'
 import ChangesList from './components/ChangesList/ChangesList'
 import { DefaultTab } from './components/Panel/DefaultTab'
@@ -18,18 +17,16 @@ import { useStore } from './store'
 
 const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
   chat: ChatArea,
-  editor: FileEditor,
-  filetree: FileTree,
+  preview: PreviewPanel,
+  files: FileTree,
   changes: ChangesList,
   session: SessionList,
 }
 
 const tabComponents = {
   'chat-tab': ChatTab,
-  'editor-tab': EditorTab,
   'session-tab': SessionTab,
   'default-tab': DefaultTab,
-  'changes-tab': DefaultTab,
 }
 
 function App() {
@@ -55,7 +52,7 @@ function App() {
       const id = panel.id
 
       // Redirect placeholder tab if it has siblings (e.g. activated via keyboard)
-      if ((id === 'chat' || id === 'editor') && panel.group && panel.group.panels.length > 1) {
+      if ((id === 'chat') && panel.group && panel.group.panels.length > 1) {
         const other = panel.group.panels.find((p) => p.id !== id)
         if (other) {
           other.api.setActive()

@@ -159,7 +159,7 @@ function ThinkingBlock({ content }: { content: string; isGenerating?: boolean })
         </span>
       }
     >
-      <MarkdownBlock content={content} />
+      <MarkdownBlock content={content} muted />
     </MsgBlock>
   )
 }

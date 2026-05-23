@@ -1,7 +1,8 @@
-import { create } from 'zustand'
+
+import { create } from 'zustand'
 import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
-import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat } from '../../bindings/monika'
+import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat, SessionInfo } from '../../bindings/monika'
 import type { DockviewApi } from 'dockview'
 
 export interface PermissionRequiredEvent {
@@ -50,11 +51,12 @@ interface SessionTabInfo {
   title: string
 }
 
-interface FileTabInfo {
-  path: string
-  content: string
-  isDirty: boolean
-  mode: 'edit' | 'diff'
+interface PreviewState {
+  mode: 'file' | 'diff' | null
+  filePath: string | null
+  fileName: string | null
+  fileContent: string | null
+  diffLines: string[] | null
 }
 
 export interface AgentInfo {
@@ -110,7 +112,9 @@ interface AppState {
   activeSessionId: string
   sessionParents: Record<string, string>
   subagentStack: Record<string, string[]>
-  activeFilePath: string
+  preview: PreviewState
+  lastEditedFile: string | null
+  lastEditedOldContent: string | null
   fileTreeVersion: number
   sessionListVersion: number
   dockviewApi: DockviewApi | null
@@ -119,7 +123,6 @@ interface AppState {
   sessionMessages: Record<string, Message[]>
   tasks: Record<string, TaskItem[]>
   todoCollapsed: Record<string, boolean>
-  openFiles: FileTabInfo[]
   changeStats: { stats: ChangeStat[]; loading: boolean; error: string }
   recentProjects: RecentProject[]
   allBranches: BranchInfo[]
@@ -177,13 +180,12 @@ interface AppState {
   closeSessionTab: (id: string) => void
   switchSessionTab: (id: string) => void
   restoreSessionTabs: (tabs: { id: string; title: string }[]) => Promise<void>
+  loadSessionList: () => Promise<void>
 
-  openFileTab: (path: string, content: string) => void
-  closeFileTab: (path: string) => void
-  switchFileTab: (path: string) => void
-  setFileDirty: (path: string, dirty: boolean) => void
-  setFileMode: (path: string, mode: 'edit' | 'diff') => void
-  updateFileContent: (path: string, content: string) => void
+  setPreviewFile: (filePath: string, fileName: string, content: string) => void
+  setPreviewDiff: (filePath: string, fileName: string, lines: string[]) => void
+  clearPreview: () => void
+  setLastEditedFile: (filePath: string | null) => void
 
   loadRecentProjects: () => Promise<void>
   loadBranches: () => Promise<void>
@@ -230,7 +232,9 @@ export const useStore = create<AppState>((set, get) => ({
   activeSessionId: '',
   sessionParents: {},
   subagentStack: {},
-  activeFilePath: '',
+  preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null },
+  lastEditedFile: null,
+  lastEditedOldContent: null,
   fileTreeVersion: 0,
   sessionListVersion: 0,
   dockviewApi: null as DockviewApi | null,
@@ -239,7 +243,6 @@ export const useStore = create<AppState>((set, get) => ({
   sessionMessages: {},
   tasks: {},
   todoCollapsed: {},
-  openFiles: [],
   changeStats: { stats: [], loading: false, error: '' },
   recentProjects: [],
   allBranches: [],
@@ -288,18 +291,30 @@ export const useStore = create<AppState>((set, get) => ({
   updateToolDone: (name, output, status) =>
     set((s) => {
       const msgs = [...s.messages]
+      let updatedFile: string | null = null
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant' && msgs[i].tools) {
           msgs[i] = {
             ...msgs[i],
-            tools: msgs[i].tools!.map((t) =>
-              t.name === name && t.status === 'running' ? { ...t, output, status } : t
-            ),
+            tools: msgs[i].tools!.map((t) => {
+              if (t.name === name && t.status === 'running') {
+                if (status === 'done' && (name === 'file_edit' || name === 'file_write') && t.input) {
+                  try {
+                    const parsed = JSON.parse(t.input)
+                    if (parsed.filePath) updatedFile = parsed.filePath
+                  } catch {}
+                }
+                return { ...t, output, status }
+              }
+              return t
+            }),
           }
           break
         }
       }
-      return { messages: msgs }
+      const result: Partial<AppState> = { messages: msgs }
+      if (updatedFile) (result as any).lastEditedFile = updatedFile
+      return result
     }),
 
   updateToolInput: (name, input) =>
@@ -569,26 +584,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   openSessionTab: async (id, title) => {
     const state = useStore.getState()
-    // If this looks like a subagent session, record the current session as parent
     if ((id.startsWith('sub_') || id.startsWith('call_')) && state.activeSessionId) {
       set({ sessionParents: { ...state.sessionParents, [id]: state.activeSessionId } })
     }
     const existing = state.openSessions.find((s) => s.id === id)
     if (existing) {
       state.switchSessionTab(id)
-      // If panel was removed (e.g. user closed it), re-create it.
-      // switchSessionTab already activates the panel if it exists.
-      const dockApi = useStore.getState().dockviewApi
-      if (dockApi && !dockApi.getPanel(id)) {
-        dockApi.addPanel({
-          id,
-          component: 'chat',
-          tabComponent: 'chat-tab',
-          title: existing.title,
-          params: { sessionId: id },
-          position: { referenceGroup: 'chat-group' },
-        })
-      }
       return
     }
     if (state.openSessions.length >= 8) {
@@ -608,18 +609,6 @@ export const useStore = create<AppState>((set, get) => ({
       tokenCount: s.sessionTokens[id]?.count ?? 0,
       tokenMax: s.sessionTokens[id]?.max ?? 0,
     }))
-    // Create dockview panel for the new session
-    const dockApi = useStore.getState().dockviewApi
-    if (dockApi && !dockApi.getPanel(id)) {
-      dockApi.addPanel({
-        id,
-        component: 'chat',
-        tabComponent: 'chat-tab',
-        title,
-        params: { sessionId: id },
-        position: { referenceGroup: 'chat-group' },
-      })
-    }
     try {
       const project = useStore.getState().projectPath
       const session = await App.LoadSession(project, id)
@@ -723,8 +712,6 @@ export const useStore = create<AppState>((set, get) => ({
         tokenMax: s.sessionTokens[id]?.max ?? 0,
         sessionParents: s.sessionParents,
       }
-      // Activate corresponding dockview panel
-      s.dockviewApi?.getPanel(id)?.api.setActive()
       return updates
     })
   },
@@ -813,7 +800,16 @@ export const useStore = create<AppState>((set, get) => ({
       }
     }
     if (!get().activeSessionId && tabs.length > 0) {
-      const activeId = tabs[0].id
+      // Pick the most recently updated session
+      let activeId = tabs[0].id
+      try {
+        const sessions = await App.ListSessions(project)
+        const tabIds = new Set(tabs.map((t) => t.id))
+        const recent = sessions
+          .filter((s: SessionInfo) => tabIds.has(s.id))
+          .sort((a: SessionInfo, b: SessionInfo) => b.updated_at.localeCompare(a.updated_at))
+        if (recent.length > 0) activeId = recent[0].id
+      } catch {}
       const msgs = get().sessionMessages[activeId] || []
       set({
         activeSessionId: activeId,
@@ -824,62 +820,70 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  openFileTab: (path, content) => {
-    const state = useStore.getState()
-    const existing = state.openFiles.find((f) => f.path === path)
-    if (existing) {
-      state.switchFileTab(path)
-      return
-    }
-    set((s) => ({
-      openFiles: [...s.openFiles, { path, content, isDirty: false, mode: 'edit' }],
-      activeFilePath: path,
-    }))
-  },
+  loadSessionList: async () => {
+    const project = get().projectPath
+    if (!project) return
+    try {
+      const sessions = await App.ListSessions(project)
+      if (!sessions || sessions.length === 0) return
+      sessions.sort((a: SessionInfo, b: SessionInfo) => b.updated_at.localeCompare(a.updated_at))
 
-  closeFileTab: (path) => {
-    set((s) => {
-      const idx = s.openFiles.findIndex((f) => f.path === path)
-      if (idx === -1) return {}
-
-      const next = [...s.openFiles]
-      next.splice(idx, 1)
-
-      let newActive = s.activeFilePath
-      if (path === s.activeFilePath) {
-        if (idx < next.length) newActive = next[idx].path
-        else if (next.length > 0) newActive = next[next.length - 1].path
-        else newActive = ''
+      // Load messages for each session without blocking the most recent one
+      for (const s of sessions) {
+        if (get().openSessions.some((o) => o.id === s.id)) continue
+        set((prev) => ({
+          openSessions: [...prev.openSessions, { id: s.id, title: s.title }],
+        }))
+        try {
+          const session = await App.LoadSession(project, s.id)
+          const msgs = session?.messages
+            ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
+            : []
+          set((prev) => ({
+            sessionMessages: { ...prev.sessionMessages, [s.id]: msgs },
+            sessionTokens: {
+              ...prev.sessionTokens,
+              [s.id]: { count: s.token_count ?? 0, max: s.token_max ?? 0 },
+            },
+            openSessions: prev.openSessions.map((sess) =>
+              sess.id === s.id && session?.title ? { ...sess, title: session.title } : sess
+            ),
+          }))
+        } catch {
+          set((prev) => ({
+            sessionMessages: { ...prev.sessionMessages, [s.id]: [] },
+          }))
+        }
       }
 
-      return { openFiles: next, activeFilePath: newActive }
-    })
+      // Activate the most recent
+      if (!get().activeSessionId) {
+        const mostRecent = sessions[0]
+        const msgs = get().sessionMessages[mostRecent.id] || []
+        set({
+          activeSessionId: mostRecent.id,
+          messages: msgs,
+          tokenCount: get().sessionTokens[mostRecent.id]?.count ?? 0,
+          tokenMax: get().sessionTokens[mostRecent.id]?.max ?? 0,
+        })
+      }
+    } catch { /* no sessions or network error */ }
   },
 
-  switchFileTab: (path) => {
-    set((s) => {
-      if (path === s.activeFilePath) return {}
-      if (!s.openFiles.some((f) => f.path === path)) return {}
-      return { activeFilePath: path }
-    })
+  setPreviewFile: (filePath, fileName, content) => {
+    set({ preview: { mode: 'file', filePath, fileName, fileContent: content, diffLines: null } })
   },
 
-  setFileDirty: (path, dirty) => {
-    set((s) => ({
-      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, isDirty: dirty } : f),
-    }))
+  setPreviewDiff: (filePath, fileName, lines) => {
+    set({ preview: { mode: 'diff', filePath, fileName, fileContent: null, diffLines: lines } })
   },
 
-  setFileMode: (path, mode) => {
-    set((s) => ({
-      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, mode } : f),
-    }))
+  clearPreview: () => {
+    set({ preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null } })
   },
 
-  updateFileContent: (path, content) => {
-    set((s) => ({
-      openFiles: s.openFiles.map((f) => f.path === path ? { ...f, content } : f),
-    }))
+  setLastEditedFile: (filePath) => {
+    set({ lastEditedFile: filePath })
   },
 
   loadRecentProjects: async () => {
@@ -1102,11 +1106,12 @@ export const useStore = create<AppState>((set, get) => ({
       activeSessionId: '',
       sessionParents: {},
       subagentStack: {},
-      activeFilePath: '',
+      preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null },
+      lastEditedFile: null,
+      lastEditedOldContent: null,
       openSessions: [],
       sessionMessages: {},
       tasks: {},
-      openFiles: [],
       changeStats: { stats: [], loading: false, error: '' },
       allBranches: [],
       recentProjects: [],
@@ -1247,8 +1252,21 @@ export function setupWailsEvents() {
       case 'tool_start':
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-          if (sid === store.activeSessionId) {
+          if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+            // Snapshot file content before edit
+            if ((data.tool.name === 'file_edit' || data.tool.name === 'file_write') && data.tool.input) {
+              try {
+                const parsed = JSON.parse(data.tool.input)
+                if (parsed.filePath && store.projectPath) {
+                  App.ReadFile(store.projectPath, parsed.filePath).then((fc) => {
+                    if (fc && fc.content !== undefined) {
+                      useStore.setState({ lastEditedOldContent: fc.content })
+                    }
+                  }).catch(() => {})
+                }
+              } catch {}
+            }
           }
         }
         break
@@ -1259,7 +1277,7 @@ export function setupWailsEvents() {
           if (data.tool.input) {
             store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
           }
-          if (sid === store.activeSessionId) {
+          if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
             store.updateToolDone(data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
             if (data.tool.input) {
               store.updateToolInput(data.tool.name, data.tool.input)
@@ -1271,7 +1289,7 @@ export function setupWailsEvents() {
       case 'tool_done':
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-          if (sid === store.activeSessionId) {
+          if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           }
         }

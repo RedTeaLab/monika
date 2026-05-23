@@ -11,7 +11,8 @@ import TodoPanel from '../TodoPanel/TodoPanel'
 const EMPTY_ARR: any[] = []
 
 function ChatArea(props: IDockviewPanelProps) {
-  const sessionId = (props.params as { sessionId?: string } | undefined)?.sessionId || props.api.id
+  const activeSessionId = useStore((s) => s.activeSessionId)
+  const sessionId = activeSessionId || 'chat'
 
   const generatingSessionIds = useStore((s) => s.generatingSessionIds)
   const compactingSessionId = useStore((s) => s.compactingSessionId)

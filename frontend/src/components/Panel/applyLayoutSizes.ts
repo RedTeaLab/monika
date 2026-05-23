@@ -1,35 +1,50 @@
 import type { DockviewApi } from 'dockview'
 
-const SESSION_WIDTH = 180
-const FILETREE_WIDTH = 180
+const SESSION_WIDTH = 220
+const CHAT_RATIO = 0.55
+const PREVIEW_RATIO = 0.7
 
 export function applyLayoutSizes(api: DockviewApi) {
-  // Dockview fromJSON doesn't reliably apply leaf sizes, so we force them via setSize.
-  // Use two passes: first set fixed panels, then equalize flex panels.
-  setTimeout(() => {
-    const sessionPanel = api.getPanel('session')
-    const filetreePanel = api.getPanel('filetree')
-    const chatPanel = api.getPanel('chat')
-    const editorPanel = api.getPanel('editor')
+  // Safety-net adjustments — DEFAULT_LAYOUT already has correct proportional
+  // pixel sizes, but different window sizes need these recalculated.
 
-    // Pass 1: set fixed sizes
-    if (sessionPanel) {
-      sessionPanel.api.setSize({ width: SESSION_WIDTH, height: sessionPanel.api.height })
-    }
-    if (filetreePanel) {
-      filetreePanel.api.setSize({ width: FILETREE_WIDTH, height: filetreePanel.api.height })
+  function adjust() {
+    const session = api.getPanel('session')
+    const chat = api.getPanel('chat')
+    const preview = api.getPanel('preview')
+    const files = api.getPanel('files')
+    const changes = api.getPanel('changes')
+
+    if (session) {
+      session.api.setSize({ width: SESSION_WIDTH, height: session.api.height })
     }
 
-    // Pass 2: split remaining width 70/30 between chat and editor
-    if (chatPanel && editorPanel) {
-      setTimeout(() => {
-        const totalWidth = api.width
-        const remaining = totalWidth - SESSION_WIDTH - FILETREE_WIDTH
-        if (remaining > 0) {
-          chatPanel.api.setSize({ width: Math.floor(remaining * 0.6), height: chatPanel.api.height })
-          editorPanel.api.setSize({ width: Math.floor(remaining * 0.4), height: editorPanel.api.height })
-        }
-      }, 50)
+    if (chat && preview) {
+      const remaining = api.width - SESSION_WIDTH
+      if (remaining > 0) {
+        chat.api.setSize({ width: Math.floor(remaining * CHAT_RATIO), height: chat.api.height })
+        preview.api.setSize({ width: Math.floor(remaining * (1 - CHAT_RATIO)), height: preview.api.height })
+      }
     }
-  }, 0)
+
+    if (preview && files && changes) {
+      const totalH = preview.api.height + files.api.height
+      if (totalH > 0) {
+        preview.api.setSize({ width: preview.api.width, height: Math.floor(totalH * PREVIEW_RATIO) })
+      }
+    }
+
+    if (files && changes) {
+      const totalW = files.api.width + changes.api.width
+      if (totalW > 0) {
+        const half = Math.floor(totalW / 2)
+        files.api.setSize({ width: half, height: files.api.height })
+        changes.api.setSize({ width: half, height: changes.api.height })
+      }
+    }
+  }
+
+  setTimeout(adjust, 0)
+  setTimeout(adjust, 80)
+  setTimeout(adjust, 250)
 }

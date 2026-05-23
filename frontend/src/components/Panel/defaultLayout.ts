@@ -1,5 +1,11 @@
 import { Orientation, type SerializedDockview } from 'dockview'
 
+// Grid defaults to 1400×900. Sizes below are proportional within that frame.
+// When restored at different window sizes, dockview scales them.
+const CHAT_W = 649   // 55% of (1400 - 220)
+const PREVIEW_H = 630 // 70% of 900
+const FS_CH_W = 265  // 50% of (1400 - 220 - 649)
+
 export const DEFAULT_LAYOUT: SerializedDockview = {
   grid: {
     root: {
@@ -7,35 +13,46 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       data: [
         {
           type: 'branch',
-          size: undefined,
           data: [
             {
               type: 'leaf',
-              size: 180,
+              size: 220,
               data: { id: 'session-group', views: ['session'], activeView: 'session' },
             },
             {
               type: 'leaf',
-              size: undefined,
+              size: CHAT_W,
               data: { id: 'chat-group', views: ['chat'], activeView: 'chat' },
             },
             {
-              type: 'leaf',
+              type: 'branch',
               size: undefined,
-              data: { id: 'editor-group', views: ['editor'], activeView: 'editor' },
-            },
-            {
-              type: 'leaf',
-              size: 180,
-              data: { id: 'filetree-group', views: ['filetree', 'changes'], activeView: 'filetree' },
+              data: [
+                {
+                  type: 'leaf',
+                  size: PREVIEW_H,
+                  data: { id: 'preview-group', views: ['preview'], activeView: 'preview' },
+                },
+                {
+                  type: 'branch',
+                  size: undefined,
+                  data: [
+                    {
+                      type: 'leaf',
+                      size: FS_CH_W,
+                      data: { id: 'files-group', views: ['files'], activeView: 'files' },
+                    },
+                    {
+                      type: 'leaf',
+                      size: FS_CH_W,
+                      data: { id: 'changes-group', views: ['changes'], activeView: 'changes' },
+                    },
+                  ],
+                },
+              ],
             },
           ],
         },
-        // {
-        //   type: 'leaf',
-        //   size: 120,
-        //   data: { id: 'console-group', views: ['console'], activeView: 'console' },
-        // },
       ],
     },
     orientation: Orientation.VERTICAL,
@@ -57,16 +74,16 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
       title: 'CHAT',
       renderer: 'always',
     },
-    editor: {
-      id: 'editor',
-      contentComponent: 'editor',
-      tabComponent: 'editor-tab',
-      title: 'EDITOR',
+    preview: {
+      id: 'preview',
+      contentComponent: 'preview',
+      tabComponent: 'session-tab',
+      title: 'PREVIEW',
       renderer: 'always',
     },
-    filetree: {
-      id: 'filetree',
-      contentComponent: 'filetree',
+    files: {
+      id: 'files',
+      contentComponent: 'files',
       tabComponent: 'default-tab',
       title: 'FILES',
       renderer: 'always',
@@ -74,17 +91,10 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
     changes: {
       id: 'changes',
       contentComponent: 'changes',
-      tabComponent: 'changes-tab',
+      tabComponent: 'default-tab',
       title: 'CHANGES',
       renderer: 'always',
     },
-    // console: {
-    //   id: 'console',
-    //   contentComponent: 'console',
-    //   tabComponent: 'default-tab',
-    //   title: 'CONSOLE',
-    //   renderer: 'always',
-    // },
   },
   activeGroup: 'chat-group',
 }

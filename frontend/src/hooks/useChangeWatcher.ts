@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { App as MonikaApp } from '../../bindings/monika'
 import { useStore } from '../store'
-import { findStaleDiffTabs } from '../lib/diffWatcher'
 
 export function useChangeWatcher(projectPath: string, fileTreeVersion: number) {
   const setChangeStats = useStore((s) => s.setChangeStats)
@@ -24,13 +23,11 @@ export function useChangeWatcher(projectPath: string, fileTreeVersion: number) {
 
         if (prevChanged.size > 0) {
           const state = useStore.getState()
-          const stale = findStaleDiffTabs(prevChanged, changedPaths, state.openFiles)
-          if (stale.length > 0) {
-            const dock = state.dockviewApi
-            for (const path of stale) {
-              state.closeFileTab(path)
-              dock?.getPanel(path)?.api.close()
-              console.log('[monika] auto-closed diff tab:', path)
+          if (state.preview.mode === 'diff' && state.preview.filePath) {
+            const wasChanged = prevChanged.has(state.preview.filePath)
+            const isChanged = changedPaths.has(state.preview.filePath)
+            if (wasChanged && !isChanged) {
+              state.clearPreview()
             }
           }
         }

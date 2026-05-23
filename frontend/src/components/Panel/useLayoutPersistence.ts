@@ -5,14 +5,7 @@ import { applyLayoutSizes } from './applyLayoutSizes'
 import { useStore } from '../../store'
 
 const STORAGE_PREFIX = 'monika_layout_'
-const LAYOUT_VERSION = 12
-
-function extractSessionTabs(layout: any): { id: string; title: string }[] {
-  const panels = layout?.panels || {}
-  return Object.values(panels)
-    .filter((p: any) => p.contentComponent === 'chat' && p.id !== 'chat')
-    .map((p: any) => ({ id: p.id, title: p.title || 'Untitled' }))
-}
+const LAYOUT_VERSION = 15
 
 export function useLayoutPersistence(
   api: DockviewApi | null,
@@ -33,14 +26,12 @@ export function useLayoutPersistence(
         const parsed = JSON.parse(saved)
         api.fromJSON(parsed)
 
-        // Restore session state for restored session panels
-        const sessionTabs = extractSessionTabs(parsed)
-        if (sessionTabs.length > 0 && projectPath) {
+        // Load sessions from backend (no longer extracted from layout panels)
+        if (projectPath) {
           setTimeout(() => {
-            useStore.getState().restoreSessionTabs(sessionTabs)
+            useStore.getState().loadSessionList()
           }, 100)
         }
-
         return
       }
 
@@ -53,6 +44,22 @@ export function useLayoutPersistence(
     }
     api.fromJSON(DEFAULT_LAYOUT)
     applyLayoutSizes(api)
+    // Save the adjusted layout as default so subsequent loads get the correct sizes
+    setTimeout(() => {
+      try {
+        const versionedKey = `${STORAGE_PREFIX}v${LAYOUT_VERSION}_${baseKey}`
+        if (!localStorage.getItem(versionedKey)) {
+          const json = api.toJSON()
+          localStorage.setItem(versionedKey, JSON.stringify(json))
+        }
+      } catch { /* ignore */ }
+    }, 400)
+    // Load sessions even on first open
+    if (projectPath) {
+      setTimeout(() => {
+        useStore.getState().loadSessionList()
+      }, 500)
+    }
   }, [api, projectPath])
 
   useEffect(() => {

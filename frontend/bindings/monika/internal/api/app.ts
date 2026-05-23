@@ -101,6 +101,12 @@ export function GetFileDiff(projectPath: string, filePath: string): $Cancellable
     });
 }
 
+export function GetInlineDiff(projectPath: string, filePath: string, oldContent: string): $CancellablePromise<$models.DiffResult | null> {
+    return $Call.ByID(2333122030, projectPath, filePath, oldContent).then(($result: any) => {
+        return $$createType4($result);
+    });
+}
+
 export function GetModels(providerID: string): $CancellablePromise<engine$0.Model[]> {
     return $Call.ByID(2740169318, providerID).then(($result: any) => {
         return $$createType6($result);

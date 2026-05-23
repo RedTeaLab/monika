@@ -779,6 +779,15 @@ func (a *App) GetFileDiff(projectPath, filePath string) (*DiffResult, error) {
 	return &dr, nil
 }
 
+func (a *App) GetInlineDiff(projectPath, filePath, oldContent string) (*DiffResult, error) {
+	fs := a.getFileService(projectPath)
+	dr, err := fs.GetInlineDiff(filePath, oldContent)
+	if err != nil {
+		return nil, err
+	}
+	return &dr, nil
+}
+
 func (a *App) resolveModelContextLimit(providerID, modelID string) int64 {
 	if pc, ok := a.cfg.ModelProviders[providerID]; ok {
 		for _, m := range pc.Models {

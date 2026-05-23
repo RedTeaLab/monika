@@ -6,33 +6,17 @@ import { useStore } from '../../store'
 function ChangesList(_props: IDockviewPanelProps) {
   const projectPath = useStore((s) => s.projectPath)
   const changes = useStore((s) => s.changeStats)
-  const openFileTab = useStore((s) => s.openFileTab)
-  const setFileMode = useStore((s) => s.setFileMode)
+  const setPreviewDiff = useStore((s) => s.setPreviewDiff)
 
   const handleClick = async (stat: ChangeStat) => {
     try {
-      const result = await MonikaApp.ReadFile(projectPath, stat.path)
-      openFileTab(stat.path, result?.content || '')
-    } catch {
-      openFileTab(stat.path, '')
-    }
-    const dockApi = useStore.getState().dockviewApi
-    if (dockApi) {
-      const existing = dockApi.getPanel(stat.path)
-      if (!existing) {
-        dockApi.addPanel({
-          id: stat.path,
-          component: 'editor',
-          tabComponent: 'editor-tab',
-          title: stat.path.split('/').pop() || stat.path,
-          params: { filePath: stat.path },
-          position: { referenceGroup: 'editor-group' },
-        })
-        setFileMode(stat.path, 'diff')
-      } else {
-        existing.api.setActive()
-        setFileMode(stat.path, 'diff')
+      const result = await MonikaApp.GetFileDiff(projectPath, stat.path)
+      const fileName = stat.path.split('/').pop() || stat.path
+      if (result && result.lines) {
+        setPreviewDiff(stat.path, fileName, result.lines)
       }
+    } catch {
+      // ignore
     }
   }
 

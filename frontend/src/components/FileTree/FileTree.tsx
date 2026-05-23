@@ -9,8 +9,8 @@ function FileTree(_props: IDockviewPanelProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const projectPath = useStore((s) => s.projectPath)
   const fileTreeVersion = useStore((s) => s.fileTreeVersion)
-  const openFileTab = useStore((s) => s.openFileTab)
-  const activeFilePath = useStore((s) => s.activeFilePath)
+  const setPreviewFile = useStore((s) => s.setPreviewFile)
+  const previewFilePath = useStore((s) => s.preview.filePath)
 
   useEffect(() => {
     if (!projectPath) return
@@ -40,26 +40,9 @@ function FileTree(_props: IDockviewPanelProps) {
     } else {
       try {
         const result = await App.ReadFile(projectPath, node.path)
-        openFileTab(node.path, result?.content || '')
+        setPreviewFile(node.path, node.name, result?.content || '')
       } catch {
-        openFileTab(node.path, '')
-      }
-      // Create dockview editor panel for the file
-      const dockApi = useStore.getState().dockviewApi
-      if (dockApi) {
-        const existing = dockApi.getPanel(node.path)
-        if (!existing) {
-          dockApi.addPanel({
-            id: node.path,
-            component: 'editor',
-            tabComponent: 'editor-tab',
-            title: node.name,
-            params: { filePath: node.path },
-            position: { referenceGroup: 'editor-group' },
-          })
-        } else {
-          existing.api.setActive()
-        }
+        setPreviewFile(node.path, node.name, '')
       }
     }
   }
@@ -83,7 +66,7 @@ function FileTree(_props: IDockviewPanelProps) {
 
   const renderNode = (node: FileNode, depth = 0) => {
     const isExpanded = expanded.has(node.path)
-    const isSelected = activeFilePath === node.path
+    const isSelected = previewFilePath === node.path
     const gColor = gitColor(node.status)
 
     return (

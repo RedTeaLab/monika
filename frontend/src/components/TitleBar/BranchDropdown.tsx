@@ -53,10 +53,9 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const handleSwitch = async (branchName: string, remote: string) => {
     setError(null);
 
-    // Guard: check for dirty files or active generation before switching.
-    const { openFiles, generatingSessionIds } = useStore.getState();
-    const dirtyCount = openFiles.filter(f => f.isDirty).length;
-    if (dirtyCount > 0 || generatingSessionIds.length > 0) {
+    // Guard: check for active generation before switching.
+    const { generatingSessionIds } = useStore.getState();
+    if (generatingSessionIds.length > 0) {
       setDirtyConfirm({ branchName, remote });
       return;
     }
@@ -70,20 +69,6 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
       const name = remote ? `${remote}/${branchName}` : branchName;
       await App.SwitchBranch(projectPath, name);
 
-      // Refresh open file tabs in parallel.
-      const { openFiles, updateFileContent, closeFileTab } = useStore.getState();
-      await Promise.all(openFiles.map(async (file) => {
-        try {
-          const content = await App.ReadFile(projectPath, file.path);
-          if (content && content.exist) {
-            updateFileContent(file.path, content.content);
-          } else {
-            closeFileTab(file.path);
-          }
-        } catch {
-          closeFileTab(file.path);
-        }
-      }));
       useStore.getState().setBranch(branchName);
       await loadBranches();
       onClose();
@@ -185,7 +170,7 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
 
   const confirmMessage = dirtyConfirm
     ? buildDirtyGuardMessage(
-        useStore.getState().openFiles.filter(f => f.isDirty).length,
+        0,
         useStore.getState().generatingSessionIds.length > 0,
         'branches',
       )
