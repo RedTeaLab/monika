@@ -116,8 +116,8 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
             style={{
               padding: '4px 16px',
               fontSize: 11,
-              background: name.trim() && !creating ? 'var(--accent)' : 'var(--bg-card)',
-              color: name.trim() && !creating ? 'white' : 'var(--text-dim)',
+              background: name.trim() && !creating ? 'var(--accent-muted)' : 'var(--bg-card)',
+              color: name.trim() && !creating ? 'var(--accent)' : 'var(--text-dim)',
               border: 'none',
               borderRadius: 2,
               cursor: name.trim() && !creating ? 'pointer' : 'default',

@@ -90,9 +90,9 @@ function ConfirmBar({ sessionId }: ConfirmBarProps) {
           onClick={() => respondPermission({ requestId: pendingPermission.requestId, decision: 'allow' })}
           className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer font-medium outline-none"
           style={{
-            background: 'var(--accent)',
+            background: 'var(--accent-muted)',
             border: 'none',
-            color: '#fff',
+            color: 'var(--accent)',
             fontFamily: 'inherit',
           }}
         >

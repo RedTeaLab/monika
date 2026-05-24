@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
-import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { IconServer, IconTrash, IconPlus, IconZap, IconRefresh, IconEdit } from '../Icons'
 
@@ -303,90 +303,76 @@ export default function McpTab() {
 
       {/* Add modal */}
       {showAddModal && (
-        <Modal onClose={() => setShowAddModal(false)} loading={importing} width={520}>
-          <h4 className="text-[14px] font-semibold m-0 mb-3">Add MCP Server</h4>
-          <p className="text-[11px] text-[var(--text-dim)] m-0 mb-3">
-            Paste a JSON config block. Accepted formats:
-          </p>
-          <pre
-            className="text-[10px] font-mono p-2 rounded mb-3 overflow-x-auto"
-            style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
-          >
-{`{
-  "mcpServers": {
-    "server-name": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@scope/package"],
-      "env": { "API_KEY": "..." }
-    }
-  }
-}`}
-          </pre>
-          <textarea
-            value={jsonText}
-            onChange={(e) => { setJsonText(e.target.value); setImportError('') }}
-            placeholder='Paste MCP server JSON here...'
-            className="w-full text-[12px] font-mono px-3 py-2.5 rounded-lg resize-y outline-none"
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              minHeight: '120px',
-            }}
-            rows={6}
-            autoFocus
-          />
+        <Modal onClose={() => setShowAddModal(false)} loading={importing} width={540}>
+          <ModalHeader icon={<IconServer size={15} />}>
+            <h4 className="text-[14px] font-semibold m-0">Add MCP Server</h4>
+          </ModalHeader>
+          <ModalBody>
+            <textarea
+              value={jsonText}
+              onChange={(e) => { setJsonText(e.target.value); setImportError('') }}
+              placeholder={'{\n  "mcpServers": {\n    "server-name": {\n      "type": "stdio",\n      "command": "npx",\n      "args": ["-y", "@scope/package"],\n      "env": { "API_KEY": "..." }\n    }\n  }\n}'}
+              className="w-full text-[12px] font-mono px-3 py-2.5 rounded-md resize-y outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+              style={{
+                background: 'var(--bg-console)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                minHeight: '160px',
+              }}
+              rows={8}
+              autoFocus
+            />
 
-          {importError && (
-            <p className="text-[11px] text-[var(--red)] m-0 mt-2">{importError}</p>
-          )}
+            {importError && (
+              <p className="text-[11px] text-[var(--red)] m-0 mt-3">{importError}</p>
+            )}
 
-          {parsed.error && jsonText.trim() && (
-            <p className="text-[11px] text-[var(--red)] m-0 mt-2">{parsed.error}</p>
-          )}
+            {parsed.error && jsonText.trim() && (
+              <p className="text-[11px] text-[var(--red)] m-0 mt-3">{parsed.error}</p>
+            )}
 
-          {parsed.servers.length > 0 && !parsed.error && (
-            <div className="mt-3 space-y-2">
-              {parsed.servers.map((s) => {
-                const result = addTestResult[s.id]
-                const isStdio = s.type !== 'http' && s.type !== 'sse'
-                return (
-                  <div
-                    key={s.id}
-                    className="rounded px-3 py-2 flex items-center gap-2"
-                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                  >
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium shrink-0"
-                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
+            {parsed.servers.length > 0 && !parsed.error && (
+              <div className="mt-4 space-y-2">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-2">Detected Servers</label>
+                {parsed.servers.map((s) => {
+                  const result = addTestResult[s.id]
+                  const isStdio = s.type !== 'http' && s.type !== 'sse'
+                  return (
+                    <div
+                      key={s.id}
+                      className="rounded-md px-3 py-2.5 flex items-center gap-3"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                     >
-                      {s.type}
-                    </span>
-                    <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">{s.id}</span>
-                    <span className="font-mono text-[11px] text-[var(--text-dim)] truncate flex-1 min-w-0">
-                      {isStdio ? `${s.command} ${s.args.join(' ')}` : s.url}
-                    </span>
-                    <button
-                      onClick={() => handleAddTest(s.id)}
-                      disabled={result?.loading}
-                      title="Test connection"
-                      className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors shrink-0"
-                    >
-                      <IconZap size={14} />
-                    </button>
-                    <div className="shrink-0 text-[10px] min-w-0">
-                      {result?.loading && <span className="text-[var(--text-dim)]">Testing...</span>}
-                      {result?.tools && <span className="text-green-400">{result.tools.length} tools</span>}
-                      {result?.error && <span className="text-[var(--red)]">{result.error}</span>}
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium shrink-0"
+                        style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
+                      >
+                        {s.type}
+                      </span>
+                      <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">{s.id}</span>
+                      <span className="font-mono text-[11px] text-[var(--text-dim)] truncate flex-1 min-w-0">
+                        {isStdio ? `${s.command} ${s.args.join(' ')}` : s.url}
+                      </span>
+                      <button
+                        onClick={() => handleAddTest(s.id)}
+                        disabled={result?.loading}
+                        title="Test connection"
+                        className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors shrink-0"
+                      >
+                        <IconZap size={14} />
+                      </button>
+                      <div className="shrink-0 text-[10px] min-w-0">
+                        {result?.loading && <span className="text-[var(--text-dim)]">Testing...</span>}
+                        {result?.tools && <span className="text-green-400">{result.tools.length} tools</span>}
+                        {result?.error && <span className="text-[var(--red)]">{result.error}</span>}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          <ModalActions>
+                  )
+                })}
+              </div>
+            )}
+          </ModalBody>
+          <ModalFooter>
             <ModalButton onClick={() => setShowAddModal(false)} disabled={importing}>Cancel</ModalButton>
             <ModalButton
               variant="primary"
@@ -395,7 +381,7 @@ export default function McpTab() {
             >
               {importing ? 'Importing...' : 'Import'}
             </ModalButton>
-          </ModalActions>
+          </ModalFooter>
         </Modal>
       )}
 
@@ -404,6 +390,7 @@ export default function McpTab() {
           title="Delete MCP Server"
           message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
           confirmLabel="Delete"
+          icon={<IconTrash size={15} />}
           onConfirm={async () => { await deleteServer(confirmDelete); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
         />
@@ -411,25 +398,29 @@ export default function McpTab() {
 
       {/* Edit modal */}
       {editServer && (
-        <Modal onClose={() => setEditServer(null)} loading={editSaving} width={520}>
-          <h4 className="text-[14px] font-semibold m-0 mb-3">Edit MCP Server</h4>
-          <textarea
-            value={editJsonText}
-            onChange={(e) => { setEditJsonText(e.target.value); setEditError('') }}
-            className="w-full text-[12px] font-mono px-3 py-2.5 rounded-lg resize-y outline-none"
-            style={{
-              background: 'var(--bg-input)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-primary)',
-              minHeight: '180px',
-            }}
-            rows={10}
-            autoFocus
-          />
-          {editError && (
-            <p className="text-[11px] text-[var(--red)] m-0 mt-2">{editError}</p>
-          )}
-          <ModalActions>
+        <Modal onClose={() => setEditServer(null)} loading={editSaving} width={540}>
+          <ModalHeader icon={<IconEdit size={15} />}>
+            <h4 className="text-[14px] font-semibold m-0">Edit MCP Server</h4>
+          </ModalHeader>
+          <ModalBody>
+            <textarea
+              value={editJsonText}
+              onChange={(e) => { setEditJsonText(e.target.value); setEditError('') }}
+              className="w-full text-[12px] font-mono px-3 py-2.5 rounded-md resize-y outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+              style={{
+                background: 'var(--bg-console)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                minHeight: '180px',
+              }}
+              rows={10}
+              autoFocus
+            />
+            {editError && (
+              <p className="text-[11px] text-[var(--red)] m-0 mt-3">{editError}</p>
+            )}
+          </ModalBody>
+          <ModalFooter>
             <ModalButton onClick={() => setEditServer(null)} disabled={editSaving}>Cancel</ModalButton>
             <ModalButton
               variant="primary"
@@ -438,7 +429,7 @@ export default function McpTab() {
             >
               {editSaving ? 'Saving...' : 'Save'}
             </ModalButton>
-          </ModalActions>
+          </ModalFooter>
         </Modal>
       )}
     </div>

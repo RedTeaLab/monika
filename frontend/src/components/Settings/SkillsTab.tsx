@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore, SkillInfo } from '../../store'
-import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { IconStar, IconPlus, IconTrash } from '../Icons'
 
@@ -235,7 +235,7 @@ export default function SkillsTab() {
             setGithubURL('')
           }}
         >
-          <IconPlus size={12} /> Install
+          <IconPlus size={12} /> Add
         </button>
       </div>
 
@@ -243,7 +243,7 @@ export default function SkillsTab() {
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
           <IconStar size={32} />
           <span className="text-[13px] mt-3">No skills discovered.</span>
-          <span className="text-[11px] mt-1">Click "Install" to add skills.</span>
+          <span className="text-[11px] mt-1">Click "Add" to add skills.</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -265,88 +265,78 @@ export default function SkillsTab() {
 
       {showInstallModal && (
         <Modal onClose={() => setShowInstallModal(false)} loading={installing} width={480}>
-          <h4 className="text-[14px] font-semibold m-0 mb-4">Install Skills</h4>
-
-          <div className="flex gap-3 mb-4">
-            <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
-              <input
-                type="radio"
-                name="installScope"
-                checked={installScope === 'project'}
-                onChange={() => setInstallScope('project')}
-              />
-              <span className="text-[var(--text-primary)]">Project</span>
-            </label>
-            <label className="flex items-center gap-1.5 text-[11px] cursor-pointer">
-              <input
-                type="radio"
-                name="installScope"
-                checked={installScope === 'global'}
-                onChange={() => setInstallScope('global')}
-              />
-              <span className="text-[var(--text-primary)]">Global</span>
-            </label>
-          </div>
-
-          <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => { setInstallTab('github'); setInstallError(''); setInstallResult([]) }}
-              className="px-3 py-1 text-[11px] rounded cursor-pointer border-none"
-              style={{
-                background: installTab === 'github' ? 'var(--accent)' : 'var(--bg-sidebar)',
-                color: installTab === 'github' ? '#fff' : 'var(--text-primary)',
-              }}
-            >
-              GitHub URL
-            </button>
-            <button
-              onClick={() => { setInstallTab('zip'); setInstallError(''); setInstallResult([]) }}
-              className="px-3 py-1 text-[11px] rounded cursor-pointer border-none"
-              style={{
-                background: installTab === 'zip' ? 'var(--accent)' : 'var(--bg-sidebar)',
-                color: installTab === 'zip' ? '#fff' : 'var(--text-primary)',
-              }}
-            >
-              Upload ZIP
-            </button>
-          </div>
-
-          {installTab === 'github' && (
-            <div>
-              <input
-                className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-                placeholder="https://github.com/user/skill-repo"
-                value={githubURL}
-                onChange={(e) => setGithubURL(e.target.value)}
-                autoFocus
-              />
-              <ModalActions>
-                <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
-                <ModalButton variant="primary" onClick={handleInstall} disabled={installing || !githubURL.trim()}>
-                  {installing ? 'Installing...' : 'Install'}
-                </ModalButton>
-              </ModalActions>
+          <ModalHeader icon={<IconStar size={15} />}>
+            <h4 className="text-[14px] font-semibold m-0">Install Skills</h4>
+          </ModalHeader>
+          <ModalBody>
+            {/* Scope toggle */}
+            <div className="mb-4">
+              <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-2">Scope</label>
+              <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
+                {(['project', 'global'] as const).map((scope) => (
+                  <button
+                    key={scope}
+                    onClick={() => setInstallScope(scope)}
+                    className="px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors border-none"
+                    style={{
+                      background: installScope === scope ? 'var(--accent-muted)' : 'transparent',
+                      color: installScope === scope ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {scope.charAt(0).toUpperCase() + scope.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {installTab === 'zip' && (
-            <div>
-              <p className="text-[11px] text-[var(--text-dim)] m-0 mb-3">Click below to select a ZIP file containing skills.</p>
-              <ModalActions>
-                <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
-                <ModalButton variant="primary" onClick={handleInstall} disabled={installing}>
-                  {installing ? 'Installing...' : 'Select ZIP File'}
-                </ModalButton>
-              </ModalActions>
+            {/* Source tabs */}
+            <div className="mb-4">
+              <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
+                {(['github', 'zip'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => { setInstallTab(tab); setInstallError(''); setInstallResult([]) }}
+                    className="px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors border-none"
+                    style={{
+                      background: installTab === tab ? 'var(--accent-muted)' : 'var(--bg-card)',
+                      color: installTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {tab === 'github' ? 'GitHub URL' : 'Upload ZIP'}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
 
-          {installError && <p className="text-[11px] text-[var(--red)] m-0 mt-3">{installError}</p>}
-          {installResult.length > 0 && (
-            <p className="text-[11px] m-0 mt-3" style={{ color: 'var(--green)' }}>
-              Installed: {installResult.join(', ')}
-            </p>
-          )}
+            {installTab === 'github' && (
+              <div>
+                <input
+                  className="w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+                  placeholder="https://github.com/user/skill-repo"
+                  value={githubURL}
+                  onChange={(e) => setGithubURL(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            {installTab === 'zip' && (
+              <p className="text-[11px] text-[var(--text-dim)] m-0">Click "Select ZIP File" to browse for a skill archive.</p>
+            )}
+
+            {installError && <p className="text-[11px] text-[var(--red)] m-0 mt-3">{installError}</p>}
+            {installResult.length > 0 && (
+              <p className="text-[11px] m-0 mt-3" style={{ color: 'var(--green)' }}>
+                Installed: {installResult.join(', ')}
+              </p>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
+            <ModalButton variant="primary" onClick={handleInstall} disabled={installing || (installTab === 'github' && !githubURL.trim())}>
+              {installing ? 'Installing...' : installTab === 'zip' ? 'Select ZIP File' : 'Install'}
+            </ModalButton>
+          </ModalFooter>
         </Modal>
       )}
 
@@ -355,6 +345,7 @@ export default function SkillsTab() {
           title="Uninstall Skill"
           message={`Are you sure you want to uninstall "${confirmUninstall}"?`}
           confirmLabel="Uninstall"
+          icon={<IconTrash size={15} />}
           onConfirm={async () => {
             await handleUninstall(confirmUninstall)
             setSkillContents((prev) => { const next = { ...prev }; delete next[confirmUninstall]; return next })

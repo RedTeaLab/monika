@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import { Call } from '@wailsio/runtime'
-import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { IconDatabase, IconEdit, IconTrash, IconPlus } from '../Icons'
 
@@ -241,8 +241,8 @@ export default function ModelsTab() {
     setSaved(false)
   }
 
-  const inputCls = 'w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]'
-  const labelCls = 'block text-[10px] font-medium text-[var(--text-dim)] mb-1'
+  const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
+  const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
   return (
     <div>
@@ -251,14 +251,14 @@ export default function ModelsTab() {
           <h3 className="text-[15px] font-semibold m-0 mb-1">Providers</h3>
           <p className="text-[11px] text-[var(--text-dim)] m-0">Manage model providers</p>
         </div>
-        <button onClick={openAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"><IconPlus size={12} /> Add Provider</button>
+        <button onClick={openAdd} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"><IconPlus size={12} /> Add</button>
       </div>
 
       {providers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
           <IconDatabase size={32} />
           <span className="text-[13px] mt-3">No model providers configured.</span>
-          <span className="text-[11px] mt-1">Click "Add Provider" to configure one.</span>
+          <span className="text-[11px] mt-1">Click "Add" to configure one.</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -295,8 +295,8 @@ export default function ModelsTab() {
                         onClick={() => setDefaultModel(p.id, m.id)}
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] cursor-pointer transition-colors"
                         style={{
-                          background: isDefault ? 'var(--accent)' : 'var(--bg-sidebar)',
-                          color: isDefault ? '#fff' : 'var(--text-primary)',
+                          background: isDefault ? 'var(--accent-muted)' : 'var(--bg-sidebar)',
+                          color: isDefault ? 'var(--accent)' : 'var(--text-primary)',
                           border: 'none',
                         }}
                       >
@@ -318,104 +318,125 @@ export default function ModelsTab() {
       )}
 
       {showModal && (
-        <Modal onClose={closeModal} loading={loading} width={480}>
+        <Modal onClose={closeModal} loading={loading} width={500}>
           {step === 'select' ? (
             <>
-              <h4 className="text-[14px] font-semibold m-0 mb-1">Choose a Provider</h4>
-              <p className="text-[11px] text-[var(--text-dim)] m-0 mb-4">Select a provider template or set up manually.</p>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                {PROVIDER_TEMPLATES.map((t) => {
-                  const isConfigured = configuredIds.has(t.id)
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => selectTemplate(t)}
-                      className="flex flex-col items-start p-3 rounded-lg border cursor-pointer transition-colors text-left"
-                      style={{
-                        background: 'var(--bg-card)',
-                        borderColor: isConfigured ? 'var(--accent)' : 'var(--border)',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = isConfigured ? 'var(--accent)' : 'var(--border)' }}
-                    >
-                      <span className="text-[12px] font-semibold text-[var(--text-primary)]">{t.name}</span>
-                      <span className="text-[10px] text-[var(--text-dim)] mt-0.5 leading-tight">{t.description}</span>
-                      {isConfigured && (
-                        <span className="text-[9px] mt-1.5 px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>Configured</span>
-                      )}
-                    </button>
-                  )
-                })}
-                <button
-                  onClick={selectCustom}
-                  className="flex flex-col items-start p-3 rounded-lg border cursor-pointer transition-colors text-left"
-                  style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
-                >
-                  <span className="text-[12px] font-semibold text-[var(--text-primary)]">Custom</span>
-                  <span className="text-[10px] text-[var(--text-dim)] mt-0.5 leading-tight">Manual setup</span>
-                </button>
-              </div>
-              <ModalActions>
+              <ModalHeader icon={<IconDatabase size={15} />}>
+                <h4 className="text-[14px] font-semibold m-0">Choose a Provider</h4>
+                <p className="text-[11px] text-[var(--text-dim)] m-0 mt-0.5">Select a provider template or set up manually.</p>
+              </ModalHeader>
+              <ModalBody>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {PROVIDER_TEMPLATES.map((t) => {
+                    const isConfigured = configuredIds.has(t.id)
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => selectTemplate(t)}
+                        className="flex flex-col items-start p-3 rounded-lg border cursor-pointer transition-all duration-150 text-left hover:border-[var(--accent)]"
+                        style={{
+                          background: 'var(--bg-card)',
+                          borderColor: isConfigured ? 'var(--accent-muted)' : 'var(--border)',
+                        }}
+                      >
+                        <span className="text-[12px] font-semibold text-[var(--text-primary)]">{t.name}</span>
+                        <span className="text-[10px] text-[var(--text-dim)] mt-0.5 leading-tight">{t.description}</span>
+                        {isConfigured && (
+                          <span className="text-[9px] mt-1.5 px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>Configured</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                  <button
+                    onClick={selectCustom}
+                    className="flex flex-col items-start p-3 rounded-lg border cursor-pointer transition-all duration-150 text-left hover:border-[var(--accent)]"
+                    style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}
+                  >
+                    <span className="text-[12px] font-semibold text-[var(--text-primary)]">Custom</span>
+                    <span className="text-[10px] text-[var(--text-dim)] mt-0.5 leading-tight">Manual setup</span>
+                  </button>
+                </div>
+              </ModalBody>
+              <ModalFooter>
                 <ModalButton onClick={closeModal}>Cancel</ModalButton>
-              </ModalActions>
+              </ModalFooter>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-3 mb-4">
-                {canGoBack && (
-                  <button onClick={backToSelect} className="text-[var(--text-dim)] hover:text-[var(--text-primary)] cursor-pointer bg-transparent border-none text-[13px] p-0">&#8592; Back</button>
-                )}
-                <h4 className="text-[14px] font-semibold m-0">{editingId ? 'Edit Provider' : (provId ? `Configure ${name}` : 'Custom Provider')}</h4>
-              </div>
-              <div className="space-y-3">
-                <div><label className={labelCls}>ID</label>
-                  <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!!editingId} /></div>
-                <div><label className={labelCls}>Name</label>
-                  <input className={inputCls} value={name} onChange={e => setName(e.target.value)} /></div>
-                <div><label className={labelCls}>Base URL</label>
-                  <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} /></div>
-                <div><label className={labelCls}>Engine</label>
-                  <select className={inputCls + ' cursor-pointer'} value={wireAPI} onChange={e => setWireAPI(e.target.value)}>
-                    <option value="">Auto (match provider ID)</option>
-                    <option value="openai">OpenAI Compatible</option>
-                    <option value="deepseek">DeepSeek</option>
-                  </select></div>
-                <div><label className={labelCls}>API Key</label>
-                  <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!editingId} /></div>
-              </div>
-              <div className="border-t border-[var(--border)] pt-4 mt-4 mb-4">
-                <label className={labelCls}>Models</label>
-                {models.length > 0 && (
-                  <div className="mb-3 space-y-1">
-                    {models.map((m, i) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-[var(--bg-card)] border border-[var(--border)]">
-                        <span className="text-[var(--text-primary)]"><span className="font-mono text-[var(--text-dim)]">{m.id}</span><span className="mx-1.5 text-[var(--text-dim)]">—</span>{m.name}{m.context_limit > 0 && <span className="text-[var(--text-dim)] ml-1">({formatContext(m.context_limit)} ctx)</span>}</span>
-                        <button onClick={() => removeModelEntry(i)} className="text-[var(--text-dim)] hover:text-red-400 bg-transparent border-none cursor-pointer text-[13px] p-0 leading-none">✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1"><label className={labelCls}>Model ID</label><input className={inputCls} value={modelForm.id} onChange={e => setModelForm({ ...modelForm, id: e.target.value })} /></div>
-                  <div className="flex-1"><label className={labelCls}>Name</label><input className={inputCls} value={modelForm.name} onChange={e => setModelForm({ ...modelForm, name: e.target.value })} /></div>
-                  <div style={{ width: 80 }}><label className={labelCls}>Context</label><input type="number" className={inputCls} value={modelForm.context_limit || ''} onChange={e => setModelForm({ ...modelForm, context_limit: parseInt(e.target.value) || 0 })} /></div>
-                  <button onClick={addModelEntry} disabled={!modelForm.id.trim() || !modelForm.name.trim()} className="px-2 py-1 text-[11px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors whitespace-nowrap">+ Add</button>
+              <ModalHeader icon={<IconDatabase size={15} />}>
+                <div className="flex items-center gap-2">
+                  {canGoBack && (
+                    <button onClick={backToSelect} className="text-[var(--text-dim)] hover:text-[var(--text-primary)] cursor-pointer bg-transparent border-none text-[13px] p-0 mr-1">&#8592;</button>
+                  )}
+                  <h4 className="text-[14px] font-semibold m-0">{editingId ? 'Edit Provider' : (provId ? `Configure ${name}` : 'Custom Provider')}</h4>
                 </div>
-              </div>
-              {error && <p className="text-[11px] text-[var(--red)] m-0 mt-3">{error}</p>}
-              {saved && !error && (
-                <p className="text-[11px] m-0 mt-3" style={{ color: 'var(--yellow)' }}>
-                  Provider saved. Restart Monika to apply Base URL / API Key changes to the active session.
-                </p>
-              )}
-              <ModalActions>
+              </ModalHeader>
+              <ModalBody>
+                <div className="space-y-4">
+                  <div>
+                    <label className={labelCls}>ID</label>
+                    <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!!editingId} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Display Name</label>
+                    <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My Provider" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Base URL</label>
+                    <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.example.com/v1" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Engine</label>
+                      <select className={inputCls + ' cursor-pointer'} value={wireAPI} onChange={e => setWireAPI(e.target.value)}>
+                        <option value="">Auto (match provider ID)</option>
+                        <option value="openai">OpenAI Compatible</option>
+                        <option value="deepseek">DeepSeek</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelCls}>API Key</label>
+                      <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!editingId} />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-[var(--border)] pt-4">
+                    <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-2">Models</label>
+                    {models.length > 0 && (
+                      <div className="mb-3 space-y-1.5">
+                        {models.map((m, i) => (
+                          <div key={i} className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-md bg-[var(--bg-card)] border border-[var(--border)]">
+                            <span className="text-[var(--text-primary)]">
+                              <span className="font-semibold">{m.name}</span>
+                              <span className="font-mono text-[var(--text-dim)] ml-2">{m.id}</span>
+                              {m.context_limit > 0 && <span className="text-[var(--text-dim)] ml-1">({formatContext(m.context_limit)} ctx)</span>}
+                            </span>
+                            <button onClick={() => removeModelEntry(i)} className="text-[var(--text-dim)] hover:text-red-400 bg-transparent border-none cursor-pointer text-[13px] p-0 leading-none ml-2">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1"><label className={labelCls}>Model ID</label><input className={inputCls} value={modelForm.id} onChange={e => setModelForm({ ...modelForm, id: e.target.value })} /></div>
+                      <div className="flex-1"><label className={labelCls}>Name</label><input className={inputCls} value={modelForm.name} onChange={e => setModelForm({ ...modelForm, name: e.target.value })} /></div>
+                      <div style={{ width: 90 }}><label className={labelCls}>Context</label><input type="number" className={inputCls} value={modelForm.context_limit || ''} onChange={e => setModelForm({ ...modelForm, context_limit: parseInt(e.target.value) || 0 })} /></div>
+                      <button onClick={addModelEntry} disabled={!modelForm.id.trim() || !modelForm.name.trim()} className="px-2.5 py-2 text-[11px] font-medium rounded-md border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors whitespace-nowrap disabled:opacity-40">+ Add</button>
+                    </div>
+                  </div>
+                </div>
+                {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
+                {saved && !error && (
+                  <p className="text-[11px] m-0 mt-4" style={{ color: 'var(--yellow)' }}>
+                    Provider saved. Restart Monika to apply Base URL / API Key changes to the active session.
+                  </p>
+                )}
+              </ModalBody>
+              <ModalFooter>
                 <ModalButton onClick={closeModal} disabled={loading}>Cancel</ModalButton>
                 <ModalButton variant="primary" onClick={handleSave} disabled={loading || !provId.trim() || !name.trim()}>
-                  {loading ? 'Saving...' : 'Save'}
+                  {loading ? 'Saving...' : 'Save Provider'}
                 </ModalButton>
-              </ModalActions>
+              </ModalFooter>
             </>
           )}
         </Modal>
@@ -424,8 +445,9 @@ export default function ModelsTab() {
       {confirmDelete && (
         <ConfirmModal
           title="Delete Provider"
-          message={`Are you sure you want to delete this provider? This action cannot be undone.`}
+          message="Are you sure you want to delete this provider? This action cannot be undone."
           confirmLabel="Delete"
+          icon={<IconTrash size={15} />}
           onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
         />

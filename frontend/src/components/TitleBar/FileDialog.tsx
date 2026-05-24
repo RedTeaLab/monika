@@ -217,8 +217,8 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
             style={{
               padding: '4px 16px',
               fontSize: 11,
-              background: 'var(--accent)',
-              color: 'white',
+              background: 'var(--accent-muted)',
+              color: 'var(--accent)',
               border: 'none',
               borderRadius: 2,
               cursor: 'pointer',

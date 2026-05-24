@@ -224,9 +224,9 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
           disabled={!canSubmit}
           className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer font-medium outline-none"
           style={{
-            background: canSubmit ? 'var(--accent)' : 'var(--border)',
+            background: canSubmit ? 'var(--accent-muted)' : 'var(--border)',
             border: 'none',
-            color: canSubmit ? '#fff' : 'var(--text-dim)',
+            color: canSubmit ? 'var(--accent)' : 'var(--text-dim)',
             fontFamily: 'inherit',
             opacity: canSubmit ? 1 : 0.6,
           }}

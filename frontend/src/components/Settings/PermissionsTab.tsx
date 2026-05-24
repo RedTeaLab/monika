@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
-import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { IconShield, IconTrash, IconPlus } from '../Icons'
 
@@ -65,9 +65,9 @@ function DropdownSelect<T extends string>({
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center justify-between w-full"
+        className="w-full text-[12px] px-3 py-2 rounded-md cursor-pointer flex items-center justify-between"
         style={{
-          background: 'var(--bg-elevated)',
+          background: 'var(--bg-card)',
           border: '1px solid var(--border)',
           color: 'var(--text-primary)',
           fontFamily: 'inherit',
@@ -139,6 +139,8 @@ const sourceStyles: Record<string, { color: string; bg: string }> = {
   project: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)' },
 }
 
+const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
+
 function AddRuleModal({
   onClose,
   onAdd,
@@ -172,43 +174,45 @@ function AddRuleModal({
   }
 
   return (
-    <Modal onClose={onClose} loading={loading} width={420}>
-      <h2 className="text-[14px] font-semibold text-[var(--text-primary)] m-0 mb-4">
-        Add Permission Rule
-      </h2>
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div>
-          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Tool</label>
-          <DropdownSelect value={tool} options={TOOLS.map((t) => ({ value: t, label: t }))} onChange={setTool} />
+    <Modal onClose={onClose} loading={loading} width={440}>
+      <ModalHeader icon={<IconShield size={15} />}>
+        <h2 className="text-[14px] font-semibold m-0">Add Permission Rule</h2>
+      </ModalHeader>
+      <ModalBody>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Tool</label>
+            <DropdownSelect value={tool} options={TOOLS.map((t) => ({ value: t, label: t }))} onChange={setTool} />
+          </div>
+          <div>
+            <label className={labelCls}>Pattern</label>
+            <input
+              ref={patternRef}
+              type="text"
+              value={pattern}
+              onChange={(e) => setPattern(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
+              placeholder="* wildcard, empty matches all"
+              className="w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Decision</label>
+            <DropdownSelect value={decision} options={DECISIONS} onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')} />
+          </div>
+          <div>
+            <label className={labelCls}>Source</label>
+            <DropdownSelect value={source} options={SOURCES} onChange={(v) => setSource(v as 'global' | 'project')} />
+          </div>
         </div>
-        <div>
-          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Pattern</label>
-          <input
-            ref={patternRef}
-            type="text"
-            value={pattern}
-            onChange={(e) => setPattern(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
-            placeholder="* wildcard, empty matches all"
-            className="w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--accent)]"
-          />
-        </div>
-        <div>
-          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Decision</label>
-          <DropdownSelect value={decision} options={DECISIONS} onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')} />
-        </div>
-        <div>
-          <label className="block text-[10px] font-medium text-[var(--text-dim)] mb-1">Source</label>
-          <DropdownSelect value={source} options={SOURCES} onChange={(v) => setSource(v as 'global' | 'project')} />
-        </div>
-      </div>
-      {error && <p className="text-[11px] text-[var(--red)] m-0 mb-3">{error}</p>}
-      <ModalActions>
+        {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
+      </ModalBody>
+      <ModalFooter>
         <ModalButton onClick={onClose} disabled={loading}>Cancel</ModalButton>
         <ModalButton variant="primary" onClick={handleAdd} disabled={loading}>
-          {loading ? 'Adding...' : 'Add'}
+          {loading ? 'Adding...' : 'Add Rule'}
         </ModalButton>
-      </ModalActions>
+      </ModalFooter>
     </Modal>
   )
 }
@@ -251,7 +255,7 @@ function PermissionsTab() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
           <IconPlus size={12} />
-          Add Rule
+          Add
         </button>
       </div>
 
@@ -263,7 +267,7 @@ function PermissionsTab() {
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
           <IconShield size={32} />
           <span className="text-[13px] mt-3">No permission rules configured.</span>
-          <span className="text-[11px] mt-1">Click "Add Rule" to create one.</span>
+          <span className="text-[11px] mt-1">Click "Add" to create one.</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -322,6 +326,7 @@ function PermissionsTab() {
           title="Delete Permission Rule"
           message={`Are you sure you want to delete the rule for "${confirmDelete.tool}"?`}
           confirmLabel="Delete"
+          icon={<IconTrash size={15} />}
           onConfirm={async () => { await handleDelete(confirmDelete.tool, confirmDelete.pattern, confirmDelete.source); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
         />

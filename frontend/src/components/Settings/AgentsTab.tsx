@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useStore, AgentInfo } from '../../store'
 import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
 import { IconBot, IconEdit, IconTrash, IconPlus, IconShield } from '../Icons'
-import Modal, { ModalActions, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 
 // ── Inline model picker ───────────────────────────────────────────────
@@ -100,7 +100,7 @@ function InlineModelPicker({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-2 py-1.5 text-[12px] rounded border cursor-pointer flex items-center justify-between mb-3"
+        className="w-full px-3 py-2 text-[12px] rounded-md border cursor-pointer flex items-center justify-between"
         style={{
           background: 'var(--bg-card)',
           borderColor: 'var(--border)',
@@ -208,8 +208,8 @@ const badgeColors: Record<string, string> = {
   custom: 'text-[var(--green)] bg-[var(--green)]/10',
 }
 
-const inputCls = 'w-full px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]'
-const labelCls = 'block text-[10px] font-medium text-[var(--text-dim)] mb-1'
+const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
+const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
 const decisionColors: Record<string, string> = {
   allow: 'text-green-400 bg-green-400/10',
@@ -320,7 +320,7 @@ function AgentsTab() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
           <IconPlus size={12} />
-          Add Agent
+          Add
         </button>
       </div>
 
@@ -328,7 +328,7 @@ function AgentsTab() {
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
           <IconBot size={32} />
           <span className="text-[13px] mt-3">No agents configured.</span>
-          <span className="text-[11px] mt-1">Click "Add Agent" to create a new one.</span>
+          <span className="text-[11px] mt-1">Click "Add" to create a new one.</span>
         </div>
       ) : (
         <div className="space-y-3">
@@ -389,117 +389,136 @@ function AgentsTab() {
       )}
 
       {modalOpen && (
-        <Modal onClose={() => setModalOpen(false)} loading={saving} width={520}>
-          <h4 className="text-[14px] font-semibold m-0 mb-4">
-            {editing ? 'Edit Agent' : 'Add Agent'}
-          </h4>
+        <Modal onClose={() => setModalOpen(false)} loading={saving} width={540}>
+          <ModalHeader icon={<IconBot size={15} />}>
+            <h4 className="text-[14px] font-semibold m-0">
+              {editing ? 'Edit Agent' : 'Create Agent'}
+            </h4>
+          </ModalHeader>
 
-          <label className={labelCls}>Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={editing !== null}
-            className={inputCls + ' mb-3'}
-            placeholder="my-agent"
-          />
+          <ModalBody>
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={editing !== null}
+                  className={inputCls}
+                  placeholder="my-agent"
+                />
+              </div>
 
-          <label className={labelCls}>Description</label>
-          <input
-            type="text"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className={inputCls + ' mb-3'}
-            placeholder="What this agent does"
-          />
+              <div>
+                <label className={labelCls}>Description</label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className={inputCls}
+                  placeholder="What this agent does"
+                />
+              </div>
 
-          <label className={labelCls}>Model</label>
-          <InlineModelPicker
-            value={model}
-            onChange={setModel}
-            providers={availableProviders}
-            modelsByProvider={modelsByProvider}
-            onLoadModels={loadModelsForProvider}
-          />
+              <div>
+                <label className={labelCls}>Model</label>
+                <InlineModelPicker
+                  value={model}
+                  onChange={setModel}
+                  providers={availableProviders}
+                  modelsByProvider={modelsByProvider}
+                  onLoadModels={loadModelsForProvider}
+                />
+              </div>
 
-          <label className={labelCls}>Temperature</label>
-          <input
-            type="number"
-            value={temperature}
-            onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
-            min={0}
-            max={2}
-            step={0.1}
-            className="w-[80px] px-2 py-1.5 text-[12px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] mb-3"
-          />
+              <div>
+                <label className={labelCls}>Temperature</label>
+                <input
+                  type="number"
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value) || 0)}
+                  min={0}
+                  max={2}
+                  step={0.1}
+                  className="w-[100px] px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+                />
+              </div>
 
-          <label className={labelCls}>System Prompt</label>
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            rows={6}
-            className={inputCls + ' mb-4 font-mono resize-vertical'}
-            placeholder="Custom system prompt (empty to use default)"
-          />
+              <div>
+                <label className={labelCls}>System Prompt</label>
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  rows={5}
+                  className={inputCls + ' font-mono resize-y'}
+                  placeholder="Custom system prompt (empty to use default)"
+                />
+              </div>
 
-          <label className={labelCls}>Permission Rules</label>
-          {Object.keys(permission).length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {Object.entries(permission).map(([tool, decision]) => (
-                <span
-                  key={tool}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border border-[var(--border)]"
-                  style={{ background: 'var(--bg-card)' }}
-                >
-                  <IconShield size={10} />
-                  <span className="font-mono text-[var(--text-primary)]">{tool}</span>
-                  <span className={`px-1 py-px rounded text-[10px] font-medium ${decisionColors[decision] || ''}`}>{decision}</span>
-                  <button
-                    onClick={() => removeRule(tool)}
-                    className="ml-0.5 bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[12px] leading-none p-0"
-                    aria-label={`Remove rule for ${tool}`}
+              <div className="border-t border-[var(--border)] pt-4">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-2.5">
+                  <span className="inline-flex items-center gap-1.5"><IconShield size={11} /> Permission Rules</span>
+                </label>
+                {Object.keys(permission).length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {Object.entries(permission).map(([tool, decision]) => (
+                      <span
+                        key={tool}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] border border-[var(--border)]"
+                        style={{ background: 'var(--bg-card)' }}
+                      >
+                        <span className="font-mono text-[var(--text-primary)]">{tool}</span>
+                        <span className={`px-1 py-px rounded text-[10px] font-medium ${decisionColors[decision] || ''}`}>{decision}</span>
+                        <button
+                          onClick={() => removeRule(tool)}
+                          className="ml-0.5 bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[12px] leading-none p-0"
+                          aria-label={`Remove rule for ${tool}`}
+                        >
+                          &#10005;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newRuleTool}
+                    onChange={(e) => setNewRuleTool(e.target.value)}
+                    className="flex-1 px-3 py-1.5 text-[11px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] transition-colors duration-150"
+                    placeholder="tool name"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addRule()
+                    }}
+                  />
+                  <select
+                    value={newRuleDecision}
+                    onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
+                    className="w-[80px] px-2 py-1.5 text-[11px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)] cursor-pointer"
                   >
-                    &#10005;
+                    <option value="allow">allow</option>
+                    <option value="ask">ask</option>
+                    <option value="deny">deny</option>
+                  </select>
+                  <button
+                    onClick={addRule}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                  >
+                    <IconPlus size={10} />
                   </button>
-                </span>
-              ))}
+                </div>
+              </div>
             </div>
-          )}
+          </ModalBody>
 
-          <div className="flex items-center gap-2 mb-4">
-            <input
-              type="text"
-              value={newRuleTool}
-              onChange={(e) => setNewRuleTool(e.target.value)}
-              className="flex-1 px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-              placeholder="tool name"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') addRule()
-              }}
-            />
-            <select
-              value={newRuleDecision}
-              onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
-              className="w-[80px] px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)]"
-            >
-              <option value="allow">allow</option>
-              <option value="ask">ask</option>
-              <option value="deny">deny</option>
-            </select>
-            <button
-              onClick={addRule}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-dim)] cursor-pointer hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-            >
-              <IconPlus size={10} />
-            </button>
-          </div>
-
-          <ModalActions>
+          <ModalFooter>
             <ModalButton onClick={() => setModalOpen(false)} disabled={saving}>Cancel</ModalButton>
             <ModalButton variant="primary" onClick={handleSave} disabled={saving || !name.trim()}>
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? 'Saving...' : 'Save Agent'}
             </ModalButton>
-          </ModalActions>
+          </ModalFooter>
         </Modal>
       )}
 
@@ -508,6 +527,7 @@ function AgentsTab() {
           title="Delete Agent"
           message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
           confirmLabel="Delete"
+          icon={<IconTrash size={15} />}
           onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
         />
