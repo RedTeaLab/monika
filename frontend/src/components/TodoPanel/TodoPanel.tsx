@@ -55,7 +55,12 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
 
   useEffect(() => {
     if (!collapsed && listRef.current) {
-      listRef.current.scrollTop = listRef.current.scrollHeight
+      const activeEl = listRef.current.querySelector('[data-status="in_progress"]')
+      if (activeEl) {
+        activeEl.scrollIntoView({ block: 'nearest' })
+      } else {
+        listRef.current.scrollTop = listRef.current.scrollHeight
+      }
     }
   }, [tasks, collapsed])
 
@@ -133,7 +138,7 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
               : 'Pending:'
 
             return (
-              <div key={task.id} role="listitem" style={rowStyle} title={task.subject}>
+              <div key={task.id} role="listitem" style={rowStyle} title={task.subject} data-status={task.status}>
                 <StatusIcon status={task.status} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   <span className="sr-only">{statusLabel} </span>
