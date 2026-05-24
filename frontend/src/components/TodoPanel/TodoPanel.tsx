@@ -54,14 +54,43 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!collapsed && listRef.current) {
-      const activeEl = listRef.current.querySelector('[data-status="in_progress"]')
-      if (activeEl) {
-        activeEl.scrollIntoView({ block: 'nearest' })
-      } else {
-        listRef.current.scrollTop = listRef.current.scrollHeight
+    if (!collapsed || !listRef.current || !tasks || tasks.length === 0) return
+
+    const scrollToTask = (taskId: string) => {
+      const el = listRef.current?.querySelector(`[data-id="${taskId}"]`)
+      if (el) {
+        el.scrollIntoView({ block: 'nearest' })
+        return true
+      }
+      return false
+    }
+
+    // 1. Prefer in_progress
+    const activeEl = listRef.current.querySelector('[data-status="in_progress"]')
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest' })
+      return
+    }
+
+    // 2. Find last completed, then first pending after it
+    let lastCompletedIdx = -1
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].status === 'completed') {
+        lastCompletedIdx = i
       }
     }
+    if (lastCompletedIdx >= 0) {
+      for (let i = lastCompletedIdx + 1; i < tasks.length; i++) {
+        if (tasks[i].status === 'pending' && scrollToTask(tasks[i].id)) return
+      }
+    }
+
+    // 3. Fallback to first pending
+    const firstPending = tasks.find((t) => t.status === 'pending')
+    if (firstPending && scrollToTask(firstPending.id)) return
+
+    // 4. All done
+    listRef.current.scrollTop = listRef.current.scrollHeight
   }, [tasks, collapsed])
 
   if (!sessionId || !tasks || tasks.length === 0) return null
@@ -71,7 +100,7 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
   return (
     <div
       className="flex flex-col border-t border-[var(--border)]"
-      style={{ background: 'var(--bg-sidebar)', maxHeight: collapsed ? undefined : '120px' }}
+      style={{ background: 'var(--bg-sidebar)', maxHeight: collapsed ? undefined : '240px' }}
       role="list"
       aria-label="Task list"
     >
@@ -138,7 +167,7 @@ export default function TodoPanel({ sessionId, collapsed, onToggle }: {
               : 'Pending:'
 
             return (
-              <div key={task.id} role="listitem" style={rowStyle} title={task.subject} data-status={task.status}>
+              <div key={task.id} role="listitem" style={rowStyle} title={task.subject} data-status={task.status} data-id={task.id}>
                 <StatusIcon status={task.status} />
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   <span className="sr-only">{statusLabel} </span>
