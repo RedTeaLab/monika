@@ -2201,15 +2201,21 @@ func (a *App) TestMCPServer(args json.RawMessage) ([]string, error) {
 		return nil, fmt.Errorf("mcp engine not available")
 	}
 
+	// If already connected, test via a temporary duplicate connection.
+	testID := "__test__" + entry.ID
+	if mcpEng.IsConnected(testID) {
+		_ = mcpEng.DisconnectServer(context.Background(), testID)
+	}
+
 	cfg := engine2.MCPServerConfig{
-		ID: entry.ID, Type: entry.Type, Command: entry.Command,
+		ID: testID, Type: entry.Type, Command: entry.Command,
 		Args: entry.Args, Env: entry.Env, URL: entry.URL, Headers: entry.Headers,
 	}
 	conn, err := mcpEng.ConnectServer(context.Background(), cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect failed: %w", err)
 	}
-	defer mcpEng.DisconnectServer(context.Background(), entry.ID)
+	defer mcpEng.DisconnectServer(context.Background(), testID)
 
 	tools, err := conn.ListTools(context.Background())
 	if err != nil {
@@ -2262,6 +2268,63 @@ func (a *App) ReconnectMCPServer(args json.RawMessage) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reconnect failed: %w", err)
 	}
+
+	tools, err := conn.ListTools(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("list tools failed: %w", err)
+	}
+	names := make([]string, len(tools))
+	for i, t := range tools {
+		names[i] = t.Name
+	}
+	return names, nil
+}
+
+// TestMCPServerConfig tests a server config without saving it.
+// It takes the same JSON format as ImportMCPServers but for a single server,
+// connects, lists tools, then disconnects.
+func (a *App) TestMCPServerConfig(args json.RawMessage) ([]string, error) {
+	var cfg struct {
+		Type    string            `json:"type"`
+		Command string            `json:"command"`
+		Args    []string          `json:"args"`
+		Env     map[string]string `json:"env"`
+		URL     string            `json:"url"`
+		Headers map[string]string `json:"headers"`
+	}
+	if err := json.Unmarshal(args, &cfg); err != nil {
+		return nil, err
+	}
+
+	srvType := cfg.Type
+	if srvType == "" {
+		if cfg.URL != "" {
+			srvType = "http"
+		} else {
+			srvType = "stdio"
+		}
+	}
+
+	eng, err := engine2.EngineByID("mcp")
+	if err != nil {
+		return nil, err
+	}
+	_ = eng.Init(context.Background(), nil)
+	mcpEng, ok := eng.(engine2.MCPEngine)
+	if !ok {
+		return nil, fmt.Errorf("mcp engine not available")
+	}
+
+	testID := "__test__" + cfg.Command + cfg.URL
+	mcpConfig := engine2.MCPServerConfig{
+		ID: testID, Type: srvType, Command: cfg.Command,
+		Args: cfg.Args, Env: cfg.Env, URL: cfg.URL, Headers: cfg.Headers,
+	}
+	conn, err := mcpEng.ConnectServer(context.Background(), mcpConfig)
+	if err != nil {
+		return nil, fmt.Errorf("connect failed: %w", err)
+	}
+	defer mcpEng.DisconnectServer(context.Background(), testID)
 
 	tools, err := conn.ListTools(context.Background())
 	if err != nil {

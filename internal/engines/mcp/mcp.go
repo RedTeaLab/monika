@@ -1,10 +1,12 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"sync"
 
@@ -17,7 +19,12 @@ func init() {
 
 type MCPEngine struct {
 	mu          sync.RWMutex
-	connections map[string]*serverConnection
+	connections map[string]mcpConn
+}
+
+type mcpConn interface {
+	engine.MCPServerConnection
+	close() error
 }
 
 func (e *MCPEngine) ID() string { return "mcp" }
@@ -28,7 +35,7 @@ func (e *MCPEngine) Capabilities() []engine.Capability {
 
 func (e *MCPEngine) Init(_ context.Context, _ map[string]any) error {
 	if e.connections == nil {
-		e.connections = make(map[string]*serverConnection)
+		e.connections = make(map[string]mcpConn)
 	}
 	return nil
 }
@@ -50,16 +57,24 @@ func (e *MCPEngine) ConnectServer(ctx context.Context, config engine.MCPServerCo
 		return nil, fmt.Errorf("mcp: server %q already connected", config.ID)
 	}
 
-	// HTTP-based servers are not yet supported; skip gracefully.
 	if config.Type == "http" || config.Type == "sse" {
-		return nil, fmt.Errorf("mcp: http/sse transport not yet supported for %q", config.ID)
+		conn, err := newHTTPConnection(ctx, config)
+		if err != nil {
+			return nil, err
+		}
+		e.connections[config.ID] = conn
+		return conn, nil
 	}
 
 	cmd := exec.CommandContext(ctx, config.Command, config.Args...)
 	hideWindow(cmd)
+	cmd.Env = os.Environ()
 	for k, v := range config.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -81,7 +96,19 @@ func (e *MCPEngine) ConnectServer(ctx context.Context, config engine.MCPServerCo
 		stdout: stdout,
 		enc:    json.NewEncoder(stdin),
 		dec:    json.NewDecoder(stdout),
+		stderr: &stderr,
 	}
+
+	// MCP protocol requires initialization handshake.
+	if err := conn.initialize(); err != nil {
+		stderrStr := stderr.String()
+		_ = conn.close()
+		if stderrStr != "" {
+			return nil, fmt.Errorf("mcp: initialize: %w\nserver stderr: %s", err, stderrStr)
+		}
+		return nil, fmt.Errorf("mcp: initialize: %w", err)
+	}
+
 	e.connections[config.ID] = conn
 	return conn, nil
 }
@@ -114,6 +141,7 @@ type serverConnection struct {
 	cmd    *exec.Cmd
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
+	stderr *bytes.Buffer
 	enc    *json.Encoder
 	dec    *json.Decoder
 	nextID int
@@ -178,6 +206,43 @@ type jsonRPCRequest struct {
 	ID      int             `json:"id"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
+}
+
+func (c *serverConnection) initialize() error {
+	c.nextID++
+	initParams, _ := json.Marshal(map[string]any{
+		"protocolVersion": "2024-11-05",
+		"capabilities":    map[string]any{},
+		"clientInfo": map[string]string{
+			"name":    "monika",
+			"version": "1.0",
+		},
+	})
+	req := jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      c.nextID,
+		Method:  "initialize",
+		Params:  initParams,
+	}
+	if err := c.enc.Encode(req); err != nil {
+		return fmt.Errorf("send initialize: %w", err)
+	}
+	// Read response (we don't need to parse it, just consume it)
+	var raw json.RawMessage
+	if err := c.dec.Decode(&raw); err != nil {
+		return fmt.Errorf("read initialize response: %w", err)
+	}
+
+	// Send initialized notification (no ID)
+	notif, _ := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/initialized",
+	})
+	if err := c.enc.Encode(json.RawMessage(notif)); err != nil {
+		return fmt.Errorf("send initialized notification: %w", err)
+	}
+
+	return nil
 }
 
 type toolsListResponse struct {

@@ -478,6 +478,17 @@ export function TestMCPServer(args: json$0.RawMessage): $CancellablePromise<stri
 }
 
 /**
+ * TestMCPServerConfig tests a server config without saving it.
+ * It takes the same JSON format as ImportMCPServers but for a single server,
+ * connects, lists tools, then disconnects.
+ */
+export function TestMCPServerConfig(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(1186287593, args).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
+/**
  * ToggleSkillEnabled toggles the enabled state of a skill by name.
  */
 export function ToggleSkillEnabled(args: json$0.RawMessage): $CancellablePromise<void> {

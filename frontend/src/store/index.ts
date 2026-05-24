@@ -225,6 +225,7 @@ interface AppState {
   deleteMCPServer: (id: string) => Promise<void>
   importMCPServers: (json: string) => Promise<string[]>
   testMCPServer: (id: string) => Promise<string[]>
+  testMCPServerConfig: (config: { type: string; command: string; args: string[]; env: Record<string, string>; url: string; headers: Record<string, string> }) => Promise<string[]>
   reconnectMCPServer: (id: string) => Promise<string[]>
   loadProviderDetails: () => Promise<void>
   saveProviderDetail: (cfg: ProviderFull) => Promise<void>
@@ -1089,6 +1090,11 @@ export const useStore = create<AppState>((set, get) => ({
   testMCPServer: async (id) => {
     const tools = await Call.ByName('monika/internal/api.App.TestMCPServer', { id })
     await get().loadMCPServers()
+    return tools || []
+  },
+
+  testMCPServerConfig: async (config) => {
+    const tools = await Call.ByName('monika/internal/api.App.TestMCPServerConfig', config)
     return tools || []
   },
 

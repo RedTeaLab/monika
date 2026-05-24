@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalActions, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconServer, IconTrash, IconPlus, IconZap, IconRefresh } from '../Icons'
+import { IconServer, IconTrash, IconPlus, IconZap, IconRefresh, IconEdit } from '../Icons'
 
-function ServerCard({ srv, onDelete, onTest, onReconnect, testResult }: {
+function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: {
   srv: ReturnType<typeof useStore.getState>['mcpServers'][0]
   onDelete: () => void
   onTest: () => void
   onReconnect: () => void
+  onEdit: () => void
   testResult: { loading: boolean; tools?: string[]; error?: string }
 }) {
   const isStdio = srv.type !== 'http' && srv.type !== 'sse'
@@ -81,6 +82,14 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, testResult }: {
             <IconRefresh size={14} />
           </button>
           <button
+            onClick={onEdit}
+            title="Edit"
+            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+            aria-label={`Edit ${srv.id}`}
+          >
+            <IconEdit size={13} />
+          </button>
+          <button
             onClick={onDelete}
             className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
             aria-label={`Delete ${srv.id}`}
@@ -137,14 +146,21 @@ export default function McpTab() {
   const deleteServer = useStore((s) => s.deleteMCPServer)
   const importServers = useStore((s) => s.importMCPServers)
   const testServer = useStore((s) => s.testMCPServer)
+  const testServerConfig = useStore((s) => s.testMCPServerConfig)
   const reconnectServer = useStore((s) => s.reconnectMCPServer)
+  const saveServer = useStore((s) => s.saveMCPServer)
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [jsonText, setJsonText] = useState('')
   const [importError, setImportError] = useState('')
   const [importing, setImporting] = useState(false)
+  const [addTestResult, setAddTestResult] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [testStates, setTestStates] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
+  const [editServer, setEditServer] = useState<typeof servers[0] | null>(null)
+  const [editJsonText, setEditJsonText] = useState('')
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => { loadServers() }, [loadServers])
 
@@ -157,10 +173,30 @@ export default function McpTab() {
       await importServers(jsonText)
       setJsonText('')
       setShowAddModal(false)
+      setAddTestResult({})
     } catch (e: any) {
       setImportError(e?.message || 'Failed to import servers')
     } finally { setImporting(false) }
   }, [jsonText, parsed, importServers])
+
+  const handleAddTest = useCallback(async (srvId: string) => {
+    const srv = parsed.servers.find(s => s.id === srvId)
+    if (!srv) return
+    setAddTestResult((s) => ({ ...s, [srvId]: { loading: true } }))
+    try {
+      const tools = await testServerConfig({
+        type: srv.type,
+        command: srv.command,
+        args: srv.args,
+        env: srv.env,
+        url: srv.url,
+        headers: srv.headers,
+      })
+      setAddTestResult((s) => ({ ...s, [srvId]: { loading: false, tools } }))
+    } catch (e: any) {
+      setAddTestResult((s) => ({ ...s, [srvId]: { loading: false, error: e?.message || 'Connection failed' } }))
+    }
+  }, [parsed, testServerConfig])
 
   const handleTest = useCallback(async (id: string) => {
     setTestStates((s) => ({ ...s, [id]: { loading: true } }))
@@ -182,6 +218,50 @@ export default function McpTab() {
     }
   }, [reconnectServer])
 
+  const handleEditOpen = useCallback((srv: typeof servers[0]) => {
+    const isStdio = srv.type !== 'http' && srv.type !== 'sse'
+    const serverObj: Record<string, any> = {
+      type: srv.type || (isStdio ? 'stdio' : 'http'),
+    }
+    if (srv.command) serverObj.command = srv.command
+    if (srv.args?.length) serverObj.args = srv.args
+    if (srv.env && Object.keys(srv.env).length) serverObj.env = srv.env
+    if (srv.url) serverObj.url = srv.url
+    if (srv.headers && Object.keys(srv.headers).length) serverObj.headers = srv.headers
+    const json = JSON.stringify({ mcpServers: { [srv.id]: serverObj } }, null, 2)
+    setEditServer(srv)
+    setEditJsonText(json)
+    setEditError('')
+    setEditSaving(false)
+  }, [])
+
+  const handleEditSave = useCallback(async () => {
+    if (!editServer) return
+    const parsed = parseMcpJson(editJsonText)
+    if (parsed.error || !parsed.servers.length) {
+      setEditError(parsed.error || 'No servers found in JSON')
+      return
+    }
+    setEditSaving(true); setEditError('')
+    try {
+      for (const s of parsed.servers) {
+        await saveServer({
+          id: s.id,
+          type: s.type,
+          command: s.command,
+          args: s.args,
+          env: s.env,
+          url: s.url,
+          headers: s.headers,
+          status: editServer.status,
+        })
+      }
+      setEditServer(null)
+    } catch (e: any) {
+      setEditError(e?.message || 'Failed to save')
+    } finally { setEditSaving(false) }
+  }, [editServer, editJsonText, saveServer])
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -190,7 +270,7 @@ export default function McpTab() {
           <p className="text-[11px] text-[var(--text-dim)] m-0">Manage MCP server connections</p>
         </div>
         <button
-          onClick={() => { setShowAddModal(true); setJsonText(''); setImportError('') }}
+          onClick={() => { setShowAddModal(true); setJsonText(''); setImportError(''); setAddTestResult({}) }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
           <IconPlus size={12} />
@@ -214,6 +294,7 @@ export default function McpTab() {
               onDelete={() => setConfirmDelete(srv.id)}
               onTest={() => handleTest(srv.id)}
               onReconnect={() => handleReconnect(srv.id)}
+              onEdit={() => handleEditOpen(srv)}
               testResult={testStates[srv.id] || { loading: false }}
             />
           ))}
@@ -266,28 +347,42 @@ export default function McpTab() {
           )}
 
           {parsed.servers.length > 0 && !parsed.error && (
-            <div className="mt-3 space-y-1.5">
-              <span className="text-[11px] font-semibold text-[var(--text-dim)]">
-                {parsed.servers.length} server{parsed.servers.length > 1 ? 's' : ''} detected:
-              </span>
-              {parsed.servers.map((s) => (
-                <div
-                  key={s.id}
-                  className="rounded px-3 py-1.5 flex items-center gap-2"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
-                >
-                  <span
-                    className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium shrink-0"
-                    style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
+            <div className="mt-3 space-y-2">
+              {parsed.servers.map((s) => {
+                const result = addTestResult[s.id]
+                const isStdio = s.type !== 'http' && s.type !== 'sse'
+                return (
+                  <div
+                    key={s.id}
+                    className="rounded px-3 py-2 flex items-center gap-2"
+                    style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                   >
-                    {s.type}
-                  </span>
-                  <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">{s.id}</span>
-                  <span className="font-mono text-[11px] text-[var(--text-dim)] truncate">
-                    {s.type === 'http' ? s.url : `${s.command} ${s.args.join(' ')}`}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium shrink-0"
+                      style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-dim)' }}
+                    >
+                      {s.type}
+                    </span>
+                    <span className="font-mono text-[12px] font-semibold text-[var(--text-primary)]">{s.id}</span>
+                    <span className="font-mono text-[11px] text-[var(--text-dim)] truncate flex-1 min-w-0">
+                      {isStdio ? `${s.command} ${s.args.join(' ')}` : s.url}
+                    </span>
+                    <button
+                      onClick={() => handleAddTest(s.id)}
+                      disabled={result?.loading}
+                      title="Test connection"
+                      className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors shrink-0"
+                    >
+                      <IconZap size={14} />
+                    </button>
+                    <div className="shrink-0 text-[10px] min-w-0">
+                      {result?.loading && <span className="text-[var(--text-dim)]">Testing...</span>}
+                      {result?.tools && <span className="text-green-400">{result.tools.length} tools</span>}
+                      {result?.error && <span className="text-[var(--red)]">{result.error}</span>}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -298,7 +393,7 @@ export default function McpTab() {
               onClick={handleImport}
               disabled={importing || parsed.servers.length === 0 || !!parsed.error}
             >
-              {importing ? 'Importing...' : `Import ${parsed.servers.length || ''} Server${parsed.servers.length !== 1 ? 's' : ''}`}
+              {importing ? 'Importing...' : 'Import'}
             </ModalButton>
           </ModalActions>
         </Modal>
@@ -312,6 +407,39 @@ export default function McpTab() {
           onConfirm={async () => { await deleteServer(confirmDelete); setConfirmDelete(null) }}
           onCancel={() => setConfirmDelete(null)}
         />
+      )}
+
+      {/* Edit modal */}
+      {editServer && (
+        <Modal onClose={() => setEditServer(null)} loading={editSaving} width={520}>
+          <h4 className="text-[14px] font-semibold m-0 mb-3">Edit MCP Server</h4>
+          <textarea
+            value={editJsonText}
+            onChange={(e) => { setEditJsonText(e.target.value); setEditError('') }}
+            className="w-full text-[12px] font-mono px-3 py-2.5 rounded-lg resize-y outline-none"
+            style={{
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              minHeight: '180px',
+            }}
+            rows={10}
+            autoFocus
+          />
+          {editError && (
+            <p className="text-[11px] text-[var(--red)] m-0 mt-2">{editError}</p>
+          )}
+          <ModalActions>
+            <ModalButton onClick={() => setEditServer(null)} disabled={editSaving}>Cancel</ModalButton>
+            <ModalButton
+              variant="primary"
+              onClick={handleEditSave}
+              disabled={editSaving}
+            >
+              {editSaving ? 'Saving...' : 'Save'}
+            </ModalButton>
+          </ModalActions>
+        </Modal>
       )}
     </div>
   )

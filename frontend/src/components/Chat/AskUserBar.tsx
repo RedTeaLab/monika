@@ -219,22 +219,20 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
         >
           Skip
         </button>
-        {(!hasOptions || customActive) && (
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer font-medium outline-none"
-            style={{
-              background: canSubmit ? 'var(--accent)' : 'var(--border)',
-              border: 'none',
-              color: canSubmit ? '#fff' : 'var(--text-dim)',
-              fontFamily: 'inherit',
-              opacity: canSubmit ? 1 : 0.6,
-            }}
-          >
-            Submit
-          </button>
-        )}
+        <button
+          onClick={handleSubmit}
+          disabled={!canSubmit}
+          className="text-[11px] px-2.5 py-1 rounded-sm cursor-pointer font-medium outline-none"
+          style={{
+            background: canSubmit ? 'var(--accent)' : 'var(--border)',
+            border: 'none',
+            color: canSubmit ? '#fff' : 'var(--text-dim)',
+            fontFamily: 'inherit',
+            opacity: canSubmit ? 1 : 0.6,
+          }}
+        >
+          Submit
+        </button>
       </div>
     </div>
   )
