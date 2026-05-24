@@ -330,7 +330,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             </div>
           )}
           <div
-            className="text-[13px] text-[var(--text-dim)] whitespace-pre overflow-x-auto mt-1"
+            className="text-[13px] text-[var(--text-secondary)] whitespace-pre overflow-x-auto mt-1"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {displayLines.map((line, i) => (
@@ -421,73 +421,27 @@ function findStrEnd(s: string, start: number): number {
   return s.length - 1
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
 function formatPlainLine(line: string, toolName: string): React.ReactNode {
-  const nodes: React.ReactNode[] = []
-  let i = 0
+  const clean = stripAnsi(line)
 
-  while (i < line.length) {
-    // ANSI escape sequence
-    if (line[i] === '\x1b' && line[i + 1] === '[') {
-      const end = line.indexOf('m', i)
-      if (end !== -1) { i = end + 1; continue }
+  if (toolName === 'grep') {
+    const grepMatch = clean.match(/^([\w.\-/\\]+):(\d+):(.*)$/)
+    if (grepMatch) {
+      return (
+        <>
+          <span style={{ color: 'var(--text-secondary)' }}>{grepMatch[1]}</span>
+          <span style={{ color: 'var(--text-dim)', opacity: 0.6 }}>:{grepMatch[2]}:</span>
+          <span style={{ color: 'var(--text-primary)' }}>{grepMatch[3]}</span>
+        </>
+      )
     }
-
-    // File path (Unix: /path/to/file, Windows: C:\path, relative: ./path)
-    const pathMatch = line.slice(i).match(/^(?:\/[\w.\-/~]*|\.\/[\w.\-/]*|\.\.[\w.\-/]*|[A-Za-z]:\\[\w.\\\-]*|[~\w.\-/]+\/\S*\.\w+)/)
-    if (pathMatch && pathMatch[0].length > 2) {
-      nodes.push(<span key={i} style={{ color: 'var(--blue)', opacity: 0.8 }}>{pathMatch[0]}</span>)
-      i += pathMatch[0].length
-      continue
-    }
-
-    // Number
-    const numMatch = line.slice(i).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?=[\s,;)\]}]|$)/)
-    if (numMatch) {
-      nodes.push(<span key={i} style={{ color: 'var(--orange)' }}>{numMatch[0]}</span>)
-      i += numMatch[0].length
-      continue
-    }
-
-    // Keywords
-    const kwMatch = line.slice(i).match(/^(error|fail|fatal|Error|ERROR|FAIL)\b/)
-    if (kwMatch) {
-      nodes.push(<span key={i} style={{ color: 'var(--red)', fontWeight: 600 }}>{kwMatch[0]}</span>)
-      i += kwMatch[0].length
-      continue
-    }
-    const warnMatch = line.slice(i).match(/^(warn|warning|WARN|Warning)\b/)
-    if (warnMatch) {
-      nodes.push(<span key={i} style={{ color: 'var(--yellow)' }}>{warnMatch[0]}</span>)
-      i += warnMatch[0].length
-      continue
-    }
-    const okMatch = line.slice(i).match(/^(success|done|ok|pass|OK|DONE)\b/)
-    if (okMatch) {
-      nodes.push(<span key={i} style={{ color: 'var(--green)' }}>{okMatch[0]}</span>)
-      i += okMatch[0].length
-      continue
-    }
-
-    // grep-style output: file:line:
-    if (toolName === 'grep') {
-      const grepMatch = line.slice(i).match(/^([\w.\-/\\]+):(\d+):/)
-      if (grepMatch) {
-        nodes.push(
-          <span key={i}>
-            <span style={{ color: 'var(--blue)' }}>{grepMatch[1]}</span>
-            <span style={{ color: 'var(--text-dim)' }}>:{grepMatch[2]}:</span>
-          </span>
-        )
-        i += grepMatch[0].length
-        continue
-      }
-    }
-
-    nodes.push(line[i])
-    i++
   }
 
-  return <>{nodes}</>
+  return clean
 }
 
 /* ---- compaction card ---- */
@@ -606,7 +560,9 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
         <div>
           <RoleLabel role="user" />
           <MsgBlock accent="var(--accent)" copyContent={content}>
-            <MarkdownBlock content={content} />
+            <div className="text-[14px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.7]" style={{ wordBreak: 'break-word' }}>
+              {content}
+            </div>
           </MsgBlock>
         </div>
       ) : role === 'error' ? (
