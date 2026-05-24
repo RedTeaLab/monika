@@ -36,6 +36,20 @@ export function AddSkillPath(args: json$0.RawMessage): $CancellablePromise<void>
     return $Call.ByID(110335, args);
 }
 
+/**
+ * AppendLoopOption appends a loop option to the internally stored slice.
+ */
+export function AppendLoopOption(opt: agent$0.LoopOption): $CancellablePromise<void> {
+    return $Call.ByID(1912792643, opt);
+}
+
+/**
+ * AskUser sends a question to the frontend and blocks until the user responds.
+ */
+export function AskUser(sessionID: string, question: string, title: string, options: string[]): $CancellablePromise<string> {
+    return $Call.ByID(641074198, sessionID, question, title, options);
+}
+
 export function CancelGeneration(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2154546860, sessionID);
 }
@@ -113,6 +127,13 @@ export function GetModels(providerID: string): $CancellablePromise<engine$0.Mode
     });
 }
 
+/**
+ * GetProjectPath returns the current project directory (exported for use by tools).
+ */
+export function GetProjectPath(): $CancellablePromise<string> {
+    return $Call.ByID(2154343474);
+}
+
 export function GetProviders(): $CancellablePromise<$models.ProviderInfo[]> {
     return $Call.ByID(2466924902).then(($result: any) => {
         return $$createType8($result);
@@ -134,6 +155,17 @@ export function GetRecentProjects(): $CancellablePromise<$models.RecentProject[]
 export function GetSkillContent(args: json$0.RawMessage): $CancellablePromise<$models.SkillContentResult> {
     return $Call.ByID(3735502862, args).then(($result: any) => {
         return $$createType11($result);
+    });
+}
+
+/**
+ * ImportMCPServers parses a standard mcpServers JSON block and adds the servers to config.
+ * The input format is: { "mcpServers": { "name": { "type": "stdio", "command": "...", ... } } }
+ * Returns the list of server IDs that were imported.
+ */
+export function ImportMCPServers(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(2481263241, args).then(($result: any) => {
+        return $$createType12($result);
     });
 }
 
@@ -313,6 +345,16 @@ export function ReadFile(projectPath: string, filePath: string): $CancellablePro
 }
 
 /**
+ * ReconnectMCPServer disconnects and reconnects a configured MCP server,
+ * then returns its available tool names.
+ */
+export function ReconnectMCPServer(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(1193347248, args).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
+/**
  * RemoveSkillPath removes a directory from the skill search paths.
  */
 export function RemoveSkillPath(args: json$0.RawMessage): $CancellablePromise<void> {
@@ -333,6 +375,13 @@ export function RequestConfirm(ev: permission$0.PermissionRequiredEvent): $Cance
  */
 export function ResolveChildSession(parentID: string): $CancellablePromise<string> {
     return $Call.ByID(3285960262, parentID);
+}
+
+/**
+ * RespondAskUser handles the frontend's response to an ask_user request.
+ */
+export function RespondAskUser(args: json$0.RawMessage): $CancellablePromise<void> {
+    return $Call.ByID(225985741, args);
 }
 
 /**
@@ -419,10 +468,27 @@ export function SwitchBranch(projectPath: string, name: string): $CancellablePro
 }
 
 /**
+ * TestMCPServer attempts to connect a server, list its tools, then disconnect.
+ * Returns the list of tool names on success.
+ */
+export function TestMCPServer(args: json$0.RawMessage): $CancellablePromise<string[]> {
+    return $Call.ByID(379264411, args).then(($result: any) => {
+        return $$createType12($result);
+    });
+}
+
+/**
  * ToggleSkillEnabled toggles the enabled state of a skill by name.
  */
 export function ToggleSkillEnabled(args: json$0.RawMessage): $CancellablePromise<void> {
     return $Call.ByID(3070293474, args);
+}
+
+/**
+ * TriggerCompact manually triggers context compaction for a session.
+ */
+export function TriggerCompact(projectPath: string, sessionID: string, providerID: string, model: string): $CancellablePromise<void> {
+    return $Call.ByID(3450602537, projectPath, sessionID, providerID, model);
 }
 
 /**

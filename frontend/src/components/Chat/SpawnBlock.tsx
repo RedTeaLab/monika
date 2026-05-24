@@ -57,6 +57,7 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
   const subagentType = info.subagent_type || 'general'
   const agentColor = AGENT_COLORS[subagentType] || 'var(--purple)'
   const isRunning = tool.status === 'running'
+  const showModel = model && subagentType !== 'compaction'
 
   const formatDuration = (s: number) => {
     if (s >= 60) return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`
@@ -98,8 +99,8 @@ export default function SpawnBlock({ tool, model, duration }: SpawnBlockProps) {
           <span className="text-[12px] font-semibold truncate">{info.description}</span>
           {!isRunning && (
             <span className="text-[10px] text-[var(--text-dim)] flex items-center gap-1.5">
-              {model && <span>{model}</span>}
-              {model && duration != null && duration > 0 && <span>·</span>}
+              {showModel && <span>{model}</span>}
+              {showModel && duration != null && duration > 0 && <span>·</span>}
               {duration != null && duration > 0 && <span>{formatDuration(duration)}</span>}
             </span>
           )}

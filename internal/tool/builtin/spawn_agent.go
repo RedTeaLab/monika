@@ -74,7 +74,7 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	}
 
 	// Prevent recursive spawn: child agents cannot spawn their own children
-	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
+	if sid := tool.SessionIDFromContext(ctx); agent.IsChildSession(sid) {
 		return tool.ExecutionResult{
 			Content: "spawn_agent is not available in child agent sessions",
 			IsError: true,
@@ -171,7 +171,7 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 	}
 
 	// Prevent recursive spawn: child agents cannot spawn their own children
-	if sid := tool.SessionIDFromContext(ctx); strings.HasPrefix(sid, "call_") || strings.HasPrefix(sid, "sub_") {
+	if sid := tool.SessionIDFromContext(ctx); agent.IsChildSession(sid) {
 		return nil, fmt.Errorf("spawn_agent is not available in child agent sessions")
 	}
 

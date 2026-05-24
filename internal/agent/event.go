@@ -13,7 +13,6 @@ const (
 	EventDone
 	EventSessionUpdated
 	EventTurnStart
-	EventCompacting
 	EventCompaction
 )
 
@@ -23,7 +22,6 @@ type Event struct {
 	SessionID  string // non-empty = event belongs to a specific session (e.g. child agent)
 	Tool       *ToolEvent
 	Usage      UsageEvent
-	Compacting *CompactingEvent
 	Compaction *CompactionEvent
 }
 
@@ -44,10 +42,6 @@ type UsageEvent struct {
 	CacheWriteTokens int64 `json:"cache_write_tokens"`
 	ContextTokens    int64 `json:"context_tokens"`
 	MaxContext       int64 `json:"max_context"`
-}
-
-type CompactingEvent struct {
-	SessionID string `json:"session_id"`
 }
 
 type CompactionEvent struct {

@@ -24,6 +24,11 @@ func RegisterDefaults(r *tool.ToolRegistry, projectDir string) error {
 	return nil
 }
 
+// RegisterAskUser registers the ask_user tool for user interaction.
+func RegisterAskUser(r *tool.ToolRegistry) {
+	r.Register(NewAskUser())
+}
+
 // RegisterTasks registers the three task planning tools.
 // Called separately after TaskStore is created in main.
 func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
@@ -39,6 +44,6 @@ func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dis
 }
 
 // RegisterSkillTool registers the skill tool for on-demand skill loading.
-func RegisterSkillTool(r *tool.ToolRegistry, skEng engine.SkillEngine, home, cwd string, cfg *config.Config) {
-	r.Register(NewSkillTool(skEng, home, cwd, cfg))
+func RegisterSkillTool(r *tool.ToolRegistry, skEng engine.SkillEngine, home string, getCwd func() string, cfg *config.Config) {
+	r.Register(NewSkillTool(skEng, home, getCwd, cfg))
 }

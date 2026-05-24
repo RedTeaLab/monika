@@ -43,6 +43,7 @@ func (e *SkillEngine) Discover(_ context.Context, homeDir string, projectDir str
 	var skills []engine.SkillMeta
 
 	locations := []scanLocation{
+		{projectDir, ".monika/skills", "project-monika"},
 		{projectDir, ".opencode/skills", "project-opencode"},
 		{projectDir, ".opencode/skill", "project-opencode"},
 		{projectDir, ".claude/skills", "project-claude"},

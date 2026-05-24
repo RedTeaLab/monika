@@ -7,6 +7,7 @@ export {
 };
 
 export {
+    AskUserEvent,
     BranchInfo,
     ChangeStat,
     DiffResult,

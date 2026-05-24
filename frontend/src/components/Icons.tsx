@@ -22,6 +22,8 @@ import {
   Star,
   Plug,
   Copy,
+  Zap,
+  RefreshCw,
 } from 'lucide-react'
 
 export function IconClose({ size }: { size?: number }) {
@@ -114,4 +116,12 @@ export function IconStar({ size }: { size?: number }) {
 
 export function IconPlug({ size }: { size?: number }) {
   return <Plug size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconZap({ size }: { size?: number }) {
+  return <Zap size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconRefresh({ size }: { size?: number }) {
+  return <RefreshCw size={size || 16} strokeWidth={1.5} />
 }

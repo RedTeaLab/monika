@@ -14,10 +14,23 @@ type StreamEvent struct {
 	Tool       *agent.ToolEvent                    `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent                   `json:"usage,omitempty"`
 	FileChange *FileChangeEvent                    `json:"file_change,omitempty"`
-	Compacting *agent.CompactingEvent              `json:"compacting,omitempty"`
 	Compaction *agent.CompactionEvent              `json:"compaction,omitempty"`
 	Tasks      []agent.TaskItem                    `json:"tasks,omitempty"`
 	Permission *permission.PermissionRequiredEvent `json:"permission,omitempty"`
+	AskUser    *AskUserEvent                       `json:"ask_user,omitempty"`
+}
+
+type AskUserEvent struct {
+	RequestID string   `json:"requestId"`
+	SessionID string   `json:"sessionId"`
+	Question  string   `json:"question"`
+	Title     string   `json:"title,omitempty"`
+	Options   []string `json:"options,omitempty"`
+}
+
+type AskUserResponse struct {
+	RequestID string `json:"requestId"`
+	Answer    string `json:"answer"`
 }
 
 type FileChangeEvent struct {

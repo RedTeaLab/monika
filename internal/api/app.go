@@ -67,6 +67,9 @@ type App struct {
 	permissionRequests map[string]chan permission.PermissionResponse
 	permMu             sync.Mutex
 
+	askUserRequests map[string]chan AskUserResponse
+	askUserMu       sync.Mutex
+
 	pipeline *permission.Pipeline
 }
 
@@ -94,6 +97,12 @@ func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.P
 	}
 }
 
+// AppendLoopOption appends a loop option to the internally stored slice.
+func (a *App) AppendLoopOption(opt agent2.LoopOption) {
+	a.loopOpts = append(a.loopOpts, opt)
+	a.baseLoopOptsCount++
+}
+
 // refreshSkillPrompt rebuilds the system prompt in loopOpts with the current skill list.
 // Future sessions will see the updated skills; running sessions keep their existing prompt.
 func (a *App) refreshSkillPrompt() {
@@ -105,7 +114,7 @@ func (a *App) refreshSkillPrompt() {
 	if !ok {
 		return
 	}
-	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	skills, err := skEng.Discover(context.Background(), a.home, a.projectPath(), a.cfg.Skill.Paths)
 	if err != nil {
 		return
 	}
@@ -411,7 +420,7 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	// Check child sessions first (in-memory, then on-disk, then placeholder)
-	if strings.HasPrefix(sessionID, "sub_") || strings.HasPrefix(sessionID, "call_") {
+	if agent2.IsChildSession(sessionID) {
 		if child := a.LoadChildSession(sessionID); child != nil {
 			return &Session{
 				ID:         sessionID,
@@ -478,12 +487,18 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 	}
 
 	conv := &agent2.Conversation{
-		ID:               s.ID,
-		Messages:         s.Messages,
-		TokenCount:       s.TokenCount,
-		TokenMax:         s.TokenMax,
-		CompactionCount:  s.CompactionCount,
-		ArchivedMessages: s.ArchivedMessages,
+		ID:              s.ID,
+		Messages:        s.Messages,
+		TokenCount:      s.TokenCount,
+		TokenMax:        s.TokenMax,
+		CompactionCount: s.CompactionCount,
+	}
+	// Restore CompactionFrom by finding the last compaction summary
+	for i := len(s.Messages) - 1; i >= 0; i-- {
+		if s.Messages[i].Name == "compaction_summary" {
+			conv.CompactionFrom = i
+			break
+		}
 	}
 
 	opts := append([]agent2.LoopOption{}, a.loopOpts...)
@@ -498,7 +513,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		opts = append(opts, agent2.WithModelContextLimit(limit))
 	}
 	opts = append(opts, agent2.WithAgent(generalAgent))
-	fmt.Fprintf(os.Stderr, "[monika DEBUG] SendMessage: projectPath=%q provider=%q\n", projectPath, providerID)
+
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
 	loop.SetDispatchFn(func(ctx context.Context, task agent2.SubTask) <-chan agent2.Event {
 		return a.taskRunner.Dispatch(ctx, task, loop)
@@ -532,9 +547,6 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		s.TokenCount = conv.TokenCount
 		s.TokenMax = conv.TokenMax
 		s.CompactionCount = conv.CompactionCount
-		if len(conv.ArchivedMessages) > 0 {
-			s.ArchivedMessages = conv.ArchivedMessages
-		}
 		sm.SetTitle(s)
 
 		// Persist tasks alongside the session so they survive restarts.
@@ -579,6 +591,91 @@ func (a *App) CancelGeneration(sessionID string) {
 			}
 		}
 	}
+}
+
+// TriggerCompact manually triggers context compaction for a session.
+func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) error {
+	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+
+	a.cancelMu.Lock()
+	_, generating := a.cancelFuncs[sessionID]
+	a.cancelMu.Unlock()
+	if generating {
+		return fmt.Errorf("session is currently generating, wait for it to complete before compacting")
+	}
+
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return fmt.Errorf("session %s not found: %w", sessionID, err)
+	}
+
+	if len(s.Messages) < 2 {
+		return fmt.Errorf("not enough messages to compact")
+	}
+
+	providerEng, ok := a.providers[providerID]
+	if !ok {
+		return fmt.Errorf("provider %q not available", providerID)
+	}
+
+	conv := &agent2.Conversation{
+		ID:              s.ID,
+		Messages:        s.Messages,
+		TokenCount:      s.TokenCount,
+		TokenMax:        s.TokenMax,
+		CompactionCount: s.CompactionCount,
+	}
+	// Restore CompactionFrom by finding the last compaction summary
+	for i := len(s.Messages) - 1; i >= 0; i-- {
+		if s.Messages[i].Name == "compaction_summary" {
+			conv.CompactionFrom = i
+			break
+		}
+	}
+
+	opts := append([]agent2.LoopOption{}, a.loopOpts...)
+	opts = append(opts,
+		agent2.WithProjectDir(projectPath),
+		agent2.WithProvider(providerID),
+		agent2.WithModel(model),
+		agent2.WithSessionID(sessionID),
+	)
+	generalAgent, _ := a.agentRegistry.Get("general")
+	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
+		opts = append(opts, agent2.WithModelContextLimit(limit))
+	}
+	opts = append(opts, agent2.WithAgent(generalAgent))
+
+	loop := agent2.NewLoop(providerEng, a.registry, opts...)
+	loop.SetDispatchFn(func(ctx context.Context, task agent2.SubTask) <-chan agent2.Event {
+		return a.taskRunner.Dispatch(ctx, task, loop)
+	})
+
+	go func() {
+		ch := make(chan agent2.Event, 16)
+		go func() {
+			defer close(ch)
+			loop.RunCompactionViaDispatch(a.ctx, conv, ch)
+		}()
+		for ev := range ch {
+			a.handleAgentEvent(sessionID, model, ev)
+		}
+		a.handleAgentEvent(sessionID, model, agent2.Event{Type: agent2.EventDone})
+
+		s.Messages = conv.Messages
+		s.TokenCount = conv.TokenCount
+		s.TokenMax = conv.TokenMax
+		s.CompactionCount = conv.CompactionCount
+		sm.Lock()
+		if err := sm.Save(s); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] TriggerCompact save error: %v\n", err)
+		}
+		sm.Unlock()
+	}()
+
+	return nil
 }
 
 func resolveShellAPI() (string, string) {
@@ -839,9 +936,6 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 		se.Content = ev.Content
 	case agent2.EventTurnStart:
 		se.Type = "turn_start"
-	case agent2.EventCompacting:
-		se.Type = "compacting"
-		se.Compacting = ev.Compacting
 	case agent2.EventCompaction:
 		se.Type = "compaction"
 		se.Compaction = ev.Compaction
@@ -1415,6 +1509,60 @@ func (a *App) RespondPermission(args json.RawMessage) error {
 	return nil
 }
 
+// AskUser sends a question to the frontend and blocks until the user responds.
+func (a *App) AskUser(ctx context.Context, sessionID, question string, title string, options []string) (string, error) {
+	requestID := fmt.Sprintf("ask-%d", time.Now().UnixNano())
+	ch := make(chan AskUserResponse, 1)
+	a.askUserMu.Lock()
+	if a.askUserRequests == nil {
+		a.askUserRequests = make(map[string]chan AskUserResponse)
+	}
+	a.askUserRequests[requestID] = ch
+	a.askUserMu.Unlock()
+
+	ev := AskUserEvent{
+		RequestID: requestID,
+		SessionID: sessionID,
+		Question:  question,
+		Title:     title,
+		Options:   options,
+	}
+	se := StreamEvent{
+		Type:      "ask_user",
+		SessionID: sessionID,
+		AskUser:   &ev,
+	}
+	application.Get().Event.Emit("stream", se)
+
+	select {
+	case resp := <-ch:
+		return resp.Answer, nil
+	case <-ctx.Done():
+		a.askUserMu.Lock()
+		delete(a.askUserRequests, requestID)
+		a.askUserMu.Unlock()
+		return "", ctx.Err()
+	}
+}
+
+// RespondAskUser handles the frontend's response to an ask_user request.
+func (a *App) RespondAskUser(args json.RawMessage) error {
+	var resp AskUserResponse
+	if err := json.Unmarshal(args, &resp); err != nil {
+		return err
+	}
+	a.askUserMu.Lock()
+	ch, ok := a.askUserRequests[resp.RequestID]
+	if ok {
+		delete(a.askUserRequests, resp.RequestID)
+	}
+	a.askUserMu.Unlock()
+	if ok {
+		ch <- resp
+	}
+	return nil
+}
+
 // SetPipeline stores the permission pipeline reference for runtime mode changes.
 func (a *App) SetPipeline(p *permission.Pipeline) {
 	a.pipeline = p
@@ -1498,12 +1646,21 @@ func (a *App) projectPath() string {
 	return a.startupCwd
 }
 
+// GetProjectPath returns the current project directory (exported for use by tools).
+func (a *App) GetProjectPath() string {
+	return a.projectPath()
+}
+
 // MCPServerInfo describes a configured MCP server and its connection status.
 type MCPServerInfo struct {
-	ID      string   `json:"id"`
-	Command string   `json:"command"`
-	Args    []string `json:"args"`
-	Status  string   `json:"status"` // "connected" | "disconnected"
+	ID      string            `json:"id"`
+	Type    string            `json:"type"`
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Status  string            `json:"status"` // "connected" | "disconnected"
 }
 
 // ListAgents returns all registered agents.
@@ -1583,7 +1740,7 @@ func (a *App) ListSkills() []engine2.SkillMeta {
 	if !ok {
 		return nil
 	}
-	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	skills, err := skEng.Discover(context.Background(), a.home, a.projectPath(), a.cfg.Skill.Paths)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] ListSkills: %v\n", err)
 		return nil
@@ -1668,7 +1825,7 @@ func (a *App) GetSkillContent(args json.RawMessage) (SkillContentResult, error) 
 	if !ok {
 		return SkillContentResult{}, fmt.Errorf("skill engine not available")
 	}
-	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	skills, err := skEng.Discover(context.Background(), a.home, a.projectPath(), a.cfg.Skill.Paths)
 	if err != nil {
 		return SkillContentResult{}, err
 	}
@@ -1791,7 +1948,7 @@ func (a *App) UninstallSkill(args json.RawMessage) error {
 	if !ok {
 		return fmt.Errorf("skill engine not available")
 	}
-	skills, err := skEng.Discover(context.Background(), a.home, a.startupCwd, a.cfg.Skill.Paths)
+	skills, err := skEng.Discover(context.Background(), a.home, a.projectPath(), a.cfg.Skill.Paths)
 	if err != nil {
 		return err
 	}
@@ -1843,7 +2000,7 @@ func (a *App) skillBaseDir(scope string) string {
 	if scope == "global" {
 		return filepath.Join(a.home, ".monika", "skills")
 	}
-	return filepath.Join(a.startupCwd, ".opencode", "skills")
+	return filepath.Join(a.projectPath(), ".monika", "skills")
 }
 
 // OpenInFileManager opens the given directory path in the system file manager.
@@ -1923,8 +2080,12 @@ func (a *App) ListMCPServers() []MCPServerInfo {
 	for _, s := range a.cfg.MCP.Servers {
 		info := MCPServerInfo{
 			ID:      s.ID,
+			Type:    s.Type,
 			Command: s.Command,
 			Args:    s.Args,
+			Env:     s.Env,
+			URL:     s.URL,
+			Headers: s.Headers,
 			Status:  "disconnected",
 		}
 		if a.isMCPConnected(s.ID) {
@@ -1933,6 +2094,184 @@ func (a *App) ListMCPServers() []MCPServerInfo {
 		servers = append(servers, info)
 	}
 	return servers
+}
+
+// ImportMCPServers parses a standard mcpServers JSON block and adds the servers to config.
+// The input format is: { "mcpServers": { "name": { "type": "stdio", "command": "...", ... } } }
+// Returns the list of server IDs that were imported.
+func (a *App) ImportMCPServers(args json.RawMessage) ([]string, error) {
+	// The frontend sends the JSON string via Call.ByName, which wraps it as a JSON string.
+	// Unwrap: if args is a JSON string literal, decode it first.
+	if len(args) > 0 && args[0] == '"' {
+		var raw string
+		if err := json.Unmarshal(args, &raw); err == nil {
+			args = json.RawMessage(raw)
+		}
+	}
+
+	var raw struct {
+		McpServers map[string]json.RawMessage `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(args, &raw); err != nil {
+		// Try as a bare map of name -> config
+		var bare map[string]json.RawMessage
+		if err2 := json.Unmarshal(args, &bare); err2 != nil {
+			return nil, fmt.Errorf("invalid MCP server JSON: expected {\"mcpServers\": {...}} or {...}")
+		}
+		raw.McpServers = bare
+	}
+
+	if len(raw.McpServers) == 0 {
+		return nil, fmt.Errorf("no servers found in JSON")
+	}
+
+	var imported []string
+	for name, rawCfg := range raw.McpServers {
+		var cfg struct {
+			Type    string            `json:"type"`
+			Command string            `json:"command"`
+			Args    []string          `json:"args"`
+			Env     map[string]string `json:"env"`
+			URL     string            `json:"url"`
+			Headers map[string]string `json:"headers"`
+		}
+		if err := json.Unmarshal(rawCfg, &cfg); err != nil {
+			continue
+		}
+		srvType := cfg.Type
+		if srvType == "" {
+			if cfg.URL != "" {
+				srvType = "http"
+			} else {
+				srvType = "stdio"
+			}
+		}
+		entry := config2.MCPServerEntry{
+			ID:      name,
+			Type:    srvType,
+			Command: cfg.Command,
+			Args:    cfg.Args,
+			Env:     cfg.Env,
+			URL:     cfg.URL,
+			Headers: cfg.Headers,
+		}
+		found := false
+		for i, s := range a.cfg.MCP.Servers {
+			if s.ID == name {
+				a.cfg.MCP.Servers[i] = entry
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.cfg.MCP.Servers = append(a.cfg.MCP.Servers, entry)
+		}
+		imported = append(imported, name)
+	}
+	a.writeConfig()
+	return imported, nil
+}
+
+// TestMCPServer attempts to connect a server, list its tools, then disconnect.
+// Returns the list of tool names on success.
+func (a *App) TestMCPServer(args json.RawMessage) ([]string, error) {
+	var req struct{ ID string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, err
+	}
+
+	var entry *config2.MCPServerEntry
+	for i := range a.cfg.MCP.Servers {
+		if a.cfg.MCP.Servers[i].ID == req.ID {
+			entry = &a.cfg.MCP.Servers[i]
+			break
+		}
+	}
+	if entry == nil {
+		return nil, fmt.Errorf("server %q not found in config", req.ID)
+	}
+
+	eng, err := engine2.EngineByID("mcp")
+	if err != nil {
+		return nil, err
+	}
+	_ = eng.Init(context.Background(), nil)
+	mcpEng, ok := eng.(engine2.MCPEngine)
+	if !ok {
+		return nil, fmt.Errorf("mcp engine not available")
+	}
+
+	cfg := engine2.MCPServerConfig{
+		ID: entry.ID, Type: entry.Type, Command: entry.Command,
+		Args: entry.Args, Env: entry.Env, URL: entry.URL, Headers: entry.Headers,
+	}
+	conn, err := mcpEng.ConnectServer(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("connect failed: %w", err)
+	}
+	defer mcpEng.DisconnectServer(context.Background(), entry.ID)
+
+	tools, err := conn.ListTools(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("list tools failed: %w", err)
+	}
+	names := make([]string, len(tools))
+	for i, t := range tools {
+		names[i] = t.Name
+	}
+	return names, nil
+}
+
+// ReconnectMCPServer disconnects and reconnects a configured MCP server,
+// then returns its available tool names.
+func (a *App) ReconnectMCPServer(args json.RawMessage) ([]string, error) {
+	var req struct{ ID string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return nil, err
+	}
+
+	eng, err := engine2.EngineByID("mcp")
+	if err != nil {
+		return nil, err
+	}
+	_ = eng.Init(context.Background(), nil)
+	mcpEng, ok := eng.(engine2.MCPEngine)
+	if !ok {
+		return nil, fmt.Errorf("mcp engine not available")
+	}
+
+	// Disconnect if currently connected
+	_ = mcpEng.DisconnectServer(context.Background(), req.ID)
+
+	var entry *config2.MCPServerEntry
+	for i := range a.cfg.MCP.Servers {
+		if a.cfg.MCP.Servers[i].ID == req.ID {
+			entry = &a.cfg.MCP.Servers[i]
+			break
+		}
+	}
+	if entry == nil {
+		return nil, fmt.Errorf("server %q not found in config", req.ID)
+	}
+
+	cfg := engine2.MCPServerConfig{
+		ID: entry.ID, Type: entry.Type, Command: entry.Command,
+		Args: entry.Args, Env: entry.Env, URL: entry.URL, Headers: entry.Headers,
+	}
+	conn, err := mcpEng.ConnectServer(context.Background(), cfg)
+	if err != nil {
+		return nil, fmt.Errorf("reconnect failed: %w", err)
+	}
+
+	tools, err := conn.ListTools(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("list tools failed: %w", err)
+	}
+	names := make([]string, len(tools))
+	for i, t := range tools {
+		names[i] = t.Name
+	}
+	return names, nil
 }
 
 // isMCPConnected checks whether an MCP server is currently connected.
@@ -1949,8 +2288,7 @@ func (a *App) isMCPConnected(id string) bool {
 	if !ok {
 		return false
 	}
-	err = mcpEng.DisconnectServer(context.Background(), id)
-	return err == nil
+	return mcpEng.IsConnected(id)
 }
 
 // SaveMCPServer creates or updates an MCP server entry in config.

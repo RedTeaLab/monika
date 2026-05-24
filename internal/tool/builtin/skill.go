@@ -22,14 +22,14 @@ func xmlEscape(s string) string {
 }
 
 type skillTool struct {
-	skEng engine.SkillEngine
-	home  string
-	cwd   string
-	cfg   *config.Config
+	skEng  engine.SkillEngine
+	home   string
+	getCwd func() string
+	cfg    *config.Config
 }
 
-func NewSkillTool(skEng engine.SkillEngine, home, cwd string, cfg *config.Config) tool.Tool {
-	return &skillTool{skEng: skEng, home: home, cwd: cwd, cfg: cfg}
+func NewSkillTool(skEng engine.SkillEngine, home string, getCwd func() string, cfg *config.Config) tool.Tool {
+	return &skillTool{skEng: skEng, home: home, getCwd: getCwd, cfg: cfg}
 }
 
 func (t *skillTool) Name() string { return "skill" }
@@ -63,7 +63,7 @@ func (t *skillTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 		return tool.ExecutionResult{}, fmt.Errorf("skill: invalid args: %w", err)
 	}
 
-	skills, err := t.skEng.Discover(ctx, t.home, t.cwd, t.cfg.Skill.Paths)
+	skills, err := t.skEng.Discover(ctx, t.home, t.getCwd(), t.cfg.Skill.Paths)
 	if err != nil {
 		return tool.ExecutionResult{}, fmt.Errorf("skill: discovery failed: %w", err)
 	}

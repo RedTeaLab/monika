@@ -118,27 +118,6 @@ export class ChildSession {
     }
 }
 
-export class CompactingEvent {
-    "session_id": string;
-
-    /** Creates a new CompactingEvent instance. */
-    constructor($$source: Partial<CompactingEvent> = {}) {
-        if (!("session_id" in $$source)) {
-            this["session_id"] = "";
-        }
-
-        Object.assign(this, $$source);
-    }
-
-    /**
-     * Creates a new CompactingEvent instance from a string or object.
-     */
-    static createFrom($$source: any = {}): CompactingEvent {
-        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new CompactingEvent($$parsedSource as Partial<CompactingEvent>);
-    }
-}
-
 export class CompactionEvent {
     "summary": string;
     "before_tokens": number;
@@ -171,6 +150,8 @@ export class CompactionEvent {
         return new CompactionEvent($$parsedSource as Partial<CompactionEvent>);
     }
 }
+
+export type LoopOption = any;
 
 /**
  * TaskItem is a lightweight task representation for frontend events.

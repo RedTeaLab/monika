@@ -3,6 +3,7 @@ package agent
 import (
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // sanitizeCompactionOutput cleans the raw LLM response from the compaction agent.
@@ -35,17 +36,38 @@ func sanitizeCompactionOutput(raw string) string {
 }
 
 // buildCompactionPromptFromConv serializes conversation messages into a
-// text dump for the compaction agent to summarize.
+// text dump for the compaction agent to summarize. Individual message content
+// is capped to prevent the compaction prompt from exceeding model context limits.
 func buildCompactionPromptFromConv(conv *Conversation) string {
+	const maxPerContent = 6000 // chars per message
+	msgs := conv.Messages
+	if conv.CompactionFrom > 0 && conv.CompactionFrom < len(msgs) {
+		msgs = msgs[conv.CompactionFrom:]
+	}
 	var b strings.Builder
-	for _, m := range conv.Messages {
+	for _, m := range msgs {
 		if m.ReasoningContent != "" {
-			b.WriteString("[" + m.Role + " reasoning]: " + m.ReasoningContent + "\n")
+			writeTruncated(&b, "["+m.Role+" reasoning]: ", m.ReasoningContent, maxPerContent)
 		}
-		b.WriteString("[" + m.Role + "]: " + m.Content + "\n")
+		writeTruncated(&b, "["+m.Role+"]: ", m.Content, maxPerContent)
 		for _, tc := range m.ToolCalls {
-			b.WriteString("  [tool_call " + tc.Function.Name + "]: " + tc.Function.Arguments + "\n")
+			writeTruncated(&b, "  [tool_call "+tc.Function.Name+"]: ", tc.Function.Arguments, maxPerContent)
 		}
 	}
 	return b.String()
+}
+
+func writeTruncated(b *strings.Builder, prefix, content string, maxContent int) {
+	if content == "" {
+		return
+	}
+	if len(content) <= maxContent {
+		b.WriteString(prefix + content + "\n")
+	} else {
+		end := maxContent
+		for end > 0 && !utf8.RuneStart(content[end]) {
+			end--
+		}
+		b.WriteString(prefix + content[:end] + "\n... (truncated)\n")
+	}
 }

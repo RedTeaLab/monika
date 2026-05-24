@@ -24,6 +24,7 @@ var readOps = map[string]bool{
 	"glob":      true,
 	"file_list": true,
 	"skill":     true,
+	"ask_user":  true,
 }
 
 var writeOps = map[string]bool{

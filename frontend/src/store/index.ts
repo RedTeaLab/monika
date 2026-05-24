@@ -15,6 +15,14 @@ export interface PermissionRequiredEvent {
   requestId: string
 }
 
+export interface AskUserEvent {
+  requestId: string
+  sessionId: string
+  question: string
+  title?: string
+  options?: string[]
+}
+
 export interface TaskItem {
   id: string
   subject: string
@@ -83,8 +91,12 @@ export interface SkillInfo {
 
 export interface MCPServerInfo {
   id: string
+  type: string
   command: string
   args: string[]
+  env: Record<string, string>
+  url: string
+  headers: Record<string, string>
   status: 'connected' | 'disconnected'
 }
 
@@ -103,7 +115,6 @@ interface AppState {
   generatingSessionIds: string[]
   sessionStatuses: Record<string, string>
   sessionErrors: Record<string, string>
-  compactingSessionId: string
   sessionTokens: Record<string, { count: number; max: number }>
   tokenCount: number
   tokenMax: number
@@ -131,6 +142,7 @@ interface AppState {
   modelsByProvider: Record<string, ModelInfo[]>
   selectedModel: string
   pendingPermission: PermissionRequiredEvent | null
+  pendingAskUser: AskUserEvent | null
   permissionMode: 'auto' | 'manual'
   permissionRules: { tool: string; pattern: string; decision: string; source: string; createdAt: string }[]
   agents: AgentInfo[]
@@ -160,8 +172,6 @@ interface AppState {
   setSelectedModel: (model: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
   addTokens: (sid: string, tokens: number, max?: number) => void
-  setCompacting: (sid: string, compacting: boolean) => void
-  addCompactionMessage: (sid: string, data: { summary: string; beforeTokens: number; afterTokens: number; compactionNum: number }) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
   setProjectPath: (path: string) => void
@@ -194,6 +204,7 @@ interface AppState {
   loadModelsForProvider: (providerId: string) => Promise<void>
   setChangeStats: (st: Partial<{ stats: ChangeStat[]; loading: boolean; error: string }>) => void
   respondPermission: (resp: { requestId: string; decision: string; rulePattern?: string }) => Promise<void>
+  respondAskUser: (resp: { requestId: string; answer: string }) => Promise<void>
   loadPermissionRules: () => Promise<void>
   addPermissionRule: (tool: string, pattern: string, decision: string, source: string) => Promise<void>
   deletePermissionRule: (tool: string, pattern: string, source: string) => Promise<void>
@@ -212,6 +223,9 @@ interface AppState {
   loadMCPServers: () => Promise<void>
   saveMCPServer: (srv: MCPServerInfo) => Promise<void>
   deleteMCPServer: (id: string) => Promise<void>
+  importMCPServers: (json: string) => Promise<string[]>
+  testMCPServer: (id: string) => Promise<string[]>
+  reconnectMCPServer: (id: string) => Promise<string[]>
   loadProviderDetails: () => Promise<void>
   saveProviderDetail: (cfg: ProviderFull) => Promise<void>
   deleteProviderDetail: (id: string) => Promise<void>
@@ -223,7 +237,6 @@ export const useStore = create<AppState>((set, get) => ({
   generatingSessionIds: [],
   sessionStatuses: {},
   sessionErrors: {},
-  compactingSessionId: '',
   sessionTokens: {},
   tokenCount: 0,
   tokenMax: 0,
@@ -251,6 +264,7 @@ export const useStore = create<AppState>((set, get) => ({
   modelsByProvider: {},
   selectedModel: '',
   pendingPermission: null as PermissionRequiredEvent | null,
+  pendingAskUser: null as AskUserEvent | null,
   permissionMode: 'auto',
   permissionRules: [],
   agents: [],
@@ -276,14 +290,19 @@ export const useStore = create<AppState>((set, get) => ({
   addToolStart: (tool) =>
     set((s) => {
       const msgs = [...s.messages]
+      let found = false
       for (let i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant') {
           if (tool.id && msgs[i].tools && msgs[i].tools!.some((t) => t.id === tool.id)) {
             return {}
           }
           msgs[i] = { ...msgs[i], tools: [...(msgs[i].tools || []), tool] }
+          found = true
           break
         }
+      }
+      if (!found) {
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', tools: [tool] })
       }
       return { messages: msgs }
     }),
@@ -532,28 +551,6 @@ export const useStore = create<AppState>((set, get) => ({
     },
   })),
 
-  setCompacting: (sid, compacting) => set((s) => ({
-    compactingSessionId: compacting ? sid : (s.compactingSessionId === sid ? '' : s.compactingSessionId),
-  })),
-
-  addCompactionMessage: (sid, data) => {
-    const msg: Message = {
-      id: crypto.randomUUID(),
-      role: 'compaction',
-      content: data.summary,
-      compactionNum: data.compactionNum,
-      beforeTokens: data.beforeTokens,
-      afterTokens: data.afterTokens,
-    }
-    set((s) => ({
-      sessionMessages: {
-        ...s.sessionMessages,
-        [sid]: [...(s.sessionMessages[sid] || []), msg],
-      },
-      messages: s.activeSessionId === sid ? [...s.messages, msg] : s.messages,
-    }))
-  },
-
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
   updateSessionTitle: (id, title) => {
@@ -572,11 +569,9 @@ export const useStore = create<AppState>((set, get) => ({
   clearMessages: () => set({ messages: [{ id: 'welcome', role: 'system', content: 'Welcome to Monika.' }] }),
   setMessages: (msgs) => set({ messages: msgs }),
   setProjectPath: (path) => {
-    console.log('[monika] store.setProjectPath:', path);
     set({ projectPath: path });
   },
   setBranch: (branch) => {
-    console.log('[monika] store.setBranch:', branch);
     set({ branch });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
@@ -887,19 +882,15 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadRecentProjects: async () => {
-    console.log('[monika] loadRecentProjects called');
     const projects = await App.GetRecentProjects();
-    console.log('[monika] loadRecentProjects got', projects.length, 'projects:', projects.map(p => p.path));
     set({ recentProjects: projects });
   },
 
   loadBranches: async () => {
     const { projectPath } = get();
-    console.log('[monika] loadBranches called, projectPath:', projectPath);
     if (!projectPath) return;
     try {
       const branches = await App.ListBranches(projectPath);
-      console.log('[monika] loadBranches got', branches.length, 'branches');
       set({ allBranches: branches });
     } catch (e) {
       console.error('[monika] loadBranches failed:', e);
@@ -910,19 +901,30 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadProviders: async () => {
     let providers: ProviderInfo[] = [];
+    let defaults: { provider?: string; model?: string } | null = null;
     try {
-      providers = await App.GetProviders();
+      [providers, defaults] = await Promise.all([
+        App.GetProviders(),
+        Call.ByName('monika/internal/api.App.GetDefaultModel'),
+      ]);
     } catch {
-      // Keep providers empty on failure �?dropdown will show "No providers"
+      // Keep providers empty on failure
     }
     const state = get();
-    const valid = state.selectedProvider && providers.some((p) => p.id === state.selectedProvider);
+    const persistedProvider = defaults?.provider || '';
+    const persistedModel = defaults?.model || '';
+    const validProvider = persistedProvider && providers.some((p) => p.id === persistedProvider)
+      ? persistedProvider
+      : state.selectedProvider && providers.some((p) => p.id === state.selectedProvider)
+        ? state.selectedProvider
+        : (providers.length > 0 ? providers[0].id : '');
     set({
       availableProviders: providers,
-      selectedProvider: valid ? state.selectedProvider : (providers.length > 0 ? providers[0].id : ''),
+      selectedProvider: validProvider,
+      ...(persistedModel ? { selectedModel: persistedModel } : {}),
     });
     if (providers.length > 0) {
-      await get().loadModelsForProvider(valid ? state.selectedProvider! : providers[0].id);
+      await get().loadModelsForProvider(validProvider);
     }
   },
 
@@ -939,11 +941,15 @@ export const useStore = create<AppState>((set, get) => ({
       // Keep models empty on failure
     }
     const state = get();
-    const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel);
-    set({
+    const update: Partial<AppState> = {
       modelsByProvider: { ...state.modelsByProvider, [providerId]: models },
-      selectedModel: valid ? state.selectedModel : (models.length > 0 ? models[0].ID : ''),
-    });
+    };
+    // Only update selectedModel when loading models for the currently selected provider
+    if (providerId === state.selectedProvider) {
+      const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel);
+      update.selectedModel = valid ? state.selectedModel : (models.length > 0 ? models[0].ID : '');
+    }
+    set(update);
   },
 
   setChangeStats: (st) => set((s) => ({ changeStats: { ...s.changeStats, ...st } })),
@@ -951,6 +957,11 @@ export const useStore = create<AppState>((set, get) => ({
   respondPermission: async (resp) => {
     await Call.ByName('monika/internal/api.App.RespondPermission', resp)
     set({ pendingPermission: null })
+  },
+
+  respondAskUser: async (resp) => {
+    await Call.ByName('monika/internal/api.App.RespondAskUser', resp)
+    set({ pendingAskUser: null })
   },
 
   loadPermissionRules: async () => {
@@ -1069,6 +1080,24 @@ export const useStore = create<AppState>((set, get) => ({
     await get().loadMCPServers()
   },
 
+  importMCPServers: async (json) => {
+    const ids = await Call.ByName('monika/internal/api.App.ImportMCPServers', json)
+    await get().loadMCPServers()
+    return ids || []
+  },
+
+  testMCPServer: async (id) => {
+    const tools = await Call.ByName('monika/internal/api.App.TestMCPServer', { id })
+    await get().loadMCPServers()
+    return tools || []
+  },
+
+  reconnectMCPServer: async (id) => {
+    const tools = await Call.ByName('monika/internal/api.App.ReconnectMCPServer', { id })
+    await get().loadMCPServers()
+    return tools || []
+  },
+
   loadProviderDetails: async () => {
     try {
       const [providers, defaults] = await Promise.all([
@@ -1093,13 +1122,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   resetProjectState: () => {
-    console.log('[monika] resetProjectState called');
     set({
       messages: [{ id: 'welcome', role: 'system' as const, content: 'Welcome to Monika. Type /help for commands.' }],
       generatingSessionIds: [],
       sessionStatuses: {},
       sessionErrors: {},
-      compactingSessionId: '',
       sessionTokens: {},
       tokenCount: 0,
       tokenMax: 0,
@@ -1120,6 +1147,7 @@ export const useStore = create<AppState>((set, get) => ({
       modelsByProvider: {},
       selectedModel: '',
       pendingPermission: null,
+      pendingAskUser: null,
       permissionMode: 'auto',
       permissionRules: [],
       agents: [],
@@ -1138,6 +1166,7 @@ export const useStore = create<AppState>((set, get) => ({
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[], model?: string): Message[] {
   const result: Message[] = []
+  const compactionMsgs: Message[] = []
   let i = 0
   while (i < raw.length) {
     const m = raw[i]
@@ -1146,10 +1175,17 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       i++
     } else if (m.role === 'assistant') {
       if (m.name === 'compaction_summary') {
-        result.push({
+        compactionMsgs.push({
           id: crypto.randomUUID(),
-          role: 'compaction',
-          content: m.content || '',
+          role: 'assistant',
+          content: '',
+          tools: [{
+            id: crypto.randomUUID(),
+            name: 'spawn_agent',
+            input: '{"description":"Compact context","prompt":"...","subagent_type":"compaction"}',
+            output: 'compaction complete',
+            status: 'done',
+          }],
         })
         i++
       } else {
@@ -1188,11 +1224,10 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       i++
     }
   }
-  return result
+  return [...result, ...compactionMsgs]
 }
 
 export function setupWailsEvents() {
-  console.log('[monika] setupWailsEvents: subscribing to stream')
 
   // Batch text_delta and thinking events per session to reduce re-renders
   const textBatch: Record<string, { text: string; thinking: string; model?: string }> = {}
@@ -1225,6 +1260,12 @@ export function setupWailsEvents() {
     const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
     if (data.type === 'permission_required' && permPayload) {
       useStore.setState({ pendingPermission: permPayload })
+      return
+    }
+
+    const askPayload = (data as any).ask_user as AskUserEvent | undefined
+    if (data.type === 'ask_user' && askPayload) {
+      useStore.setState({ pendingAskUser: askPayload })
       return
     }
 
@@ -1362,20 +1403,9 @@ export function setupWailsEvents() {
         }
         break
 
-      case 'compacting':
-        store.setCompacting(sid, true)
-        store.removeGeneratingSession(sid)
-        break
-
       case 'compaction':
-        store.setCompacting(sid, false)
-        if (data.compaction) {
-          store.addCompactionMessage(sid, {
-            summary: data.compaction.summary || '',
-            beforeTokens: data.compaction.before_tokens || 0,
-            afterTokens: data.compaction.after_tokens || 0,
-            compactionNum: data.compaction.compaction_num || 1,
-          })
+        if (data.compaction && data.compaction.after_tokens) {
+          store.addTokens(sid, data.compaction.after_tokens, undefined)
         }
         break
     }
@@ -1383,17 +1413,12 @@ export function setupWailsEvents() {
 }
 
 export async function initProject() {
-  console.log('[monika] initProject called')
   try {
     const info = await App.GetCurrentProject()
-    console.log('[monika] GetCurrentProject result:', JSON.stringify(info))
     if (info) {
       useStore.getState().setProjectPath(info.path)
       useStore.getState().setBranch(info.branch)
       useStore.getState().loadProviders()
-      console.log('[monika] projectPath set to:', info.path, 'branch:', info.branch)
-    } else {
-      console.log('[monika] GetCurrentProject returned null/undefined')
     }
   } catch (err) {
     console.error('[monika] initProject failed:', err)

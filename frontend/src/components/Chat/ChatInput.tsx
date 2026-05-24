@@ -36,12 +36,11 @@ function loadHistory(): string[] {
 
 const INITIAL_HISTORY = loadHistory()
 
-function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
+function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   onSend: (text: string) => void
   onStop: () => void
   onRunShell: (command: string) => void
   disabled: boolean
-  compacting: boolean
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -54,6 +53,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   const [ac, setAc] = useState<AcState>({ open: false, items: [], selectedIdx: 0, prefix: '' })
   const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const projectPath = useStore((s) => s.projectPath)
+  const selectedProvider = useStore((s) => s.selectedProvider)
+  const selectedModel = useStore((s) => s.selectedModel)
   const historyRef = useRef<string[]>(INITIAL_HISTORY)
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
@@ -79,12 +80,12 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
   useEffect(() => {
     const wasDisabled = prevDisabledRef.current
     prevDisabledRef.current = disabled
-    if (wasDisabled && !disabled && !compacting) {
+    if (wasDisabled && !disabled) {
       requestAnimationFrame(() => {
         textareaRef.current?.focus()
       })
     }
-  }, [disabled, compacting])
+  }, [disabled])
 
   // Auto-resize textarea after value changes
   useEffect(() => {
@@ -105,7 +106,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
       el.style.height = 'auto'
       const h = el.scrollHeight
       el.style.height = h > 0 ? `${Math.min(h, 300)}px` : ''
-      if (!disabled && !compacting) {
+      if (!disabled) {
         el.focus()
       }
     })
@@ -118,6 +119,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
 
   const COMMANDS: AcItem[] = [
     { name: 'init', detail: 'Create agent.md from project analysis', icon: '/', insert: '/init ' },
+    { name: 'compact', detail: 'Manually trigger context compaction', icon: '/', insert: '/compact ' },
   ]
 
   const getQueryAtCursor = (): { prefix: string; query: string } | null => {
@@ -154,7 +156,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
         ...COMMANDS,
         ...currentSkills.filter((sk: any) => sk.enabled !== false).map((sk: any) => ({
           name: sk.name || sk.Name || '',
-          detail: (sk.description || sk.Description || '').slice(0, 60),
+          detail: sk.description || sk.Description || '',
           icon: '/',
           insert: `/${sk.name || sk.Name || ''} `,
         })),
@@ -248,7 +250,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
 
   const handleSubmit = () => {
     const trimmed = value.trim()
-    if (!trimmed || disabled || compacting) return
+    if (!trimmed || disabled) return
 
     // $ shell command
     if (trimmed.startsWith('$')) {
@@ -268,6 +270,16 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
     if (trimmed === '/init') {
       onSend(INIT_TEMPLATE)
       setValue('')
+      return
+    }
+
+    // /compact command
+    if (trimmed === '/compact') {
+      if (!projectPath || !activeSessionId || !selectedProvider || !selectedModel) return
+      setValue('')
+      Call.ByName('monika/internal/api.App.TriggerCompact', projectPath, activeSessionId, selectedProvider, selectedModel).catch((err: unknown) => {
+        useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
+      })
       return
     }
 
@@ -345,10 +357,9 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, compacting }: {
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          disabled={disabled || compacting}
+          disabled={disabled}
           placeholder={
-            compacting ? 'Compacting...'
-            : disabled ? 'Generating...'
+            disabled ? 'Generating...'
             : 'Send a message... (Enter to submit, Shift+Enter for newline)'
           }
           className="text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent"

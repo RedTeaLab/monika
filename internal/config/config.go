@@ -133,9 +133,12 @@ type MCPConfig struct {
 
 type MCPServerEntry struct {
 	ID      string            `yaml:"id" json:"id"`
-	Command string            `yaml:"command" json:"command"`
-	Args    []string          `yaml:"args" json:"args"`
-	Env     map[string]string `yaml:"env" json:"env"`
+	Type    string            `yaml:"type,omitempty" json:"type,omitempty"`
+	Command string            `yaml:"command,omitempty" json:"command,omitempty"`
+	Args    []string          `yaml:"args,omitempty" json:"args,omitempty"`
+	Env     map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
+	URL     string            `yaml:"url,omitempty" json:"url,omitempty"`
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 }
 
 type RuleConfig struct {
@@ -304,4 +307,3 @@ func migrateToJSON(path string, cfg Config) {
 	}
 	os.WriteFile(path, data, 0600)
 }
-

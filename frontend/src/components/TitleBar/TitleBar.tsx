@@ -41,30 +41,21 @@ function TitleBar() {
   const isGitRepo = projectPath && branch !== '—'
 
   const doSwitchProject = async (targetPath: string) => {
-    console.log('[monika] doSwitchProject: starting, targetPath:', targetPath)
     const info = await App.OpenProject(targetPath)
-    console.log('[monika] doSwitchProject: OpenProject returned:', JSON.stringify(info))
     if (!info) {
-      console.warn('[monika] doSwitchProject: OpenProject returned null/undefined, aborting')
+      console.warn('[monika] OpenProject returned null, aborting switch')
       return
     }
-    console.log('[monika] doSwitchProject: calling resetProjectState')
     resetProjectState()
-    console.log('[monika] doSwitchProject: setting projectPath:', info.path, 'branch:', info.branch)
     setProjectPath(info.path)
     setBranch(info.branch)
-    console.log('[monika] doSwitchProject: loading branches and recent projects')
     await Promise.all([loadBranches(), loadRecentProjects(), loadProviders()])
-    console.log('[monika] doSwitchProject: complete')
   }
 
   const handleProjectSelect = useCallback(async (targetPath: string) => {
-    console.log('[monika] handleProjectSelect: targetPath:', targetPath)
     const isGenerating = generatingSessionIds.length > 0
-    console.log('[monika] handleProjectSelect: isGenerating:', isGenerating)
 
     if (isGenerating) {
-      console.log('[monika] handleProjectSelect: showing confirm modal (dirty/generating)')
       const message = buildDirtyGuardMessage(0, isGenerating, 'projects');
       setConfirmModal({ title: 'Switch Project', message, targetPath })
       return

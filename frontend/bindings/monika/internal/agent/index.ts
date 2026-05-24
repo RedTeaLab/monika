@@ -4,9 +4,12 @@
 export {
     Agent,
     ChildSession,
-    CompactingEvent,
     CompactionEvent,
     TaskItem,
     ToolEvent,
     UsageEvent
+} from "./models.js";
+
+export type {
+    LoopOption
 } from "./models.js";

@@ -27,7 +27,9 @@ func (e *MCPEngine) Capabilities() []engine.Capability {
 }
 
 func (e *MCPEngine) Init(_ context.Context, _ map[string]any) error {
-	e.connections = make(map[string]*serverConnection)
+	if e.connections == nil {
+		e.connections = make(map[string]*serverConnection)
+	}
 	return nil
 }
 
@@ -46,6 +48,11 @@ func (e *MCPEngine) ConnectServer(ctx context.Context, config engine.MCPServerCo
 
 	if _, exists := e.connections[config.ID]; exists {
 		return nil, fmt.Errorf("mcp: server %q already connected", config.ID)
+	}
+
+	// HTTP-based servers are not yet supported; skip gracefully.
+	if config.Type == "http" || config.Type == "sse" {
+		return nil, fmt.Errorf("mcp: http/sse transport not yet supported for %q", config.ID)
 	}
 
 	cmd := exec.CommandContext(ctx, config.Command, config.Args...)
@@ -83,6 +90,13 @@ func (e *MCPEngine) DisconnectServer(_ context.Context, serverID string) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.disconnectLocked(serverID)
+}
+
+func (e *MCPEngine) IsConnected(serverID string) bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	_, ok := e.connections[serverID]
+	return ok
 }
 
 func (e *MCPEngine) disconnectLocked(serverID string) error {

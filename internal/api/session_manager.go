@@ -24,21 +24,20 @@ const (
 )
 
 type Session struct {
-	ID               string               `json:"id"`
-	Title            string               `json:"title"`
-	ProjectDir       string               `json:"project_dir"`
-	Messages         []engine.ChatMessage `json:"messages"`
-	Model            string               `json:"model"`
-	Provider         string               `json:"provider"`
-	Status           string               `json:"status"`
-	TokenCount       int64                `json:"token_count,omitempty"`
-	TokenMax         int64                `json:"token_max,omitempty"`
-	CompactionCount  int                  `json:"compaction_count,omitempty"`
-	ArchivedMessages []engine.ChatMessage `json:"archived_messages,omitempty"`
-	ParentID         string               `json:"parent_id,omitempty"`
-	Tasks            []tool.Task          `json:"tasks,omitempty"`
-	CreatedAt        time.Time            `json:"created_at"`
-	UpdatedAt        time.Time            `json:"updated_at"`
+	ID              string               `json:"id"`
+	Title           string               `json:"title"`
+	ProjectDir      string               `json:"project_dir"`
+	Messages        []engine.ChatMessage `json:"messages"`
+	Model           string               `json:"model"`
+	Provider        string               `json:"provider"`
+	Status          string               `json:"status"`
+	TokenCount      int64                `json:"token_count,omitempty"`
+	TokenMax        int64                `json:"token_max,omitempty"`
+	CompactionCount int                  `json:"compaction_count,omitempty"`
+	ParentID        string               `json:"parent_id,omitempty"`
+	Tasks           []tool.Task          `json:"tasks,omitempty"`
+	CreatedAt       time.Time            `json:"created_at"`
+	UpdatedAt       time.Time            `json:"updated_at"`
 }
 
 type SessionManager struct {

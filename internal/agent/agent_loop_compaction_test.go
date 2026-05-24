@@ -35,32 +35,50 @@ func TestRewriteMessages_TurnAlignment(t *testing.T) {
 			{Role: "tool", Content: "result1", ToolCallID: "t1"},
 			{Role: "user", Content: "second question"},
 			{Role: "assistant", Content: "second answer"},
+			{Role: "user", Content: "third question"},
+			{Role: "assistant", Content: "third answer"},
+			{Role: "user", Content: "fourth question"},
+			{Role: "assistant", Content: "fourth answer"},
 		},
 	}
 	summary := "## Goal\nTest compaction"
 	loop.rewriteMessages(conv, summary)
 
-	if conv.Messages[0].Content != summary {
-		t.Errorf("first message should be summary, got: %s", conv.Messages[0].Content)
+	// CompactionFrom should point to summary message
+	from := conv.CompactionFrom
+	if from >= len(conv.Messages) {
+		t.Fatalf("CompactionFrom %d out of range", from)
 	}
-	if conv.Messages[0].Name != "compaction_summary" {
-		t.Error("summary message should have name=compaction_summary")
+	if conv.Messages[from].Name != "compaction_summary" {
+		t.Errorf("message at CompactionFrom should be summary, got name=%s content=%s",
+			conv.Messages[from].Name, conv.Messages[from].Content)
 	}
-	found := false
-	for _, m := range conv.Messages {
-		if m.Content == "second question" {
-			found = true
-			break
+	if conv.Messages[from].Content != summary {
+		t.Errorf("summary content mismatch, got: %s", conv.Messages[from].Content)
+	}
+
+	// Last 2 user turns should be preserved after summary
+	for _, content := range []string{"third question", "fourth question"} {
+		found := false
+		for _, m := range conv.Messages {
+			if m.Content == content {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("retained messages should include %q", content)
 		}
 	}
-	if !found {
-		t.Error("retained messages should include last user message")
+
+	// First question should be replaced by summary (not in preserved range)
+	for _, m := range conv.Messages[from+1:] {
+		if m.Content == "first question" {
+			t.Error("first question should have been replaced by summary")
+		}
 	}
+
 	if conv.CompactionCount != 1 {
 		t.Errorf("compaction count should be 1, got %d", conv.CompactionCount)
-	}
-	// ArchivedMessages should be non-empty (original messages saved)
-	if len(conv.ArchivedMessages) == 0 {
-		t.Error("ArchivedMessages should be populated")
 	}
 }

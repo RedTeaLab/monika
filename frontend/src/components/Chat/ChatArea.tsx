@@ -5,6 +5,7 @@ import { useStore } from '../../store'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 import ConfirmBar from './ConfirmBar'
+import AskUserBar from './AskUserBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
@@ -15,7 +16,6 @@ function ChatArea(props: IDockviewPanelProps) {
   const sessionId = activeSessionId || 'chat'
 
   const generatingSessionIds = useStore((s) => s.generatingSessionIds)
-  const compactingSessionId = useStore((s) => s.compactingSessionId)
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const projectPath = useStore((s) => s.projectPath)
@@ -24,6 +24,7 @@ function ChatArea(props: IDockviewPanelProps) {
   const subagentStack = useStore((s) => s.subagentStack)
   const popSubagentOverlay = useStore((s) => s.popSubagentOverlay)
   const pendingPermission = useStore((s) => s.pendingPermission)
+  const pendingAskUser = useStore((s) => s.pendingAskUser)
 
   const overlayStack = subagentStack[sessionId] || []
   const overlaySessionId = overlayStack.length > 0 ? overlayStack[overlayStack.length - 1] : null
@@ -231,7 +232,9 @@ function ChatArea(props: IDockviewPanelProps) {
             collapsed={isTodoCollapsed}
             onToggle={() => sessionId && setTodoCollapsed(sessionId, !isTodoCollapsed)}
           />
-          {!isDefaultChat && (pendingPermission && pendingPermission.sessionId === sessionId ? (
+          {!isDefaultChat && (pendingAskUser && pendingAskUser.sessionId === sessionId ? (
+            <AskUserBar sessionId={sessionId} />
+          ) : pendingPermission && pendingPermission.sessionId === sessionId ? (
             <ConfirmBar sessionId={sessionId} />
           ) : !isChildSession ? (
             <ChatInput
@@ -240,7 +243,6 @@ function ChatArea(props: IDockviewPanelProps) {
               onStop={handleStop}
               onRunShell={handleRunShell}
               disabled={generatingSessionIds.includes(sessionId)}
-              compacting={compactingSessionId !== ''}
             />
           ) : (
             <SubagentFooter />

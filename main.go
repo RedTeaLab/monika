@@ -60,11 +60,12 @@ func main() {
 	mcpEng, err := engine2.EngineByID("mcp")
 	if err == nil {
 		if mcp, ok := mcpEng.(engine2.MCPEngine); ok {
+			_ = mcp.Init(ctx, nil)
 			mcpConns = make(map[string]engine2.MCPServerConnection)
 			for _, srv := range pr.Config.MCP.Servers {
 				cfg := engine2.MCPServerConfig{
-					ID: srv.ID, Command: srv.Command,
-					Args: srv.Args, Env: srv.Env,
+					ID: srv.ID, Type: srv.Type, Command: srv.Command,
+					Args: srv.Args, Env: srv.Env, URL: srv.URL, Headers: srv.Headers,
 				}
 				conn, err := mcp.ConnectServer(ctx, cfg)
 				if err != nil {
@@ -99,8 +100,15 @@ func main() {
 	}
 
 	// Register skill tool for on-demand skill loading
+	var appGetProjectPath func() string
+	getCwd := func() string {
+		if appGetProjectPath != nil {
+			return appGetProjectPath()
+		}
+		return cwd
+	}
 	if skEngine != nil {
-		builtin.RegisterSkillTool(registry, skEngine, home, cwd, &pr.Config)
+		builtin.RegisterSkillTool(registry, skEngine, home, getCwd, &pr.Config)
 	}
 
 	application.RegisterEvent[api.StreamEvent]("stream")
@@ -127,8 +135,6 @@ func main() {
 		agent.WithSystemPrompt(systemPrompt),
 	}
 
-	// baseSystemPrompt is the system prompt without the skill section,
-	// used by refreshSkillPrompt() to rebuild after install/uninstall.
 	baseSystemPrompt := strings.Join(systemParts, "\n\n")
 
 	// Wire permission pipeline
@@ -175,13 +181,10 @@ func main() {
 	}
 
 	// Create task runner for subagent dispatch.
-	// onStart preregisters the child session so the frontend can open the tab during running.
-	// onComplete stores the full execution results.
 	var appService *api.App
 	taskRunner := agent.NewTaskRunner(agentRegistry, defaultProvider, pr.Providers, registry,
 		func(task agent.SubTask, agentName string) {
 			if appService != nil {
-				// Save a minimal session immediately so the tab can be opened
 				appService.SaveChildSession(task.SessionID, &agent.ChildSession{
 					Agent:    agentName,
 					Title:    task.Description,
@@ -198,6 +201,8 @@ func main() {
 				appService.SaveChildSessionToDisk(task.SessionID, child)
 			}
 		})
+
+	builtin.RegisterAskUser(registry)
 
 	// Register SpawnAgent tool
 	builtin.RegisterSpawnAgent(registry, agentRegistry,
@@ -216,11 +221,8 @@ func main() {
 	}
 
 	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, baseSystemPrompt)
+	appGetProjectPath = appService.GetProjectPath
 
-	// Wire permission pipeline ConfirmUI to appService so the pipeline
-	// can request user confirmation via the frontend.
-	// The RespondPermission method on App is automatically available as a
-	// Wails service bound method via Call.ByName.
 	pipeline.SetConfirmUI(appService)
 	appService.SetPipeline(pipeline)
 
@@ -235,6 +237,11 @@ func main() {
 		}
 		appService.EmitTaskEvent(sessionID, taskItems)
 	})
+
+	appService.AppendLoopOption(agent.WithAskUserFunc(func(ctx context.Context, args tool.AskUserArgs) (string, error) {
+		sessionID := tool.SessionIDFromContext(ctx)
+		return appService.AskUser(ctx, sessionID, args.Question, args.Title, args.Options)
+	}))
 
 	assets, err := fs.Sub(embeddedAssets, "frontend/dist")
 	if err != nil {
@@ -260,6 +267,7 @@ func main() {
 		MinWidth:  900,
 		MinHeight: 600,
 		Frameless: true,
+		StartState: application.WindowStateMaximised,
 	})
 
 	if err := app.Run(); err != nil {
