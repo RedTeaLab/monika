@@ -3,7 +3,8 @@ import { IDockviewPanelProps } from 'dockview'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap } from '@codemirror/commands'
-import { oneDark } from '@codemirror/theme-one-dark'
+import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
+import { syntaxHighlighting } from '@codemirror/language'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
 import { json } from '@codemirror/lang-json'
@@ -11,13 +12,53 @@ import { go } from '@codemirror/lang-go'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 
-const monoTheme = EditorView.theme({
-  '&': { fontFamily: 'var(--font-mono)', backgroundColor: '#08090d' },
+const previewTheme = EditorView.theme({
+  '&': {
+    fontFamily: 'var(--font-mono)',
+    backgroundColor: '#08090d',
+    height: '100%',
+    color: '#abb2bf',
+  },
   '.cm-scroller': { backgroundColor: '#08090d' },
-  '.cm-gutters': { fontFamily: 'var(--font-mono)', backgroundColor: '#08090d', color: 'var(--text-dim)', borderRight: '1px solid var(--border)' },
-  '.cm-content': { fontFamily: 'var(--font-mono)' },
-  '.cm-line': { fontFamily: 'var(--font-mono)' },
+  '.cm-gutters': {
+    fontFamily: 'var(--font-mono)',
+    backgroundColor: '#0a0b10',
+    color: '#495162',
+    border: 'none',
+    paddingLeft: 8,
+    paddingRight: 16,
+  },
+  '.cm-gutterElement': { color: 'inherit' },
+  '.cm-activeLineGutter': { backgroundColor: 'transparent', color: '#8b8fa0' },
+  '.cm-content': { fontFamily: 'var(--font-mono)', caretColor: 'transparent', paddingLeft: 4 },
+  '.cm-line': { fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '22px' },
+  '.cm-cursor': { display: 'none' },
+  '.cm-activeLine': { backgroundColor: 'transparent' },
+  '.cm-selectionBackground': { backgroundColor: 'rgba(75,125,219,0.15)' },
+  '.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(75,125,219,0.15)' },
+  '.cm-matchingBracket': { backgroundColor: 'rgba(75,125,219,0.25)', outline: '1px solid rgba(75,125,219,0.4)' },
 }, { dark: true })
+
+function getLangLabel(filePath: string): string | null {
+  const ext = filePath.split('.').pop()?.toLowerCase() || ''
+  const map: Record<string, string> = {
+    ts: 'TS', tsx: 'TSX', js: 'JS', jsx: 'JSX', mjs: 'JS',
+    py: 'PY', go: 'GO', json: 'JSON',
+    css: 'CSS', scss: 'SCSS', less: 'LESS',
+    html: 'HTML', htm: 'HTML', xml: 'XML', svg: 'SVG',
+    md: 'MD', mdx: 'MDX',
+    rs: 'RS', toml: 'TOML', yaml: 'YML', yml: 'YML',
+    sh: 'SH', bash: 'SH', zsh: 'SH',
+    sql: 'SQL', graphql: 'GQL', gql: 'GQL',
+    dockerfile: 'DOCKER',
+  }
+  if (ext === '') {
+    const name = filePath.split('/').pop()?.toLowerCase() || ''
+    if (name === 'dockerfile') return 'DOCKER'
+    if (name === 'makefile') return 'MAKE'
+  }
+  return map[ext] || null
+}
 
 function getLangExtension(filePath: string) {
   if (filePath.endsWith('.go')) return go()
@@ -57,6 +98,272 @@ function simpleDiff(oldText: string, newText: string): string[] {
   }
   flush()
   return result
+}
+
+interface HunkLine {
+  type: 'context' | 'add' | 'remove' | 'hunk-header' | 'file-header'
+  content: string
+  oldLine?: number
+  newLine?: number
+}
+
+function parseDiffLines(lines: string[]): { hunks: HunkLine[]; added: number; removed: number } {
+  const hunks: HunkLine[] = []
+  let added = 0
+  let removed = 0
+  let oldLine = 0
+  let newLine = 0
+
+  for (const line of lines) {
+    if (line.startsWith('--- ') || line.startsWith('+++ ')) {
+      hunks.push({ type: 'file-header', content: line })
+      continue
+    }
+    if (line.startsWith('@@')) {
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+      if (match) {
+        oldLine = parseInt(match[1], 10)
+        newLine = parseInt(match[2], 10)
+      }
+      hunks.push({ type: 'hunk-header', content: line })
+      continue
+    }
+    if (line.startsWith('+')) {
+      hunks.push({ type: 'add', content: line.slice(1), newLine })
+      newLine++
+      added++
+    } else if (line.startsWith('-')) {
+      hunks.push({ type: 'remove', content: line.slice(1), oldLine })
+      oldLine++
+      removed++
+    } else {
+      hunks.push({ type: 'context', content: line.slice(1), oldLine, newLine })
+      oldLine++
+      newLine++
+    }
+  }
+  return { hunks, added, removed }
+}
+
+function DiffView({ lines, fileName }: { lines: string[]; fileName: string }) {
+  const { hunks, added, removed } = parseDiffLines(lines)
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* File header */}
+      <div
+        className="flex items-center gap-2 px-3 py-1.5 shrink-0"
+        style={{
+          borderBottom: '1px solid var(--border)',
+          background: 'rgba(255,255,255,0.02)',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.5 }}>
+            <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+          </svg>
+          {fileName}
+        </span>
+        <div className="flex-1" />
+        <span
+          style={{
+            fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            display: 'inline-flex',
+            gap: 8,
+          }}
+        >
+          {added > 0 && (
+            <span style={{ color: 'var(--green)' }}>+{added}</span>
+          )}
+          {removed > 0 && (
+            <span style={{ color: 'var(--red)' }}>-{removed}</span>
+          )}
+        </span>
+        {/* Mini diff bar */}
+        <svg width={48} height={10} style={{ flexShrink: 0 }}>
+          {(() => {
+            const total = added + removed
+            if (total === 0) return null
+            const addW = (added / total) * 48
+            return (
+              <>
+                <rect x={0} y={0} width={addW} height={10} rx={2} fill="var(--green)" opacity={0.5} />
+                <rect x={addW} y={0} width={48 - addW} height={10} rx={2} fill="var(--red)" opacity={0.5} />
+              </>
+            )
+          })()}
+        </svg>
+      </div>
+
+      {/* Diff body */}
+      <div
+        className="flex-1 overflow-auto"
+        style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '22px' }}
+      >
+        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <tbody>
+            {hunks.map((h, i) => {
+              if (h.type === 'file-header') {
+                return (
+                  <tr key={i}>
+                    <td colSpan={3} style={{
+                      color: h.content.startsWith('---') ? 'var(--red)' : 'var(--green)',
+                      opacity: 0.6,
+                      padding: '2px 0',
+                      fontSize: 11,
+                      whiteSpace: 'pre',
+                      background: 'rgba(255,255,255,0.01)',
+                    }}>
+                      <span style={{ paddingLeft: 12 }}>{h.content}</span>
+                    </td>
+                  </tr>
+                )
+              }
+              if (h.type === 'hunk-header') {
+                const display = h.content.replace(/@@.*@@/, (m) => {
+                  const inner = m.slice(2, -2).trim()
+                  return `@@ ${inner} @@`
+                })
+                return (
+                  <tr key={i}>
+                    <td colSpan={3} style={{
+                      color: 'var(--accent)',
+                      opacity: 0.5,
+                      padding: '4px 0 2px',
+                      fontSize: 11,
+                      whiteSpace: 'pre',
+                    }}>
+                      <span style={{ paddingLeft: 12 }}>{display}</span>
+                    </td>
+                  </tr>
+                )
+              }
+              const isAdd = h.type === 'add'
+              const isRemove = h.type === 'remove'
+              const bg = isAdd ? 'rgba(68,165,115,0.10)'
+                : isRemove ? 'rgba(205,84,84,0.10)'
+                : 'transparent'
+              const fg = isAdd ? 'var(--green)'
+                : isRemove ? 'var(--red)'
+                : 'var(--text-primary)'
+              const gutterBg = isAdd ? 'rgba(68,165,115,0.18)'
+                : isRemove ? 'rgba(205,84,84,0.18)'
+                : 'transparent'
+              const gutterColor = isAdd ? 'rgba(68,165,115,0.5)'
+                : isRemove ? 'rgba(205,84,84,0.5)'
+                : 'var(--text-dim)'
+              const prefix = isAdd ? '+' : isRemove ? '-' : ' '
+
+              return (
+                <tr key={i} style={{ background: bg }}>
+                  <td style={{
+                    width: 1,
+                    minWidth: 44,
+                    textAlign: 'right',
+                    padding: '0 6px',
+                    color: gutterColor,
+                    background: gutterBg,
+                    userSelect: 'none',
+                    fontSize: 11,
+                    lineHeight: '22px',
+                    verticalAlign: 'top',
+                  }}>
+                    {h.oldLine != null ? h.oldLine : ''}
+                  </td>
+                  <td style={{
+                    width: 1,
+                    minWidth: 44,
+                    textAlign: 'right',
+                    padding: '0 6px',
+                    color: gutterColor,
+                    background: gutterBg,
+                    userSelect: 'none',
+                    fontSize: 11,
+                    lineHeight: '22px',
+                    verticalAlign: 'top',
+                    borderRight: '1px solid var(--border)',
+                  }}>
+                    {h.newLine != null ? h.newLine : ''}
+                  </td>
+                  <td style={{
+                    padding: '0 0 0 8px',
+                    color: fg,
+                    whiteSpace: 'pre',
+                    lineHeight: '22px',
+                  }}>
+                    <span style={{ opacity: 0.5, userSelect: 'none' }}>{prefix}</span>
+                    {h.content}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function FilePreviewHeader({ fileName, filePath, lineCount }: {
+  fileName: string
+  filePath: string
+  lineCount: number
+}) {
+  const lang = getLangLabel(filePath)
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-1.5 shrink-0"
+      style={{
+        borderBottom: '1px solid var(--border)',
+        background: 'rgba(255,255,255,0.02)',
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.45 }}>
+        <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+      </svg>
+      <span style={{
+        fontSize: 11,
+        fontWeight: 600,
+        color: 'var(--text-secondary)',
+        fontFamily: 'var(--font-mono)',
+      }}>
+        {fileName}
+      </span>
+      {lang && (
+        <span style={{
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          color: 'var(--text-dim)',
+          background: 'rgba(255,255,255,0.05)',
+          borderRadius: 3,
+          padding: '1px 5px',
+          lineHeight: '14px',
+        }}>
+          {lang}
+        </span>
+      )}
+      <div className="flex-1" />
+      <span style={{
+        fontSize: 10,
+        color: 'var(--text-dim)',
+        fontFamily: 'var(--font-mono)',
+      }}>
+        {lineCount} lines
+      </span>
+    </div>
+  )
 }
 
 function PreviewPanel(props: IDockviewPanelProps) {
@@ -125,8 +432,8 @@ function PreviewPanel(props: IDockviewPanelProps) {
     const state = EditorState.create({
       doc: preview.fileContent,
       extensions: [
-        oneDark,
-        monoTheme,
+        previewTheme,
+        syntaxHighlighting(oneDarkHighlightStyle),
         lineNumbers(),
         keymap.of(defaultKeymap),
         getLangExtension(preview.filePath || ''),
@@ -136,28 +443,35 @@ function PreviewPanel(props: IDockviewPanelProps) {
     editorRef.current = new EditorView({ state, parent: containerRef.current })
   }, [preview.mode, preview.fileContent, preview.filePath])
 
+  const showFile = preview.mode === 'file' && preview.fileContent
+  const showDiff = preview.mode === 'diff' && preview.diffLines
+  const showEmpty = preview.mode === null
+
+  const lineCount = preview.fileContent ? preview.fileContent.split('\n').length : 0
+
   return (
     <div className="flex flex-col h-full" style={{ background: '#08090d' }}>
       <div ref={headerRef} style={{ display: 'none' }} />
-      {preview.mode === null ? (
+      {/* File preview — wrapper always mounted for CodeMirror DOM safety */}
+      <div
+        className="flex flex-col flex-1 min-h-0"
+        style={{ display: showFile ? 'flex' : 'none' }}
+      >
+        <FilePreviewHeader
+          fileName={preview.fileName || ''}
+          filePath={preview.filePath || ''}
+          lineCount={lineCount}
+        />
+        <div ref={containerRef} className="flex-1 overflow-hidden" />
+      </div>
+      {showDiff && (
+        <DiffView lines={preview.diffLines!} fileName={preview.fileName || ''} />
+      )}
+      {showEmpty && (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-[13px] text-[var(--text-dim)] select-none">Select a file to preview</div>
         </div>
-      ) : preview.mode === 'file' ? (
-        <div ref={containerRef} className="flex-1 overflow-hidden" />
-      ) : preview.diffLines ? (
-        <div className="flex-1 overflow-auto" style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '20px' }}>
-          {preview.diffLines.map((line, i) => {
-            const bg = line.startsWith('+') ? 'rgba(100,255,100,0.08)'
-              : line.startsWith('-') ? 'rgba(255,100,100,0.08)'
-              : line.startsWith('@@') ? 'rgba(100,150,255,0.05)' : 'transparent'
-            const c = line.startsWith('+') ? 'var(--green)'
-              : line.startsWith('-') ? 'var(--red)'
-              : line.startsWith('@@') ? 'var(--text-dim)' : 'var(--text-primary)'
-            return <div key={i} style={{ backgroundColor: bg, color: c, paddingLeft: 8, whiteSpace: 'pre' }}>{line}</div>
-          })}
-        </div>
-      ) : null}
+      )}
     </div>
   )
 }

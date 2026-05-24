@@ -7,6 +7,7 @@ function ChangesList(_props: IDockviewPanelProps) {
   const projectPath = useStore((s) => s.projectPath)
   const changes = useStore((s) => s.changeStats)
   const setPreviewDiff = useStore((s) => s.setPreviewDiff)
+  const selectedPath = useStore((s) => s.preview.mode === 'diff' ? s.preview.filePath : null)
 
   const handleClick = async (stat: ChangeStat) => {
     try {
@@ -35,27 +36,39 @@ function ChangesList(_props: IDockviewPanelProps) {
         ) : changes.stats.length === 0 ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No changes</div>
         ) : (
-          changes.stats.map((stat) => (
-            <div
-              key={stat.path}
-              className="flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors mx-1 px-[6px]"
-              style={{ color: 'var(--text-secondary)' }}
-              onClick={() => handleClick(stat)}
-              title={stat.path}
-            >
-              <span className="truncate flex-1">{basename(stat.path)}</span>
-              {stat.added > 0 && (
-                <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--green)' }}>
-                  +{stat.added}
-                </span>
-              )}
-              {stat.deleted > 0 && (
-                <span className="text-[11px] flex-shrink-0 ml-0.5" style={{ color: 'var(--red)' }}>
-                  -{stat.deleted}
-                </span>
-              )}
-            </div>
-          ))
+          changes.stats.map((stat) => {
+            const active = selectedPath === stat.path
+            return (
+              <div
+                key={stat.path}
+                className="flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors duration-100 mx-1 px-[6px]"
+                style={{
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: active ? 'rgba(75,125,219,0.10)' : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = active ? 'rgba(75,125,219,0.10)' : 'transparent'
+                }}
+                onClick={() => handleClick(stat)}
+                title={stat.path}
+              >
+                <span className="truncate flex-1">{basename(stat.path)}</span>
+                {stat.added > 0 && (
+                  <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--green)' }}>
+                    +{stat.added}
+                  </span>
+                )}
+                {stat.deleted > 0 && (
+                  <span className="text-[11px] flex-shrink-0 ml-0.5" style={{ color: 'var(--red)' }}>
+                    -{stat.deleted}
+                  </span>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
     </div>
