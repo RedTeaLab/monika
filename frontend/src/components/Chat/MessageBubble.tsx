@@ -292,7 +292,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             Input
           </div>
           <div
-            className="text-[13px] text-[var(--text-dim)] whitespace-pre overflow-x-auto"
+            className="text-[13px] text-[var(--text-dim)] whitespace-pre overflow-x-auto tool-scroll"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {inputLines.map((line, i) => (
@@ -330,7 +330,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
             </div>
           )}
           <div
-            className="text-[13px] text-[var(--text-secondary)] whitespace-pre overflow-x-auto mt-1"
+            className="text-[13px] text-[var(--text-secondary)] whitespace-pre overflow-x-auto mt-1 tool-scroll"
             style={{ fontFamily: 'var(--font-mono)', lineHeight: 1.55 }}
           >
             {displayLines.map((line, i) => (
@@ -380,7 +380,7 @@ function JsonValue({ value, line }: { value?: string; line?: string }) {
   while (i < s.length) {
     if (s[i] === '"') {
       const end = findStrEnd(s, i + 1)
-      nodes.push(<span key={i} style={{ color: 'var(--green)' }}>{s.slice(i, end + 1)}</span>)
+      nodes.push(<span key={i} style={{ color: '#c4a86b' }}>{s.slice(i, end + 1)}</span>)
       i = end + 1
       continue
     }
