@@ -6,3 +6,6 @@ frontend/dist/
 .superpowers/
 .monika/
 .claude/
+winres/icon*.png
+winres/icon.ico
+rsrc_windows_*.syso

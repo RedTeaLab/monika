@@ -15,12 +15,24 @@ tasks:
         vars:
           DEV: '{{.DEV}}'
           BUILD_FLAGS: '{{.BUILD_FLAGS}}'
+      - task: generate:icon
     cmds:
       - go build {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe"
     vars:
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
     env:
       GOOS: windows
+
+  generate:icon:
+    summary: Generates application icon and Windows resources
+    sources:
+      - winres/gen_icon.go
+    generates:
+      - winres/icon.ico
+      - rsrc_windows_amd64.syso
+    cmds:
+      - bash -c 'cd winres && go run gen_icon.go'
+      - go-winres make
 
   package:
     summary: Packages a production build
