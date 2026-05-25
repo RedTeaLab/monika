@@ -1,6 +1,7 @@
 .worktrees/
 .task/
 monika.exe
+bin/
 frontend/node_modules/
 frontend/dist/
 .superpowers/
@@ -8,4 +9,6 @@ frontend/dist/
 .claude/
 winres/icon*.png
 winres/icon.ico
+winres/build/
+winres/winres/
 rsrc_windows_*.syso
