@@ -909,7 +909,8 @@ export const useStore = create<AppState>((set, get) => ({
         Call.ByName('monika/internal/api.App.GetDefaultModel'),
       ]);
     } catch {
-      // Keep providers empty on failure
+      // Keep providers empty on failure — don't overwrite existing availableProviders
+      return
     }
     const state = get();
     const persistedProvider = defaults?.provider || '';
@@ -935,22 +936,26 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadModelsForProvider: async (providerId: string) => {
-    let models: ModelInfo[] = [];
-    try {
-      models = await App.GetModels(providerId);
-    } catch {
-      // Keep models empty on failure
-    }
-    const state = get();
+    // Prefer providerDetails (has full config), fall back to availableProviders.
+    const state = get()
+    const pd = state.providerDetails.find((p) => p.id === providerId)
+    const ap = state.availableProviders.find((p) => p.id === providerId)
+    const rawModels = pd?.models || ap?.models
+    const configModels = (rawModels || []).map((m: any) => ({
+      ID: m.id || m.ID || '',
+      DisplayName: m.name || m.DisplayName || m.display_name || '',
+      ContextLimit: m.context_limit ?? m.ContextLimit ?? 0,
+      OutputLimit: m.output_limit ?? m.OutputLimit ?? 0,
+      Enabled: m.enabled ?? m.Enabled ?? false,
+    }))
     const update: Partial<AppState> = {
-      modelsByProvider: { ...state.modelsByProvider, [providerId]: models },
-    };
-    // Only update selectedModel when loading models for the currently selected provider
-    if (providerId === state.selectedProvider) {
-      const valid = state.selectedModel && models.some((m) => m.ID === state.selectedModel);
-      update.selectedModel = valid ? state.selectedModel : (models.length > 0 ? models[0].ID : '');
+      modelsByProvider: { ...state.modelsByProvider, [providerId]: configModels as any },
     }
-    set(update);
+    if (providerId === state.selectedProvider) {
+      const valid = state.selectedModel && configModels.some((m: any) => m.ID === state.selectedModel)
+      update.selectedModel = valid ? state.selectedModel : (configModels.length > 0 ? configModels[0].ID : '')
+    }
+    set(update)
   },
 
   setChangeStats: (st) => set((s) => ({ changeStats: { ...s.changeStats, ...st } })),
@@ -1115,6 +1120,8 @@ export const useStore = create<AppState>((set, get) => ({
         ...(defaults ? { selectedProvider: defaults.provider || '', selectedModel: defaults.model || '' } : {}),
       })
     } catch { set({ providerDetails: [] }) }
+    // Refresh availableProviders and modelsByProvider so ModelPicker picks up changes
+    await get().loadProviders()
   },
 
   saveProviderDetail: async (cfg) => {

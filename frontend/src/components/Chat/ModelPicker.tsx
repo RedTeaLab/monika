@@ -32,7 +32,8 @@ function ModelPicker() {
   useEffect(() => {
     if (!open) return
     for (const p of availableProviders) {
-      if (!modelsByProvider[p.id]) {
+      const existing = modelsByProvider[p.id]
+      if (!existing || existing.length === 0) {
         loadModelsForProvider(p.id)
       }
     }
@@ -50,14 +51,15 @@ function ModelPicker() {
   // Build flat list of all visible items for keyboard nav
   type FlatItem =
     | { type: 'provider'; provider: ProviderInfo }
-    | { type: 'model'; provider: ProviderInfo; model: ModelInfo }
+    | { type: 'model'; provider: ProviderInfo; model: ModelInfo; enabled?: boolean }
 
   const flatItems = useMemo((): FlatItem[] => {
     const items: FlatItem[] = []
     const searchLower = search.toLowerCase()
 
     for (const p of availableProviders) {
-      const models = modelsByProvider[p.id] || []
+      const models = (modelsByProvider[p.id] || [])
+        .filter((m: any) => m.Enabled !== false) // only show enabled models
       const filtered = searchLower
         ? models.filter((m) =>
             m.DisplayName.toLowerCase().includes(searchLower) ||
@@ -65,6 +67,7 @@ function ModelPicker() {
           )
         : models
 
+      if (filtered.length === 0) continue
       if (availableProviders.length > 1) {
         items.push({ type: 'provider', provider: p })
       }
