@@ -339,7 +339,9 @@ export class MCPServerInfo {
 export class ModelEntryJSON {
     "id": string;
     "name": string;
-    "context_limit": number;
+    "context_limit"?: number;
+    "output_limit"?: number;
+    "enabled": boolean;
 
     /** Creates a new ModelEntryJSON instance. */
     constructor($$source: Partial<ModelEntryJSON> = {}) {
@@ -349,8 +351,8 @@ export class ModelEntryJSON {
         if (!("name" in $$source)) {
             this["name"] = "";
         }
-        if (!("context_limit" in $$source)) {
-            this["context_limit"] = 0;
+        if (!("enabled" in $$source)) {
+            this["enabled"] = false;
         }
 
         Object.assign(this, $$source);

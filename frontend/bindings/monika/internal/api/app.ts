@@ -260,9 +260,6 @@ export function ListSessions(projectPath: string): $CancellablePromise<$models.S
     });
 }
 
-/**
- * ListSkills discovers and returns skill metadata from configured skill paths.
- */
 export function ListSkills(): $CancellablePromise<engine$0.SkillMeta[]> {
     return $Call.ByID(4241996650).then(($result: any) => {
         return $$createType31($result);

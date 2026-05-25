@@ -12,6 +12,7 @@ export class ChatMessage {
     "tool_calls"?: ToolCall[];
     "tool_call_id"?: string;
     "name"?: string;
+    "token_usage"?: Usage | null;
 
     /** Creates a new ChatMessage instance. */
     constructor($$source: Partial<ChatMessage> = {}) {
@@ -33,9 +34,13 @@ export class ChatMessage {
      */
     static createFrom($$source: any = {}): ChatMessage {
         const $$createField3_0 = $$createType1;
+        const $$createField6_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool_calls" in $$parsedSource) {
             $$parsedSource["tool_calls"] = $$createField3_0($$parsedSource["tool_calls"]);
+        }
+        if ("token_usage" in $$parsedSource) {
+            $$parsedSource["token_usage"] = $$createField6_0($$parsedSource["token_usage"]);
         }
         return new ChatMessage($$parsedSource as Partial<ChatMessage>);
     }
@@ -128,7 +133,7 @@ export class ToolCall {
      * Creates a new ToolCall instance from a string or object.
      */
     static createFrom($$source: any = {}): ToolCall {
-        const $$createField2_0 = $$createType2;
+        const $$createField2_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("function" in $$parsedSource) {
             $$parsedSource["function"] = $$createField2_0($$parsedSource["function"]);
@@ -162,7 +167,50 @@ export class ToolCallFunc {
     }
 }
 
+export class Usage {
+    "input_tokens": number;
+    "output_tokens": number;
+    "total_tokens": number;
+    "reasoning_tokens": number;
+    "cache_read_tokens": number;
+    "cache_write_tokens": number;
+
+    /** Creates a new Usage instance. */
+    constructor($$source: Partial<Usage> = {}) {
+        if (!("input_tokens" in $$source)) {
+            this["input_tokens"] = 0;
+        }
+        if (!("output_tokens" in $$source)) {
+            this["output_tokens"] = 0;
+        }
+        if (!("total_tokens" in $$source)) {
+            this["total_tokens"] = 0;
+        }
+        if (!("reasoning_tokens" in $$source)) {
+            this["reasoning_tokens"] = 0;
+        }
+        if (!("cache_read_tokens" in $$source)) {
+            this["cache_read_tokens"] = 0;
+        }
+        if (!("cache_write_tokens" in $$source)) {
+            this["cache_write_tokens"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new Usage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): Usage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new Usage($$parsedSource as Partial<Usage>);
+    }
+}
+
 // Private type creation functions
 const $$createType0 = ToolCall.createFrom;
 const $$createType1 = $Create.Array($$createType0);
-const $$createType2 = ToolCallFunc.createFrom;
+const $$createType2 = Usage.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
+const $$createType4 = ToolCallFunc.createFrom;
