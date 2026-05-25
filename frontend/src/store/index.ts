@@ -107,7 +107,7 @@ export interface ProviderFull {
   base_url: string
   api_key: string
   wire_api: string
-  models: { id: string; name: string; context_limit?: number }[]
+  models: { id: string; name: string; context_limit?: number; output_limit?: number; enabled?: boolean }[]
 }
 
 interface AppState {
@@ -157,14 +157,14 @@ interface AppState {
   toggleSettings: () => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
   addToolStart: (tool: ToolCall) => void
-  updateToolDone: (name: string, output: string, status: 'done' | 'error') => void
-  updateToolInput: (name: string, input: string) => void
+  updateToolDone: (toolId: string, output: string, status: 'done' | 'error') => void
+  updateToolInput: (toolId: string, input: string) => void
   updateSessionMessage: (id: string, delta: string) => void
   updateSessionThinking: (id: string, delta: string) => void
   addSessionToolStart: (id: string, tool: ToolCall) => void
   addSessionError: (id: string, content: string) => void
-  updateSessionToolDone: (id: string, name: string, output: string, status: 'done' | 'error') => void
-  updateSessionToolInput: (id: string, name: string, input: string) => void
+  updateSessionToolDone: (id: string, toolId: string, output: string, status: 'done' | 'error') => void
+  updateSessionToolInput: (id: string, toolId: string, input: string) => void
   addGeneratingSession: (sessionId: string) => void
   removeGeneratingSession: (sessionId: string) => void
   setSessionStatus: (sessionId: string, status: string) => void
@@ -308,7 +308,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { messages: msgs }
     }),
 
-  updateToolDone: (name, output, status) =>
+  updateToolDone: (toolId, output, status) =>
     set((s) => {
       const msgs = [...s.messages]
       let updatedFile: string | null = null
@@ -317,8 +317,8 @@ export const useStore = create<AppState>((set, get) => ({
           msgs[i] = {
             ...msgs[i],
             tools: msgs[i].tools!.map((t) => {
-              if (t.name === name && t.status === 'running') {
-                if (status === 'done' && (name === 'file_edit' || name === 'file_write') && t.input) {
+              if (t.id === toolId && t.status === 'running') {
+                if (status === 'done' && (t.name === 'file_edit' || t.name === 'file_write') && t.input) {
                   try {
                     const parsed = JSON.parse(t.input)
                     if (parsed.filePath) updatedFile = parsed.filePath
@@ -337,7 +337,7 @@ export const useStore = create<AppState>((set, get) => ({
       return result
     }),
 
-  updateToolInput: (name, input) =>
+  updateToolInput: (toolId, input) =>
     set((s) => {
       const msgs = [...s.messages]
       for (let i = msgs.length - 1; i >= 0; i--) {
@@ -345,7 +345,7 @@ export const useStore = create<AppState>((set, get) => ({
           msgs[i] = {
             ...msgs[i],
             tools: msgs[i].tools!.map((t) =>
-              t.name === name && !t.input ? { ...t, input } : t
+              t.id === toolId && !t.input ? { ...t, input } : t
             ),
           }
           break
@@ -452,7 +452,7 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
 
-  updateSessionToolDone: (id, name, output, status) => {
+  updateSessionToolDone: (id, toolId, output, status) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
       let found = false
@@ -461,7 +461,7 @@ export const useStore = create<AppState>((set, get) => ({
           msgs[i] = {
             ...msgs[i],
             tools: msgs[i].tools!.map((t) =>
-              t.name === name && t.status === 'running' ? { ...t, output, status } : t
+              t.id === toolId && t.status === 'running' ? { ...t, output, status } : t
             ),
           }
           found = true
@@ -469,13 +469,13 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       if (!found) {
-        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', tools: [{ name, input: '', output, status }] })
+        msgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', tools: [{ name: '', input: '', output, status }] })
       }
       return { sessionMessages: { ...s.sessionMessages, [id]: msgs } }
     })
   },
 
-  updateSessionToolInput: (id, name, input) => {
+  updateSessionToolInput: (id, toolId, input) => {
     set((s) => {
       const msgs = [...(s.sessionMessages[id] || [])]
       for (let i = msgs.length - 1; i >= 0; i--) {
@@ -483,7 +483,7 @@ export const useStore = create<AppState>((set, get) => ({
           msgs[i] = {
             ...msgs[i],
             tools: msgs[i].tools!.map((t) =>
-              t.name === name && !t.input ? { ...t, input } : t
+              t.id === toolId && !t.input ? { ...t, input } : t
             ),
           }
           break
@@ -1327,14 +1327,14 @@ export function setupWailsEvents() {
 
       case 'tool_output':
         if (data.tool) {
-          store.updateSessionToolDone(sid, data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+          store.updateSessionToolDone(sid, data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
           if (data.tool.input) {
-            store.updateSessionToolInput(sid, data.tool.name, data.tool.input)
+            store.updateSessionToolInput(sid, data.tool.id, data.tool.input)
           }
           if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
-            store.updateToolDone(data.tool.name, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+            store.updateToolDone(data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
             if (data.tool.input) {
-              store.updateToolInput(data.tool.name, data.tool.input)
+              store.updateToolInput(data.tool.id, data.tool.input)
             }
           }
         }
@@ -1351,7 +1351,7 @@ export function setupWailsEvents() {
 
       case 'usage':
         if (data.usage) {
-          store.addTokens(sid, data.usage.context_tokens || data.usage.total_tokens || 0, data.usage.max_context)
+          store.addTokens(sid, data.usage.total_tokens || 0, data.usage.max_context)
         }
         break
 
