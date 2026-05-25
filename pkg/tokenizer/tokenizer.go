@@ -1,39 +1,17 @@
 package tokenizer
 
-import (
-	"sync"
-
-	"github.com/pkoukk/tiktoken-go"
-)
-
-var (
-	once     sync.Once
-	enc      *tiktoken.Tiktoken
-	initErr  error
-)
-
-func getEncoder() (*tiktoken.Tiktoken, error) {
-	once.Do(func() {
-		enc, initErr = tiktoken.GetEncoding("cl100k_base")
-	})
-	return enc, initErr
-}
-
-// Count estimates the number of tokens in the given text using tiktoken's
-// cl100k_base encoding (used by GPT-4, GPT-3.5-turbo, and most modern models).
-// Falls back to chars/4 if the encoder cannot be initialized.
+// Count estimates tokens using chars/4. This is used exclusively for internal
+// compaction calculations (tail selection / preserve budget). Overflow detection
+// uses API-reported token counts as the single source of truth.
 func Count(text string) int {
-	e, err := getEncoder()
-	if err != nil || e == nil {
-		return fallback(text)
+	if len(text) == 0 {
+		return 0
 	}
-	tokens := e.Encode(text, nil, nil)
-	return len(tokens)
+	return (len(text) + 3) / 4
 }
 
 // CountMessages estimates the total tokens for a list of chat messages,
-// including the per-message overhead tokens used by OpenAI's chat format.
-// Each message consumes ~4 tokens of formatting overhead.
+// including per-message overhead (~4 tokens each).
 func CountMessages(messages []Message) int {
 	total := 0
 	for _, m := range messages {
@@ -52,11 +30,4 @@ type Message struct {
 	Role             string
 	Content          string
 	ReasoningContent string
-}
-
-func fallback(text string) int {
-	if len(text) == 0 {
-		return 0
-	}
-	return (len(text) + 3) / 4
 }

@@ -7,9 +7,9 @@ import (
 
 func TestCount(t *testing.T) {
 	n := Count("Hello, world!")
-	// "Hello, world!" is about 4 tokens with cl100k_base
-	if n < 3 || n > 6 {
-		t.Errorf("expected 3-6 tokens for 'Hello, world!', got %d", n)
+	// "Hello, world!" is 13 chars, chars/4 = 4 tokens
+	if n != 4 {
+		t.Errorf("expected 4 tokens for 'Hello, world!', got %d", n)
 	}
 }
 
@@ -20,11 +20,11 @@ func TestCountEmpty(t *testing.T) {
 }
 
 func TestCountRatio(t *testing.T) {
-	text := strings.Repeat("hello world ", 100)
+	text := strings.Repeat("hello world ", 100) // 1200 chars
 	n := Count(text)
-	ratio := float64(len(text)) / float64(n)
-	if ratio < 2.0 || ratio > 6.0 {
-		t.Errorf("unexpected chars/token ratio: %.2f (len=%d, tokens=%d)", ratio, len(text), n)
+	// chars/4 = 300
+	if n != 300 {
+		t.Errorf("expected 300 tokens, got %d", n)
 	}
 }
 
@@ -34,8 +34,11 @@ func TestCountMessages(t *testing.T) {
 		{Role: "user", Content: "Hello!"},
 	}
 	n := CountMessages(msgs)
-	if n < 15 {
-		t.Errorf("expected at least 15 tokens for 2 messages, got %d", n)
+	// system: 6+29 = 35 chars of content + 6 role + 4 overhead = 45 -> /4 = 11
+	// user: 5+6 = 11 + 5 + 4 = 20 -> /4 = 5
+	// total ~16 + 2 (priming) = 18
+	if n < 12 {
+		t.Errorf("expected at least 12 tokens for 2 messages, got %d", n)
 	}
 }
 
@@ -52,21 +55,6 @@ func TestCountMessagesWithReasoning(t *testing.T) {
 	if withReasoning <= withoutReasoning {
 		t.Errorf("messages with reasoning content should have more tokens: %d <= %d",
 			withReasoning, withoutReasoning)
-	}
-}
-
-func TestFallback(t *testing.T) {
-	if n := fallback("abc"); n != 1 {
-		t.Errorf("expected 1 for 'abc' (length 3), got %d", n)
-	}
-	if n := fallback("abcd"); n != 1 {
-		t.Errorf("expected 1 for 'abcd' (length 4), got %d", n)
-	}
-	if n := fallback("abcde"); n != 2 {
-		t.Errorf("expected 2 for 'abcde' (length 5), got %d", n)
-	}
-	if n := fallback(""); n != 0 {
-		t.Errorf("expected 0 for empty, got %d", n)
 	}
 }
 

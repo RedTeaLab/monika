@@ -3,7 +3,6 @@ module monika
 go 1.25.5
 
 require (
-	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/wailsapp/wails/v3 v3.0.0-alpha.78
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -17,7 +16,6 @@ require (
 	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/coder/websocket v1.8.14 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
-	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
