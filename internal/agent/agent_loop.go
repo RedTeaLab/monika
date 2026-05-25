@@ -38,49 +38,16 @@ What remains to be done. Explicit TODOs mentioned by user.
 - Must preserve all stated user goals and agreed decisions
 - Must preserve all discovered bugs and constraints`
 
-// Model context window limits (in tokens). These are conservative defaults
-// used for client-side estimation; the API response usage is authoritative.
-var modelContextLimits = map[string]int64{
-	"gpt-4o":            128000,
-	"gpt-4o-mini":       128000,
-	"gpt-4":             8192,
-	"gpt-4-turbo":       128000,
-	"gpt-3.5-turbo":     16385,
-	"deepseek-chat":     131072,
-	"deepseek-reasoner": 131072,
-	"claude-3-opus":     200000,
-	"claude-3.5-sonnet": 200000,
-	"claude-3.7-sonnet": 200000,
-}
-
-var modelOutputLimits = map[string]int64{
-	"gpt-4o":            16384,
-	"gpt-4o-mini":       16384,
-	"gpt-4-turbo":       4096,
-	"gpt-4":             4096,
-	"gpt-3.5-turbo":     4096,
-	"deepseek-chat":     32768,
-	"deepseek-reasoner": 32768,
-	"claude-3-opus":     4096,
-	"claude-3.5-sonnet": 8192,
-	"claude-3.7-sonnet": 8192,
-}
-
-func outputLimit(model string) int64 {
-	if limit, ok := modelOutputLimits[model]; ok {
-		return limit
+func (a *AgentLoop) modelLimit() (contextTokens, outputTokens int64) {
+	if a.modelContextLimit > 0 {
+		return a.modelContextLimit, a.modelOutputLimit
 	}
-	return 32768
+	return 128000, 32768
 }
 
 func (a *AgentLoop) contextLimit() int64 {
-	if a.modelContextLimit > 0 {
-		return a.modelContextLimit
-	}
-	if limit, ok := modelContextLimits[a.model]; ok {
-		return limit
-	}
-	return 128000
+	ctx, _ := a.modelLimit()
+	return ctx
 }
 
 type Conversation struct {
@@ -102,15 +69,16 @@ func isChildSession(sessionID string) bool { return IsChildSession(sessionID) }
 
 func (a *AgentLoop) isOverflow(conv *Conversation) bool {
 	limit := a.contextLimit()
-	outputMax := outputLimit(a.model)
+	outputMax := a.modelOutputLimit
+	if outputMax <= 0 {
+		outputMax = 32768
+	}
 	usable := limit - outputMax - compactionBuffer
 	if usable <= 0 {
 		usable = limit / 2
 	}
-	estimated := a.EstimateContextTokens(conv)
-	conv.TokenCount = estimated
 	conv.TokenMax = limit
-	return estimated > usable
+	return conv.TokenCount >= usable
 }
 
 func (a *AgentLoop) buildCompactionPrompt(conv *Conversation) []engine.ChatMessage {
@@ -153,7 +121,7 @@ func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
 
 	// Only scan effective messages (from CompactionFrom) to find keepFrom
 	start := conv.CompactionFrom
-	var keepFrom int
+	keepFrom := len(conv.Messages) // default: no truncation needed
 	var runningTokens int64
 	for i := len(conv.Messages) - 1; i >= start; i-- {
 		m := conv.Messages[i]
@@ -435,14 +403,14 @@ type AgentLoop struct {
 
 	sessionID         string
 	systemPrompt      string
-	pipeline *permission.Pipeline
+	pipeline          *permission.Pipeline
 	projectDir        string
 	model             string
+	modelContextLimit  int64
+	modelOutputLimit   int64
 	providerID        string
-	modelContextLimit int64 // 0 = use hardcoded map + default
 	dispatchFn        func(ctx context.Context, task SubTask) <-chan Event
-	mcpTools          []engine.MCPTool
-	mcpConns          map[string]engine.MCPServerConnection
+	mcpRegistry       *engine.MCPRegistry
 	askUserFn         tool.AskUserFunc
 }
 
@@ -478,6 +446,21 @@ func WithModel(model string) LoopOption {
 	}
 }
 
+// WithContextLimit sets the model's maximum context window (total tokens).
+func WithContextLimit(n int64) LoopOption {
+	return func(a *AgentLoop) {
+		a.modelContextLimit = n
+	}
+}
+
+// WithOutputLimit sets the model's maximum output tokens for overflow
+// calculation.
+func WithOutputLimit(n int64) LoopOption {
+	return func(a *AgentLoop) {
+		a.modelOutputLimit = n
+	}
+}
+
 // WithProvider sets the provider ID (e.g. "deepseek", "openai") to use.
 func WithProvider(id string) LoopOption {
 	return func(a *AgentLoop) {
@@ -488,12 +471,6 @@ func WithProvider(id string) LoopOption {
 // WithSessionID sets the session ID injected into tool context.
 func WithSessionID(id string) LoopOption {
 	return func(a *AgentLoop) { a.sessionID = id }
-}
-
-// WithModelContextLimit sets an explicit context window limit (in tokens) for the
-// model used by this loop. When set (>0), it overrides the hardcoded lookup.
-func WithModelContextLimit(limit int64) LoopOption {
-	return func(a *AgentLoop) { a.modelContextLimit = limit }
 }
 
 func WithAgent(agent Agent) LoopOption {
@@ -515,12 +492,8 @@ func WithParent(parent *AgentLoop) LoopOption {
 	return func(a *AgentLoop) { a.parent = parent }
 }
 
-func WithMCPTools(tools []engine.MCPTool) LoopOption {
-	return func(a *AgentLoop) { a.mcpTools = tools }
-}
-
-func WithMCPConnections(conns map[string]engine.MCPServerConnection) LoopOption {
-	return func(a *AgentLoop) { a.mcpConns = conns }
+func WithMCPRegistry(reg *engine.MCPRegistry) LoopOption {
+	return func(a *AgentLoop) { a.mcpRegistry = reg }
 }
 
 func WithAskUserFunc(fn tool.AskUserFunc) LoopOption {
@@ -585,10 +558,12 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 		totalUsage.CacheWriteTokens += result.Usage.CacheWriteTokens
 
 		if len(result.ToolCalls) == 0 {
+			usage := result.Usage // copy per-turn usage
 			conv.Messages = append(conv.Messages, engine.ChatMessage{
 				Role:             "assistant",
 				Content:          result.Content,
 				ReasoningContent: result.ReasoningContent,
+				TokenUsage:       &usage,
 			})
 			return &LoopResult{
 				Conversation: conv,
@@ -597,10 +572,12 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 			}, nil
 		}
 
+		usage := result.Usage // copy per-turn usage
 		conv.Messages = append(conv.Messages, engine.ChatMessage{
 			Role:             "assistant",
 			ReasoningContent: result.ReasoningContent,
 			ToolCalls:        result.ToolCalls,
+			TokenUsage:       &usage,
 		})
 
 		for _, tc := range result.ToolCalls {
@@ -608,36 +585,38 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 			if !ok {
 				// Try MCP tools
 				found := false
-				for _, conn := range a.mcpConns {
-					tools, lerr := conn.ListTools(context.Background())
-					if lerr != nil {
-						continue
-					}
-					for _, mt := range tools {
-						if mt.Name == tc.Function.Name {
-							result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
-							if cerr != nil {
-								conv.Messages = append(conv.Messages, engine.ChatMessage{
-									Role:       "tool",
-									Content:    fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr),
-									ToolCallID: tc.ID,
-									Name:       tc.Function.Name,
-								})
-							} else {
-								content := string(result)
-								conv.Messages = append(conv.Messages, engine.ChatMessage{
-									Role:       "tool",
-									Content:    content,
-									ToolCallID: tc.ID,
-									Name:       tc.Function.Name,
-								})
+				if a.mcpRegistry != nil {
+					for _, conn := range a.mcpRegistry.GetConnections() {
+						tools, lerr := conn.ListTools(context.Background())
+						if lerr != nil {
+							continue
+						}
+						for _, mt := range tools {
+							if mt.Name == tc.Function.Name {
+								result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+								if cerr != nil {
+									conv.Messages = append(conv.Messages, engine.ChatMessage{
+										Role:       "tool",
+										Content:    fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr),
+										ToolCallID: tc.ID,
+										Name:       tc.Function.Name,
+									})
+								} else {
+									content := string(result)
+									conv.Messages = append(conv.Messages, engine.ChatMessage{
+										Role:       "tool",
+										Content:    content,
+										ToolCallID: tc.ID,
+										Name:       tc.Function.Name,
+									})
+								}
+								found = true
+								break
 							}
-							found = true
+						}
+						if found {
 							break
 						}
-					}
-					if found {
-						break
 					}
 				}
 				if !found {
@@ -727,7 +706,6 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 	})
 
 	tools := a.buildToolDefs()
-	var totalUsage engine.Usage
 
 	for turn := 0; ; turn++ {
 		_ = turn // reserved for future logging
@@ -752,18 +730,8 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			Tools:    tools,
 		}
 
-		if turn == 0 {
-			conv.TokenCount = a.EstimateContextTokens(conv)
-			conv.TokenMax = a.contextLimit()
-			ch <- Event{
-				Type: EventUsage,
-				Usage: UsageEvent{
-					TotalTokens:   conv.TokenCount,
-					ContextTokens: conv.TokenCount,
-					MaxContext:    conv.TokenMax,
-				},
-			}
-		}
+		// Per-turn usage tracks tokens for this single API call.
+		perTurnUsage := engine.Usage{}
 
 		events, err := a.provider.StreamChat(ctx, req)
 		if err != nil {
@@ -835,22 +803,24 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 					}
 				case engine.EventUsage:
 					flushAll()
-					totalUsage.InputTokens += ev.Usage.InputTokens
-					totalUsage.OutputTokens += ev.Usage.OutputTokens
-					totalUsage.TotalTokens += ev.Usage.TotalTokens
-					totalUsage.ReasoningTokens += ev.Usage.ReasoningTokens
-					totalUsage.CacheReadTokens += ev.Usage.CacheReadTokens
-					totalUsage.CacheWriteTokens += ev.Usage.CacheWriteTokens
+					perTurnUsage.InputTokens += ev.Usage.InputTokens
+					perTurnUsage.OutputTokens += ev.Usage.OutputTokens
+					perTurnUsage.TotalTokens += ev.Usage.TotalTokens
+					perTurnUsage.ReasoningTokens += ev.Usage.ReasoningTokens
+					perTurnUsage.CacheReadTokens += ev.Usage.CacheReadTokens
+					perTurnUsage.CacheWriteTokens += ev.Usage.CacheWriteTokens
+					conv.TokenCount = perTurnUsage.TotalTokens
+					conv.TokenMax = a.contextLimit()
 					ch <- Event{
 						Type: EventUsage,
 						Usage: UsageEvent{
-							InputTokens:      totalUsage.InputTokens,
-							OutputTokens:     totalUsage.OutputTokens,
-							TotalTokens:      totalUsage.TotalTokens,
-							ReasoningTokens:  totalUsage.ReasoningTokens,
-							CacheReadTokens:  totalUsage.CacheReadTokens,
-							CacheWriteTokens: totalUsage.CacheWriteTokens,
-							ContextTokens:    totalUsage.ContextTokens(),
+							InputTokens:      perTurnUsage.InputTokens,
+							OutputTokens:     perTurnUsage.OutputTokens,
+							TotalTokens:      perTurnUsage.TotalTokens,
+							ReasoningTokens:  perTurnUsage.ReasoningTokens,
+							CacheReadTokens:  perTurnUsage.CacheReadTokens,
+							CacheWriteTokens: perTurnUsage.CacheWriteTokens,
+							ContextTokens:    perTurnUsage.TotalTokens,
 							MaxContext:       a.contextLimit(),
 						},
 					}
@@ -870,19 +840,23 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		}
 
 		if len(result.ToolCalls) == 0 {
+			usage := perTurnUsage // copy
 			conv.Messages = append(conv.Messages, engine.ChatMessage{
 				Role:             "assistant",
 				Content:          result.Content,
 				ReasoningContent: result.ReasoningContent,
+				TokenUsage:       &usage,
 			})
 			ch <- Event{Type: EventDone}
 			return
 		}
 
+		usage := perTurnUsage // copy
 		conv.Messages = append(conv.Messages, engine.ChatMessage{
 			Role:             "assistant",
 			ReasoningContent: result.ReasoningContent,
 			ToolCalls:        result.ToolCalls,
+			TokenUsage:       &usage,
 		})
 
 		// Deduplicate tool calls within a turn: same name + same args
@@ -933,49 +907,51 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			if !ok {
 				// Try MCP tools
 				found := false
-				for _, conn := range a.mcpConns {
-					tools, lerr := conn.ListTools(context.Background())
-					if lerr != nil {
-						continue
-					}
-					for _, mt := range tools {
-						if mt.Name == tc.Function.Name {
-							result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
-							if cerr != nil {
-								errMsg := fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr)
-								ch <- Event{
-									Type: EventToolOutput,
-									Tool: &ToolEvent{
-										ID: tc.ID, Name: tc.Function.Name,
-										Input: tc.Function.Arguments, Output: errMsg, Status: "error",
-									},
+				if a.mcpRegistry != nil {
+					for _, conn := range a.mcpRegistry.GetConnections() {
+						tools, lerr := conn.ListTools(context.Background())
+						if lerr != nil {
+							continue
+						}
+						for _, mt := range tools {
+							if mt.Name == tc.Function.Name {
+								result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+								if cerr != nil {
+									errMsg := fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr)
+									ch <- Event{
+										Type: EventToolOutput,
+										Tool: &ToolEvent{
+											ID: tc.ID, Name: tc.Function.Name,
+											Input: tc.Function.Arguments, Output: errMsg, Status: "error",
+										},
+									}
+									executed[dk] = cachedResult{output: errMsg, status: "error"}
+									conv.Messages = append(conv.Messages, engine.ChatMessage{
+										Role: "tool", Content: errMsg,
+										ToolCallID: tc.ID, Name: tc.Function.Name,
+									})
+								} else {
+									content := string(result)
+									ch <- Event{
+										Type: EventToolOutput,
+										Tool: &ToolEvent{
+											ID: tc.ID, Name: tc.Function.Name,
+											Input: tc.Function.Arguments, Output: content, Status: "done",
+										},
+									}
+									executed[dk] = cachedResult{output: content, status: "done"}
+									conv.Messages = append(conv.Messages, engine.ChatMessage{
+										Role: "tool", Content: content,
+										ToolCallID: tc.ID, Name: tc.Function.Name,
+									})
 								}
-								executed[dk] = cachedResult{output: errMsg, status: "error"}
-								conv.Messages = append(conv.Messages, engine.ChatMessage{
-									Role: "tool", Content: errMsg,
-									ToolCallID: tc.ID, Name: tc.Function.Name,
-								})
-							} else {
-								content := string(result)
-								ch <- Event{
-									Type: EventToolOutput,
-									Tool: &ToolEvent{
-										ID: tc.ID, Name: tc.Function.Name,
-										Input: tc.Function.Arguments, Output: content, Status: "done",
-									},
-								}
-								executed[dk] = cachedResult{output: content, status: "done"}
-								conv.Messages = append(conv.Messages, engine.ChatMessage{
-									Role: "tool", Content: content,
-									ToolCallID: tc.ID, Name: tc.Function.Name,
-								})
+								found = true
+								break
 							}
-							found = true
+						}
+						if found {
 							break
 						}
-					}
-					if found {
-						break
 					}
 				}
 				if !found {
@@ -1147,9 +1123,9 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 	}
 }
 
-// EstimateContextTokens runs a client-side tiktoken estimate over all messages
-// that will be sent to the model. This is the pre-flight estimate used when the
-// API doesn't return usage data, or for context overflow warnings.
+// EstimateContextTokens runs a chars/4 estimate over all messages. This is only
+// used for internal compaction calculations (tail selection / preserve budget).
+// Overflow detection uses API-reported token counts.
 func (a *AgentLoop) EstimateContextTokens(conv *Conversation) int64 {
 	msgs := a.buildMessages(conv)
 	tokenMsgs := make([]tokenizer.Message, len(msgs))
@@ -1188,7 +1164,11 @@ func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 		return nil
 	}
 	tools := a.tools.List()
-	n := len(tools) + len(a.mcpTools)
+	mcpLen := 0
+	if a.mcpRegistry != nil {
+		mcpLen = a.mcpRegistry.LenTools()
+	}
+	n := len(tools) + mcpLen
 	defs := make([]engine.ToolDef, 0, n)
 	isChild := isChildSession(a.sessionID)
 	for _, t := range tools {
@@ -1205,19 +1185,21 @@ func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
 		})
 	}
 	// Append MCP tools
-	for _, mt := range a.mcpTools {
-		var params map[string]any
-		if len(mt.InputSchema) > 0 {
-			json.Unmarshal(mt.InputSchema, &params)
+	if a.mcpRegistry != nil {
+		for _, mt := range a.mcpRegistry.GetTools() {
+			var params map[string]any
+			if len(mt.InputSchema) > 0 {
+				json.Unmarshal(mt.InputSchema, &params)
+			}
+			defs = append(defs, engine.ToolDef{
+				Type: "function",
+				Function: engine.ToolFunction{
+					Name:        mt.Name,
+					Description: mt.Description,
+					Parameters:  params,
+				},
+			})
 		}
-		defs = append(defs, engine.ToolDef{
-			Type: "function",
-			Function: engine.ToolFunction{
-				Name:        mt.Name,
-				Description: mt.Description,
-				Parameters:  params,
-			},
-		})
 	}
 	return defs
 }

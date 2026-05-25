@@ -3,19 +3,23 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"monika/internal/agent"
 	"monika/internal/api"
 	"monika/internal/bootstrap"
+	config2 "monika/internal/config"
 	"monika/internal/permission"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
+	"monika/pkg/modelsdev"
 	engine2 "monika/pkg/engine"
 
 	_ "monika/internal/engines/mcp"
@@ -41,6 +45,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Refresh models.dev catalog (background, non-blocking).
+	go func() {
+		if err := modelsdev.Refresh(home); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] models.dev refresh: %v\n", err)
+		}
+	}()
+
 	ctx := context.Background()
 	pr, err := bootstrap.InitProvider(ctx, home, cwd, "")
 	if err != nil {
@@ -48,37 +59,45 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Sync models.dev model limits into config.
+	// New models from models.dev are added with Enabled=false.
+	syncModelsDev(home, &pr.Config)
+
 	registry := tool.NewRegistry()
 	builtin.RegisterDefaults(registry, cwd)
 
 	taskStore := builtin.NewTaskStore(nil)
 	builtin.RegisterTasks(registry, taskStore)
 
-	// Connect MCP servers and collect tools
-	var mcpConns map[string]engine2.MCPServerConnection
-	var mcpToolList []engine2.MCPTool
+	// Create MCP registry and connect servers asynchronously
+	mcpRegistry := engine2.NewMCPRegistry()
 	mcpEng, err := engine2.EngineByID("mcp")
 	if err == nil {
 		if mcp, ok := mcpEng.(engine2.MCPEngine); ok {
 			_ = mcp.Init(ctx, nil)
-			mcpConns = make(map[string]engine2.MCPServerConnection)
-			for _, srv := range pr.Config.MCP.Servers {
-				cfg := engine2.MCPServerConfig{
-					ID: srv.ID, Type: srv.Type, Command: srv.Command,
-					Args: srv.Args, Env: srv.Env, URL: srv.URL, Headers: srv.Headers,
-				}
-				conn, err := mcp.ConnectServer(ctx, cfg)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "[monika] MCP server %q connect failed: %v\n", srv.ID, err)
-					continue
-				}
-				mcpConns[srv.ID] = conn
-				tools, err := conn.ListTools(ctx)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "[monika] MCP server %q list tools: %v\n", srv.ID, err)
-					continue
-				}
-				mcpToolList = append(mcpToolList, tools...)
+			if len(pr.Config.MCP.Servers) > 0 {
+				go func() {
+					for _, srv := range pr.Config.MCP.Servers {
+						cfg := engine2.MCPServerConfig{
+							ID: srv.ID, Type: srv.Type, Command: srv.Command,
+							Args: srv.Args, Env: srv.Env, URL: srv.URL, Headers: srv.Headers,
+						}
+						mcpCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						conn, err := mcp.ConnectServer(mcpCtx, cfg)
+						cancel()
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "[monika] MCP server %q connect failed: %v\n", srv.ID, err)
+							continue
+						}
+						tools, err := conn.ListTools(context.Background())
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "[monika] MCP server %q list tools: %v\n", srv.ID, err)
+							continue
+						}
+						mcpRegistry.AddServer(srv.ID, conn, tools)
+						fmt.Fprintf(os.Stderr, "[monika] MCP server %q connected (%d tools)\n", srv.ID, len(tools))
+					}
+				}()
 			}
 		}
 	}
@@ -144,11 +163,8 @@ func main() {
 	pipeline.SetProject(home, cwd)
 	loopOpts = append(loopOpts, agent.WithPermissionPipeline(pipeline))
 
-	// MCP tools and connections
-	loopOpts = append(loopOpts,
-		agent.WithMCPTools(mcpToolList),
-		agent.WithMCPConnections(mcpConns),
-	)
+	// MCP registry
+	loopOpts = append(loopOpts, agent.WithMCPRegistry(mcpRegistry))
 
 	// Build agent registry with builtin agents
 	agentRegistry := agent.NewAgentRegistry([]agent.Agent{
@@ -276,6 +292,134 @@ func main() {
 	}
 }
 
+func syncModelsDev(home string, cfg *config2.Config) {
+	catalog, err := modelsdev.Catalog(home)
+	if err != nil {
+		return
+	}
+
+	type modelInfo struct {
+		Context  int64
+		Output   int64
+		Provider string
+	}
+	modelIndex := make(map[string]modelInfo, 4096)
+	for providerID, p := range catalog {
+		for modelID, md := range p.Models {
+			if md.Limit.Context > 0 {
+				modelIndex[modelID] = modelInfo{
+					Context:  md.Limit.Context,
+					Output:   md.Limit.Output,
+					Provider: providerID,
+				}
+			}
+		}
+	}
+
+	changed := false
+
+	// New user: no providers configured yet — populate from models.dev.
+	if len(cfg.ModelProviders) == 0 {
+		cfg.ModelProviders = make(map[string]config2.ProviderConfig, len(catalog))
+		for pID, p := range catalog {
+			models := make([]config2.ModelEntry, 0, len(p.Models))
+			for modelID, md := range p.Models {
+				if md.Limit.Context > 0 {
+					models = append(models, config2.ModelEntry{
+						ID:           modelID,
+						DisplayName:  modelID,
+						ContextLimit: md.Limit.Context,
+						OutputLimit:  md.Limit.Output,
+						Enabled:      false,
+					})
+				}
+			}
+			if len(models) > 0 {
+				cfg.ModelProviders[pID] = config2.ProviderConfig{
+					Name:              pID,
+					ModelsDevProvider: pID,
+					Models:            models,
+				}
+			}
+		}
+		changed = true
+	} else {
+		// Existing user: enrich provider models from models.dev.
+		for key, pc := range cfg.ModelProviders {
+			existingIDs := make(map[string]bool, len(pc.Models))
+			for i := range pc.Models {
+				m := &pc.Models[i]
+				existingIDs[m.ID] = true
+				if info, ok := modelIndex[m.ID]; ok {
+					if m.ContextLimit == 0 && info.Context > 0 {
+						m.ContextLimit = info.Context
+						changed = true
+					}
+					if m.OutputLimit == 0 && info.Output > 0 {
+						m.OutputLimit = info.Output
+						changed = true
+					}
+					if m.DisplayName == "" {
+						m.DisplayName = m.ID
+						changed = true
+					}
+				}
+			}
+
+			// Auto-detect models.dev provider if not set.
+			if pc.ModelsDevProvider == "" {
+				for modelID, info := range modelIndex {
+					if existingIDs[modelID] {
+						pc.ModelsDevProvider = info.Provider
+						changed = true
+						break
+					}
+				}
+				if pc.ModelsDevProvider == "" {
+					normalized := normalizeID(key)
+					for pID := range catalog {
+						if normalizeID(pID) == normalized {
+							pc.ModelsDevProvider = pID
+							changed = true
+							break
+						}
+					}
+				}
+			}
+
+			if pc.ModelsDevProvider != "" {
+				for modelID, info := range modelIndex {
+					if info.Provider == pc.ModelsDevProvider && !existingIDs[modelID] {
+						pc.Models = append(pc.Models, config2.ModelEntry{
+							ID:           modelID,
+							DisplayName:  modelID,
+							ContextLimit: info.Context,
+							OutputLimit:  info.Output,
+							Enabled:      false,
+						})
+						changed = true
+					}
+				}
+			}
+
+			cfg.ModelProviders[key] = pc
+		}
+	}
+
+	if !changed {
+		return
+	}
+
+	// Write back updated config.
+	configPath := filepath.Join(home, ".monika", "config.json")
+	_ = os.MkdirAll(filepath.Dir(configPath), 0755)
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(configPath, data, 0600)
+}
+
 func loadSystemPrompt(projectDir string) string {
 	paths := []string{
 		filepath.Join(projectDir, "AGENTS.md"),
@@ -287,4 +431,14 @@ func loadSystemPrompt(projectDir string) string {
 		}
 	}
 	return ""
+}
+
+func normalizeID(id string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(id) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

@@ -109,7 +109,9 @@ type ProviderInfo struct {
 type ModelEntryJSON struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
-	ContextLimit int64  `json:"context_limit"`
+	ContextLimit int64  `json:"context_limit,omitempty"`
+	OutputLimit  int64  `json:"output_limit,omitempty"`
+	Enabled      bool   `json:"enabled"`
 }
 
 // TaskStoreAccessor provides access to per-session task storage.

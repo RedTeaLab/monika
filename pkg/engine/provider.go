@@ -16,6 +16,7 @@ type ChatMessage struct {
 	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
 	ToolCallID       string     `json:"tool_call_id,omitempty"`
 	Name             string     `json:"name,omitempty"`
+	TokenUsage       *Usage     `json:"token_usage,omitempty"`
 }
 
 type ChatEvent struct {
@@ -51,20 +52,12 @@ type ToolCallFunc struct {
 }
 
 type Usage struct {
-	InputTokens      int64
-	OutputTokens     int64
-	TotalTokens      int64
-	ReasoningTokens  int64
-	CacheReadTokens  int64
-	CacheWriteTokens int64
-}
-
-// ContextTokens returns the effective context usage (input minus cache reads).
-func (u Usage) ContextTokens() int64 {
-	if u.CacheReadTokens > u.InputTokens {
-		return 0
-	}
-	return u.InputTokens - u.CacheReadTokens
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	TotalTokens      int64 `json:"total_tokens"`
+	ReasoningTokens  int64 `json:"reasoning_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
 }
 
 type ProviderError struct {

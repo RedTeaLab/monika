@@ -23,6 +23,7 @@ import (
 	"monika/internal/permission"
 	tool2 "monika/internal/tool"
 	engine2 "monika/pkg/engine"
+	"monika/pkg/modelsdev"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"gopkg.in/yaml.v3"
@@ -361,7 +362,9 @@ func (a *App) GetProviders() []ProviderInfo {
 			models = append(models, ModelEntryJSON{
 				ID:           m.ID,
 				Name:         m.DisplayName,
-				ContextLimit: int64(m.ContextLimit),
+				ContextLimit: m.ContextLimit,
+				OutputLimit:  m.OutputLimit,
+				Enabled:      m.Enabled,
 			})
 		}
 		result = append(result, ProviderInfo{
@@ -508,10 +511,10 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		agent2.WithModel(model),
 		agent2.WithSessionID(sessionID),
 	)
-	generalAgent, _ := a.agentRegistry.Get("general")
-	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
-		opts = append(opts, agent2.WithModelContextLimit(limit))
+	if ctxLimit, outLimit := a.modelLimits(providerID, model); ctxLimit > 0 {
+		opts = append(opts, agent2.WithContextLimit(ctxLimit), agent2.WithOutputLimit(outLimit))
 	}
+	generalAgent, _ := a.agentRegistry.Get("general")
 	opts = append(opts, agent2.WithAgent(generalAgent))
 
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
@@ -642,10 +645,10 @@ func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) e
 		agent2.WithModel(model),
 		agent2.WithSessionID(sessionID),
 	)
-	generalAgent, _ := a.agentRegistry.Get("general")
-	if limit := a.resolveModelContextLimit(providerID, model); limit > 0 {
-		opts = append(opts, agent2.WithModelContextLimit(limit))
+	if ctxLimit, outLimit := a.modelLimits(providerID, model); ctxLimit > 0 {
+		opts = append(opts, agent2.WithContextLimit(ctxLimit), agent2.WithOutputLimit(outLimit))
 	}
+	generalAgent, _ := a.agentRegistry.Get("general")
 	opts = append(opts, agent2.WithAgent(generalAgent))
 
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
@@ -883,17 +886,6 @@ func (a *App) GetInlineDiff(projectPath, filePath, oldContent string) (*DiffResu
 		return nil, err
 	}
 	return &dr, nil
-}
-
-func (a *App) resolveModelContextLimit(providerID, modelID string) int64 {
-	if pc, ok := a.cfg.ModelProviders[providerID]; ok {
-		for _, m := range pc.Models {
-			if m.ID == modelID && m.ContextLimit.Int64() > 0 {
-				return m.ContextLimit.Int64()
-			}
-		}
-	}
-	return 0
 }
 
 func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
@@ -1730,7 +1722,131 @@ func (a *App) writeConfig() {
 	os.Rename(tmp, configPath)
 }
 
+func (a *App) modelLimits(providerID, modelID string) (contextTokens, outputTokens int64) {
+	pc, ok := a.cfg.ModelProviders[providerID]
+	if !ok {
+		return 0, 0
+	}
+	for _, m := range pc.Models {
+		if m.ID == modelID {
+			return m.ContextLimit, m.OutputLimit
+		}
+	}
+	return 0, 0
+}
+
+// syncProviderFromModelsDev populates a provider's model list from the models.dev
+// catalog. It enriches existing models with context/output limits and adds new
+// models (with Enabled=false) if the provider maps to a models.dev provider.
+func (a *App) syncProviderFromModelsDev(providerID string) {
+	pc, ok := a.cfg.ModelProviders[providerID]
+	if !ok {
+		return
+	}
+
+	catalog, err := modelsdev.Catalog(a.home)
+	if err != nil {
+		return
+	}
+
+	type info struct {
+		Context  int64
+		Output   int64
+		Provider string
+	}
+	modelIndex := make(map[string]info, 4096)
+	for pID, p := range catalog {
+		for modelID, md := range p.Models {
+			if md.Limit.Context > 0 {
+				modelIndex[modelID] = info{
+					Context:  md.Limit.Context,
+					Output:   md.Limit.Output,
+					Provider: pID,
+				}
+			}
+		}
+	}
+
+	changed := false
+	existingIDs := make(map[string]bool, len(pc.Models))
+
+	// 1. Enrich existing models with limits.
+	for i := range pc.Models {
+		m := &pc.Models[i]
+		existingIDs[m.ID] = true
+		if info, ok := modelIndex[m.ID]; ok {
+			if m.ContextLimit == 0 && info.Context > 0 {
+				m.ContextLimit = info.Context
+				changed = true
+			}
+			if m.OutputLimit == 0 && info.Output > 0 {
+				m.OutputLimit = info.Output
+				changed = true
+			}
+			if m.DisplayName == "" {
+				m.DisplayName = m.ID
+				changed = true
+			}
+		}
+	}
+
+	// 2. Auto-detect modelsdev provider from existing models, or by
+	// fuzzy-matching the provider ID.
+	if pc.ModelsDevProvider == "" {
+		for modelID, info := range modelIndex {
+			if existingIDs[modelID] {
+				pc.ModelsDevProvider = info.Provider
+				changed = true
+				break
+			}
+		}
+		// Fallback: try matching provider ID directly.
+		if pc.ModelsDevProvider == "" {
+			normalized := normalizeProviderID(providerID)
+			for pID := range catalog {
+				if normalizeProviderID(pID) == normalized {
+					pc.ModelsDevProvider = pID
+					changed = true
+					break
+				}
+			}
+		}
+	}
+
+	// 3. Add new models from the mapped models.dev provider.
+	if pc.ModelsDevProvider != "" {
+		for modelID, info := range modelIndex {
+			if info.Provider == pc.ModelsDevProvider && !existingIDs[modelID] {
+				pc.Models = append(pc.Models, config2.ModelEntry{
+					ID:           modelID,
+					DisplayName:  modelID,
+					ContextLimit: info.Context,
+					OutputLimit:  info.Output,
+					Enabled:      false,
+				})
+				changed = true
+			}
+		}
+	}
+
+	if changed {
+		a.cfg.ModelProviders[providerID] = pc
+	}
+}
+
 // ListSkills discovers and returns skill metadata from configured skill paths.
+
+// normalizeProviderID strips non-alphanumeric characters and lowercases for
+// fuzzy matching user-configured provider IDs against models.dev provider IDs.
+func normalizeProviderID(id string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(id) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 func (a *App) ListSkills() []engine2.SkillMeta {
 	eng, err := engine2.EngineByID("skill")
 	if err != nil {
@@ -2428,9 +2544,44 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 		if len(pc.Models) == 0 {
 			pc.Models = existing.Models
 		}
+		if pc.ModelsDevProvider == "" {
+			pc.ModelsDevProvider = existing.ModelsDevProvider
+		}
 	}
 	a.cfg.ModelProviders[req.ID] = pc
+
+	// Auto-populate model limits from models.dev on first save.
+	if len(pc.Models) == 0 || pc.ModelsDevProvider == "" {
+		a.syncProviderFromModelsDev(req.ID)
+	}
+
 	a.writeConfig()
+
+	// Initialize engine at runtime so provider is immediately available.
+	engineID := pc.WireAPI
+	if engineID == "" {
+		engineID = req.ID
+	}
+	eng, err := engine2.EngineByID(engineID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveProvider: engine %q not registered: %v\n", engineID, err)
+		return nil
+	}
+	if err := eng.Init(a.ctx, map[string]any{
+		"base_url": pc.BaseURL,
+		"api_key":  pc.APIKey,
+		"models":   pc.Models,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveProvider: init engine %q failed: %v\n", engineID, err)
+		return nil
+	}
+	providerEng, ok := eng.(engine2.ProviderEngine)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "[monika] SaveProvider: engine %q is not a provider engine\n", engineID)
+		return nil
+	}
+	a.providers[req.ID] = providerEng
+
 	return nil
 }
 
@@ -2441,6 +2592,7 @@ func (a *App) DeleteProvider(args json.RawMessage) error {
 		return err
 	}
 	delete(a.cfg.ModelProviders, req.ID)
+	delete(a.providers, req.ID)
 	a.writeConfig()
 	return nil
 }

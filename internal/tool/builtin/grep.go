@@ -13,6 +13,41 @@ import (
 	"monika/internal/tool"
 )
 
+// Directories to skip during walk. Add heavy/sensitive directories here.
+var skipDirs = map[string]bool{
+	".git": true, "node_modules": true, "vendor": true,
+	".venv": true, "venv": true, ".tox": true,
+	"__pycache__": true, ".mypy_cache": true, ".pytest_cache": true,
+	"dist": true, "build": true, "target": true,
+	".next": true, ".nuxt": true, ".output": true,
+	".cache": true, ".parcel-cache": true,
+	"coverage": true, ".nyc_output": true,
+	".idea": true, ".vscode": true, ".vs": true,
+	"bin": true, "obj": true,
+	".terraform": true, ".serverless": true,
+	"tmp": true, ".tmp": true,
+}
+
+// Binary file extensions that should never be grepped.
+var binaryExts = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".ico": true,
+	".svg": true, ".webp": true, ".bmp": true, ".tiff": true,
+	".mp3": true, ".mp4": true, ".mov": true, ".avi": true, ".mkv": true,
+	".webm": true, ".wav": true, ".ogg": true, ".flac": true,
+	".zip": true, ".tar": true, ".gz": true, ".bz2": true, ".xz": true,
+	".7z": true, ".rar": true, ".zst": true,
+	".exe": true, ".dll": true, ".so": true, ".dylib": true, ".wasm": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true,
+	".eot": true, ".map": true,
+	".class": true, ".pyc": true, ".pyo": true,
+	".o": true, ".a": true, ".lib": true,
+	".syso": true,
+}
+
+const maxWalkFiles = 5000
+
 type grepTool struct {
 	projectDir string
 }
@@ -100,6 +135,7 @@ func (g *grepTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 
 	var results []string
 	var matchCount int
+	var filesWalked int
 	var walkErrors []string
 	maxResults := 200
 
@@ -114,15 +150,25 @@ func (g *grepTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 			return nil
 		}
 		if info.IsDir() {
+			if skipDirs[info.Name()] {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if matchCount >= maxResults {
 			return filepath.SkipAll
 		}
+		if filesWalked >= maxWalkFiles {
+			return filepath.SkipAll
+		}
+		if binaryExts[strings.ToLower(filepath.Ext(info.Name()))] {
+			return nil
+		}
 		if includeRe != nil && !includeRe.MatchString(info.Name()) {
 			return nil
 		}
 
+		filesWalked++
 		relPath, _ := filepath.Rel(searchDir, path)
 		lineMatches, err := grepFile(path, re, relPath)
 		if err != nil {
@@ -140,12 +186,20 @@ func (g *grepTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 	})
 
 	if len(results) == 0 {
-		if len(walkErrors) > 0 {
-			return tool.ExecutionResult{Content: strings.Join(walkErrors, "\n"), IsError: true}, nil
+		msg := "No matches found"
+		if filesWalked >= maxWalkFiles {
+			msg += fmt.Sprintf(" (walked %d files before hitting limit)", filesWalked)
 		}
-		return tool.ExecutionResult{Content: "No matches found"}, nil
+		if len(walkErrors) > 0 {
+			msg += "\n\nwalk errors:\n" + strings.Join(walkErrors, "\n")
+			return tool.ExecutionResult{Content: msg, IsError: true}, nil
+		}
+		return tool.ExecutionResult{Content: msg}, nil
 	}
 	output := strings.Join(results, "\n")
+	if filesWalked >= maxWalkFiles {
+		output += fmt.Sprintf("\n\nwalk truncated: reached %d file limit", maxWalkFiles)
+	}
 	if len(walkErrors) > 0 {
 		output += "\n\nwalk errors:\n" + strings.Join(walkErrors, "\n")
 	}

@@ -37,89 +37,21 @@ type AgentEntry struct {
 	Permission   map[string]string `yaml:"permission,omitempty" json:"permission,omitempty"`
 }
 
-// ContextLimit is an optional token limit override for a model.
-type ContextLimit int64
-
-// Int64 returns the context limit as an int64, or 0 if unset.
-func (c ContextLimit) Int64() int64 { return int64(c) }
-
-// UnmarshalYAML implements yaml.Unmarshaler so that human-readable strings
-// like "128k" and "1m" are accepted alongside plain integers.
-func (c *ContextLimit) UnmarshalYAML(value *yaml.Node) error {
-	switch value.Kind {
-	case yaml.ScalarNode:
-		if value.Tag == "!!int" {
-			var n int64
-			if err := value.Decode(&n); err != nil {
-				return err
-			}
-			*c = ContextLimit(n)
-			return nil
-		}
-		// string — parse human-readable suffix
-		var s string
-		if err := value.Decode(&s); err != nil {
-			return err
-		}
-		n, err := parseSize(s)
-		if err != nil {
-			return err
-		}
-		*c = ContextLimit(n)
-		return nil
-	}
-	return fmt.Errorf("ContextLimit: expected scalar, got kind %d", value.Kind)
-}
-
-func parseSize(s string) (int64, error) {
-	if s == "" {
-		return 0, fmt.Errorf("empty size string")
-	}
-	// Strip optional 'b' or 'B' suffix (e.g. "128kb" → "128k")
-	if len(s) > 1 && (s[len(s)-1] == 'b' || s[len(s)-1] == 'B') {
-		s = s[:len(s)-1]
-	}
-	if len(s) == 0 {
-		return 0, fmt.Errorf("empty size string")
-	}
-	last := s[len(s)-1]
-	var mult int64 = 1
-	var numStr string
-	switch last {
-	case 'k', 'K':
-		mult = 1000
-		numStr = s[:len(s)-1]
-	case 'm', 'M':
-		mult = 1000000
-		numStr = s[:len(s)-1]
-	case 'g', 'G':
-		mult = 1000000000
-		numStr = s[:len(s)-1]
-	default:
-		numStr = s
-	}
-	var val int64
-	if _, err := fmt.Sscanf(numStr, "%d", &val); err != nil {
-		return 0, fmt.Errorf("cannot parse %q as size: %w", s, err)
-	}
-	if val < 0 {
-		return 0, fmt.Errorf("negative size: %s", s)
-	}
-	return val * mult, nil
-}
-
 type ModelEntry struct {
-	ID           string       `yaml:"id" json:"id"`
-	DisplayName  string       `yaml:"name" json:"name"`
-	ContextLimit ContextLimit `yaml:"context_limit,omitempty" json:"context_limit,omitempty"`
+	ID           string `yaml:"id" json:"id"`
+	DisplayName  string `yaml:"name" json:"name"`
+	ContextLimit int64  `yaml:"context_limit,omitempty" json:"context_limit,omitempty"`
+	OutputLimit  int64  `yaml:"output_limit,omitempty" json:"output_limit,omitempty"`
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
 }
 
 type ProviderConfig struct {
-	Name    string       `yaml:"name" json:"name"`
-	BaseURL string       `yaml:"base_url" json:"base_url"`
-	APIKey  string       `yaml:"api_key" json:"api_key"`
-	WireAPI string       `yaml:"wire_api" json:"wire_api"`
-	Models  []ModelEntry `yaml:"models" json:"models"`
+	Name              string       `yaml:"name" json:"name"`
+	BaseURL           string       `yaml:"base_url" json:"base_url"`
+	APIKey            string       `yaml:"api_key" json:"api_key"`
+	WireAPI           string       `yaml:"wire_api" json:"wire_api"`
+	ModelsDevProvider string       `yaml:"modelsdev_provider,omitempty" json:"modelsdev_provider,omitempty"`
+	Models            []ModelEntry `yaml:"models" json:"models"`
 }
 
 type SkillConfig struct {
@@ -250,7 +182,29 @@ func merge(dst *Config, src Config) {
 				current.WireAPI = provider.WireAPI
 			}
 			if len(provider.Models) > 0 {
-				current.Models = provider.Models
+				// Merge model entries: src updates context/output limits,
+				// but preserves user-set Enabled from the existing entry.
+				existingModels := make(map[string]int, len(current.Models))
+				for i, m := range current.Models {
+					existingModels[m.ID] = i
+				}
+				for _, srcModel := range provider.Models {
+					if idx, ok := existingModels[srcModel.ID]; ok {
+						target := &current.Models[idx]
+						if srcModel.DisplayName != "" {
+							target.DisplayName = srcModel.DisplayName
+						}
+						if srcModel.ContextLimit > 0 {
+							target.ContextLimit = srcModel.ContextLimit
+						}
+						if srcModel.OutputLimit > 0 {
+							target.OutputLimit = srcModel.OutputLimit
+						}
+						// Enabled stays as-is (user's choice)
+					} else {
+						current.Models = append(current.Models, srcModel)
+					}
+				}
 			}
 			dst.ModelProviders[key] = current
 		}
