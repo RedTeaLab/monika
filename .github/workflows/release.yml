@@ -10,27 +10,8 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-            binary: monika.exe
-            asset_name: monika_windows_amd64.zip
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-            binary: monika
-            asset_name: monika_darwin_amd64.zip
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-            binary: monika
-            asset_name: monika_linux_amd64.zip
-
-    runs-on: ${{ matrix.os }}
+    name: Build Windows
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -82,36 +63,33 @@ jobs:
 
       - name: Build binary
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+          GOOS: windows
+          GOARCH: amd64
           CGO_ENABLED: 1
+        shell: bash
         run: |
-          LDFLAGS="-w -s"
+          LDFLAGS="-w -s -H windowsgui"
           LDFLAGS="$LDFLAGS -X monika/internal/version.Version=${{ steps.version.outputs.version }}"
           LDFLAGS="$LDFLAGS -X monika/internal/version.CommitSHA=${{ github.sha }}"
           LDFLAGS="$LDFLAGS -X monika/internal/version.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           LDFLAGS="$LDFLAGS -X monika/internal/version.RepoOwner=${{ github.repository_owner }}"
           LDFLAGS="$LDFLAGS -X monika/internal/version.RepoName=monika"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            LDFLAGS="$LDFLAGS -H windowsgui"
-          fi
           go build \
             -tags production \
             -trimpath \
             -ldflags="$LDFLAGS" \
-            -o bin/${{ matrix.binary }}
+            -o bin/monika.exe
 
       - name: Package (zip)
-        shell: bash
+        shell: pwsh
         run: |
-          cd bin
-          zip ${{ matrix.asset_name }} ${{ matrix.binary }}
+          Compress-Archive -Path bin/monika.exe -DestinationPath bin/monika_windows_amd64.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset_name }}
-          path: bin/${{ matrix.asset_name }}
+          name: monika_windows_amd64.zip
+          path: bin/monika_windows_amd64.zip
 
   release:
     name: Create Release
