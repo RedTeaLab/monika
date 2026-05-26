@@ -4,9 +4,10 @@ import PermissionsTab from './PermissionsTab'
 import SkillsTab from './SkillsTab'
 import McpTab from './McpTab'
 import ModelsTab from './ModelsTab'
-import { IconDatabase, IconBot, IconShield, IconStar, IconPlug } from '../Icons'
+import AboutTab from './AboutTab'
+import { IconDatabase, IconBot, IconShield, IconStar, IconPlug, IconInfo } from '../Icons'
 
-type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models'
+type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models' | 'about'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'models', label: 'Providers', icon: <IconDatabase size={14} /> },
@@ -14,6 +15,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'permissions', label: 'Permissions', icon: <IconShield size={14} /> },
   { id: 'skills', label: 'Skills', icon: <IconStar size={14} /> },
   { id: 'mcp', label: 'MCP', icon: <IconPlug size={14} /> },
+  { id: 'about', label: 'About', icon: <IconInfo size={14} /> },
 ]
 
 function SettingsPage({ onClose }: { onClose: () => void }) {
@@ -64,6 +66,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
           {activeTab === 'skills' && <SkillsTab />}
           {activeTab === 'mcp' && <McpTab />}
           {activeTab === 'models' && <ModelsTab />}
+          {activeTab === 'about' && <AboutTab />}
         </main>
       </div>
     </div>

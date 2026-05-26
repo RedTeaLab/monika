@@ -9,14 +9,19 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as api$0 from "../../../../../monika/internal/api/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
+import * as update$0 from "../../../../../monika/internal/update/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "stream": $$createType0,
+        "update-available": $$createType1,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = api$0.StreamEvent.createFrom;
+const $$createType1 = update$0.UpdateInfo.createFrom;
 
 configure();

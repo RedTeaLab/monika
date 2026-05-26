@@ -22,6 +22,7 @@ import (
 	config2 "monika/internal/config"
 	"monika/internal/permission"
 	tool2 "monika/internal/tool"
+	"monika/internal/update"
 	engine2 "monika/pkg/engine"
 	"monika/pkg/modelsdev"
 
@@ -72,6 +73,7 @@ type App struct {
 	askUserMu       sync.Mutex
 
 	pipeline *permission.Pipeline
+	checker  *update.Checker
 }
 
 func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner, baseSystemPrompt string) *App {
@@ -95,6 +97,7 @@ func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.P
 		loopOpts:          loopOpts,
 		baseSystemPrompt:  baseSystemPrompt,
 		baseLoopOptsCount: len(loopOpts),
+		checker:           update.NewChecker(),
 	}
 }
 
@@ -233,6 +236,11 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 			}
 		}
 	}
+
+	// Auto-check for updates on startup (respects 4-hour cooldown).
+	go a.checker.AutoCheck(ctx, func(info *update.UpdateInfo) {
+		application.Get().Event.Emit("update-available", *info)
+	})
 
 	return nil
 }
@@ -2595,4 +2603,33 @@ func (a *App) DeleteProvider(args json.RawMessage) error {
 	delete(a.providers, req.ID)
 	a.writeConfig()
 	return nil
+}
+
+// GetAppVersion returns the application version information.
+func (a *App) GetAppVersion() update.VersionInfo {
+	return a.checker.GetVersion()
+}
+
+// CheckForUpdate checks GitHub for the latest release.
+func (a *App) CheckForUpdate() (*update.UpdateInfo, error) {
+	return a.checker.CheckForUpdate(context.Background())
+}
+
+// DownloadUpdate downloads the update for the given URL.
+func (a *App) DownloadUpdate(args json.RawMessage) error {
+	var req struct{ URL string }
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	return a.checker.DownloadUpdate(context.Background(), req.URL)
+}
+
+// InstallUpdate replaces the current binary and restarts.
+func (a *App) InstallUpdate() error {
+	return a.checker.InstallUpdate()
+}
+
+// GetUpdateStatus returns the current update process status.
+func (a *App) GetUpdateStatus() update.UpdateStatus {
+	return a.checker.Status()
 }

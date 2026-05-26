@@ -24,6 +24,7 @@ import {
   Copy,
   Zap,
   RefreshCw,
+  Info,
 } from 'lucide-react'
 
 export function IconClose({ size }: { size?: number }) {
@@ -124,4 +125,8 @@ export function IconZap({ size }: { size?: number }) {
 
 export function IconRefresh({ size }: { size?: number }) {
   return <RefreshCw size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconInfo({ size }: { size?: number }) {
+  return <Info size={size || 16} strokeWidth={1.5} />
 }

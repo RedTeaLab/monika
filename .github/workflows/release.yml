@@ -1,0 +1,144 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            binary: monika.exe
+            asset_name: monika_windows_amd64.zip
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            binary: monika
+            asset_name: monika_darwin_amd64.zip
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            binary: monika
+            asset_name: monika_linux_amd64.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: '3.x'
+
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.78
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Generate Wails bindings
+        run: |
+          wails3 generate bindings -ts
+          node -e "require('fs').copyFileSync('build/barrel_index.ts','frontend/bindings/monika/index.ts')"
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+        env:
+          PRODUCTION: 'true'
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          LDFLAGS="-w -s"
+          LDFLAGS="$LDFLAGS -X monika/internal/version.Version=${{ steps.version.outputs.version }}"
+          LDFLAGS="$LDFLAGS -X monika/internal/version.CommitSHA=${{ github.sha }}"
+          LDFLAGS="$LDFLAGS -X monika/internal/version.BuildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="$LDFLAGS -X monika/internal/version.RepoOwner=${{ github.repository_owner }}"
+          LDFLAGS="$LDFLAGS -X monika/internal/version.RepoName=monika"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            LDFLAGS="$LDFLAGS -H windowsgui"
+          fi
+          go build \
+            -tags production \
+            -trimpath \
+            -ldflags="$LDFLAGS" \
+            -o bin/${{ matrix.binary }}
+
+      - name: Package (zip)
+        shell: bash
+        run: |
+          cd bin
+          zip ${{ matrix.asset_name }} ${{ matrix.binary }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: bin/${{ matrix.asset_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          generate_release_notes: true
+          files: artifacts/**/*.zip

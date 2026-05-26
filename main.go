@@ -19,6 +19,7 @@ import (
 	"monika/internal/permission"
 	"monika/internal/tool"
 	"monika/internal/tool/builtin"
+	"monika/internal/update"
 	"monika/pkg/modelsdev"
 	engine2 "monika/pkg/engine"
 
@@ -131,6 +132,7 @@ func main() {
 	}
 
 	application.RegisterEvent[api.StreamEvent]("stream")
+	application.RegisterEvent[update.UpdateInfo]("update-available")
 
 	systemParts := []string{
 		fmt.Sprintf("OS Version: %s\nWorking directory: {{WorkingDirectory}}", runtime.GOOS),
