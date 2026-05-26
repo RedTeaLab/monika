@@ -81,6 +81,7 @@ func readFileLines(path string, offset, limit int) (tool.ExecutionResult, error)
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 10*1024*1024)
 	var lines []string
 	lineNum := 0
 	collected := 0

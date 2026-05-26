@@ -415,3 +415,70 @@ func TestFileEditMultiLine(t *testing.T) {
 		t.Fatalf("content = %q", string(data))
 	}
 }
+
+func TestFileEditCRLFNormalization(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.txt")
+	// File uses CRLF line endings
+	if err := os.WriteFile(path, []byte("line1\r\nline2\r\nline3\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	// old_string uses LF (as the AI would provide)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "line1\nline2",
+		"new_string": "alpha\nbeta",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "alpha\r\nbeta\r\nline3\r\n" {
+		t.Fatalf("content = %q", string(data))
+	}
+}
+
+func TestFileEditPreservesPermissions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.sh")
+	if err := os.WriteFile(path, []byte("echo hello\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	origInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := NewFileEdit(dir)
+	args, _ := json.Marshal(map[string]any{
+		"filePath":   path,
+		"old_string": "hello",
+		"new_string": "goodbye",
+	})
+	result, err := f.Execute(context.Background(), args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.IsError {
+		t.Fatalf("unexpected error: %s", result.Content)
+	}
+
+	newInfo, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if origInfo.Mode() != newInfo.Mode() {
+		t.Fatalf("permissions changed: %o -> %o", origInfo.Mode(), newInfo.Mode())
+	}
+}

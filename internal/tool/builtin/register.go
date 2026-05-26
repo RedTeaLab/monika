@@ -33,6 +33,7 @@ func RegisterAskUser(r *tool.ToolRegistry) {
 // Called separately after TaskStore is created in main.
 func RegisterTasks(r *tool.ToolRegistry, store tool.TaskStore) {
 	r.Register(NewTaskCreate(store))
+	r.Register(NewTaskAppend(store))
 	r.Register(NewTaskUpdate(store))
 	r.Register(NewTaskList(store))
 }

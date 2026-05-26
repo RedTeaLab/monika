@@ -109,6 +109,7 @@ func AskUserFuncFromContext(ctx context.Context) AskUserFunc {
 // TaskStore is the interface task tools depend on.
 type TaskStore interface {
 	Replace(sessionID string, tasks []Task) error
+	Append(sessionID string, tasks []Task) error
 	Update(sessionID, taskID string, fields TaskUpdateFields) error
 	List(sessionID string) []Task
 }

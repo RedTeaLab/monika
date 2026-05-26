@@ -79,15 +79,29 @@ func (f *fileEdit) resolvePath(ctx context.Context, p string) (string, error) {
 }
 
 func (f *fileEdit) editFile(path, oldString, newString string, replaceAll bool) (tool.ExecutionResult, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	content := string(data)
+	rawContent := string(data)
+	hadCRLF := strings.Contains(rawContent, "\r\n")
+
+	content := strings.ReplaceAll(rawContent, "\r\n", "\n")
+	oldString = strings.ReplaceAll(oldString, "\r\n", "\n")
+	newString = strings.ReplaceAll(newString, "\r\n", "\n")
 	count := strings.Count(content, oldString)
 	if count == 0 {
-		return tool.ExecutionResult{Content: "old_string not found in file", IsError: true}, nil
+		snippet := oldString
+		if len(snippet) > 80 {
+			snippet = snippet[:80] + "..."
+		}
+		return tool.ExecutionResult{Content: fmt.Sprintf("old_string not found in file: %q", snippet), IsError: true}, nil
 	}
 	if count > 1 && !replaceAll {
 		return tool.ExecutionResult{
@@ -97,7 +111,10 @@ func (f *fileEdit) editFile(path, oldString, newString string, replaceAll bool) 
 	}
 
 	result := strings.ReplaceAll(content, oldString, newString)
-	if err := os.WriteFile(path, []byte(result), 0o644); err != nil {
+	if hadCRLF {
+		result = strings.ReplaceAll(result, "\n", "\r\n")
+	}
+	if err := os.WriteFile(path, []byte(result), info.Mode()); err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 

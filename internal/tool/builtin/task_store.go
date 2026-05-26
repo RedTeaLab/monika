@@ -71,30 +71,64 @@ func (ts *taskStore) Replace(sessionID string, tasks []tool.Task) error {
 		}
 	}
 
-	// Merge with existing tasks: preserve completed/cancelled status for idempotency.
-	// When task_create is called again, tasks that were already completed or cancelled
-	// should not have their status overwritten back to pending.
-	existing := ts.tasks[sessionID]
-	if len(existing) > 0 {
-		statusMap := make(map[string]string, len(existing))
-		for _, t := range existing {
-			if t.Status == "completed" || t.Status == "cancelled" {
-				statusMap[t.ID] = t.Status
-			}
-		}
-		for i := range tasks {
-			if preserved, ok := statusMap[tasks[i].ID]; ok {
-				tasks[i].Status = preserved
-			}
-		}
-	}
-
 	ts.mu.Lock()
 	ts.tasks[sessionID] = tasks
 	ts.mu.Unlock()
 
 	if ts.onChange != nil {
 		ts.onChange(sessionID, tasks)
+	}
+	return nil
+}
+
+func (ts *taskStore) Append(sessionID string, newTasks []tool.Task) error {
+	if len(newTasks) == 0 {
+		return fmt.Errorf("validation: tasks must not be empty")
+	}
+
+	existing := ts.List(sessionID)
+	if len(existing)+len(newTasks) > maxTasks {
+		return fmt.Errorf("validation: too many tasks (%d existing + %d new > max %d)", len(existing), len(newTasks), maxTasks)
+	}
+
+	for i, t := range newTasks {
+		if strings.TrimSpace(t.ID) == "" {
+			return fmt.Errorf("validation: task %d: id must not be empty", i)
+		}
+		if strings.TrimSpace(t.Subject) == "" {
+			return fmt.Errorf("validation: task %d (%q): subject must not be empty", i, t.ID)
+		}
+		if !validStatuses[t.Status] {
+			return fmt.Errorf("validation: task %d (%q): invalid status %q", i, t.ID, t.Status)
+		}
+	}
+
+	allTasks := append(existing, newTasks...)
+
+	ids := make(map[string]bool, len(allTasks))
+	for _, t := range allTasks {
+		if ids[t.ID] {
+			return fmt.Errorf("validation: duplicate task id %q", t.ID)
+		}
+		ids[t.ID] = true
+	}
+	for i, t := range newTasks {
+		for _, dep := range t.BlockedBy {
+			if dep == t.ID {
+				return fmt.Errorf("validation: task %d (%q): blockedBy cannot reference itself", i, t.ID)
+			}
+			if !ids[dep] {
+				return fmt.Errorf("validation: task %d (%q): blockedBy %q does not reference any task in the list", i, t.ID, dep)
+			}
+		}
+	}
+
+	ts.mu.Lock()
+	ts.tasks[sessionID] = allTasks
+	ts.mu.Unlock()
+
+	if ts.onChange != nil {
+		ts.onChange(sessionID, allTasks)
 	}
 	return nil
 }

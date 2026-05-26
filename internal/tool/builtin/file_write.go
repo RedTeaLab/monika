@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"monika/internal/tool"
 )
@@ -50,36 +49,19 @@ func (f *fileWrite) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	if !filepath.IsAbs(params.FilePath) {
-		return tool.ExecutionResult{Content: "filePath must be absolute", IsError: true}, nil
-	}
-	absPath, err := filepath.Abs(params.FilePath)
+	safePath, err := resolveToolPath(params.FilePath, tool.ProjectDirOrDefault(ctx, f.projectDir))
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
-	}
-	absProject, err := filepath.Abs(tool.ProjectDirOrDefault(ctx, f.projectDir))
-	if err != nil {
-		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
-	}
-	if real, err := filepath.EvalSymlinks(absProject); err == nil {
-		absProject = real
-	}
-	if real, err := filepath.EvalSymlinks(absPath); err == nil {
-		absPath = real
-	}
-	rel, err := filepath.Rel(absProject, absPath)
-	if err != nil || strings.HasPrefix(rel, "..") {
-		return tool.ExecutionResult{Content: fmt.Sprintf("path %s is outside project directory", params.FilePath), IsError: true}, nil
 	}
 
-	dir := filepath.Dir(absPath)
+	dir := filepath.Dir(safePath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	if err := os.WriteFile(absPath, []byte(params.Content), 0o644); err != nil {
+	if err := os.WriteFile(safePath, []byte(params.Content), 0o644); err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	return tool.ExecutionResult{Content: fmt.Sprintf("Wrote %d bytes to %s", len(params.Content), absPath)}, nil
+	return tool.ExecutionResult{Content: fmt.Sprintf("Wrote %d bytes to %s", len(params.Content), safePath)}, nil
 }
