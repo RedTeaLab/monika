@@ -13,43 +13,56 @@ func (c *Checker) InstallUpdate() error {
 	if err != nil {
 		return err
 	}
+	c.logf("InstallUpdate: exePath=%s", exePath)
 
 	newExe := filepath.Join(c.destDir, "monika.exe")
 	if _, err := os.Stat(newExe); os.IsNotExist(err) {
 		return fmt.Errorf("new binary not found: %s", newExe)
 	}
+	c.logf("InstallUpdate: newExe=%s, size=%d", newExe, fileSize(newExe))
 
 	exeDir := filepath.Dir(exePath)
-
-	// 1. Rename the old exe (Windows allows renaming a running exe).
 	oldPath := filepath.Join(exeDir, "monika.old.exe")
-	os.Remove(oldPath) // clean up leftover from previous update
+
+	// 1. Remove leftover from previous update, if any.
+	os.Remove(oldPath)
+
+	// 2. Rename running exe (Windows allows rename of in-use files).
 	if err := os.Rename(exePath, oldPath); err != nil {
+		c.logf("InstallUpdate: rename failed: %v", err)
 		return fmt.Errorf("rename old exe: %w", err)
 	}
+	c.logf("InstallUpdate: renamed %s -> %s", exePath, oldPath)
 
-	// 2. Copy new exe into place.
+	// 3. Copy new exe into place.
 	if err := copyFile(newExe, exePath); err != nil {
-		// Rollback: rename old back
-		os.Rename(oldPath, exePath)
+		os.Rename(oldPath, exePath) // rollback
+		c.logf("InstallUpdate: copy failed: %v", err)
 		return fmt.Errorf("copy new exe: %w", err)
 	}
+	c.logf("InstallUpdate: copied %s -> %s", newExe, exePath)
 
-	// 3. Clean up old exe on next startup via a detached cmd.
-	cleanupScript := filepath.Join(exeDir, "cleanup.bat")
-	script := "@echo off\r\n" +
-		"ping -n 3 127.0.0.1 >nul\r\n" +
-		"del /F /Q \"" + oldPath + "\" >nul 2>&1\r\n" +
-		"del /F /Q \"" + filepath.Join(c.destDir, "monika.exe") + "\" >nul 2>&1\r\n" +
-		"del \"%~f0\"\r\n"
-	os.WriteFile(cleanupScript, []byte(script), 0700)
-	exec.Command("cmd", "/c", "start", "", "/b", "cmd", "/c", cleanupScript).Start()
+	// 4. Launch new version.
+	cmd := exec.Command(exePath)
+	cmd.Dir = exeDir
+	if err := cmd.Start(); err != nil {
+		os.Rename(oldPath, exePath) // rollback
+		c.logf("InstallUpdate: start failed: %v", err)
+		return fmt.Errorf("start new exe: %w", err)
+	}
+	c.logf("InstallUpdate: new process started, pid=%d, exiting", cmd.Process.Pid)
 
-	// 4. Launch the new version.
-	exec.Command("cmd", "/c", "start", "", exePath).Start()
-
+	// 5. Exit old process.
 	os.Exit(0)
 	return nil
+}
+
+func fileSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return -1
+	}
+	return info.Size()
 }
 
 func copyFile(src, dst string) error {
@@ -69,4 +82,12 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
+}
+
+// CleanupOld removes leftover monika.old.exe from a previous update.
+func CleanupOld(exeDir string) {
+	oldPath := filepath.Join(exeDir, "monika.old.exe")
+	if _, err := os.Stat(oldPath); err == nil {
+		os.Remove(oldPath)
+	}
 }

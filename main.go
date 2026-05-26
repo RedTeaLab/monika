@@ -35,6 +35,11 @@ import (
 var embeddedAssets embed.FS
 
 func main() {
+	// Clean up leftover from previous update.
+	if exe, err := os.Executable(); err == nil {
+		update.CleanupOld(filepath.Dir(exe))
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "cannot determine home directory:", err)

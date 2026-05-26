@@ -44,12 +44,6 @@ export default function AboutTab() {
     return () => cancel()
   }, [])
 
-  const pollStatus = useCallback(async () => {
-    const s = await Call.ByName('monika/internal/api.App.GetUpdateStatus')
-    setStatus(s)
-    return s
-  }, [])
-
   const handleCheck = useCallback(async () => {
     setChecking(true)
     setStatus({ state: 'checking', progress: 0, message: 'Checking for updates...' })
@@ -73,25 +67,25 @@ export default function AboutTab() {
     setDownloading(true)
     setStatus({ state: 'downloading', progress: 0, message: 'Downloading...' })
 
-    // Start polling before the await so we get progress updates.
+    // Poll for progress during download.
     const poll = setInterval(async () => {
-      const s = await pollStatus()
-      setStatus(s)
-      if (s.state === 'downloaded' || s.state === 'error') {
-        clearInterval(poll)
-        setDownloading(false)
+      const s = await Call.ByName('monika/internal/api.App.GetUpdateStatus')
+      if (s.state === 'downloading') {
+        setStatus(s)
       }
     }, 500)
 
     try {
       await Call.ByName('monika/internal/api.App.DownloadUpdate', { url: updateInfo.downloadURL })
-    } catch (err: any) {
-      setStatus({ state: 'error', progress: 0, message: err?.message || 'Download failed' })
-      setDownloading(false)
-    } finally {
       clearInterval(poll)
+      setDownloading(false)
+      setStatus({ state: 'downloaded', progress: 100, message: 'Update downloaded and ready to install' })
+    } catch (err: any) {
+      clearInterval(poll)
+      setDownloading(false)
+      setStatus({ state: 'error', progress: 0, message: err?.message || 'Download failed' })
     }
-  }, [updateInfo, pollStatus])
+  }, [updateInfo])
 
   const handleInstall = useCallback(async () => {
     setStatus({ state: 'installing', progress: 0, message: 'Installing and restarting...' })
@@ -155,6 +149,9 @@ export default function AboutTab() {
             {status.message}
           </div>
         )}
+
+        {/* Debug: show raw state */}
+        <div className="text-[10px] text-[var(--text-dim)] mb-2">state={status.state} downloading={String(downloading)}</div>
 
         {/* Progress bar */}
         {status.state === 'downloading' && (

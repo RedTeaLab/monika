@@ -54,10 +54,15 @@ monika/
 
 ## Supported Providers
 
+Monika works with any OpenAI-compatible API endpoint. Model context and output limits are automatically fetched from [models.dev](https://models.dev).
+
 | Provider | Engine ID | Default Model |
 |----------|-----------|---------------|
 | DeepSeek | `deepseek` | `deepseek-chat` |
 | OpenAI | `openai` | `gpt-4o` |
+| Anthropic Claude | via OpenAI-compatible API | `claude-sonnet-4-5` |
+| Google Gemini | via OpenAI-compatible API | `gemini-2.0-flash` |
+| Custom | any OpenAI-compatible endpoint | — |
 
 ## Features
 
@@ -85,5 +90,17 @@ go mod tidy              # Tidy dependencies
 
 ## License
 
-MIT
+Monika is licensed under the [MIT License](LICENSE).
+
+Third-party components and their licenses:
+
+| Component | License |
+|-----------|---------|
+| [Wails](https://wails.io) | MIT |
+| [CodeMirror](https://codemirror.net) | MIT |
+| [dockview](https://dockview.dev) | MIT |
+| [React](https://react.dev) | MIT |
+| [zustand](https://zustand.docs.pmnd.rs) | MIT |
+| [LXGW WenKai](https://github.com/lxgw/LxgwWenKai) | SIL OFL 1.1 |
+| [Maple Mono NF](https://github.com/subframe7536/Maple-font) | SIL OFL 1.1 |
 

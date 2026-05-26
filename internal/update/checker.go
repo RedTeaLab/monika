@@ -46,13 +46,27 @@ type Checker struct {
 	client  *http.Client
 	status  UpdateStatus
 	destDir string
+	logPath string
 }
 
 func NewChecker() *Checker {
+	tmpDir := filepath.Join(os.TempDir(), "monika_update")
+	os.MkdirAll(tmpDir, 0700)
 	return &Checker{
-		client: &http.Client{Timeout: 30 * time.Second},
-		status: UpdateStatus{State: "idle"},
+		client:  &http.Client{Timeout: 30 * time.Second},
+		status:  UpdateStatus{State: "idle"},
+		logPath: filepath.Join(tmpDir, "update.log"),
 	}
+}
+
+func (c *Checker) logf(format string, args ...interface{}) {
+	line := fmt.Sprintf("[%s] %s\n", time.Now().Format("15:04:05"), fmt.Sprintf(format, args...))
+	f, err := os.OpenFile(c.logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(line)
 }
 
 func (c *Checker) GetVersion() VersionInfo {
@@ -79,16 +93,20 @@ func (c *Checker) setStatus(s UpdateStatus) {
 // onAvailable is called when an update is available (may be nil).
 func (c *Checker) AutoCheck(ctx context.Context, onAvailable func(*UpdateInfo)) {
 	if !c.shouldCheck() {
+		c.logf("AutoCheck: skipped, cooldown not expired")
 		return
 	}
 
+	c.logf("AutoCheck: checking for updates...")
 	info, err := c.CheckForUpdate(ctx)
 	if err != nil {
+		c.logf("AutoCheck: error: %v", err)
 		return
 	}
 	c.recordCheck()
 
 	if info.HasUpdate && onAvailable != nil {
+		c.logf("AutoCheck: update available, notifying frontend")
 		onAvailable(info)
 	}
 }
@@ -142,6 +160,7 @@ type githubAsset struct {
 }
 
 func (c *Checker) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
+	c.logf("CheckForUpdate: starting, current version=%s", version.Version)
 	c.setStatus(UpdateStatus{State: "checking"})
 	defer func() {
 		c.mu.Lock()
@@ -185,6 +204,7 @@ func (c *Checker) CheckForUpdate(ctx context.Context) (*UpdateInfo, error) {
 
 	current := version.Version
 	latest := strings.TrimPrefix(rel.TagName, "v")
+	c.logf("CheckForUpdate: current=%s, latest=%s, hasUpdate=%v", current, latest, compareVersions(latest, current) > 0)
 
 	info := &UpdateInfo{
 		CurrentVersion: current,
@@ -257,6 +277,7 @@ func (c *Checker) DownloadUpdate(ctx context.Context, downloadURL string) error 
 		return err
 	}
 	c.destDir = tmpDir
+	c.logf("DownloadUpdate: destDir=%s, url=%s", tmpDir, downloadURL)
 
 	zipPath := filepath.Join(tmpDir, "monika_update.zip")
 
@@ -318,12 +339,21 @@ func (c *Checker) DownloadUpdate(ctx context.Context, downloadURL string) error 
 		}
 	}
 
+	c.logf("DownloadUpdate: download complete, written=%d bytes", written)
+
 	// Extract zip.
 	if err := extractZip(zipPath, tmpDir); err != nil {
 		c.setStatus(UpdateStatus{State: "error", Message: err.Error()})
 		return err
 	}
 	os.Remove(zipPath) // clean up temp zip after extraction
+	c.logf("DownloadUpdate: extraction complete, files in %s:", tmpDir)
+	if entries, err := os.ReadDir(tmpDir); err == nil {
+		for _, e := range entries {
+			c.logf("  %s", e.Name())
+		}
+	}
+	c.logf("DownloadUpdate: ready to install")
 
 	c.setStatus(UpdateStatus{
 		State:    "downloaded",
