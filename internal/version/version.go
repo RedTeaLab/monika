@@ -4,6 +4,6 @@ var (
 	Version   = "dev"
 	CommitSHA = "unknown"
 	BuildTime = "unknown"
-	RepoOwner = "unknown"
-	RepoName  = "unknown"
+	RepoOwner = "RedTeaLab"
+	RepoName  = "monika"
 )

@@ -98,10 +98,14 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 				opts = append(opts, WithProvider(parent.providerID))
 			}
 		}
-		// Resolve provider engine from task.Provider, falling back to default
+		// Resolve provider engine: task explicit > parent inheritance > default
 		provEng := r.provider
-		if task.Provider != "" {
-			if p, ok := r.providers[task.Provider]; ok {
+		resolvedProvider := task.Provider
+		if resolvedProvider == "" && parent != nil {
+			resolvedProvider = parent.providerID
+		}
+		if resolvedProvider != "" {
+			if p, ok := r.providers[resolvedProvider]; ok {
 				provEng = p
 			}
 		}

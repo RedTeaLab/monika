@@ -270,7 +270,10 @@ func (c *Checker) DownloadUpdate(ctx context.Context, downloadURL string) error 
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	resp, err := c.client.Do(req)
+	// Use a client without timeout for download — the binary can be large
+	// and networks may be slow.
+	dlClient := &http.Client{}
+	resp, err := dlClient.Do(req)
 	if err != nil {
 		c.setStatus(UpdateStatus{State: "error", Message: err.Error()})
 		return err
