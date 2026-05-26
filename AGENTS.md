@@ -124,6 +124,40 @@ Layout modes: `chat`, `split`, `files`. Controlled by `layoutMode` in Zustand st
 - `gopkg.in/yaml.v3` — config file parsing.
 - `encoding/json`, `os`, `os/exec`, `path/filepath` — stdlib only for engine implementations.
 
+## Commit Message 规范
+所有 commit message 必须遵循 [Conventional Commits](https://www.conventionalcommits.org/) 格式，Release workflow 会根据前缀自动分类生成 Changelog。
+
+格式：`<type>(<scope>): <description>`
+
+### 类型（type）
+| 前缀 | Changelog 分类 | 说明 |
+|------|---------------|------|
+| `feat` | 🚀 New Features | 新功能 |
+| `fix` | 🐛 Bug Fixes | 修复缺陷 |
+| `refactor` | ♻️ Refactoring | 重构（不改变行为） |
+| `perf` | ⚡ Performance | 性能优化 |
+| `docs` | 📝 Documentation | 文档变更 |
+| 其他 | 🔧 Other Changes | 以上未覆盖的变更 |
+
+### scope（可选）
+常用 scope 示例：`agent`、`api`、`config`、`engine`、`frontend`、`tools`、`mcp`、`skill`。
+
+### 示例
+```
+feat(agent): add streaming tool call support
+fix(config): resolve crash on invalid YAML input
+refactor(engine): extract provider interface to pkg/engine
+perf(api): reduce memory allocations in event bus
+docs: update AGENTS.md with commit conventions
+chore: upgrade Go to 1.25
+```
+
+### 破坏性变更
+在 type 后加 `!` 或在 footer 写 `BREAKING CHANGE:`：
+```
+feat(api)!: change SendMessage signature to accept options struct
+```
+
 ## Gotchas
 - No go.work, no replace directives — single module, single `go.mod`.
 - Each engine must call `engine.Register()` in `init()`.
