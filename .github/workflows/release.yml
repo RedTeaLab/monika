@@ -52,6 +52,12 @@ jobs:
         env:
           PRODUCTION: 'true'
 
+      - name: Install go-winres
+        run: go install github.com/tc-hib/go-winres@latest
+
+      - name: Generate Windows resources
+        run: go-winres make
+
       - name: Extract version from tag
         id: version
         shell: bash
