@@ -7,8 +7,6 @@ frontend/dist/
 .superpowers/
 .monika/
 .claude/
-winres/icon*.png
-winres/icon.ico
 winres/build/
 winres/winres/
 rsrc_windows_*.syso
