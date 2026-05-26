@@ -686,7 +686,7 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 }
 
 func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage string) <-chan Event {
-	ch := make(chan Event, 64)
+	ch := make(chan Event, 128)
 	a.conv = conv
 	go func() {
 		defer close(ch)
@@ -742,7 +742,7 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		var collected []engine.ChatEvent
 		var textBuf strings.Builder
 		var thinkingBuf strings.Builder
-		flushTick := time.NewTicker(30 * time.Millisecond)
+		flushTick := time.NewTicker(50 * time.Millisecond)
 		defer flushTick.Stop()
 
 		flushText := func() {

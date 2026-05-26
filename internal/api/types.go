@@ -11,6 +11,7 @@ type StreamEvent struct {
 	Content    string                              `json:"content,omitempty"`
 	SessionID  string                              `json:"session_id,omitempty"`
 	Model      string                              `json:"model,omitempty"`
+	Seq        int64                               `json:"seq,omitempty"`
 	Tool       *agent.ToolEvent                    `json:"tool,omitempty"`
 	AgentUsage *agent.UsageEvent                   `json:"usage,omitempty"`
 	FileChange *FileChangeEvent                    `json:"file_change,omitempty"`

@@ -68,7 +68,12 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 		Messages: messages,
 		Stream:   true,
 		Tools:    tools,
-		StreamOptions: &streamOptions{IncludeUsage: true},
+	}
+
+	// stream_options is OpenAI-specific. Compatible providers (GLM, DeepSeek, etc.)
+	// may not support it and some even buffer the response when it's present.
+	if strings.Contains(baseURL, "api.openai.com") {
+		body.StreamOptions = &streamOptions{IncludeUsage: true}
 	}
 
 	data, err := json.Marshal(body)
@@ -96,7 +101,7 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 		return nil, fmt.Errorf("provider returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	ch := make(chan engine.ChatEvent, 64)
+	ch := make(chan engine.ChatEvent, 128)
 	go func() {
 		defer close(ch)
 		defer resp.Body.Close()

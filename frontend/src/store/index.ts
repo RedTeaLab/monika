@@ -511,7 +511,24 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ sessionStatuses: { ...s.sessionStatuses, [sessionId]: status } })),
   setSessionError: (sessionId, error) =>
     set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: error } })),
-  setSelectedModel: (model) => set({ selectedModel: model }),
+  setSelectedModel: (model) => {
+    set((s) => {
+      const models = s.modelsByProvider[s.selectedProvider] || []
+      const m = models.find((m: any) => m.ID === model) as any
+      const newMax = m?.ContextLimit ?? 0
+      const sid = s.activeSessionId
+      const current = s.sessionTokens[sid]
+      return {
+        selectedModel: model,
+        ...(newMax > 0 && sid
+          ? {
+              tokenMax: newMax,
+              sessionTokens: { ...s.sessionTokens, [sid]: { count: current?.count ?? 0, max: newMax } },
+            }
+          : {}),
+      }
+    })
+  },
   setPermissionMode: (mode) => {
     set({ permissionMode: mode })
     // Notify backend to update pipeline mode
@@ -543,14 +560,17 @@ export const useStore = create<AppState>((set, get) => ({
       return updates
     })
   },
-  addTokens: (sid, t, max) => set((s) => ({
+  addTokens: (sid, t, max) => set((s) => {
+    const prev = s.sessionTokens[sid]
+    const effectiveMax = max ?? prev?.max ?? s.tokenMax
+    return {
     tokenCount: s.activeSessionId === sid ? t : s.tokenCount,
-    tokenMax: s.activeSessionId === sid ? Math.max(s.tokenMax, max ?? 0) : s.tokenMax,
+    tokenMax: s.activeSessionId === sid ? effectiveMax : s.tokenMax,
     sessionTokens: {
       ...s.sessionTokens,
-      [sid]: { count: t, max: Math.max(s.sessionTokens[sid]?.max ?? 0, max ?? 0) },
+      [sid]: { count: t, max: effectiveMax },
     },
-  })),
+  }}),
 
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
@@ -1242,73 +1262,66 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
 
 export function setupWailsEvents() {
 
-  // Batch text_delta and thinking events per session to reduce re-renders
-  const textBatch: Record<string, { text: string; thinking: string; model?: string }> = {}
+  // Batch text_delta and thinking events per session to reduce re-renders.
+  // Use arrays to avoid repeated string concatenation; join on flush.
+  const textBatch: Record<string, { textParts: string[]; thinkingParts: string[]; model?: string }> = {}
   let rafScheduled = false
 
-  function flushTextBatch() {
-    rafScheduled = false
-    const store = useStore.getState()
-    for (const [sid, batch] of Object.entries(textBatch)) {
-      if (batch.text) store.updateSessionMessage(sid, batch.text)
-      if (batch.thinking) store.updateSessionThinking(sid, batch.thinking)
-      if (batch.model) store.setLastAssistantMeta(sid, { model: batch.model })
+  // Sequenced event queue: Wails EventProcessor.Emit dispatches via go func(),
+  // so high-frequency events may arrive out of order. We buffer by seq and
+  // process in order to prevent text interleaving.
+  let nextSeq = 1
+  const pendingEvents: (StreamEvent & { seq?: number })[] = []
+  let drainScheduled = false
+
+  function drainPendingEvents() {
+    drainScheduled = false
+    if (pendingEvents.length === 0) return
+    pendingEvents.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0))
+    while (pendingEvents.length > 0) {
+      const front = pendingEvents[0]
+      const seq = front.seq ?? 0
+      if (seq === 0 || seq === nextSeq) {
+        pendingEvents.shift()
+        nextSeq = seq > 0 ? seq + 1 : nextSeq
+        processEvent(front)
+      } else if (seq < nextSeq) {
+        pendingEvents.shift()
+      } else {
+        break
+      }
     }
-    for (const k of Object.keys(textBatch)) delete textBatch[k]
+    if (pendingEvents.length > 0 && !drainScheduled) {
+      drainScheduled = true
+      setTimeout(drainPendingEvents, 0)
+    }
   }
 
-  Events.On('stream', (ev) => {
-    let store = useStore.getState()
-    const data = ev.data as StreamEvent
-    const sid = data.session_id
-
-    // Auto-create entry for child session so streaming events are buffered
-    if (sid && (sid.startsWith('call_') || sid.startsWith('sub_')) && !store.sessionMessages[sid]) {
-      useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
-      store = useStore.getState()
-    }
-
-    // Handle permission_required events �?they carry a session_id but may
-    // arrive before the session tab is opened in the frontend.
-    const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
-    if (data.type === 'permission_required' && permPayload) {
-      useStore.setState({ pendingPermission: permPayload })
-      return
-    }
-
-    const askPayload = (data as any).ask_user as AskUserEvent | undefined
-    if (data.type === 'ask_user' && askPayload) {
-      useStore.setState({ pendingAskUser: askPayload })
-      return
-    }
-
-    // Drop events with no session_id or session that was explicitly closed
-    if (!sid || !store.sessionMessages[sid]) {
-      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
-      return
-    }
+  function processEvent(data: StreamEvent & { seq?: number }) {
+    const sid = data.session_id!
+    const store = useStore.getState()
 
     switch (data.type) {
       case 'text_delta':
-        if (!textBatch[sid]) textBatch[sid] = { text: '', thinking: '' }
-        textBatch[sid].text += data.content || ''
+        if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
+        textBatch[sid].textParts.push(data.content || '')
         if (data.model) textBatch[sid].model = data.model
         if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
         break
 
       case 'thinking':
-        if (!textBatch[sid]) textBatch[sid] = { text: '', thinking: '' }
-        textBatch[sid].thinking += data.content || ''
+        if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
+        textBatch[sid].thinkingParts.push(data.content || '')
         if (data.model) textBatch[sid].model = data.model
         if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
         break
 
       case 'tool_start':
+        if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-            // Snapshot file content before edit
             if ((data.tool.name === 'file_edit' || data.tool.name === 'file_write') && data.tool.input) {
               try {
                 const parsed = JSON.parse(data.tool.input)
@@ -1326,6 +1339,7 @@ export function setupWailsEvents() {
         break
 
       case 'tool_output':
+        if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
         if (data.tool) {
           store.updateSessionToolDone(sid, data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
           if (data.tool.input) {
@@ -1341,6 +1355,7 @@ export function setupWailsEvents() {
         break
 
       case 'tool_done':
+        if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
         if (data.tool) {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
@@ -1374,8 +1389,6 @@ export function setupWailsEvents() {
         break
 
       case 'file_changed':
-        if (data.file_change) {
-        }
         store.bumpFileTreeVersion()
         break
 
@@ -1421,6 +1434,62 @@ export function setupWailsEvents() {
           store.addTokens(sid, data.compaction.after_tokens, undefined)
         }
         break
+    }
+  }
+
+  function flushTextBatch() {
+    rafScheduled = false
+    const store = useStore.getState()
+    for (const [sid, batch] of Object.entries(textBatch)) {
+      if (batch.textParts.length) store.updateSessionMessage(sid, batch.textParts.join(''))
+      if (batch.thinkingParts.length) store.updateSessionThinking(sid, batch.thinkingParts.join(''))
+      if (batch.model) store.setLastAssistantMeta(sid, { model: batch.model })
+    }
+    for (const k of Object.keys(textBatch)) delete textBatch[k]
+  }
+
+  Events.On('stream', (ev) => {
+    let store = useStore.getState()
+    const data = ev.data as StreamEvent & { seq?: number }
+    const sid = data.session_id
+
+    // Auto-create entry for child session so streaming events are buffered
+    if (sid && (sid.startsWith('call_') || sid.startsWith('sub_')) && !store.sessionMessages[sid]) {
+      useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
+      store = useStore.getState()
+    }
+
+    // Handle permission_required events — they carry a session_id but may
+    // arrive before the session tab is opened in the frontend.
+    const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
+    if (data.type === 'permission_required' && permPayload) {
+      useStore.setState({ pendingPermission: permPayload })
+      return
+    }
+
+    const askPayload = (data as any).ask_user as AskUserEvent | undefined
+    if (data.type === 'ask_user' && askPayload) {
+      useStore.setState({ pendingAskUser: askPayload })
+      return
+    }
+
+    // Drop events with no session_id or session that was explicitly closed
+    if (!sid || !store.sessionMessages[sid]) {
+      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
+      return
+    }
+
+    // Route through sequenced queue to prevent out-of-order rendering
+    if (data.seq && data.seq > 0) {
+      pendingEvents.push(data)
+      if (pendingEvents.length === 1) {
+        drainPendingEvents()
+      } else if (!drainScheduled) {
+        drainScheduled = true
+        setTimeout(drainPendingEvents, 0)
+      }
+    } else {
+      processEvent(data)
     }
   })
 }

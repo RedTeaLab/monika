@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	agent2 "monika/internal/agent"
@@ -74,6 +75,8 @@ type App struct {
 
 	pipeline *permission.Pipeline
 	checker  *update.Checker
+
+	eventSeq atomic.Int64
 }
 
 func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner, baseSystemPrompt string) *App {
@@ -905,6 +908,7 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 	se := StreamEvent{
 		SessionID: sid,
 		Model:     model,
+		Seq:       a.eventSeq.Add(1),
 	}
 
 	switch ev.Type {
@@ -950,6 +954,7 @@ func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
 		SessionID: sessionID,
 		Type:      "task_updated",
 		Tasks:     tasks,
+		Seq:       a.eventSeq.Add(1),
 	}
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
@@ -1476,6 +1481,7 @@ func (a *App) RequestConfirm(ctx context.Context, ev permission.PermissionRequir
 		Type:       "permission_required",
 		SessionID:  ev.SessionID,
 		Permission: &ev,
+		Seq:        a.eventSeq.Add(1),
 	}
 	application.Get().Event.Emit("stream", se)
 
@@ -1531,6 +1537,7 @@ func (a *App) AskUser(ctx context.Context, sessionID, question string, title str
 		Type:      "ask_user",
 		SessionID: sessionID,
 		AskUser:   &ev,
+		Seq:       a.eventSeq.Add(1),
 	}
 	application.Get().Event.Emit("stream", se)
 

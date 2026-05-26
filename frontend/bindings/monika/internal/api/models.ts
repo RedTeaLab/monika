@@ -619,6 +619,7 @@ export class StreamEvent {
     "content"?: string;
     "session_id"?: string;
     "model"?: string;
+    "seq"?: number;
     "tool"?: agent$0.ToolEvent | null;
     "usage"?: agent$0.UsageEvent | null;
     "file_change"?: FileChangeEvent | null;
@@ -640,34 +641,34 @@ export class StreamEvent {
      * Creates a new StreamEvent instance from a string or object.
      */
     static createFrom($$source: any = {}): StreamEvent {
-        const $$createField4_0 = $$createType13;
-        const $$createField5_0 = $$createType15;
-        const $$createField6_0 = $$createType17;
-        const $$createField7_0 = $$createType19;
-        const $$createField8_0 = $$createType21;
-        const $$createField9_0 = $$createType23;
-        const $$createField10_0 = $$createType25;
+        const $$createField5_0 = $$createType13;
+        const $$createField6_0 = $$createType15;
+        const $$createField7_0 = $$createType17;
+        const $$createField8_0 = $$createType19;
+        const $$createField9_0 = $$createType21;
+        const $$createField10_0 = $$createType23;
+        const $$createField11_0 = $$createType25;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool" in $$parsedSource) {
-            $$parsedSource["tool"] = $$createField4_0($$parsedSource["tool"]);
+            $$parsedSource["tool"] = $$createField5_0($$parsedSource["tool"]);
         }
         if ("usage" in $$parsedSource) {
-            $$parsedSource["usage"] = $$createField5_0($$parsedSource["usage"]);
+            $$parsedSource["usage"] = $$createField6_0($$parsedSource["usage"]);
         }
         if ("file_change" in $$parsedSource) {
-            $$parsedSource["file_change"] = $$createField6_0($$parsedSource["file_change"]);
+            $$parsedSource["file_change"] = $$createField7_0($$parsedSource["file_change"]);
         }
         if ("compaction" in $$parsedSource) {
-            $$parsedSource["compaction"] = $$createField7_0($$parsedSource["compaction"]);
+            $$parsedSource["compaction"] = $$createField8_0($$parsedSource["compaction"]);
         }
         if ("tasks" in $$parsedSource) {
-            $$parsedSource["tasks"] = $$createField8_0($$parsedSource["tasks"]);
+            $$parsedSource["tasks"] = $$createField9_0($$parsedSource["tasks"]);
         }
         if ("permission" in $$parsedSource) {
-            $$parsedSource["permission"] = $$createField9_0($$parsedSource["permission"]);
+            $$parsedSource["permission"] = $$createField10_0($$parsedSource["permission"]);
         }
         if ("ask_user" in $$parsedSource) {
-            $$parsedSource["ask_user"] = $$createField10_0($$parsedSource["ask_user"]);
+            $$parsedSource["ask_user"] = $$createField11_0($$parsedSource["ask_user"]);
         }
         return new StreamEvent($$parsedSource as Partial<StreamEvent>);
     }

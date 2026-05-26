@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-const eventBusBufferSize = 64
+const eventBusBufferSize = 256
 
 type EventBus struct {
 	mu          sync.RWMutex

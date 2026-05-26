@@ -497,7 +497,7 @@ interface MessageBubbleProps {
   isGenerating?: boolean
 }
 
-function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
+const MessageBubble = React.memo(function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
   const { role, content, thinking, tools, model, duration, subtaskAgent } = message
 
   if (role === 'shell') {
@@ -610,6 +610,6 @@ function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
       )}
     </div>
   )
-}
+})
 
-export default React.memo(MessageBubble)
+export default MessageBubble

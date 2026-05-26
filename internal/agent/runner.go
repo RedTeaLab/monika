@@ -42,7 +42,7 @@ func NewTaskRunner(registry *AgentRegistry, provider engine.ProviderEngine, prov
 }
 
 func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLoop) <-chan Event {
-	resultCh := make(chan Event, 64)
+	resultCh := make(chan Event, 128)
 
 	go func() {
 		defer func() {
