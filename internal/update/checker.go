@@ -311,7 +311,6 @@ func (c *Checker) DownloadUpdate(ctx context.Context, downloadURL string) error 
 		c.setStatus(UpdateStatus{State: "error", Message: err.Error()})
 		return err
 	}
-	defer out.Close()
 
 	totalSize := resp.ContentLength
 	var written int64
@@ -338,6 +337,7 @@ func (c *Checker) DownloadUpdate(ctx context.Context, downloadURL string) error 
 			return readErr
 		}
 	}
+	out.Close()
 
 	c.logf("DownloadUpdate: download complete, written=%d bytes", written)
 
