@@ -19,19 +19,19 @@ func (c *Checker) InstallUpdate() error {
 	}
 
 	batPath := filepath.Join(c.destDir, "update.bat")
-	script := fmt.Sprintf(`@echo off
-:loop
-tasklist /fi "IMAGENAME eq %s" 2>nul | find /i "%s" >nul 2>&1
-if not errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto loop
-)
-move /Y "%s" "%s"
-start "" "%s"
-del "%%~f0"
-`, filepath.Base(exePath), filepath.Base(exePath),
-		newExe, exePath,
-		exePath)
+
+	// Use copy+del+start to avoid cross-volume move issues.
+	script := "@echo off\r\n" +
+		"ping -n 3 127.0.0.1 >nul\r\n" +
+		":retry\r\n" +
+		"copy /Y \"" + newExe + "\" \"" + exePath + "\" >nul 2>&1\r\n" +
+		"if errorlevel 1 (\r\n" +
+		"    ping -n 2 127.0.0.1 >nul\r\n" +
+		"    goto retry\r\n" +
+		")\r\n" +
+		"del /F /Q \"" + newExe + "\" >nul 2>&1\r\n" +
+		"start \"\" \"" + exePath + "\"\r\n" +
+		"del \"%~f0\"\r\n"
 
 	if err := os.WriteFile(batPath, []byte(script), 0700); err != nil {
 		return err
