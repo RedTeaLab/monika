@@ -1,10 +1,11 @@
 package agent
 
+import "monika/pkg/engine"
+
 type TaskType string
 
 const (
 	TaskSubtask    TaskType = "subtask"
-	TaskCompaction TaskType = "compaction"
 )
 
 type DispatchMode string
@@ -21,6 +22,7 @@ type SubTask struct {
 	Agent       string       `json:"agent"`
 	Description string       `json:"description"`
 	Prompt      string       `json:"prompt"`
+	Messages    []engine.ChatMessage `json:"messages,omitempty"`
 	Model       string       `json:"model,omitempty"`
 	Provider    string       `json:"provider,omitempty"`
 	ProjectDir  string       `json:"project_dir,omitempty"`

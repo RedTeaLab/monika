@@ -538,6 +538,19 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating 
   }
 
   if (role === 'compaction') {
+    if (isGenerating && !content) {
+      return (
+        <div className="flex flex-col gap-1.5 mb-1.5">
+          <RoleLabel role="compaction" isGenerating />
+          <MsgBlock accent="var(--compaction)" background="var(--bg-card)">
+            <div className="flex items-center gap-2 text-[13px] text-[var(--text-dim)]">
+              <span className="inline-block w-3.5 h-3.5 border-2 border-[var(--compaction)] border-t-transparent rounded-full animate-spin" />
+              Compacting...
+            </div>
+          </MsgBlock>
+        </div>
+      )
+    }
     return (
       <div className="flex flex-col gap-1.5 mb-1.5">
         <RoleLabel role="compaction" />

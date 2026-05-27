@@ -111,7 +111,7 @@ function ChatArea(props: IDockviewPanelProps) {
   let generatingIdx = -1
   if (isGenerating) {
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant') {
+      if (messages[i].role === 'assistant' || (messages[i].role === 'compaction' && !messages[i].content)) {
         generatingIdx = i
         break
       }

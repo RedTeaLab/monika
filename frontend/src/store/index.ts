@@ -173,6 +173,7 @@ interface AppState {
   setSelectedModel: (model: string) => void
   setLastAssistantMeta: (sessionId: string, meta: { model?: string; duration?: number }) => void
   addTokens: (sid: string, tokens: number, max?: number) => void
+  fillCompactionCard: (sid: string, card: { summary: string; beforeTokens: number; afterTokens: number; compactionNum: number }) => void
   clearMessages: () => void
   setMessages: (msgs: Message[]) => void
   setProjectPath: (path: string) => void
@@ -577,6 +578,22 @@ export const useStore = create<AppState>((set, get) => ({
     },
   }}),
 
+  fillCompactionCard: (sid, card) => set((s) => {
+    const msgs = s.sessionMessages[sid]
+    if (!msgs) return {}
+    const updated = [...msgs]
+    for (let i = updated.length - 1; i >= 0; i--) {
+      if (updated[i].role === 'compaction' && !updated[i].content) {
+        updated[i] = { ...updated[i], content: card.summary, compactionNum: card.compactionNum, beforeTokens: card.beforeTokens, afterTokens: card.afterTokens }
+        break
+      }
+    }
+    return {
+      sessionMessages: { ...s.sessionMessages, [sid]: updated },
+      messages: s.activeSessionId === sid ? updated : s.messages,
+    }
+  }),
+
   bumpFileTreeVersion: () => set((s) => ({ fileTreeVersion: s.fileTreeVersion + 1 })),
   bumpSessionListVersion: () => set((s) => ({ sessionListVersion: s.sessionListVersion + 1 })),
   updateSessionTitle: (id, title) => {
@@ -641,8 +658,12 @@ export const useStore = create<AppState>((set, get) => ({
         let merged = msgs.length > 0
           ? [...msgs, ...streamMsgs.filter((sm) => !msgs.some((lm) => lm.id === sm.id))]
           : streamMsgs
-        // For child sessions: transform first user message to subtask role
-        if ((id.startsWith('sub_') || id.startsWith('call_')) && merged.length > 0 && merged[0].role === 'user') {
+        // For compaction child sessions: drop the first message (conversation dump sent as input)
+        if (id.startsWith('call_compact_') && merged.length > 0 && merged[0].role === 'user') {
+          merged = merged.slice(1)
+        }
+        // For other child sessions: transform first user message to subtask role
+        if (id.startsWith('sub_') && merged.length > 0 && merged[0].role === 'user') {
           const agentName = title?.split(' · ')[0] || ''
           merged = merged.map((m, i) =>
             i === 0 ? { ...m, role: 'subtask' as const, subtaskAgent: agentName } : m
@@ -768,7 +789,12 @@ export const useStore = create<AppState>((set, get) => ({
         ? loadSessionMessages(session.messages as unknown as Parameters<typeof loadSessionMessages>[0], session.model)
         : []
 
-      if ((subagentId.startsWith("sub_") || subagentId.startsWith("call_")) && msgs.length > 0 && msgs[0].role === "user") {
+      // For compaction child sessions: drop the first message (conversation dump sent as input)
+      if (subagentId.startsWith("call_compact_") && msgs.length > 0 && msgs[0].role === "user") {
+        msgs = msgs.slice(1)
+      }
+      // For other child sessions: transform first user message to subtask role
+      if (subagentId.startsWith("sub_") && msgs.length > 0 && msgs[0].role === "user") {
         const agentName = title?.split(" · ")[0] || ""
         msgs = msgs.map((m, i) =>
           i === 0 ? { ...m, role: "subtask" as const, subtaskAgent: agentName } : m
@@ -1215,7 +1241,6 @@ export const useStore = create<AppState>((set, get) => ({
 
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[], model?: string): Message[] {
   const result: Message[] = []
-  const compactionMsgs: Message[] = []
   let i = 0
   while (i < raw.length) {
     const m = raw[i]
@@ -1224,17 +1249,10 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       i++
     } else if (m.role === 'assistant') {
       if (m.name === 'compaction_summary') {
-        compactionMsgs.push({
+        result.push({
           id: crypto.randomUUID(),
-          role: 'assistant',
-          content: '',
-          tools: [{
-            id: crypto.randomUUID(),
-            name: 'spawn_agent',
-            input: '{"description":"Compact context","prompt":"...","subagent_type":"compaction"}',
-            output: 'compaction complete',
-            status: 'done',
-          }],
+          role: 'compaction',
+          content: m.content || '',
         })
         i++
       } else {
@@ -1273,7 +1291,7 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
       i++
     }
   }
-  return [...result, ...compactionMsgs]
+  return result
 }
 
 export function setupWailsEvents() {
@@ -1431,6 +1449,13 @@ export function setupWailsEvents() {
             break
           }
         }
+        const latestMsgs = useStore.getState().sessionMessages[sid] || []
+        for (let i = latestMsgs.length - 1; i >= 0; i--) {
+          if (latestMsgs[i].role === 'compaction' && !latestMsgs[i].content) {
+            useStore.getState().fillCompactionCard(sid, { summary: 'Compaction completed', beforeTokens: 0, afterTokens: 0, compactionNum: 0 })
+            break
+          }
+        }
         store.setSessionStatus(sid, 'pending')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
@@ -1460,8 +1485,19 @@ export function setupWailsEvents() {
         break
 
       case 'compaction':
-        if (data.compaction && data.compaction.after_tokens) {
-          store.addTokens(sid, data.compaction.after_tokens, undefined)
+        store.removeGeneratingSession(sid)
+        store.setSessionStatus(sid, 'pending')
+        if (data.compaction) {
+          const c = data.compaction
+          if (c.after_tokens) {
+            store.addTokens(sid, c.after_tokens, undefined)
+          }
+          store.fillCompactionCard(sid, {
+            summary: c.summary || '',
+            beforeTokens: c.before_tokens,
+            afterTokens: c.after_tokens,
+            compactionNum: c.compaction_num,
+          })
         }
         break
     }
@@ -1484,7 +1520,7 @@ export function setupWailsEvents() {
     const sid = data.session_id
 
     // Auto-create entry for child session so streaming events are buffered
-    if (sid && (sid.startsWith('call_') || sid.startsWith('sub_')) && !store.sessionMessages[sid]) {
+    if (sid && (sid.startsWith('call_') || sid.startsWith('sub_') || data.type === 'compaction') && !store.sessionMessages[sid]) {
       useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
       store = useStore.getState()
     }
@@ -1507,8 +1543,10 @@ export function setupWailsEvents() {
     }
 
     // Drop events with no session_id or session that was explicitly closed
+    // Skip past their seq so the sequencer doesn't jam on the gap.
     if (!sid || !store.sessionMessages[sid]) {
-      console.warn('[monika] stream event dropped: no session_id or session closed', data.type)
+      console.warn('[monika] stream event dropped:', data.type, 'sid=', sid, 'known=', Object.keys(store.sessionMessages))
+      if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
       return
     }
 

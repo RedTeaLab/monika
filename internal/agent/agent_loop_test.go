@@ -33,6 +33,10 @@ func (f *fakeProvider) StreamChat(ctx context.Context, req engine.ChatRequest) (
 	return ch, nil
 }
 
+func (f *fakeProvider) NewInstance() engine.Engine {
+	return &fakeProvider{}
+}
+
 func staticProvider(events []engine.ChatEvent, provErr error) *fakeProvider {
 	return &fakeProvider{
 		streamFn: func(context.Context, engine.ChatRequest) (<-chan engine.ChatEvent, error) {

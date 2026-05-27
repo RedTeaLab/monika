@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -15,28 +16,15 @@ import (
 )
 
 // CompactionPrompt is the system prompt used by the compaction agent.
-const CompactionPrompt = `You are a conversation summarizer. Summarize the conversation below.
-Focus on information that is essential for continuing the work without
-losing context. Output a structured summary in this format:
+const CompactionPrompt = `You are an anchored context summarization assistant for coding sessions.
 
-## Goal
-What the user is trying to accomplish.
+Summarize only the conversation history you are given. The newest turns are kept verbatim outside your summary, so focus on the older context that still matters for continuing the work.
 
-## Key Decisions
-Design choices, architectural decisions, agreed approaches.
+If the prompt includes a <previous-summary> block, treat it as the current anchored summary. Update it with the new history by preserving still-true details, removing stale details, and merging in new facts.
 
-## Discoveries
-Important findings, bugs identified, constraints discovered.
+Always follow the exact output structure requested by the user prompt. Keep every section, preserve exact file paths and identifiers when known, and prefer terse bullets over paragraphs.
 
-## Current State
-What has been done so far. Files created/modified, tests passing/failing.
-
-## Next Steps
-What remains to be done. Explicit TODOs mentioned by user.
-
-## Summary Quality Gate
-- Must preserve all stated user goals and agreed decisions
-- Must preserve all discovered bugs and constraints`
+Do not answer the conversation itself. Do not mention that you are summarizing, compacting, or merging context. Respond in the same language as the conversation.`
 
 func (a *AgentLoop) modelLimit() (contextTokens, outputTokens int64) {
 	if a.modelContextLimit > 0 {
@@ -81,133 +69,121 @@ func (a *AgentLoop) isOverflow(conv *Conversation) bool {
 	return conv.TokenCount >= usable
 }
 
-func (a *AgentLoop) buildCompactionPrompt(conv *Conversation) []engine.ChatMessage {
-	prompt := `You are a conversation summarizer. Summarize the conversation below.
-Focus on information that is essential for continuing the work without
-losing context. Output a structured summary in this format:
-
+const compactionSummaryTemplate = `Output exactly the Markdown structure shown inside <template> and keep the section order unchanged. Do not include the <template> tags in your response.
+<template>
 ## Goal
-What the user is trying to accomplish.
+- [single-sentence task summary]
+
+## Constraints & Preferences
+- [user constraints, preferences, specs, or "(none)"]
+
+## Progress
+### Done
+- [completed work or "(none)"]
+
+### In Progress
+- [current work or "(none)"]
+
+### Blocked
+- [blockers or "(none)"]
 
 ## Key Decisions
-Design choices, architectural decisions, agreed approaches.
-
-## Discoveries
-Important findings, bugs identified, constraints discovered.
-
-## Current State
-What has been done so far. Files created/modified, tests passing/failing.
+- [decision and why, or "(none)"]
 
 ## Next Steps
-What remains to be done. Explicit TODOs mentioned by user.
+- [ordered next actions or "(none)"]
 
-## Summary Quality Gate
-- Must preserve all stated user goals
-- Must preserve all agreed design decisions
-- Must preserve all discovered bugs and constraints
-- If these cannot fit, prioritize goals > decisions > discoveries`
+## Critical Context
+- [important technical facts, errors, open questions, or "(none)"]
 
-	dump := buildCompactionPromptFromConv(conv)
+## Relevant Files
+- [file or directory path: why it matters, or "(none)"]
+</template>
 
-	return []engine.ChatMessage{
-		{Role: "user", Content: prompt},
-		{Role: "user", Content: "Here is the conversation to summarize:\n\n" + dump},
+Rules:
+- Keep every section, even when empty.
+- Use terse bullets, not prose paragraphs.
+- Preserve exact file paths, commands, error strings, and identifiers when known.
+- Do not mention the summary process or that context was compacted.
+- If these cannot fit, prioritize Goal > Key Decisions > Critical Context > Progress > Next Steps.`
+
+func (a *AgentLoop) buildCompactionPrompt(conv *Conversation) ([]engine.ChatMessage, error) {
+	tailStart := compactionSplit(conv, a.contextLimit())
+	headMsgs := buildCompactionMessages(conv, tailStart)
+
+	if len(headMsgs) == 0 {
+		return nil, fmt.Errorf("not enough conversation history to compact (head is empty)")
 	}
+
+	// Find any previous compaction summary in the head
+	var previousSummary string
+	start := conv.CompactionFrom
+	for i := start; i < tailStart && i < len(conv.Messages); i++ {
+		if conv.Messages[i].Name == "compaction_summary" {
+			previousSummary = conv.Messages[i].Content
+			break
+		}
+	}
+
+	// Build the final user instruction based on whether we have a previous summary
+	var instruction string
+	if previousSummary != "" {
+		instruction = "Update the anchored summary below using the conversation history above.\nPreserve still-true details, remove stale details, and merge in the new facts.\n<previous-summary>\n" + previousSummary + "\n</previous-summary>"
+	} else {
+		instruction = "Create a new anchored summary from the conversation history above."
+	}
+
+	// Messages: [head conversations...] + final user instruction with template
+	msgs := make([]engine.ChatMessage, 0, len(headMsgs)+1)
+	msgs = append(msgs, headMsgs...)
+	msgs = append(msgs, engine.ChatMessage{
+		Role:    "user",
+		Content: instruction + "\n\n" + compactionSummaryTemplate,
+	})
+
+	return msgs, nil
 }
 
 func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
-	limit := a.contextLimit()
-	preserveBudget := int64(float64(limit) * 0.25)
-
-	// Only scan effective messages (from CompactionFrom) to find keepFrom
-	start := conv.CompactionFrom
-	keepFrom := len(conv.Messages) // default: no truncation needed
-	var runningTokens int64
-	for i := len(conv.Messages) - 1; i >= start; i-- {
-		m := conv.Messages[i]
-		runningTokens += int64(tokenizer.Count(m.Role))
-		runningTokens += int64(tokenizer.Count(m.Content))
-		runningTokens += int64(tokenizer.Count(m.ReasoningContent))
-		runningTokens += 4
-		if runningTokens > preserveBudget && i < len(conv.Messages)-1 {
-			keepFrom = i + 1
-			for keepFrom < len(conv.Messages) && conv.Messages[keepFrom].Role != "user" {
-				keepFrom++
-			}
-			if keepFrom >= len(conv.Messages) {
-				keepFrom = len(conv.Messages) - 1
-			}
-			break
-		}
-	}
-
-	lastUserIdx := -1
-	for i := len(conv.Messages) - 1; i >= start; i-- {
-		if conv.Messages[i].Role == "user" {
-			lastUserIdx = i
-			break
-		}
-	}
-	if lastUserIdx >= 0 && keepFrom > lastUserIdx {
-		keepFrom = lastUserIdx
-	}
-	if keepFrom < start {
-		keepFrom = start
-	}
-	// If keepFrom == start, all messages fit within preserveBudget — force a split
-	// so the summary actually replaces some messages. Keep at most the last 2 user turns.
-	if keepFrom == start && len(conv.Messages) > start {
-		userCount := 0
-		keepFrom = len(conv.Messages)
-		for i := len(conv.Messages) - 1; i >= start; i-- {
-			if conv.Messages[i].Role == "user" {
-				userCount++
-				if userCount >= 2 {
-					keepFrom = i
-					break
-				}
-			}
-		}
-		if keepFrom <= start {
-			keepFrom = start + 1
-			if keepFrom >= len(conv.Messages) {
-				keepFrom = len(conv.Messages) - 1
-			}
-		}
-	}
-
 	summaryMsg := engine.ChatMessage{
 		Role:    "assistant",
 		Name:    "compaction_summary",
 		Content: summary,
 	}
 
-	preserved := make([]engine.ChatMessage, len(conv.Messages)-keepFrom)
-	copy(preserved, conv.Messages[keepFrom:])
-
-	newMessages := make([]engine.ChatMessage, 0, keepFrom+1+len(preserved))
-	newMessages = append(newMessages, conv.Messages[:keepFrom]...)
-	newMessages = append(newMessages, summaryMsg)
-	newMessages = append(newMessages, preserved...)
-
-	conv.Messages = newMessages
-	conv.CompactionFrom = keepFrom // effective context starts at the new summary
+	conv.Messages = append(conv.Messages, summaryMsg)
 	conv.CompactionCount++
 	conv.TokenCount = a.EstimateContextTokens(conv)
 }
 
-func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch chan<- Event) error {
+func (a *AgentLoop) RunCompaction(ctx context.Context, conv *Conversation, ch chan<- Event) error {
 	beforeTokens := conv.TokenCount
 
-	prompt := a.buildCompactionPrompt(conv)
+	fmt.Fprintf(os.Stderr, "[monika] compaction: running (tokens=%d, messages=%d, compactCount=%d)\n",
+		beforeTokens, len(conv.Messages), conv.CompactionCount)
+
+	prompt, err := a.buildCompactionPrompt(conv)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] compaction: buildCompactionPrompt failed: %v\n", err)
+		return err
+	}
+	// Prepend the compaction system prompt for the direct (non-dispatch) path
+	fullMessages := make([]engine.ChatMessage, 0, len(prompt)+1)
+	fullMessages = append(fullMessages, engine.ChatMessage{
+		Role:    "system",
+		Content: CompactionPrompt,
+	})
+	fullMessages = append(fullMessages, prompt...)
+
 	req := engine.ChatRequest{
 		Provider: a.providerID,
 		Model:    a.model,
-		Messages: prompt,
+		Messages: fullMessages,
 	}
 
 	events, err := a.provider.StreamChat(ctx, req)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] compaction: stream error: %v\n", err)
 		return fmt.Errorf("compaction stream chat: %w", err)
 	}
 
@@ -217,6 +193,7 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 		case engine.EventContentDelta:
 			summary.WriteString(ev.Text)
 		case engine.EventError:
+			fmt.Fprintf(os.Stderr, "[monika] compaction: provider error: %s\n", ev.Error.Message)
 			return fmt.Errorf("compaction provider error: %s", ev.Error.Message)
 		}
 	}
@@ -225,119 +202,17 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 		return ctx.Err()
 	}
 
-	result := summary.String()
-	if result == "" {
-		return fmt.Errorf("compaction returned empty summary")
-	}
-
-	a.rewriteMessages(conv, result)
-
-	ch <- Event{
-		Type: EventCompaction,
-		Compaction: &CompactionEvent{
-			Summary:       result,
-			BeforeTokens:  beforeTokens,
-			AfterTokens:   conv.TokenCount,
-			CompactionNum: conv.CompactionCount,
-		},
-	}
-
-	return nil
-}
-
-// RunCompactionViaDispatch runs compaction through the generic dispatch mechanism.
-// Falls back to the old runCompaction if dispatchFn is not set.
-func (a *AgentLoop) RunCompactionViaDispatch(ctx context.Context, conv *Conversation, ch chan<- Event) error {
-	if a.dispatchFn == nil {
-		return a.runCompaction(ctx, conv, ch)
-	}
-
-	beforeTokens := conv.TokenCount
-
-	compactSID := fmt.Sprintf("call_compact_%s_%d", a.sessionID, conv.CompactionCount)
-	if a.sessionID == "" {
-		compactSID = fmt.Sprintf("call_compact_%s_%d", conv.ID, conv.CompactionCount)
-	}
-	toolInput := `{"description":"Compact context","prompt":"...","subagent_type":"compaction"}`
-
-	ch <- Event{
-		Type: EventToolStart,
-		Tool: &ToolEvent{
-			ID: compactSID, Name: "spawn_agent",
-			Input: toolInput,
-		},
-	}
-
-	task := SubTask{
-		Type:      TaskCompaction,
-		Agent:     "compaction",
-		Prompt:    buildCompactionPromptFromConv(conv),
-		Status:    "pending",
-		SessionID: compactSID,
-		ParentID:  a.sessionID,
-	}
-
-	childCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	resultCh := a.dispatchFn(childCtx, task)
-	var summary strings.Builder
-	compactionErr := ""
-	for ev := range resultCh {
-		ev.SessionID = compactSID
-		ch <- ev
-		if ev.Type == EventTextDelta {
-			summary.WriteString(ev.Content)
-		}
-		if ev.Type == EventError {
-			compactionErr = ev.Content
-		}
-	}
-
-	if compactionErr != "" {
-		a.RewriteMessagesTruncate(conv)
-		ch <- Event{
-			Type: EventCompaction,
-			Compaction: &CompactionEvent{
-				BeforeTokens:  beforeTokens,
-				AfterTokens:   a.EstimateContextTokens(conv),
-				CompactionNum: conv.CompactionCount,
-				Summary:       "(truncated — compaction failed: " + compactionErr + ")",
-			},
-		}
-		ch <- Event{
-			Type: EventToolOutput,
-			Tool: &ToolEvent{
-				ID: compactSID, Name: "spawn_agent",
-				Input: toolInput, Output: "compaction failed: " + compactionErr, Status: "error",
-			},
-		}
-		return fmt.Errorf("compaction agent error: %s", compactionErr)
-	}
-
 	result := sanitizeCompactionOutput(summary.String())
+	rawLen := summary.Len()
 	if result == "" {
-		a.RewriteMessagesTruncate(conv)
-		ch <- Event{
-			Type: EventCompaction,
-			Compaction: &CompactionEvent{
-				BeforeTokens:  beforeTokens,
-				AfterTokens:   a.EstimateContextTokens(conv),
-				CompactionNum: conv.CompactionCount,
-				Summary:       "(truncated — compaction returned empty summary)",
-			},
-		}
-		ch <- Event{
-			Type: EventToolOutput,
-			Tool: &ToolEvent{
-				ID: compactSID, Name: "spawn_agent",
-				Input: toolInput, Output: "compaction returned empty summary", Status: "error",
-			},
-		}
+		fmt.Fprintf(os.Stderr, "[monika] compaction: empty summary (raw=%d chars)\n", rawLen)
 		return fmt.Errorf("compaction returned empty summary")
 	}
 
 	a.rewriteMessages(conv, result)
+
+	fmt.Fprintf(os.Stderr, "[monika] compaction: success (raw=%d chars, result=%d chars, afterTokens=%d)\n",
+		rawLen, len(result), conv.TokenCount)
 
 	ch <- Event{
 		Type: EventCompaction,
@@ -348,41 +223,8 @@ func (a *AgentLoop) RunCompactionViaDispatch(ctx context.Context, conv *Conversa
 			CompactionNum: conv.CompactionCount,
 		},
 	}
-	ch <- Event{
-		Type: EventToolOutput,
-		Tool: &ToolEvent{
-			ID: compactSID, Name: "spawn_agent",
-			Input: toolInput, Output: "compaction complete", Status: "done",
-		},
-	}
 
 	return nil
-}
-
-func (a *AgentLoop) RewriteMessagesTruncate(conv *Conversation) {
-	limit := a.contextLimit()
-	budget := int64(float64(limit) * 0.25)
-	start := conv.CompactionFrom
-	var running int64
-	keepFrom := len(conv.Messages) - 1
-	for i := len(conv.Messages) - 1; i >= start; i-- {
-		m := conv.Messages[i]
-		running += int64(tokenizer.Count(m.Role) + tokenizer.Count(m.Content) + tokenizer.Count(m.ReasoningContent) + 4)
-		if running > budget && i < len(conv.Messages)-1 {
-			keepFrom = i + 1
-			break
-		}
-	}
-	for keepFrom < len(conv.Messages) && conv.Messages[keepFrom].Role != "user" {
-		keepFrom++
-	}
-	if keepFrom >= len(conv.Messages) {
-		keepFrom = len(conv.Messages) - 1
-	}
-	// Keep old messages; CompactionFrom marks where effective context begins
-	conv.CompactionFrom = keepFrom
-	conv.CompactionCount++
-	conv.TokenCount = a.EstimateContextTokens(conv)
 }
 
 type LoopResult struct {
@@ -699,10 +541,14 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		conv = &Conversation{}
 	}
 
-	conv.Messages = append(conv.Messages, engine.ChatMessage{
-		Role:    "user",
-		Content: userMessage,
-	})
+	// Only append a new user message if the conversation doesn't already have
+	// pre-seeded messages (compaction uses pre-built messages from SubTask.Messages).
+	if userMessage != "" {
+		conv.Messages = append(conv.Messages, engine.ChatMessage{
+			Role:    "user",
+			Content: userMessage,
+		})
+	}
 
 	tools := a.buildToolDefs()
 
@@ -717,8 +563,12 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 
 		messages := a.buildMessages(conv)
 
-		if a.isOverflow(conv) {
-			a.RunCompactionViaDispatch(ctx, conv, ch)
+		if a.isOverflow(conv) && a.agent.Name != "compaction" {
+			fmt.Fprintf(os.Stderr, "[monika] compaction: overflow detected (tokens=%d, limit=%d, messages=%d)\n",
+				conv.TokenCount, a.contextLimit(), len(conv.Messages))
+			if err := a.RunCompaction(ctx, conv, ch); err != nil {
+				fmt.Fprintf(os.Stderr, "[monika] compaction: failed, proceeding with full context: %v\n", err)
+			}
 			messages = a.buildMessages(conv)
 		}
 
@@ -1170,20 +1020,40 @@ func (a *AgentLoop) EstimateContextTokens(conv *Conversation) int64 {
 func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 	var messages []engine.ChatMessage
 
-	if a.systemPrompt != "" {
-		normalized := strings.ReplaceAll(a.projectDir, "\\", "/")
-		prompt := strings.ReplaceAll(a.systemPrompt, "{{WorkingDirectory}}", normalized)
-		messages = append(messages, engine.ChatMessage{
-			Role:    "system",
-			Content: prompt,
-		})
-	}
-
 	msgs := conv.Messages
 	if conv.CompactionFrom > 0 && conv.CompactionFrom < len(msgs) {
 		msgs = msgs[conv.CompactionFrom:]
 	}
-	messages = append(messages, msgs...)
+
+	// Extract compaction summary from messages and inject into system prompt.
+	// The compaction_summary is stored as an assistant message for display but
+	// must not be sent as assistant to the LLM (breaks system->user ordering).
+	var summaryContent string
+	var filteredMsgs []engine.ChatMessage
+	for _, m := range msgs {
+		if m.Name == "compaction_summary" && m.Role == "assistant" {
+			summaryContent = m.Content
+			continue
+		}
+		filteredMsgs = append(filteredMsgs, m)
+	}
+
+	if a.systemPrompt != "" || summaryContent != "" {
+		var parts []string
+		if a.systemPrompt != "" {
+			normalized := strings.ReplaceAll(a.projectDir, "\\", "/")
+			parts = append(parts, strings.ReplaceAll(a.systemPrompt, "{{WorkingDirectory}}", normalized))
+		}
+		if summaryContent != "" {
+			parts = append(parts, "\n\n<context-summary>\n"+summaryContent+"\n</context-summary>")
+		}
+		messages = append(messages, engine.ChatMessage{
+			Role:    "system",
+			Content: strings.Join(parts, ""),
+		})
+	}
+
+	messages = append(messages, filteredMsgs...)
 	return messages
 }
 

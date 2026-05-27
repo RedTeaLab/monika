@@ -340,8 +340,15 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     if (trimmed === '/compact') {
       if (!projectPath || !activeSessionId || !selectedProvider || !selectedModel) return
       setValue('')
-      Call.ByName('monika/internal/api.App.TriggerCompact', projectPath, activeSessionId, selectedProvider, selectedModel).catch((err: unknown) => {
-        useStore.getState().addMessage({ id: crypto.randomUUID(), role: 'error', content: String(err) })
+      const store = useStore.getState()
+      store.addGeneratingSession(activeSessionId)
+      store.setSessionStatus(activeSessionId, 'compacting')
+      store.appendToSession(activeSessionId, [{ id: crypto.randomUUID(), role: 'compaction', content: '' }])
+      App.TriggerCompact(projectPath, activeSessionId, selectedProvider, selectedModel).catch((err: unknown) => {
+        const s = useStore.getState()
+        s.fillCompactionCard(activeSessionId, { summary: String(err), beforeTokens: 0, afterTokens: 0, compactionNum: 0 })
+        s.removeGeneratingSession(activeSessionId)
+        s.setSessionStatus(activeSessionId, 'pending')
       })
       return
     }

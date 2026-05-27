@@ -583,6 +583,18 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		s.CompactionFrom = conv.CompactionFrom
 		sm.SetTitle(s)
 
+		// Debug: log compaction state before save
+		if s.CompactionCount > 0 {
+			summaryCount := 0
+			for _, m := range s.Messages {
+				if m.Name == "compaction_summary" {
+					summaryCount++
+				}
+			}
+			fmt.Fprintf(os.Stderr, "[monika] save: sid=%s messages=%d compactCount=%d compactFrom=%d summaries=%d\n",
+				s.ID, len(s.Messages), s.CompactionCount, s.CompactionFrom, summaryCount)
+		}
+
 		// Persist tasks alongside the session so they survive restarts.
 		a.syncTasksToSession(sessionID, s)
 
@@ -683,15 +695,23 @@ func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) e
 	opts = append(opts, agent2.WithAgent(generalAgent))
 
 	loop := agent2.NewLoop(providerEng, a.registry, opts...)
-	loop.SetDispatchFn(func(ctx context.Context, task agent2.SubTask) <-chan agent2.Event {
-		return a.taskRunner.Dispatch(ctx, task, loop)
-	})
 
 	go func() {
 		ch := make(chan agent2.Event, 16)
 		go func() {
 			defer close(ch)
-			loop.RunCompactionViaDispatch(a.ctx, conv, ch)
+			if err := loop.RunCompaction(a.ctx, conv, ch); err != nil {
+				ch <- agent2.Event{
+					Type:    agent2.EventCompaction,
+					Content: err.Error(),
+					Compaction: &agent2.CompactionEvent{
+						Summary:       "Compaction failed: " + err.Error(),
+						BeforeTokens:  conv.TokenCount,
+						AfterTokens:   conv.TokenCount,
+						CompactionNum: conv.CompactionCount,
+					},
+				}
+			}
 		}()
 		for ev := range ch {
 			a.handleAgentEvent(sessionID, model, ev)
@@ -703,6 +723,16 @@ func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) e
 		s.TokenMax = conv.TokenMax
 		s.CompactionCount = conv.CompactionCount
 		s.CompactionFrom = conv.CompactionFrom
+
+		summaryCount := 0
+		for _, m := range s.Messages {
+			if m.Name == "compaction_summary" {
+				summaryCount++
+			}
+		}
+		fmt.Fprintf(os.Stderr, "[monika] save: sid=%s messages=%d compactCount=%d compactFrom=%d summaries=%d\n",
+			s.ID, len(s.Messages), s.CompactionCount, s.CompactionFrom, summaryCount)
+
 		sm.Lock()
 		if err := sm.Save(s); err != nil {
 			fmt.Fprintf(os.Stderr, "[monika] TriggerCompact save error: %v\n", err)

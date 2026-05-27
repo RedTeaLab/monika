@@ -492,6 +492,7 @@ export class Session {
     "token_count"?: number;
     "token_max"?: number;
     "compaction_count"?: number;
+    "compaction_from"?: number;
     "parent_id"?: string;
     "tasks"?: tool$0.Task[];
     "last_viewed_at"?: time$0.Time | null;
@@ -536,13 +537,13 @@ export class Session {
      */
     static createFrom($$source: any = {}): Session {
         const $$createField3_0 = $$createType9;
-        const $$createField11_0 = $$createType11;
+        const $$createField12_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
         }
         if ("tasks" in $$parsedSource) {
-            $$parsedSource["tasks"] = $$createField11_0($$parsedSource["tasks"]);
+            $$parsedSource["tasks"] = $$createField12_0($$parsedSource["tasks"]);
         }
         return new Session($$parsedSource as Partial<Session>);
     }

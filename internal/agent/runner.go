@@ -110,7 +110,17 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 			}
 		}
 		child := NewLoop(provEng, r.tools, opts...)
-		childConv := &Conversation{ID: task.SessionID}
+
+		var childConv *Conversation
+		if len(task.Messages) > 0 {
+			// Compaction: use pre-built messages (head with truncated tool outputs)
+			childConv = &Conversation{
+				ID:       task.SessionID,
+				Messages: task.Messages,
+			}
+		} else {
+			childConv = &Conversation{ID: task.SessionID}
+		}
 
 		childCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
