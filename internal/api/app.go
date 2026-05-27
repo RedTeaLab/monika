@@ -442,7 +442,10 @@ func (a *App) MarkSessionViewed(projectPath, sessionID string) {
 	}
 	now := time.Now()
 	s.LastViewedAt = &now
+	// Save without touching UpdatedAt so the session doesn't jump in the list.
+	prev := s.UpdatedAt
 	sm.Save(s)
+	s.UpdatedAt = prev
 }
 
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
@@ -519,12 +522,15 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		TokenCount:      s.TokenCount,
 		TokenMax:        s.TokenMax,
 		CompactionCount: s.CompactionCount,
+		CompactionFrom:  s.CompactionFrom,
 	}
-	// Restore CompactionFrom by finding the last compaction summary
-	for i := len(s.Messages) - 1; i >= 0; i-- {
-		if s.Messages[i].Name == "compaction_summary" {
-			conv.CompactionFrom = i
-			break
+	// Backward compat: if CompactionFrom not persisted, fall back to scanning
+	if conv.CompactionFrom == 0 {
+		for i := len(s.Messages) - 1; i >= 0; i-- {
+			if s.Messages[i].Name == "compaction_summary" {
+				conv.CompactionFrom = i
+				break
+			}
 		}
 	}
 
@@ -574,6 +580,7 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		s.TokenCount = conv.TokenCount
 		s.TokenMax = conv.TokenMax
 		s.CompactionCount = conv.CompactionCount
+		s.CompactionFrom = conv.CompactionFrom
 		sm.SetTitle(s)
 
 		// Persist tasks alongside the session so they survive restarts.
@@ -650,12 +657,15 @@ func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) e
 		TokenCount:      s.TokenCount,
 		TokenMax:        s.TokenMax,
 		CompactionCount: s.CompactionCount,
+		CompactionFrom:  s.CompactionFrom,
 	}
-	// Restore CompactionFrom by finding the last compaction summary
-	for i := len(s.Messages) - 1; i >= 0; i-- {
-		if s.Messages[i].Name == "compaction_summary" {
-			conv.CompactionFrom = i
-			break
+	// Backward compat: if CompactionFrom not persisted, fall back to scanning
+	if conv.CompactionFrom == 0 {
+		for i := len(s.Messages) - 1; i >= 0; i-- {
+			if s.Messages[i].Name == "compaction_summary" {
+				conv.CompactionFrom = i
+				break
+			}
 		}
 	}
 
@@ -692,6 +702,7 @@ func (a *App) TriggerCompact(projectPath, sessionID, providerID, model string) e
 		s.TokenCount = conv.TokenCount
 		s.TokenMax = conv.TokenMax
 		s.CompactionCount = conv.CompactionCount
+		s.CompactionFrom = conv.CompactionFrom
 		sm.Lock()
 		if err := sm.Save(s); err != nil {
 			fmt.Fprintf(os.Stderr, "[monika] TriggerCompact save error: %v\n", err)

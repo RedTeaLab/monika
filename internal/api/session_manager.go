@@ -33,6 +33,7 @@ type Session struct {
 	TokenCount      int64                `json:"token_count,omitempty"`
 	TokenMax        int64                `json:"token_max,omitempty"`
 	CompactionCount int                  `json:"compaction_count,omitempty"`
+	CompactionFrom  int                  `json:"compaction_from,omitempty"`
 	ParentID        string               `json:"parent_id,omitempty"`
 	Tasks           []tool.Task          `json:"tasks,omitempty"`
 	LastViewedAt    *time.Time           `json:"last_viewed_at,omitempty"`
@@ -147,6 +148,11 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 		s, err := sm.Load(strings.TrimSuffix(e.Name(), ".json"))
 		if err != nil {
 			continue
+		}
+		// Migrate legacy statuses to archived
+		if s.Status == "completed" || s.Status == "success" || s.Status == "failure" || s.Status == "stopped" {
+			s.Status = StatusArchived
+			sm.Save(s)
 		}
 		// Lazy archival: pending + viewed > 1h ago → archived
 		if s.Status == StatusPending && s.LastViewedAt != nil {

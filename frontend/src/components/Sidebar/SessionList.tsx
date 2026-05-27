@@ -11,7 +11,7 @@ export function deriveStatus(sessionId: string, s: SessionInfo, generatingIds: s
   const st = sessionStatuses[sessionId] || s.status
   if (st === 'generating') return 'generating'
   if (st === 'pending') return 'pending'
-  if (st === 'archived') return 'archived'
+  if (st === 'archived' || st === 'completed' || st === 'success' || st === 'failure' || st === 'stopped') return 'archived'
   return 'idle'
 }
 
@@ -91,19 +91,24 @@ function SessionList(props: IDockviewPanelProps) {
     }
     return [
       { label: 'Active', items: generating },
-      { label: 'Pending', items: pending },
       { label: 'Not Started', items: idle },
-      { label: 'Archived', items: archived },
+      { label: 'Pending', items: pending },
+      { label: 'Archived', items: archived, defaultCollapsed: true },
     ].filter((g) => g.items.length > 0)
   }, [sessions, sessionStatuses, generatingSessionIds])
 
   const totalSessions = sessions.length
 
-  const toggleGroup = (label: string) => {
+  const toggleGroup = (label: string, defaultCollapsed?: boolean) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
+      if (defaultCollapsed) {
+        const expandKey = 'expanded:' + label
+        if (next.has(expandKey)) { next.delete(expandKey) } else { next.add(expandKey) }
+      } else {
+        if (next.has(label)) next.delete(label)
+        else next.add(label)
+      }
       return next
     })
   }
@@ -188,14 +193,14 @@ function SessionList(props: IDockviewPanelProps) {
           </div>
         ) : (
           groupedSessions.map((group) => {
-            const collapsed = collapsedGroups.has(group.label)
+            const collapsed = collapsedGroups.has(group.label) || ('defaultCollapsed' in group && group.defaultCollapsed && !collapsedGroups.has('expanded:' + group.label))
             return (
               <div key={group.label}>
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => toggleGroup(group.label)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label) }}
+                  onClick={() => toggleGroup(group.label, 'defaultCollapsed' in group && (group as any).defaultCollapsed)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label, 'defaultCollapsed' in group && (group as any).defaultCollapsed) }}
                   className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-3 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors"
                 >
                   <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-90'}`}>
