@@ -225,7 +225,11 @@ export class ToolEvent {
      * Creates a new ToolEvent instance from a string or object.
      */
     static createFrom($$source: any = {}): ToolEvent {
+        const $$createField5_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("diffLines" in $$parsedSource) {
+            $$parsedSource["diffLines"] = $$createField5_0($$parsedSource["diffLines"]);
+        }
         return new ToolEvent($$parsedSource as Partial<ToolEvent>);
     }
 }

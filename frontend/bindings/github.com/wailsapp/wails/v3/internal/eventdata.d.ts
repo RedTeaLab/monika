@@ -15,6 +15,7 @@ import type * as update$0 from "../../../../../monika/internal/update/models.js"
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "branch-changed": string;
             "stream": api$0.StreamEvent;
             "update-available": update$0.UpdateInfo;
         }
