@@ -36,6 +36,52 @@ function loadHistory(): string[] {
 
 const INITIAL_HISTORY = loadHistory()
 
+function getCursorLineInfo(textarea: HTMLTextAreaElement, value: string): { currentLine: number; totalLines: number } {
+  if (!value) return { currentLine: 1, totalLines: 1 }
+
+  const cursor = textarea.selectionStart
+  const cs = getComputedStyle(textarea)
+  const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2
+
+  const mirror = document.createElement('div')
+  mirror.style.position = 'absolute'
+  mirror.style.visibility = 'hidden'
+  mirror.style.whiteSpace = 'pre-wrap'
+  mirror.style.overflowWrap = 'break-word'
+  mirror.style.wordWrap = 'break-word'
+  mirror.style.width = cs.width
+  mirror.style.boxSizing = cs.boxSizing
+  mirror.style.paddingTop = cs.paddingTop
+  mirror.style.paddingBottom = cs.paddingBottom
+  mirror.style.paddingLeft = cs.paddingLeft
+  mirror.style.paddingRight = cs.paddingRight
+  mirror.style.fontFamily = cs.fontFamily
+  mirror.style.fontSize = cs.fontSize
+  mirror.style.fontWeight = cs.fontWeight
+  mirror.style.lineHeight = cs.lineHeight
+  mirror.style.letterSpacing = cs.letterSpacing
+  mirror.style.wordSpacing = cs.wordSpacing
+  mirror.style.tabSize = cs.tabSize
+
+  document.body.appendChild(mirror)
+
+  const marker = '\u200b'
+  const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+
+  mirror.textContent = value + marker
+  const totalContent = mirror.clientHeight - padV
+
+  mirror.textContent = value.slice(0, cursor) + marker
+  const cursorContent = mirror.clientHeight - padV
+
+  document.body.removeChild(mirror)
+
+  return {
+    currentLine: Math.max(1, Math.round(cursorContent / lh)),
+    totalLines: Math.max(1, Math.round(totalContent / lh)),
+  }
+}
+
 function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   onSend: (text: string) => void
   onStop: () => void
@@ -56,6 +102,22 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   const selectedProvider = useStore((s) => s.selectedProvider)
   const selectedModel = useStore((s) => s.selectedModel)
   const historyRef = useRef<string[]>(INITIAL_HISTORY)
+  const historyIndexRef = useRef(-1)
+  const navigatingHistoryRef = useRef(false)
+  const sessionMessages = useStore((s) => s.sessionMessages[activeSessionId] || [])
+
+  // Reset history index when user types manually
+  useEffect(() => {
+    if (!navigatingHistoryRef.current) {
+      historyIndexRef.current = -1
+    }
+    navigatingHistoryRef.current = false
+  }, [value])
+
+  // Reset history index when switching sessions
+  useEffect(() => {
+    historyIndexRef.current = -1
+  }, [activeSessionId])
 
   // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
@@ -251,6 +313,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   const handleSubmit = () => {
     const trimmed = value.trim()
     if (!trimmed || disabled) return
+    historyIndexRef.current = -1
 
     // $ shell command
     if (trimmed.startsWith('$')) {
@@ -327,6 +390,48 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
+    }
+
+    // History navigation with Up/Down at visual cursor boundaries
+    if (!disabled && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      const el = textareaRef.current
+      if (el) {
+        const { currentLine, totalLines } = getCursorLineInfo(el, value)
+
+        const userMsgs = sessionMessages.filter(m => m.role === 'user').map(m => m.content)
+
+        if (e.key === 'ArrowUp' && currentLine === 1 && userMsgs.length > 0) {
+          e.preventDefault()
+          const nextIdx = historyIndexRef.current === -1
+            ? userMsgs.length - 1
+            : Math.max(historyIndexRef.current - 1, 0)
+          if (nextIdx !== historyIndexRef.current) {
+            historyIndexRef.current = nextIdx
+            navigatingHistoryRef.current = true
+            setValue(userMsgs[nextIdx])
+            requestAnimationFrame(() => {
+              const len = userMsgs[nextIdx].length
+              textareaRef.current?.setSelectionRange(len, len)
+            })
+          }
+        }
+        if (e.key === 'ArrowDown' && currentLine === totalLines && historyIndexRef.current !== -1) {
+          e.preventDefault()
+          if (historyIndexRef.current < userMsgs.length - 1) {
+            historyIndexRef.current += 1
+            navigatingHistoryRef.current = true
+            setValue(userMsgs[historyIndexRef.current])
+            requestAnimationFrame(() => {
+              const len = userMsgs[historyIndexRef.current].length
+              textareaRef.current?.setSelectionRange(len, len)
+            })
+          } else if (historyIndexRef.current === userMsgs.length - 1) {
+            historyIndexRef.current = -1
+            navigatingHistoryRef.current = true
+            setValue('')
+          }
+        }
+      }
     }
   }
 
