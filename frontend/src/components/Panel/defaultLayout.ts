@@ -84,14 +84,14 @@ export const DEFAULT_LAYOUT: SerializedDockview = {
     files: {
       id: 'files',
       contentComponent: 'files',
-      tabComponent: 'default-tab',
+      tabComponent: 'session-tab',
       title: 'FILES',
       renderer: 'always',
     },
     changes: {
       id: 'changes',
       contentComponent: 'changes',
-      tabComponent: 'default-tab',
+      tabComponent: 'session-tab',
       title: 'CHANGES',
       renderer: 'always',
     },

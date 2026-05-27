@@ -100,9 +100,15 @@ function FileTree(_props: IDockviewPanelProps) {
   return (
     <div
       className="flex flex-col h-full"
-      style={{ background: 'var(--bg-sidebar)', padding: '0 8px' }}
+      style={{ background: 'var(--bg-sidebar)' }}
     >
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex items-center gap-1.5 text-[12px] select-none shrink-0"
+        style={{ fontFamily: 'var(--font-sans)', padding: '6px 10px', background: 'var(--bg-sidebar)' }}
+      >
+        <span className="truncate min-w-0">FILES</span>
+      </div>
+      <div className="flex-1 overflow-y-auto" style={{ padding: '0 8px' }}>
         {(!tree || tree.length === 0) ? (
           <div className="py-4 text-[12px] text-[var(--text-dim)] px-1">No project opened</div>
         ) : (
