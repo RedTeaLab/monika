@@ -15,6 +15,8 @@ type diffHunk struct {
 
 // computeDiff produces unified diff lines from two file contents.
 func computeDiff(filePath string, old, new string) []string {
+	old = strings.ReplaceAll(old, "\r\n", "\n")
+	new = strings.ReplaceAll(new, "\r\n", "\n")
 	if old == new {
 		return nil
 	}

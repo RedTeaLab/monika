@@ -70,8 +70,8 @@ function getLangExtension(filePath: string) {
 
 // Simple unified diff generator with hunk grouping (avoids npm dependency)
 function simpleDiff(oldText: string, newText: string): string[] {
-  const a = oldText.split('\n')
-  const b = newText.split('\n')
+  const a = oldText.replace(/\r\n?/g, '\n').split('\n')
+  const b = newText.replace(/\r\n?/g, '\n').split('\n')
   const m = a.length, n = b.length
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
   for (let i = 1; i <= m; i++)
