@@ -19,6 +19,8 @@ type DeepSeekProvider struct {
 
 func (p *DeepSeekProvider) ID() string { return "deepseek" }
 
+func (p *DeepSeekProvider) NewInstance() engine.Engine { return &DeepSeekProvider{} }
+
 func (p *DeepSeekProvider) Capabilities() []engine.Capability {
 	return []engine.Capability{engine.CapProvider}
 }

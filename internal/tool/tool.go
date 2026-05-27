@@ -14,8 +14,9 @@ type Tool interface {
 }
 
 type ExecutionResult struct {
-	Content string
-	IsError bool
+	Content   string
+	IsError   bool
+	DiffLines []string
 }
 
 type ToolRegistry struct {

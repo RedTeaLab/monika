@@ -10,9 +10,8 @@ export function deriveStatus(sessionId: string, s: SessionInfo, generatingIds: s
   if (generatingIds.includes(sessionId)) return 'generating'
   const st = sessionStatuses[sessionId] || s.status
   if (st === 'generating') return 'generating'
-  if (st === 'failure') return 'failure'
-  if (st === 'success') return 'success'
-  if (st === 'stopped') return 'stopped'
+  if (st === 'pending') return 'pending'
+  if (st === 'archived') return 'archived'
   return 'idle'
 }
 
@@ -80,21 +79,21 @@ function SessionList(props: IDockviewPanelProps) {
     const list = Array.isArray(sessions) ? sessions : []
     const sorted = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     const generating: SessionInfo[] = []
+    const pending: SessionInfo[] = []
     const idle: SessionInfo[] = []
-    const stopped: SessionInfo[] = []
-    const completed: SessionInfo[] = []
+    const archived: SessionInfo[] = []
     for (const s of sorted) {
       const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
       if (st === 'generating') generating.push(s)
-      else if (st === 'stopped') stopped.push(s)
-      else if (st === 'success' || st === 'failure') completed.push(s)
+      else if (st === 'pending') pending.push(s)
+      else if (st === 'archived') archived.push(s)
       else idle.push(s)
     }
     return [
       { label: 'Active', items: generating },
+      { label: 'Pending', items: pending },
       { label: 'Not Started', items: idle },
-      { label: 'Stopped', items: stopped },
-      { label: 'Completed', items: completed },
+      { label: 'Archived', items: archived },
     ].filter((g) => g.items.length > 0)
   }, [sessions, sessionStatuses, generatingSessionIds])
 
@@ -230,9 +229,8 @@ function SessionList(props: IDockviewPanelProps) {
                           style={{
                             background:
                               st === 'generating' ? 'var(--accent)'
-                              : st === 'success' ? 'var(--green)'
-                              : st === 'failure' ? 'var(--red)'
-                              : st === 'stopped' ? 'var(--yellow)'
+                              : st === 'pending' ? 'var(--yellow)'
+                              : st === 'archived' ? 'var(--text-dim)'
                               : 'var(--text-dim)',
                             opacity: st === 'generating' ? 1 : 0.6,
                           }}

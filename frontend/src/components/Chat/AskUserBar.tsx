@@ -82,6 +82,7 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent?.isComposing) return
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
               if (customText.trim()) submitAnswer(customText.trim())
@@ -185,6 +186,7 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
                 e.target.style.height = `${e.target.scrollHeight}px`
               }}
               onKeyDown={(e) => {
+                if (e.nativeEvent?.isComposing) return
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   if (customText.trim()) submitAnswer(customText.trim())
@@ -200,6 +202,7 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
                 minHeight: '40px',
               }}
               rows={1}
+              autoFocus
             />
           )}
         </div>

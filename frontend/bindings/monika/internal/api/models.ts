@@ -494,6 +494,7 @@ export class Session {
     "compaction_count"?: number;
     "parent_id"?: string;
     "tasks"?: tool$0.Task[];
+    "last_viewed_at"?: time$0.Time | null;
     "created_at": time$0.Time;
     "updated_at": time$0.Time;
 

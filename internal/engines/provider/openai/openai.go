@@ -2,6 +2,7 @@ package openai
 
 import (
 	"context"
+	"fmt"
 
 	"monika/internal/config"
 	"monika/pkg/engine"
@@ -17,6 +18,8 @@ type OpenAIProvider struct {
 }
 
 func (p *OpenAIProvider) ID() string { return "openai" }
+
+func (p *OpenAIProvider) NewInstance() engine.Engine { return &OpenAIProvider{} }
 
 func (p *OpenAIProvider) Capabilities() []engine.Capability {
 	return []engine.Capability{engine.CapProvider}
@@ -34,7 +37,7 @@ func (p *OpenAIProvider) Shutdown(_ context.Context) error {
 func (p *OpenAIProvider) StreamChat(ctx context.Context, req engine.ChatRequest) (<-chan engine.ChatEvent, error) {
 	cfg := p.resolveConfig(req)
 	if cfg.BaseURL == "" {
-		cfg.BaseURL = "https://api.openai.com/v1"
+		return nil, fmt.Errorf("openai: base_url not configured")
 	}
 	return oaiclient.StreamChat(ctx, cfg.BaseURL, cfg.APIKey, cfg.Model, req.Messages, req.Tools)
 }

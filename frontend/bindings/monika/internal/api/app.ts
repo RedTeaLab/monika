@@ -344,6 +344,10 @@ export function LoadSession(projectPath: string, sessionID: string): $Cancellabl
     });
 }
 
+export function MarkSessionViewed(projectPath: string, sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(4285813295, projectPath, sessionID);
+}
+
 export function NewSession(projectPath: string, providerID: string, model: string): $CancellablePromise<$models.SessionInfo | null> {
     return $Call.ByID(3342623882, projectPath, providerID, model).then(($result: any) => {
         return $$createType40($result);
@@ -393,6 +397,14 @@ export function ReconnectMCPServer(args: json$0.RawMessage): $CancellablePromise
     return $Call.ByID(1193347248, args).then(($result: any) => {
         return $$createType16($result);
     });
+}
+
+/**
+ * RefreshBranch reads the current git branch from disk and updates in-memory state.
+ * Returns the current branch name, or "—" if not a git repo.
+ */
+export function RefreshBranch(projectPath: string): $CancellablePromise<string> {
+    return $Call.ByID(3999763195, projectPath);
 }
 
 /**

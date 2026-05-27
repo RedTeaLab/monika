@@ -26,11 +26,12 @@ type Event struct {
 }
 
 type ToolEvent struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Input  string `json:"input"`
-	Output string `json:"output"`
-	Status string `json:"status"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Input     string   `json:"input"`
+	Output    string   `json:"output"`
+	Status    string   `json:"status"`
+	DiffLines []string `json:"diffLines,omitempty"`
 }
 
 type UsageEvent struct {

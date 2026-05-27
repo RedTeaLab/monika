@@ -61,6 +61,7 @@ const PromptToolUsage = `## Tool Usage
 - Preserve exact indentation (tabs/spaces) in old_string as it appears in the file
 - The edit fails if old_string is not unique; use a larger string with more surrounding context
 - Use replace_all to replace every occurrence of the same old_string
+- Use the smallest possible old_string that uniquely identifies the target — DO NOT pass the entire file as old_string. Each edit should target only the lines that need to change, not the whole file.
 
 ### Bash usage
 - Prefer dedicated tools (grep, glob, file_read, file_write, file_edit) over bash commands
@@ -199,6 +200,7 @@ const PromptRemember = `## Remember
 - NEVER hardcode secrets (API keys, passwords, tokens)
 - NEVER revert changes you did not make
 - NEVER ask "Should I proceed?" — just proceed and mention what you did
+- NEVER pass the entire file as old_string — use the smallest snippet that uniquely identifies the change
 - ALWAYS use absolute file paths
 - ALWAYS read with file_read before editing with file_edit — never edit blind
 - ALWAYS prefer editing existing files over creating new ones

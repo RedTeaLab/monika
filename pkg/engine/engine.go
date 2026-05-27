@@ -7,6 +7,8 @@ type Engine interface {
 	Init(ctx context.Context, cfg map[string]any) error
 	Capabilities() []Capability
 	Shutdown(ctx context.Context) error
+	// NewInstance returns a fresh zero-value instance of this engine type.
+	NewInstance() Engine
 }
 
 type Capability string

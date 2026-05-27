@@ -138,6 +138,7 @@ func main() {
 
 	application.RegisterEvent[api.StreamEvent]("stream")
 	application.RegisterEvent[update.UpdateInfo]("update-available")
+	application.RegisterEvent[string]("branch-changed")
 
 	systemParts := []string{
 		fmt.Sprintf("OS Version: %s\nWorking directory: {{WorkingDirectory}}", runtime.GOOS),

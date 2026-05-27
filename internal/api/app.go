@@ -432,6 +432,19 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 	return sm.Delete(sessionID)
 }
 
+func (a *App) MarkSessionViewed(projectPath, sessionID string) {
+	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return
+	}
+	now := time.Now()
+	s.LastViewedAt = &now
+	sm.Save(s)
+}
+
 func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 	// Check child sessions first (in-memory, then on-disk, then placeholder)
 	if agent2.IsChildSession(sessionID) {
@@ -440,7 +453,7 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 				ID:         sessionID,
 				Title:      child.Title,
 				Messages:   child.Messages,
-				Status:     StatusSuccess,
+				Status:     StatusPending,
 				ParentID:   child.ParentID,
 				TokenCount: child.TokenCount,
 			}, nil
@@ -450,7 +463,7 @@ func (a *App) LoadSession(projectPath, sessionID string) (*Session, error) {
 				ID:         sessionID,
 				Title:      child.Title,
 				Messages:   child.Messages,
-				Status:     StatusSuccess,
+				Status:     StatusPending,
 				ParentID:   child.ParentID,
 				TokenCount: child.TokenCount,
 			}, nil
@@ -547,12 +560,12 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 		sm.Save(s)
 		sm.Unlock()
 
-		hadError := false
-
 		events := loop.Run(ctx, conv, text)
 		for ev := range events {
-			if ev.Type == agent2.EventError {
-				hadError = true
+			select {
+			case <-ctx.Done():
+				_ = ctx.Err()
+			default:
 			}
 			a.handleAgentEvent(sessionID, model, ev)
 		}
@@ -568,13 +581,10 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 
 		sm.Lock()
 		if ctx.Err() != nil {
-			sm.SetStatus(s, StatusIdle)
-			sm.Save(s)
-		} else if hadError {
-			sm.SetStatus(s, StatusFailure)
+			sm.SetStatus(s, StatusPending)
 			sm.Save(s)
 		} else {
-			sm.SetStatus(s, StatusSuccess)
+			sm.SetStatus(s, StatusPending)
 			sm.Save(s)
 		}
 		sm.Unlock()
@@ -599,7 +609,7 @@ func (a *App) CancelGeneration(sessionID string) {
 		if sm := a.getSessionManagerForSession(sessionID); sm != nil {
 			if s, err := sm.Load(sessionID); err == nil {
 				sm.Lock()
-				sm.SetStatus(s, StatusStopped)
+				sm.SetStatus(s, StatusPending)
 				sm.Save(s)
 				sm.Unlock()
 			}
@@ -927,6 +937,10 @@ func (a *App) handleAgentEvent(sessionID, model string, ev agent2.Event) {
 	case agent2.EventToolDone:
 		se.Type = "tool_done"
 		se.Tool = ev.Tool
+		// After bash execution, check if the git branch changed and notify the frontend.
+		if ev.Tool != nil && ev.Tool.Name == "bash" {
+			a.emitBranchChangeIfChanged()
+		}
 	case agent2.EventUsage:
 		se.Type = "usage"
 		se.AgentUsage = &ev.Usage
@@ -958,6 +972,43 @@ func (a *App) EmitTaskEvent(sessionID string, tasks []agent2.TaskItem) {
 	}
 	a.eventBus.Emit(se)
 	application.Get().Event.Emit("stream", se)
+}
+
+// emitBranchChangeIfChanged reads the current git branch from disk and compares
+// it with the cached value. If different, it emits a Wails event so the frontend
+// can update the branch display in the title bar.
+func (a *App) emitBranchChangeIfChanged() {
+	projectPath := ""
+	a.mu.RLock()
+	// Find the project path that owns this session.
+	for _, info := range a.projects {
+		projectPath = info.Path
+		break
+	}
+	storedBranch := ""
+	if info, ok := a.projects[projectPath]; ok {
+		storedBranch = info.Branch
+	}
+	a.mu.RUnlock()
+
+	if projectPath == "" {
+		return
+	}
+
+	cmd := command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err != nil {
+		return
+	}
+	currentBranch := strings.TrimSpace(string(out))
+	if currentBranch == "" || currentBranch == storedBranch {
+		return
+	}
+
+	a.setProjectBranch(projectPath, currentBranch)
+
+	application.Get().Event.Emit("branch-changed", currentBranch)
 }
 
 // syncTasksToSession reads the current tasks for a session from the TaskStore
@@ -1022,7 +1073,7 @@ func (a *App) resetStaleSessions(projectPath string) {
 				continue
 			}
 			sm.Lock()
-			sm.SetStatus(s, StatusStopped)
+			sm.SetStatus(s, StatusPending)
 			sm.Save(s)
 			sm.Unlock()
 		}
@@ -1425,6 +1476,23 @@ func (a *App) setProjectBranch(projectPath, branchName string) {
 		info.Branch = branchName
 	}
 	a.mu.Unlock()
+}
+
+// RefreshBranch reads the current git branch from disk and updates in-memory state.
+// Returns the current branch name, or "—" if not a git repo.
+func (a *App) RefreshBranch(projectPath string) string {
+	branch := ""
+	cmd := command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = projectPath
+	out, err := cmd.Output()
+	if err == nil {
+		branch = strings.TrimSpace(string(out))
+	}
+	if branch == "" {
+		branch = "—"
+	}
+	a.setProjectBranch(projectPath, branch)
+	return branch
 }
 
 // CreateBranch creates and checks out a new branch from the given base branch.
@@ -2577,11 +2645,12 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 	if engineID == "" {
 		engineID = req.ID
 	}
-	eng, err := engine2.EngineByID(engineID)
+	template, err := engine2.EngineByID(engineID)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] SaveProvider: engine %q not registered: %v\n", engineID, err)
 		return nil
 	}
+	eng := template.NewInstance()
 	if err := eng.Init(a.ctx, map[string]any{
 		"base_url": pc.BaseURL,
 		"api_key":  pc.APIKey,

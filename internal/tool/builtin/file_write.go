@@ -59,9 +59,19 @@ func (f *fileWrite) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
+	var oldContent string
+	if existing, err := os.ReadFile(safePath); err == nil {
+		oldContent = string(existing)
+	}
+
 	if err := os.WriteFile(safePath, []byte(params.Content), 0o644); err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	return tool.ExecutionResult{Content: fmt.Sprintf("Wrote %d bytes to %s", len(params.Content), safePath)}, nil
+	diffLines := computeDiff(safePath, oldContent, params.Content)
+
+	return tool.ExecutionResult{
+		Content:   fmt.Sprintf("Wrote %d bytes to %s", len(params.Content), safePath),
+		DiffLines: diffLines,
+	}, nil
 }

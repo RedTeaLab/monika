@@ -45,11 +45,12 @@ func InitProvider(ctx context.Context, home, cwd, modelOverride string) (*Result
 		if engineID == "" {
 			engineID = providerID
 		}
-		eng, err := engine.EngineByID(engineID)
+		template, err := engine.EngineByID(engineID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[monika] skipping provider %q: engine %q not registered\n", providerID, engineID)
 			continue
 		}
+		eng := template.NewInstance()
 		initCfg := map[string]any{
 			"base_url": providerCfg.BaseURL,
 			"api_key":  providerCfg.APIKey,

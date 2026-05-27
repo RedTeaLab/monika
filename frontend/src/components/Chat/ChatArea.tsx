@@ -44,6 +44,16 @@ function ChatArea(props: IDockviewPanelProps) {
     const targetId = overlaySessionId || sessionId
     if (generatingSessionIds.includes(targetId)) {
       App.CancelGeneration(targetId)
+      // Safety net: if backend doesn't emit cancelled event within 3s,
+      // force-remove from generating state to prevent UI getting stuck.
+      const sid = targetId
+      setTimeout(() => {
+        const store = useStore.getState()
+        if (store.generatingSessionIds.includes(sid)) {
+          store.removeGeneratingSession(sid)
+          store.setSessionStatus(sid, 'pending')
+        }
+      }, 3000)
     }
   }
 

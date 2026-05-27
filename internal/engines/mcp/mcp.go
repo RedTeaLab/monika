@@ -29,6 +29,8 @@ type mcpConn interface {
 
 func (e *MCPEngine) ID() string { return "mcp" }
 
+func (e *MCPEngine) NewInstance() engine.Engine { return &MCPEngine{} }
+
 func (e *MCPEngine) Capabilities() []engine.Capability {
 	return []engine.Capability{engine.CapMCP}
 }

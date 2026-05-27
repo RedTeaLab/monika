@@ -68,7 +68,7 @@ function getLangExtension(filePath: string) {
   return []
 }
 
-// Simple unified diff generator (avoids npm dependency)
+// Simple unified diff generator with hunk grouping (avoids npm dependency)
 function simpleDiff(oldText: string, newText: string): string[] {
   const a = oldText.split('\n')
   const b = newText.split('\n')
@@ -78,25 +78,81 @@ function simpleDiff(oldText: string, newText: string): string[] {
     for (let j = 1; j <= n; j++)
       dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1])
 
-  const result: string[] = []
-  let i = m, j = n, oldLine = m, newLine = n
-  const buf: string[] = []
-  const flush = () => { if (buf.length) { result.push(...buf.reverse()); buf.length = 0 } }
+  // Backtrack to produce ops: ' ' = context, '+' = add, '-' = remove
+  type Op = { type: ' ' | '+' | '-'; line: string }
+  const ops: Op[] = []
+  let i = m, j = n
+  const buf: Op[] = []
+  const flush = () => { if (buf.length) { ops.push(...buf.reverse()); buf.length = 0 } }
 
   while (i > 0 || j > 0) {
     if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
       flush()
-      result.push(' ' + a[i - 1])
-      i--; j--; oldLine--; newLine--
+      ops.push({ type: ' ', line: a[i - 1] })
+      i--; j--
     } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      buf.push('+' + b[j - 1])
+      buf.push({ type: '+', line: b[j - 1] })
       j--
     } else {
-      buf.push('-' + a[i - 1])
+      buf.push({ type: '-', line: a[i - 1] })
       i--
     }
   }
   flush()
+  ops.reverse()
+
+  if (ops.length === 0) return []
+
+  // Group into hunks with context lines
+  const contextLines = 3
+  const result: string[] = []
+
+  // Find change positions
+  const changePositions: number[] = []
+  for (let k = 0; k < ops.length; k++) {
+    if (ops[k].type !== ' ') changePositions.push(k)
+  }
+  if (changePositions.length === 0) return []
+
+  // Group changes into hunks (merge if gap < contextLines * 2)
+  const hunkRanges: [number, number][] = []
+  let hunkStart = Math.max(0, changePositions[0] - contextLines)
+  let hunkEnd = Math.min(ops.length - 1, changePositions[0] + contextLines)
+  for (let c = 1; c < changePositions.length; c++) {
+    const cs = Math.max(0, changePositions[c] - contextLines)
+    const ce = Math.min(ops.length - 1, changePositions[c] + contextLines)
+    if (cs <= hunkEnd + 1) {
+      hunkEnd = ce
+    } else {
+      hunkRanges.push([hunkStart, hunkEnd])
+      hunkStart = cs
+      hunkEnd = ce
+    }
+  }
+  hunkRanges.push([hunkStart, hunkEnd])
+
+  for (const [start, end] of hunkRanges) {
+    // Count old/new lines in this hunk
+    let oldCount = 0, newCount = 0
+    for (let k = start; k <= end; k++) {
+      if (ops[k].type !== '+') oldCount++
+      if (ops[k].type !== '-') newCount++
+    }
+    // Find old line number at start
+    let oldLine = 1
+    for (let k = 0; k < start; k++) {
+      if (ops[k].type !== '+') oldLine++
+    }
+    let newLine = 1
+    for (let k = 0; k < start; k++) {
+      if (ops[k].type !== '-') newLine++
+    }
+    result.push(`@@ -${oldLine},${oldCount} +${newLine},${newCount} @@`)
+    for (let k = start; k <= end; k++) {
+      result.push(ops[k].type + ops[k].line)
+    }
+  }
+
   return result
 }
 
@@ -370,6 +426,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
   const preview = useStore((s) => s.preview)
   const lastEditedFile = useStore((s) => s.lastEditedFile)
   const lastEditedOldContent = useStore((s) => s.lastEditedOldContent)
+  const lastEditVersion = useStore((s) => s.lastEditVersion)
   const projectPath = useStore((s) => s.projectPath)
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorView | null>(null)
@@ -413,7 +470,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
         }
       }).catch(() => {})
     }
-  }, [lastEditedFile, projectPath, lastEditedOldContent])
+  }, [lastEditedFile, projectPath, lastEditedOldContent, lastEditVersion])
 
   useEffect(() => {
     if (!containerRef.current || preview.mode !== 'file' || !preview.fileContent) {

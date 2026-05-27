@@ -126,6 +126,7 @@ interface AppState {
   preview: PreviewState
   lastEditedFile: string | null
   lastEditedOldContent: string | null
+  lastEditVersion: number
   fileTreeVersion: number
   sessionListVersion: number
   dockviewApi: DockviewApi | null
@@ -249,6 +250,7 @@ export const useStore = create<AppState>((set, get) => ({
   preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null },
   lastEditedFile: null,
   lastEditedOldContent: null,
+  lastEditVersion: 0,
   fileTreeVersion: 0,
   sessionListVersion: 0,
   dockviewApi: null as DockviewApi | null,
@@ -333,7 +335,10 @@ export const useStore = create<AppState>((set, get) => ({
         }
       }
       const result: Partial<AppState> = { messages: msgs }
-      if (updatedFile) (result as any).lastEditedFile = updatedFile
+      if (updatedFile) {
+        (result as any).lastEditedFile = updatedFile
+        ;(result as any).lastEditVersion = s.lastEditVersion + 1
+      }
       return result
     }),
 
@@ -672,6 +677,11 @@ export const useStore = create<AppState>((set, get) => ({
         }
       })
     }
+    // Mark session as viewed when opened
+    const project = useStore.getState().projectPath
+    if (project) {
+      App.MarkSessionViewed(project, id).catch(() => {})
+    }
   },
 
   closeSessionTab: async (id) => {
@@ -727,6 +737,11 @@ export const useStore = create<AppState>((set, get) => ({
         tokenCount: s.sessionTokens[id]?.count ?? 0,
         tokenMax: s.sessionTokens[id]?.max ?? 0,
         sessionParents: s.sessionParents,
+      }
+      // Mark session as viewed when user switches to it
+      const project = s.projectPath
+      if (project) {
+        App.MarkSessionViewed(project, id).catch(() => {})
       }
       return updates
     })
@@ -986,8 +1001,8 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   respondAskUser: async (resp) => {
-    await Call.ByName('monika/internal/api.App.RespondAskUser', resp)
     set({ pendingAskUser: null })
+    await Call.ByName('monika/internal/api.App.RespondAskUser', resp)
   },
 
   loadPermissionRules: async () => {
@@ -1169,6 +1184,7 @@ export const useStore = create<AppState>((set, get) => ({
       preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null },
       lastEditedFile: null,
       lastEditedOldContent: null,
+      lastEditVersion: 0,
       openSessions: [],
       sessionMessages: {},
       tasks: {},
@@ -1350,6 +1366,16 @@ export function setupWailsEvents() {
             if (data.tool.input) {
               store.updateToolInput(data.tool.id, data.tool.input)
             }
+            // Use backend-computed diff if available
+            if (data.tool.diffLines && data.tool.diffLines.length > 0 && data.tool.input) {
+              try {
+                const parsed = JSON.parse(data.tool.input)
+                if (parsed.filePath) {
+                  const name = parsed.filePath.split('/').pop() || parsed.filePath.split('\\').pop() || parsed.filePath
+                  useStore.getState().setPreviewDiff(parsed.filePath, name, data.tool.diffLines)
+                }
+              } catch {}
+            }
           }
         }
         break
@@ -1360,6 +1386,10 @@ export function setupWailsEvents() {
           store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
           if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
             store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+          }
+          // Refresh file tree and changes when a file-modifying tool finishes
+          if (data.tool.name === 'file_write' || data.tool.name === 'file_edit' || data.tool.name === 'bash') {
+            store.bumpFileTreeVersion()
           }
         }
         break
@@ -1373,7 +1403,7 @@ export function setupWailsEvents() {
       case 'error':
         if (data.content === 'cancelled') {
           store.removeGeneratingSession(sid)
-          store.setSessionStatus(sid, 'stopped')
+          store.setSessionStatus(sid, 'pending')
           store.setSessionError(sid, '')
           store.bumpSessionListVersion()
           break
@@ -1383,7 +1413,7 @@ export function setupWailsEvents() {
           store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
         }
         store.removeGeneratingSession(sid)
-        store.setSessionStatus(sid, 'failure')
+        store.setSessionStatus(sid, 'pending')
         store.setSessionError(sid, data.content || 'Unknown error')
         store.bumpSessionListVersion()
         break
@@ -1401,7 +1431,7 @@ export function setupWailsEvents() {
             break
           }
         }
-        store.setSessionStatus(sid, 'success')
+        store.setSessionStatus(sid, 'pending')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
         break
@@ -1464,12 +1494,15 @@ export function setupWailsEvents() {
     const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
     if (data.type === 'permission_required' && permPayload) {
       useStore.setState({ pendingPermission: permPayload })
+      if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
       return
     }
 
     const askPayload = (data as any).ask_user as AskUserEvent | undefined
     if (data.type === 'ask_user' && askPayload) {
       useStore.setState({ pendingAskUser: askPayload })
+      // Advance past this seq so subsequent events aren't blocked
+      if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
       return
     }
 
@@ -1491,6 +1524,10 @@ export function setupWailsEvents() {
     } else {
       processEvent(data)
     }
+  })
+
+  Events.On('branch-changed', (ev) => {
+    useStore.getState().setBranch(ev.data as string)
   })
 }
 

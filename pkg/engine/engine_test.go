@@ -55,3 +55,4 @@ func (s *stubEngine) ID() string                                     { return s.
 func (s *stubEngine) Init(_ context.Context, _ map[string]any) error { return nil }
 func (s *stubEngine) Capabilities() []Capability                     { return nil }
 func (s *stubEngine) Shutdown(_ context.Context) error               { return nil }
+func (s *stubEngine) NewInstance() Engine                            { return &stubEngine{id: s.id} }

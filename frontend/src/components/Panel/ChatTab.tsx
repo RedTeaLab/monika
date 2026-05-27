@@ -18,9 +18,8 @@ export function ChatTab(props: IDockviewPanelHeaderProps) {
 
   const dotColor =
     status === 'generating' ? 'var(--accent)'
-    : status === 'failure' ? 'var(--red)'
-    : status === 'stopped' ? 'var(--yellow)'
-    : 'var(--green)'
+    : status === 'pending' ? 'var(--yellow)'
+    : 'var(--text-dim)'
 
   const showDot = sessionId !== 'chat'
 

@@ -118,5 +118,10 @@ func (f *fileEdit) editFile(path, oldString, newString string, replaceAll bool) 
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
-	return tool.ExecutionResult{Content: fmt.Sprintf("Replaced %d occurrence(s) in %s", count, path)}, nil
+	diffLines := computeDiff(path, content, result)
+
+	return tool.ExecutionResult{
+		Content:   fmt.Sprintf("Replaced %d occurrence(s) in %s", count, path),
+		DiffLines: diffLines,
+	}, nil
 }

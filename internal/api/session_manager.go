@@ -18,9 +18,8 @@ import (
 const (
 	StatusIdle       = "idle"
 	StatusGenerating = "generating"
-	StatusSuccess    = "success"
-	StatusFailure    = "failure"
-	StatusStopped    = "stopped"
+	StatusPending    = "pending"
+	StatusArchived   = "archived"
 )
 
 type Session struct {
@@ -36,6 +35,7 @@ type Session struct {
 	CompactionCount int                  `json:"compaction_count,omitempty"`
 	ParentID        string               `json:"parent_id,omitempty"`
 	Tasks           []tool.Task          `json:"tasks,omitempty"`
+	LastViewedAt    *time.Time           `json:"last_viewed_at,omitempty"`
 	CreatedAt       time.Time            `json:"created_at"`
 	UpdatedAt       time.Time            `json:"updated_at"`
 }
@@ -147,6 +147,13 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 		s, err := sm.Load(strings.TrimSuffix(e.Name(), ".json"))
 		if err != nil {
 			continue
+		}
+		// Lazy archival: pending + viewed > 1h ago → archived
+		if s.Status == StatusPending && s.LastViewedAt != nil {
+			if time.Since(*s.LastViewedAt) > time.Hour {
+				s.Status = StatusArchived
+				sm.Save(s)
+			}
 		}
 		infos = append(infos, SessionInfo{
 			ID:         s.ID,

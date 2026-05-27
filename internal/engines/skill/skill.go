@@ -20,6 +20,8 @@ type SkillEngine struct{}
 
 func (e *SkillEngine) ID() string { return "skill" }
 
+func (e *SkillEngine) NewInstance() engine.Engine { return &SkillEngine{} }
+
 func (e *SkillEngine) Capabilities() []engine.Capability {
 	return []engine.Capability{engine.CapSkill}
 }

@@ -135,6 +135,14 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	resultCh := t.dispatchFn(ctx, task)
 	var output strings.Builder
 	for ev := range resultCh {
+		select {
+		case <-ctx.Done():
+			return tool.ExecutionResult{
+				Content: "subtask cancelled",
+				IsError: true,
+			}, nil
+		default:
+		}
 		switch ev.Type {
 		case agent.EventTextDelta, agent.EventThinking:
 			output.WriteString(ev.Content)

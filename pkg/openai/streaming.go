@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 
 	"monika/pkg/engine"
 )
@@ -62,6 +63,25 @@ type toolCallChunk struct {
 	} `json:"function"`
 }
 
+// Per base-URL HTTP client cache. Each base URL gets its own Transport
+// so that connection pools and TLS sessions are never shared across
+// different providers — this prevents HTTP/2 connection coalescing from
+// reusing a TLS connection that was established with a different host.
+var clientCache sync.Map
+
+func httpClientFor(baseURL string) *http.Client {
+	if c, ok := clientCache.Load(baseURL); ok {
+		return c.(*http.Client)
+	}
+	c := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConnsPerHost: 2,
+		},
+	}
+	clientCache.Store(baseURL, c)
+	return c
+}
+
 func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []engine.ChatMessage, tools []engine.ToolDef) (<-chan engine.ChatEvent, error) {
 	body := chatRequest{
 		Model:    model,
@@ -90,7 +110,7 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClientFor(baseURL).Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -105,11 +125,26 @@ func StreamChat(ctx context.Context, baseURL, apiKey, model string, messages []e
 	go func() {
 		defer close(ch)
 		defer resp.Body.Close()
+
+		// Ensure resp.Body is closed when ctx is cancelled so that
+		// scanner.Scan() in parseSSEStream unblocks immediately.
+		bodyDone := make(chan struct{})
+		go func() {
+			select {
+			case <-ctx.Done():
+				resp.Body.Close()
+			case <-bodyDone:
+			}
+		}()
+
 		if err := parseSSEStream(ctx, resp.Body, ch); err != nil {
+			close(bodyDone)
 			select {
 			case ch <- engine.ChatEvent{Kind: engine.EventError, Error: engine.ProviderError{Code: "stream_error", Message: err.Error()}}:
 			default:
 			}
+		} else {
+			close(bodyDone)
 		}
 	}()
 	return ch, nil

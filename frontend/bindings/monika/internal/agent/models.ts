@@ -198,6 +198,7 @@ export class ToolEvent {
     "input": string;
     "output": string;
     "status": string;
+    "diffLines"?: string[];
 
     /** Creates a new ToolEvent instance. */
     constructor($$source: Partial<ToolEvent> = {}) {

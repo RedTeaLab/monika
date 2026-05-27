@@ -213,17 +213,16 @@ func (a *AgentLoop) runCompaction(ctx context.Context, conv *Conversation, ch ch
 
 	var summary strings.Builder
 	for ev := range events {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
 		switch ev.Kind {
 		case engine.EventContentDelta:
 			summary.WriteString(ev.Text)
 		case engine.EventError:
 			return fmt.Errorf("compaction provider error: %s", ev.Error.Message)
 		}
+	}
+	// Check if context was cancelled after the stream ended.
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
 
 	result := summary.String()
@@ -587,13 +586,13 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 				found := false
 				if a.mcpRegistry != nil {
 					for _, conn := range a.mcpRegistry.GetConnections() {
-						tools, lerr := conn.ListTools(context.Background())
+						tools, lerr := conn.ListTools(ctx)
 						if lerr != nil {
 							continue
 						}
 						for _, mt := range tools {
 							if mt.Name == tc.Function.Name {
-								result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+								result, cerr := conn.CallTool(ctx, tc.Function.Name, json.RawMessage(tc.Function.Arguments))
 								if cerr != nil {
 									conv.Messages = append(conv.Messages, engine.ChatMessage{
 										Role:       "tool",
@@ -765,6 +764,10 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 		loop := true
 		for loop {
 			select {
+			case <-ctx.Done():
+				flushAll()
+				ch <- Event{Type: EventError, Content: "cancelled"}
+				return
 			case <-flushTick.C:
 				flushAll()
 				continue
@@ -909,13 +912,13 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				found := false
 				if a.mcpRegistry != nil {
 					for _, conn := range a.mcpRegistry.GetConnections() {
-						tools, lerr := conn.ListTools(context.Background())
+						tools, lerr := conn.ListTools(ctx)
 						if lerr != nil {
 							continue
 						}
 						for _, mt := range tools {
 							if mt.Name == tc.Function.Name {
-								result, cerr := conn.CallTool(context.Background(), tc.Function.Name, json.RawMessage(tc.Function.Arguments))
+								result, cerr := conn.CallTool(ctx, tc.Function.Name, json.RawMessage(tc.Function.Arguments))
 								if cerr != nil {
 									errMsg := fmt.Sprintf("MCP tool %s error: %s", tc.Function.Name, cerr)
 									ch <- Event{
@@ -1034,23 +1037,47 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 				}
 				var streamOutput strings.Builder
 				childSID := tc.ID // tool call ID = child session ID
+			streamLoop:
 				for ev := range eventCh {
 					ev.SessionID = childSID // tag so frontend routes to child tab
 					switch ev.Type {
 					case EventToolStart:
 						streamOutput.Reset()
-						ch <- ev
+						select {
+						case ch <- ev:
+						case <-ctx.Done():
+							break streamLoop
+						}
 					case EventTextDelta:
-						ch <- ev
+						select {
+						case ch <- ev:
+						default:
+						}
 						streamOutput.WriteString(ev.Content)
 					case EventThinking:
-						ch <- ev
+						select {
+						case ch <- ev:
+						case <-ctx.Done():
+							break streamLoop
+						}
 					case EventToolDone, EventToolOutput:
-						ch <- ev
+						select {
+						case ch <- ev:
+						case <-ctx.Done():
+							break streamLoop
+						}
 					case EventError:
-						ch <- ev
+						select {
+						case ch <- ev:
+						case <-ctx.Done():
+							break streamLoop
+						}
 					default:
-						ch <- ev
+						select {
+						case ch <- ev:
+						case <-ctx.Done():
+							break streamLoop
+						}
 					}
 				}
 				toolContent := streamOutput.String()
@@ -1103,11 +1130,12 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			ch <- Event{
 				Type: EventToolOutput,
 				Tool: &ToolEvent{
-					ID:     tc.ID,
-					Name:   tc.Function.Name,
-					Input:  tc.Function.Arguments,
-					Output: execResult.Content,
-					Status: status,
+					ID:        tc.ID,
+					Name:      tc.Function.Name,
+					Input:     tc.Function.Arguments,
+					Output:    execResult.Content,
+					Status:    status,
+					DiffLines: execResult.DiffLines,
 				},
 			}
 
