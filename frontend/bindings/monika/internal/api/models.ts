@@ -489,6 +489,7 @@ export class Session {
     "model": string;
     "provider": string;
     "status": string;
+    "pinned": boolean;
     "token_count"?: number;
     "token_max"?: number;
     "compaction_count"?: number;
@@ -522,6 +523,9 @@ export class Session {
         if (!("status" in $$source)) {
             this["status"] = "";
         }
+        if (!("pinned" in $$source)) {
+            this["pinned"] = false;
+        }
         if (!("created_at" in $$source)) {
             this["created_at"] = null;
         }
@@ -537,13 +541,13 @@ export class Session {
      */
     static createFrom($$source: any = {}): Session {
         const $$createField3_0 = $$createType9;
-        const $$createField12_0 = $$createType11;
+        const $$createField13_0 = $$createType11;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
         }
         if ("tasks" in $$parsedSource) {
-            $$parsedSource["tasks"] = $$createField12_0($$parsedSource["tasks"]);
+            $$parsedSource["tasks"] = $$createField13_0($$parsedSource["tasks"]);
         }
         return new Session($$parsedSource as Partial<Session>);
     }
@@ -553,6 +557,7 @@ export class SessionInfo {
     "id": string;
     "title": string;
     "status": string;
+    "pinned": boolean;
     "updated_at": string;
     "token_count"?: number;
     "token_max"?: number;
@@ -567,6 +572,9 @@ export class SessionInfo {
         }
         if (!("status" in $$source)) {
             this["status"] = "";
+        }
+        if (!("pinned" in $$source)) {
+            this["pinned"] = false;
         }
         if (!("updated_at" in $$source)) {
             this["updated_at"] = "";

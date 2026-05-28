@@ -432,6 +432,30 @@ func (a *App) DeleteSession(projectPath, sessionID string) error {
 	return sm.Delete(sessionID)
 }
 
+func (a *App) SetSessionPinned(projectPath, sessionID string, pinned bool) error {
+	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return err
+	}
+	s.Pinned = pinned
+	return sm.Save(s)
+}
+
+func (a *App) ArchiveSession(projectPath, sessionID string) error {
+	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return err
+	}
+	s.Status = StatusArchived
+	return sm.Save(s)
+}
+
 func (a *App) MarkSessionViewed(projectPath, sessionID string) {
 	sm := a.getSessionManager(projectPath)
 	sm.Lock()

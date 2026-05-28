@@ -46,6 +46,10 @@ export function AppendLoopOption(opt: agent$0.LoopOption): $CancellablePromise<v
     return $Call.ByID(1912792643, opt);
 }
 
+export function ArchiveSession(projectPath: string, sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(457154186, projectPath, sessionID);
+}
+
 /**
  * AskUser sends a question to the frontend and blocks until the user responds.
  */
@@ -508,6 +512,10 @@ export function SetPermissionMode(args: json$0.RawMessage): $CancellablePromise<
  */
 export function SetPipeline(p: permission$0.Pipeline | null): $CancellablePromise<void> {
     return $Call.ByID(2022465590, p);
+}
+
+export function SetSessionPinned(projectPath: string, sessionID: string, pinned: boolean): $CancellablePromise<void> {
+    return $Call.ByID(1945497030, projectPath, sessionID, pinned);
 }
 
 /**

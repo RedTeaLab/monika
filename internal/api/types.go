@@ -68,6 +68,7 @@ type SessionInfo struct {
 	ID         string `json:"id"`
 	Title      string `json:"title"`
 	Status     string `json:"status"`
+	Pinned     bool   `json:"pinned"`
 	UpdatedAt  string `json:"updated_at"`
 	TokenCount int64  `json:"token_count,omitempty"`
 	TokenMax   int64  `json:"token_max,omitempty"`

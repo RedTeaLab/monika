@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconTrash, IconPlus } from '../Icons'
+import { IconTrash, IconPlus, IconStar, IconFolder } from '../Icons'
 import { logger } from '../../lib/logger'
 import ConfirmModal from '../Chat/ConfirmModal'
 
@@ -78,11 +78,16 @@ function SessionList(props: IDockviewPanelProps) {
   const groupedSessions = useMemo(() => {
     const list = Array.isArray(sessions) ? sessions : []
     const sorted = [...list].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    const pinned: SessionInfo[] = []
     const generating: SessionInfo[] = []
     const pending: SessionInfo[] = []
     const idle: SessionInfo[] = []
     const archived: SessionInfo[] = []
     for (const s of sorted) {
+      if (s.pinned) {
+        pinned.push(s)
+        continue
+      }
       const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
       if (st === 'generating') generating.push(s)
       else if (st === 'pending') pending.push(s)
@@ -90,6 +95,7 @@ function SessionList(props: IDockviewPanelProps) {
       else idle.push(s)
     }
     return [
+      { label: 'Pinned', items: pinned },
       { label: 'Active', items: generating },
       { label: 'Not Started', items: idle },
       { label: 'Pending', items: pending },
@@ -162,6 +168,28 @@ function SessionList(props: IDockviewPanelProps) {
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault()
       setSessionToDelete(s)
+    }
+  }
+
+  const handlePin = async (s: SessionInfo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!projectPath) return
+    try {
+      await App.SetSessionPinned(projectPath, s.id, !s.pinned)
+      bumpSessionListVersion()
+    } catch (err) {
+      logger.error('Failed to pin/unpin session:', err)
+    }
+  }
+
+  const handleArchive = async (s: SessionInfo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!projectPath) return
+    try {
+      await App.ArchiveSession(projectPath, s.id)
+      bumpSessionListVersion()
+    } catch (err) {
+      logger.error('Failed to archive session:', err)
     }
   }
 
@@ -242,13 +270,33 @@ function SessionList(props: IDockviewPanelProps) {
                         />
                         <span className="truncate">{s.title || 'Untitled'}</span>
                       </span>
-                      <button
-                        onClick={(e) => handleDeleteClick(s, e)}
-                        aria-label={`Delete ${s.title || 'session'}`}
-                        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors flex-shrink-0 ml-2"
-                      >
-                        <IconTrash size={14} />
-                      </button>
+                      <span className="flex items-center gap-1 flex-shrink-0 ml-1">
+                        <button
+                          onClick={(e) => handlePin(s, e)}
+                          aria-label={s.pinned ? 'Unpin session' : 'Pin session'}
+                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--yellow)] transition-colors"
+                          title={s.pinned ? 'Unpin' : 'Pin'}
+                        >
+                          <IconStar size={12} filled={s.pinned} />
+                        </button>
+                        {st !== 'archived' && (
+                          <button
+                            onClick={(e) => handleArchive(s, e)}
+                            aria-label="Archive session"
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--text-secondary)] transition-colors"
+                            title="Archive"
+                          >
+                            <IconFolder size={12} />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => handleDeleteClick(s, e)}
+                          aria-label={`Delete ${s.title || 'session'}`}
+                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--red)] transition-colors"
+                        >
+                          <IconTrash size={14} />
+                        </button>
+                      </span>
                     </div>
                   )
                 })}

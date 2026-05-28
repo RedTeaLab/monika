@@ -30,6 +30,7 @@ type Session struct {
 	Model           string               `json:"model"`
 	Provider        string               `json:"provider"`
 	Status          string               `json:"status"`
+	Pinned          bool                 `json:"pinned"`
 	TokenCount      int64                `json:"token_count,omitempty"`
 	TokenMax        int64                `json:"token_max,omitempty"`
 	CompactionCount int                  `json:"compaction_count,omitempty"`
@@ -165,6 +166,7 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 			ID:         s.ID,
 			Title:      s.Title,
 			Status:     s.Status,
+			Pinned:     s.Pinned,
 			UpdatedAt:  s.UpdatedAt.Format(time.RFC3339),
 			TokenCount: s.TokenCount,
 			TokenMax:   s.TokenMax,

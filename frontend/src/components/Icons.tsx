@@ -111,8 +111,8 @@ export function IconDatabase({ size }: { size?: number }) {
   return <Database size={size || 16} strokeWidth={1.5} />
 }
 
-export function IconStar({ size }: { size?: number }) {
-  return <Star size={size || 16} strokeWidth={1.5} />
+export function IconStar({ size, filled }: { size?: number; filled?: boolean }) {
+  return <Star size={size || 16} strokeWidth={1.5} fill={filled ? 'currentColor' : 'none'} />
 }
 
 export function IconPlug({ size }: { size?: number }) {
