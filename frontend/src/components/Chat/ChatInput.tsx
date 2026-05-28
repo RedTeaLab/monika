@@ -231,7 +231,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
         .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: `$${h} ` }))
 
       const files = projectPath
-        ? await App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
+        ? await App.ListFileTree(projectPath, false).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
         : []
 
       const fileItems: AcItem[] = (files || [])
@@ -248,7 +248,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
       items = [...histItems, ...fileItems.filter(f => !seen.has(f.name))]
     } else if (prefix === '@') {
       const files = projectPath
-        ? await App.ListFileTree(projectPath).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
+        ? await App.ListFileTree(projectPath, false).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
         : []
       items = (files || [])
         .filter(f => f.path.toLowerCase().includes(lq) || f.name.toLowerCase().includes(lq))

@@ -25,6 +25,7 @@ import {
   Zap,
   RefreshCw,
   Info,
+  Eye,
 } from 'lucide-react'
 
 export function IconClose({ size }: { size?: number }) {
@@ -129,4 +130,8 @@ export function IconRefresh({ size }: { size?: number }) {
 
 export function IconInfo({ size }: { size?: number }) {
   return <Info size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconEye({ size }: { size?: number }) {
+  return <Eye size={size || 16} strokeWidth={1.5} />
 }

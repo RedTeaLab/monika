@@ -274,8 +274,8 @@ export function ListFileChanges(projectPath: string): $CancellablePromise<$model
     });
 }
 
-export function ListFileTree(projectPath: string): $CancellablePromise<$models.FileNode[]> {
-    return $Call.ByID(2046651834, projectPath).then(($result: any) => {
+export function ListFileTree(projectPath: string, showHidden: boolean): $CancellablePromise<$models.FileNode[]> {
+    return $Call.ByID(2046651834, projectPath, showHidden).then(($result: any) => {
         return $$createType24($result);
     });
 }

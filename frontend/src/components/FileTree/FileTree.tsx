@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, FileNode } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconChevronRight, IconChevronDown, IconFile } from '../Icons'
+import { IconChevronRight, IconChevronDown, IconFile, IconEye } from '../Icons'
 
 function FileTree(_props: IDockviewPanelProps) {
   const [tree, setTree] = useState<FileNode[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [showHidden, setShowHidden] = useState(false)
   const projectPath = useStore((s) => s.projectPath)
   const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const setPreviewFile = useStore((s) => s.setPreviewFile)
@@ -15,7 +16,7 @@ function FileTree(_props: IDockviewPanelProps) {
   useEffect(() => {
     if (!projectPath) return
     let cancelled = false
-    App.ListFileTree(projectPath)
+    App.ListFileTree(projectPath, showHidden)
       .then((result) => {
         if (!cancelled) setTree(Array.isArray(result) ? result : [])
       })
@@ -23,7 +24,7 @@ function FileTree(_props: IDockviewPanelProps) {
         if (!cancelled) setTree([])
       })
     return () => { cancelled = true }
-  }, [projectPath, fileTreeVersion])
+  }, [projectPath, fileTreeVersion, showHidden])
 
   // Refresh on window focus (catches external git / file changes)
   useEffect(() => {
@@ -107,6 +108,14 @@ function FileTree(_props: IDockviewPanelProps) {
         style={{ fontFamily: 'var(--font-sans)', padding: '6px 10px', background: 'var(--bg-sidebar)' }}
       >
         <span className="truncate min-w-0">FILES</span>
+        <button
+          className="ml-auto flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--bg-hover)] transition-colors"
+          style={{ color: showHidden ? 'var(--text-primary)' : 'var(--text-dim)' }}
+          title={showHidden ? 'Hide hidden files' : 'Show hidden files'}
+          onClick={() => setShowHidden(!showHidden)}
+        >
+          <IconEye size={13} />
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto" style={{ padding: '0 8px' }}>
         {(!tree || tree.length === 0) ? (

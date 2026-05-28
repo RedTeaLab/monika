@@ -75,7 +75,7 @@ func TestFileServiceListDir(t *testing.T) {
 	os.MkdirAll(filepath.Join(dir, "node_modules", "pkg"), 0755)
 	os.MkdirAll(filepath.Join(dir, ".monika"), 0755)
 
-	nodes, err := fs.ListDir("")
+	nodes, err := fs.ListDir("", false)
 	if err != nil {
 		t.Fatalf("ListDir: %v", err)
 	}

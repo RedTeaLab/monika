@@ -49,7 +49,7 @@ func (f *FileService) WriteFile(relPath, content string) error {
 	return os.WriteFile(absPath, []byte(content), 0644)
 }
 
-func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
+func (f *FileService) ListDir(relPath string, showHidden bool) ([]FileNode, error) {
 	// Build git status map once at top level.
 	statusMap := f.gitStatusMap()
 
@@ -64,7 +64,7 @@ func (f *FileService) ListDir(relPath string) ([]FileNode, error) {
 		nodes := make([]FileNode, 0)
 		for _, entry := range entries {
 			name := entry.Name()
-			if strings.HasPrefix(name, ".") || name == "node_modules" {
+			if !showHidden && (strings.HasPrefix(name, ".") || name == "node_modules") {
 				continue
 			}
 

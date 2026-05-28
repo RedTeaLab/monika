@@ -941,9 +941,9 @@ func (a *App) WriteFile(projectPath, filePath, content string) error {
 	return nil
 }
 
-func (a *App) ListFileTree(projectPath string) ([]FileNode, error) {
+func (a *App) ListFileTree(projectPath string, showHidden bool) ([]FileNode, error) {
 	fs := a.getFileService(projectPath)
-	return fs.ListDir("")
+	return fs.ListDir("", showHidden)
 }
 
 func (a *App) ListFileChanges(projectPath string) ([]FileChange, error) {
