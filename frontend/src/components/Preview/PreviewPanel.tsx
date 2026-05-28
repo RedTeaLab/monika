@@ -484,6 +484,14 @@ function PreviewPanel(props: IDockviewPanelProps) {
 
   useEffect(() => {
     if (!lastEditedFile || !projectPath) return
+
+    // If preview already shows a diff for this file (set by tool_output handler),
+    // don't overwrite it — the backend diff is already correct for this edit.
+    const cur = useStore.getState().preview
+    if (cur.mode === 'diff' && cur.filePath === lastEditedFile && cur.diffLines && cur.diffLines.length > 0) {
+      return
+    }
+
     const normProject = projectPath.replace(/\\/g, '/')
     const normFile = lastEditedFile.replace(/\\/g, '/')
     let relPath = normFile
