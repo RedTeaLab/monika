@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, lineNumbers } from '@codemirror/view'
@@ -431,6 +431,30 @@ function PreviewPanel(props: IDockviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<EditorView | null>(null)
   const headerRef = useRef<HTMLDivElement>(null)
+  const [maximized, setMaximized] = useState(false)
+
+  useEffect(() => {
+    setMaximized(props.api.isMaximized())
+  }, [props.api])
+
+  useEffect(() => {
+    const dockviewApi = useStore.getState().dockviewApi
+    if (!dockviewApi) return
+    const disposable = dockviewApi.onDidMaximizedGroupChange((e) => {
+      if (e.group === props.api.group) {
+        setMaximized(e.isMaximized)
+      }
+    })
+    return () => { disposable.dispose() }
+  }, [props.api])
+
+  const toggleMaximize = useCallback(() => {
+    if (props.api.isMaximized()) {
+      props.api.exitMaximized()
+    } else {
+      props.api.maximize()
+    }
+  }, [props.api])
 
   useEffect(() => {
     const panel = headerRef.current?.closest('.dv-panel') as HTMLElement | null
@@ -509,6 +533,26 @@ function PreviewPanel(props: IDockviewPanelProps) {
   return (
     <div className="flex flex-col h-full" style={{ background: '#08090d' }}>
       <div ref={headerRef} style={{ display: 'none' }} />
+      <div
+        className="flex items-center gap-1.5 select-none shrink-0"
+        style={{ fontFamily: 'var(--font-sans)', fontSize: 12, padding: '5px 6px 5px 10px', background: 'var(--bg-sidebar)' }}
+      >
+        <span className="truncate min-w-0">PREVIEW</span>
+        <div className="flex-1" />
+        <div
+          onClick={toggleMaximize}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 4, color: 'var(--text-dim)', cursor: 'pointer', flexShrink: 0, transition: 'color 0.15s, background 0.15s' }}
+          title={maximized ? 'Restore' : 'Maximize'}
+        >
+          {maximized ? (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="4.5" y="4.5" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" opacity="0.5" /><rect x="3" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" /></svg>
+          ) : (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" /></svg>
+          )}
+        </div>
+      </div>
       {/* File preview — wrapper always mounted for CodeMirror DOM safety */}
       <div
         className="flex flex-col flex-1 min-h-0"
