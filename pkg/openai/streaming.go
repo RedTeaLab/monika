@@ -164,14 +164,18 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	toolCallBuf := make(map[int]*engine.ToolCall)
 	toolCallStarted := make(map[int]bool)
+	receivedData := false
+	cleanEnd := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
+		receivedData = true
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
+			cleanEnd = true
 			if err := send(engine.ChatEvent{Kind: engine.EventMessageEnd, Text: "stop"}); err != nil {
 				return err
 			}
@@ -251,6 +255,7 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 			}
 
 			if choice.FinishReason != nil && *choice.FinishReason != "" {
+				cleanEnd = true
 				for _, buf := range toolCallBuf {
 					if buf.Function.Name != "" {
 						if err := send(engine.ChatEvent{
@@ -301,6 +306,10 @@ func parseSSEStream(ctx context.Context, r io.Reader, ch chan<- engine.ChatEvent
 				return err
 			}
 		}
+	}
+
+	if receivedData && !cleanEnd {
+		return fmt.Errorf("stream ended unexpectedly: connection closed without [DONE] or finish_reason")
 	}
 
 	return scanner.Err()
