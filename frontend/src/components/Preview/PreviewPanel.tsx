@@ -203,6 +203,19 @@ function parseDiffLines(lines: string[]): { hunks: HunkLine[]; added: number; re
 
 function DiffView({ lines, fileName }: { lines: string[]; fileName: string }) {
   const { hunks, added, removed } = parseDiffLines(lines)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const firstChangeRef = useRef<HTMLTableRowElement>(null)
+
+  useEffect(() => {
+    if (firstChangeRef.current && scrollRef.current) {
+      const container = scrollRef.current
+      const row = firstChangeRef.current
+      const containerRect = container.getBoundingClientRect()
+      const rowRect = row.getBoundingClientRect()
+      const offset = rowRect.top - containerRect.top + container.scrollTop - container.clientHeight / 3
+      container.scrollTo({ top: Math.max(0, offset) })
+    }
+  }, [lines])
 
   return (
     <div className="flex flex-col h-full">
@@ -264,106 +277,110 @@ function DiffView({ lines, fileName }: { lines: string[]; fileName: string }) {
 
       {/* Diff body */}
       <div
+        ref={scrollRef}
         className="flex-1 overflow-auto"
         style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '22px' }}
       >
         <table style={{ borderCollapse: 'collapse', width: '100%' }}>
           <tbody>
-            {hunks.map((h, i) => {
-              if (h.type === 'file-header') {
-                return (
-                  <tr key={i}>
-                    <td colSpan={3} style={{
-                      color: h.content.startsWith('---') ? 'var(--red)' : 'var(--green)',
-                      opacity: 0.6,
-                      padding: '2px 0',
-                      fontSize: 11,
-                      whiteSpace: 'pre',
-                      background: 'rgba(255,255,255,0.01)',
-                    }}>
-                      <span style={{ paddingLeft: 12 }}>{h.content}</span>
-                    </td>
-                  </tr>
-                )
-              }
-              if (h.type === 'hunk-header') {
-                const display = h.content.replace(/@@.*@@/, (m) => {
-                  const inner = m.slice(2, -2).trim()
-                  return `@@ ${inner} @@`
-                })
-                return (
-                  <tr key={i}>
-                    <td colSpan={3} style={{
-                      color: 'var(--accent)',
-                      opacity: 0.5,
-                      padding: '4px 0 2px',
-                      fontSize: 11,
-                      whiteSpace: 'pre',
-                    }}>
-                      <span style={{ paddingLeft: 12 }}>{display}</span>
-                    </td>
-                  </tr>
-                )
-              }
-              const isAdd = h.type === 'add'
-              const isRemove = h.type === 'remove'
-              const bg = isAdd ? 'rgba(68,165,115,0.10)'
-                : isRemove ? 'rgba(205,84,84,0.10)'
-                : 'transparent'
-              const fg = isAdd ? 'var(--green)'
-                : isRemove ? 'var(--red)'
-                : 'var(--text-primary)'
-              const gutterBg = isAdd ? 'rgba(68,165,115,0.18)'
-                : isRemove ? 'rgba(205,84,84,0.18)'
-                : 'transparent'
-              const gutterColor = isAdd ? 'rgba(68,165,115,0.5)'
-                : isRemove ? 'rgba(205,84,84,0.5)'
-                : 'var(--text-dim)'
-              const prefix = isAdd ? '+' : isRemove ? '-' : ' '
+            {(() => {
+              const firstChangeIdx = hunks.findIndex(h => h.type === 'add' || h.type === 'remove')
+              return hunks.map((h, i) => {
+                if (h.type === 'file-header') {
+                  return (
+                    <tr key={i}>
+                      <td colSpan={3} style={{
+                        color: h.content.startsWith('---') ? 'var(--red)' : 'var(--green)',
+                        opacity: 0.6,
+                        padding: '2px 0',
+                        fontSize: 11,
+                        whiteSpace: 'pre',
+                        background: 'rgba(255,255,255,0.01)',
+                      }}>
+                        <span style={{ paddingLeft: 12 }}>{h.content}</span>
+                      </td>
+                    </tr>
+                  )
+                }
+                if (h.type === 'hunk-header') {
+                  const display = h.content.replace(/@@.*@@/, (m) => {
+                    const inner = m.slice(2, -2).trim()
+                    return `@@ ${inner} @@`
+                  })
+                  return (
+                    <tr key={i}>
+                      <td colSpan={3} style={{
+                        color: 'var(--accent)',
+                        opacity: 0.5,
+                        padding: '4px 0 2px',
+                        fontSize: 11,
+                        whiteSpace: 'pre',
+                      }}>
+                        <span style={{ paddingLeft: 12 }}>{display}</span>
+                      </td>
+                    </tr>
+                  )
+                }
+                const isAdd = h.type === 'add'
+                const isRemove = h.type === 'remove'
+                const bg = isAdd ? 'rgba(68,165,115,0.10)'
+                  : isRemove ? 'rgba(205,84,84,0.10)'
+                  : 'transparent'
+                const fg = isAdd ? 'var(--green)'
+                  : isRemove ? 'var(--red)'
+                  : 'var(--text-primary)'
+                const gutterBg = isAdd ? 'rgba(68,165,115,0.18)'
+                  : isRemove ? 'rgba(205,84,84,0.18)'
+                  : 'transparent'
+                const gutterColor = isAdd ? 'rgba(68,165,115,0.5)'
+                  : isRemove ? 'rgba(205,84,84,0.5)'
+                  : 'var(--text-dim)'
+                const prefix = isAdd ? '+' : isRemove ? '-' : ' '
 
-              return (
-                <tr key={i} style={{ background: bg }}>
-                  <td style={{
-                    width: 1,
-                    minWidth: 44,
-                    textAlign: 'right',
-                    padding: '0 6px',
-                    color: gutterColor,
-                    background: gutterBg,
-                    userSelect: 'none',
-                    fontSize: 11,
-                    lineHeight: '22px',
-                    verticalAlign: 'top',
-                  }}>
-                    {h.oldLine != null ? h.oldLine : ''}
-                  </td>
-                  <td style={{
-                    width: 1,
-                    minWidth: 44,
-                    textAlign: 'right',
-                    padding: '0 6px',
-                    color: gutterColor,
-                    background: gutterBg,
-                    userSelect: 'none',
-                    fontSize: 11,
-                    lineHeight: '22px',
-                    verticalAlign: 'top',
-                    borderRight: '1px solid var(--border)',
-                  }}>
-                    {h.newLine != null ? h.newLine : ''}
-                  </td>
-                  <td style={{
-                    padding: '0 0 0 8px',
-                    color: fg,
-                    whiteSpace: 'pre',
-                    lineHeight: '22px',
-                  }}>
-                    <span style={{ opacity: 0.5, userSelect: 'none' }}>{prefix}</span>
-                    {h.content}
-                  </td>
-                </tr>
-              )
-            })}
+                return (
+                  <tr key={i} ref={i === firstChangeIdx ? firstChangeRef : undefined} style={{ background: bg }}>
+                    <td style={{
+                      width: 1,
+                      minWidth: 44,
+                      textAlign: 'right',
+                      padding: '0 6px',
+                      color: gutterColor,
+                      background: gutterBg,
+                      userSelect: 'none',
+                      fontSize: 11,
+                      lineHeight: '22px',
+                      verticalAlign: 'top',
+                    }}>
+                      {h.oldLine != null ? h.oldLine : ''}
+                    </td>
+                    <td style={{
+                      width: 1,
+                      minWidth: 44,
+                      textAlign: 'right',
+                      padding: '0 6px',
+                      color: gutterColor,
+                      background: gutterBg,
+                      userSelect: 'none',
+                      fontSize: 11,
+                      lineHeight: '22px',
+                      verticalAlign: 'top',
+                      borderRight: '1px solid var(--border)',
+                    }}>
+                      {h.newLine != null ? h.newLine : ''}
+                    </td>
+                    <td style={{
+                      padding: '0 0 0 8px',
+                      color: fg,
+                      whiteSpace: 'pre',
+                      lineHeight: '22px',
+                    }}>
+                      <span style={{ opacity: 0.5, userSelect: 'none' }}>{prefix}</span>
+                      {h.content}
+                    </td>
+                  </tr>
+                )
+              })
+            })()}
           </tbody>
         </table>
       </div>
