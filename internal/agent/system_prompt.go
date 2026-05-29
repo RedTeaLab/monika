@@ -266,7 +266,9 @@ func BuildMCPPrompt(tools []engine.MCPTool) string {
 		}
 		fmt.Fprintf(&b, "  <mcp_tool>\n    <name>%s</name>\n    <description>%s</description>\n  </mcp_tool>\n", xmlEscape(t.Name), xmlEscape(desc))
 	}
-	b.WriteString("</available_mcp_tools>\n")
+	b.WriteString("</available_mcp_tools>\n\n")
+	b.WriteString("### MCP Server Management\n\n")
+	b.WriteString("When a user asks to add, configure, or install an MCP server, use the **install_mcp_server** tool. When a user asks to remove or uninstall an MCP server, use the **uninstall_mcp_server** tool. When a user asks what MCP servers are configured, use the **list_mcp_servers** tool.\n")
 	b.WriteString("When the user's task involves operations that match an MCP tool's capability, use that MCP tool rather than workarounds with built-in tools.")
 	return b.String()
 }

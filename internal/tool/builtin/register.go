@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 
 	"monika/internal/agent"
 	"monika/internal/config"
@@ -54,4 +55,18 @@ func RegisterSkillTool(r *tool.ToolRegistry, skEng engine.SkillEngine, home stri
 func RegisterSkillManagement(r *tool.ToolRegistry, installFn func(url string, scope string) ([]string, error), uninstallFn func(name string) error) {
 	r.Register(NewSkillInstallTool(installFn))
 	r.Register(NewSkillUninstallTool(uninstallFn))
+}
+
+// RegisterMCPManagement registers install_mcp_server, uninstall_mcp_server, and list_mcp_servers tools.
+// The callbacks are typically wired to App methods.
+func RegisterMCPManagement(
+	r *tool.ToolRegistry,
+	saveFn func(json.RawMessage) error,
+	deleteFn func(json.RawMessage) error,
+	reconnectFn func(json.RawMessage) ([]string, error),
+	listFn func() []MCPServerInfo,
+) {
+	r.Register(NewMCPInstallTool(saveFn, reconnectFn))
+	r.Register(NewMCPUninstallTool(deleteFn))
+	r.Register(NewMCPListTool(listFn))
 }

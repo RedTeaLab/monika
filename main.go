@@ -275,6 +275,29 @@ func main() {
 		return appService.UninstallSkill(args)
 	}
 
+	// Wire MCP management callbacks to App
+	mcpSaveFn := func(args json.RawMessage) error {
+		return appService.SaveMCPServer(args)
+	}
+	mcpDeleteFn := func(args json.RawMessage) error {
+		return appService.DeleteMCPServer(args)
+	}
+	mcpReconnectFn := func(args json.RawMessage) ([]string, error) {
+		return appService.ReconnectMCPServer(args)
+	}
+	mcpListFn := func() []builtin.MCPServerInfo {
+		servers := appService.ListMCPServers()
+		result := make([]builtin.MCPServerInfo, len(servers))
+		for i, s := range servers {
+			result[i] = builtin.MCPServerInfo{
+				ID: s.ID, Type: s.Type, Command: s.Command,
+				Args: s.Args, Env: s.Env, URL: s.URL, Status: s.Status,
+			}
+		}
+		return result
+	}
+	builtin.RegisterMCPManagement(registry, mcpSaveFn, mcpDeleteFn, mcpReconnectFn, mcpListFn)
+
 	pipeline.SetConfirmUI(appService)
 	appService.SetPipeline(pipeline)
 
