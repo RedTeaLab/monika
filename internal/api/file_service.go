@@ -107,7 +107,7 @@ func (f *FileService) ListDir(relPath string, showHidden bool) ([]FileNode, erro
 }
 
 func (f *FileService) readGitStatus() ([]FileChange, error) {
-	cmd := command("git", "status", "--porcelain")
+	cmd := command("git", "status", "--porcelain", "-uall")
 	cmd.Dir = f.projectDir
 	out, err := cmd.Output()
 	if err != nil {
@@ -392,7 +392,7 @@ func (f *FileService) ListChangeStats() ([]ChangeStat, error) {
 	}
 
 	// Untracked files via status --porcelain
-	statusCmd := command("git", "status", "--porcelain")
+	statusCmd := command("git", "status", "--porcelain", "-uall")
 	statusCmd.Dir = f.projectDir
 	statusOut, statusErr := statusCmd.Output()
 	if statusErr == nil {
@@ -410,8 +410,12 @@ func (f *FileService) ListChangeStats() ([]ChangeStat, error) {
 			if filename == "" {
 				continue
 			}
-			// Count lines for new file
+			// Skip directories (only count files)
 			absPath := filepath.Join(f.projectDir, filename)
+			if info, err := os.Stat(absPath); err != nil || info.IsDir() {
+				continue
+			}
+			// Count lines for new file
 			data, err := os.ReadFile(absPath)
 			total := 0
 			if err == nil {
