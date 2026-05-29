@@ -12,6 +12,7 @@ export interface AcState {
   items: AcItem[]
   selectedIdx: number
   prefix: string    // trigger prefix: '$', '/', '@'
+  query?: string    // current search query for highlight
 }
 
 interface Props {
@@ -87,7 +88,7 @@ function AutocompleteDropdown({ state, onSelect, onClose }: Props) {
             </span>
             <div className="flex-1 min-w-0">
               <div className="truncate text-[13px]" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                {highlightMatch(item.name, '')}
+                {highlightMatch(item.name, state.query || '')}
               </div>
               {item.detail && (
                 <div

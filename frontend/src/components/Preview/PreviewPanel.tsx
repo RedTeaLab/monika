@@ -69,9 +69,14 @@ function getLangExtension(filePath: string) {
 }
 
 // Simple unified diff generator with hunk grouping (avoids npm dependency)
+const MAX_DIFF_LINES = 500
+
 function simpleDiff(oldText: string, newText: string): string[] {
   const a = oldText.replace(/\r\n?/g, '\n').split('\n')
   const b = newText.replace(/\r\n?/g, '\n').split('\n')
+  if (a.length > MAX_DIFF_LINES || b.length > MAX_DIFF_LINES) {
+    return [`diff too large (${a.length} vs ${b.length} lines), skipping`]
+  }
   const m = a.length, n = b.length
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
   for (let i = 1; i <= m; i++)

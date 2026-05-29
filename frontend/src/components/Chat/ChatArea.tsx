@@ -10,6 +10,7 @@ import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 
 const EMPTY_ARR: any[] = []
+const EMPTY_STR_ARR: string[] = []
 
 function ChatArea(props: IDockviewPanelProps) {
   const activeSessionId = useStore((s) => s.activeSessionId)
@@ -19,26 +20,25 @@ function ChatArea(props: IDockviewPanelProps) {
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const projectPath = useStore((s) => s.projectPath)
-  const sessionParents = useStore((s) => s.sessionParents)
-  const sessionMessages = useStore((s) => s.sessionMessages)
-  const subagentStack = useStore((s) => s.subagentStack)
+  const isChildSession = useStore((s) => s.sessionParents[sessionId] !== undefined)
   const popSubagentOverlay = useStore((s) => s.popSubagentOverlay)
   const pendingPermission = useStore((s) => s.pendingPermission)
   const pendingAskUser = useStore((s) => s.pendingAskUser)
 
-  const overlayStack = subagentStack[sessionId] || []
+  // Focused selectors — only subscribe to current session's data
+  const parentMessages = useStore((s) => s.sessionMessages[sessionId] || EMPTY_ARR)
+  const overlayStack = useStore((s) => s.subagentStack[sessionId] || EMPTY_STR_ARR)
   const overlaySessionId = overlayStack.length > 0 ? overlayStack[overlayStack.length - 1] : null
-
-  const parentMessages = sessionMessages[sessionId] || EMPTY_ARR
-  const overlayMessages = overlaySessionId ? (sessionMessages[overlaySessionId] || EMPTY_ARR) : EMPTY_ARR
+  // Subscribe to overlay session's messages for streaming updates
+  const overlayMessages = useStore(
+    (s) => overlaySessionId ? (s.sessionMessages[overlaySessionId] || EMPTY_ARR) : EMPTY_ARR
+  )
 
   const isDefaultChat = sessionId === 'chat'
-  const isChildSession = sessionParents[sessionId] !== undefined
   const isOverlay = overlaySessionId !== null
 
-  const todoCollapsed = useStore((s) => s.todoCollapsed)
+  const isTodoCollapsed = useStore((s) => s.todoCollapsed[sessionId] || false)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
-  const isTodoCollapsed = todoCollapsed[sessionId] || false
 
   const handleStop = () => {
     const targetId = overlaySessionId || sessionId

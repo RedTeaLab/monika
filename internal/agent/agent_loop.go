@@ -145,13 +145,23 @@ func (a *AgentLoop) buildCompactionPrompt(conv *Conversation) ([]engine.ChatMess
 }
 
 func (a *AgentLoop) rewriteMessages(conv *Conversation, summary string) {
+	tailStart := compactionSplit(conv, a.contextLimit())
+
 	summaryMsg := engine.ChatMessage{
 		Role:    "assistant",
 		Name:    "compaction_summary",
 		Content: summary,
 	}
 
-	conv.Messages = append(conv.Messages, summaryMsg)
+	// Insert summary at head/tail boundary so buildMessages can skip the old head
+	// (everything before CompactionFrom) and only send summary + tail to the LLM.
+	newMsgs := make([]engine.ChatMessage, 0, len(conv.Messages)+1)
+	newMsgs = append(newMsgs, conv.Messages[:tailStart]...)
+	newMsgs = append(newMsgs, summaryMsg)
+	newMsgs = append(newMsgs, conv.Messages[tailStart:]...)
+
+	conv.Messages = newMsgs
+	conv.CompactionFrom = tailStart
 	conv.CompactionCount++
 	conv.TokenCount = a.EstimateContextTokens(conv)
 }

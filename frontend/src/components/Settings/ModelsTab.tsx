@@ -155,7 +155,7 @@ export default function ModelsTab() {
     setName('')
     setBaseURL('')
     setApiKey('')
-    setWireAPI('openai-compatible')
+    setWireAPI('openai')
     setSelectedAvailableProvider('')
     setError('')
     setSaved(false)
@@ -166,7 +166,7 @@ export default function ModelsTab() {
     setProvId(catalog.id)
     setName(catalog.display_name || catalog.id.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '))
     setBaseURL(catalog.base_url || '')
-    setWireAPI('openai-compatible')
+    setWireAPI('openai')
   }
 
   const closeModal = () => {

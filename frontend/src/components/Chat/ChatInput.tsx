@@ -36,45 +36,47 @@ function loadHistory(): string[] {
 
 const INITIAL_HISTORY = loadHistory()
 
+let mirrorCache: HTMLDivElement | null = null
+
 function getCursorLineInfo(textarea: HTMLTextAreaElement, value: string): { currentLine: number; totalLines: number } {
   if (!value) return { currentLine: 1, totalLines: 1 }
 
   const cursor = textarea.selectionStart
-  const cs = getComputedStyle(textarea)
-  const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2
+  let mirror = mirrorCache
+  if (!mirror || mirror.parentNode !== document.body) {
+    mirror = document.createElement('div')
+    mirrorCache = mirror
+    const cs = getComputedStyle(textarea)
+    mirror.style.position = 'absolute'
+    mirror.style.visibility = 'hidden'
+    mirror.style.whiteSpace = 'pre-wrap'
+    mirror.style.overflowWrap = 'break-word'
+    mirror.style.wordWrap = 'break-word'
+    mirror.style.width = cs.width
+    mirror.style.boxSizing = cs.boxSizing
+    mirror.style.paddingTop = cs.paddingTop
+    mirror.style.paddingBottom = cs.paddingBottom
+    mirror.style.paddingLeft = cs.paddingLeft
+    mirror.style.paddingRight = cs.paddingRight
+    mirror.style.fontFamily = cs.fontFamily
+    mirror.style.fontSize = cs.fontSize
+    mirror.style.fontWeight = cs.fontWeight
+    mirror.style.lineHeight = cs.lineHeight
+    mirror.style.letterSpacing = cs.letterSpacing
+    mirror.style.wordSpacing = cs.wordSpacing
+    mirror.style.tabSize = cs.tabSize
+    document.body.appendChild(mirror)
+  }
 
-  const mirror = document.createElement('div')
-  mirror.style.position = 'absolute'
-  mirror.style.visibility = 'hidden'
-  mirror.style.whiteSpace = 'pre-wrap'
-  mirror.style.overflowWrap = 'break-word'
-  mirror.style.wordWrap = 'break-word'
-  mirror.style.width = cs.width
-  mirror.style.boxSizing = cs.boxSizing
-  mirror.style.paddingTop = cs.paddingTop
-  mirror.style.paddingBottom = cs.paddingBottom
-  mirror.style.paddingLeft = cs.paddingLeft
-  mirror.style.paddingRight = cs.paddingRight
-  mirror.style.fontFamily = cs.fontFamily
-  mirror.style.fontSize = cs.fontSize
-  mirror.style.fontWeight = cs.fontWeight
-  mirror.style.lineHeight = cs.lineHeight
-  mirror.style.letterSpacing = cs.letterSpacing
-  mirror.style.wordSpacing = cs.wordSpacing
-  mirror.style.tabSize = cs.tabSize
-
-  document.body.appendChild(mirror)
-
+  const lh = parseFloat(mirror.style.lineHeight) || parseFloat(mirror.style.fontSize) * 1.2
+  const padV = parseFloat(mirror.style.paddingTop) + parseFloat(mirror.style.paddingBottom)
   const marker = '\u200b'
-  const padV = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
 
   mirror.textContent = value + marker
   const totalContent = mirror.clientHeight - padV
 
   mirror.textContent = value.slice(0, cursor) + marker
   const cursorContent = mirror.clientHeight - padV
-
-  document.body.removeChild(mirror)
 
   return {
     currentLine: Math.max(1, Math.round(cursorContent / lh)),
@@ -104,7 +106,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   const historyRef = useRef<string[]>(INITIAL_HISTORY)
   const historyIndexRef = useRef(-1)
   const navigatingHistoryRef = useRef(false)
-  const sessionMessages = useStore((s) => s.sessionMessages[activeSessionId] || [])
+  const sessionIdRef = useRef(activeSessionId)
+  sessionIdRef.current = activeSessionId
 
   // Reset history index when user types manually
   useEffect(() => {
@@ -261,7 +264,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
         }))
     }
 
-    setAc({ open: true, items, selectedIdx: 0, prefix })
+    setAc({ open: true, items, selectedIdx: 0, prefix, query })
   }, [projectPath])
 
   const updateAutocomplete = useCallback(() => {
@@ -405,7 +408,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
       if (el) {
         const { currentLine, totalLines } = getCursorLineInfo(el, value)
 
-        const userMsgs = sessionMessages.filter(m => m.role === 'user').map(m => m.content)
+        const userMsgs = useStore.getState().sessionMessages[sessionIdRef.current]?.filter(m => m.role === 'user').map(m => m.content) || []
 
         if (e.key === 'ArrowUp' && currentLine === 1 && userMsgs.length > 0) {
           e.preventDefault()

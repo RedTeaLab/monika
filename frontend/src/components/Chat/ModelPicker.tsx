@@ -51,15 +51,14 @@ function ModelPicker() {
   // Build flat list of all visible items for keyboard nav
   type FlatItem =
     | { type: 'provider'; provider: ProviderInfo }
-    | { type: 'model'; provider: ProviderInfo; model: ModelInfo; enabled?: boolean }
+    | { type: 'model'; provider: ProviderInfo; model: ModelInfo }
 
   const flatItems = useMemo((): FlatItem[] => {
     const items: FlatItem[] = []
     const searchLower = search.toLowerCase()
 
     for (const p of availableProviders) {
-      const models = (modelsByProvider[p.id] || [])
-        .filter((m: any) => m.Enabled !== false) // only show enabled models
+      const models = modelsByProvider[p.id] || []
       const filtered = searchLower
         ? models.filter((m) =>
             m.DisplayName.toLowerCase().includes(searchLower) ||
