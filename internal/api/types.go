@@ -116,6 +116,20 @@ type ModelEntryJSON struct {
 	Enabled      bool   `json:"enabled"`
 }
 
+// AvailableProviderInfo represents a provider available from models.dev for users to add.
+type AvailableProviderInfo struct {
+	ID     string                `json:"id"`
+	Models []AvailableModelInfo `json:"models"`
+}
+
+// AvailableModelInfo represents a model from models.dev.
+type AvailableModelInfo struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	ContextLimit int64  `json:"context_limit"`
+	OutputLimit  int64  `json:"output_limit"`
+}
+
 // TaskStoreAccessor provides access to per-session task storage.
 type TaskStoreAccessor interface {
 	Snapshot() map[string][]tool.Task

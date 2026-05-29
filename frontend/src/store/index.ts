@@ -31,6 +31,18 @@ export interface TaskItem {
   blockedBy?: string[]
 }
 
+export interface AvailableProviderInfo {
+  id: string
+  models: AvailableModelInfo[]
+}
+
+export interface AvailableModelInfo {
+  id: string
+  name: string
+  context_limit: number
+  output_limit: number
+}
+
 interface ToolCall {
   id?: string
   name: string
@@ -151,6 +163,7 @@ interface AppState {
   skillPaths: string[]
   mcpServers: MCPServerInfo[]
   providerDetails: ProviderFull[]
+  availableProvidersCatalog: AvailableProviderInfo[]
   settingsOpen: boolean
 
   addMessage: (msg: Message) => void
@@ -230,6 +243,7 @@ interface AppState {
   testMCPServerConfig: (config: { type: string; command: string; args: string[]; env: Record<string, string>; url: string; headers: Record<string, string> }) => Promise<string[]>
   reconnectMCPServer: (id: string) => Promise<string[]>
   loadProviderDetails: () => Promise<void>
+  loadAvailableProviders: () => Promise<AvailableProviderInfo[]>
   saveProviderDetail: (cfg: ProviderFull) => Promise<void>
   deleteProviderDetail: (id: string) => Promise<void>
   resetProjectState: () => void
@@ -276,6 +290,7 @@ export const useStore = create<AppState>((set, get) => ({
   skillPaths: [],
   mcpServers: [],
   providerDetails: [],
+  availableProvidersCatalog: [] as AvailableProviderInfo[],
   settingsOpen: false,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
@@ -1183,6 +1198,17 @@ export const useStore = create<AppState>((set, get) => ({
     } catch { set({ providerDetails: [] }) }
     // Refresh availableProviders and modelsByProvider so ModelPicker picks up changes
     await get().loadProviders()
+  },
+
+  loadAvailableProviders: async () => {
+    try {
+      const providers = await Call.ByName('monika/internal/api.App.GetAvailableProviders') as AvailableProviderInfo[]
+      set({ availableProvidersCatalog: providers || [] })
+      return providers || []
+    } catch {
+      set({ availableProvidersCatalog: [] })
+      return []
+    }
   },
 
   saveProviderDetail: async (cfg) => {

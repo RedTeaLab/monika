@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import { Call } from '@wailsio/runtime'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import { IconDatabase, IconEdit } from '../Icons'
+import { IconDatabase, IconEdit, IconPlus } from '../Icons'
 
 function maskKey(key: string): string {
   if (!key) return '\u2014'
@@ -19,7 +19,9 @@ function formatContext(limit: number): string {
 
 export default function ModelsTab() {
   const providers = useStore((s) => s.providerDetails)
+  const availableProvidersCatalog = useStore((s) => s.availableProvidersCatalog)
   const loadProviders = useStore((s) => s.loadProviderDetails)
+  const loadAvailableProviders = useStore((s) => s.loadAvailableProviders)
   const saveProvider = useStore((s) => s.saveProviderDetail)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const selectedModel = useStore((s) => s.selectedModel)
@@ -27,27 +29,66 @@ export default function ModelsTab() {
   const setSelectedModel = useStore((s) => s.setSelectedModel)
 
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
   const [provId, setProvId] = useState('')
   const [name, setName] = useState('')
   const [baseURL, setBaseURL] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [wireAPI, setWireAPI] = useState('')
+  const [selectedAvailableProvider, setSelectedAvailableProvider] = useState('')
+  const [models, setModels] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
 
-  useEffect(() => { loadProviders() }, [loadProviders])
+  useEffect(() => {
+    loadProviders()
+    loadAvailableProviders()
+  }, [loadProviders, loadAvailableProviders])
 
   const openEdit = (p: typeof providers[0]) => {
+    setIsAdding(false)
     setEditingId(p.id)
     setProvId(p.id)
     setName(p.display_name)
     setBaseURL(p.base_url)
     setApiKey(p.api_key)
     setWireAPI(p.wire_api || '')
+    setSelectedAvailableProvider('')
+    setModels([])
     setError('')
     setSaved(false)
-    setEditingId(p.id)
+  }
+
+  const openAdd = () => {
+    setIsAdding(true)
+    setEditingId(null)
+    setProvId('')
+    setName('')
+    setBaseURL('')
+    setApiKey('')
+    setWireAPI('')
+    setSelectedAvailableProvider('')
+    setModels([])
+    setError('')
+    setSaved(false)
+  }
+
+  const handleProviderSelect = (providerId: string) => {
+    setSelectedAvailableProvider(providerId)
+    const catalog = availableProvidersCatalog.find(p => p.id === providerId)
+    if (catalog) {
+      setProvId(providerId)
+      setName(providerId.charAt(0).toUpperCase() + providerId.slice(1))
+      setWireAPI(providerId)
+      setModels(catalog.models.map(m => ({
+        id: m.id,
+        name: m.name,
+        context_limit: m.context_limit,
+        output_limit: m.output_limit,
+        enabled: false,
+      })))
+    }
   }
 
   const closeModal = () => {
@@ -61,14 +102,14 @@ export default function ModelsTab() {
       await saveProvider({
         id: provId.trim(), display_name: name.trim(), name: name.trim(), base_url: baseURL.trim(),
         api_key: apiKey.trim(), wire_api: wireAPI.trim(),
-        models: (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
+        models: isAdding ? models : (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
           id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: m.enabled ?? false,
         })),
       })
       setSaved(true)
     } catch { setError('Failed to save provider') }
     finally { setLoading(false) }
-  }, [provId, name, baseURL, apiKey, wireAPI, providers, editingId, saveProvider])
+  }, [isAdding, provId, name, baseURL, apiKey, wireAPI, models, providers, editingId, saveProvider])
 
   const setDefaultModel = useCallback(async (providerId: string, modelId: string) => {
     setSelectedProvider(providerId)
@@ -92,14 +133,8 @@ export default function ModelsTab() {
   const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
   const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
-  // Only show providers that have models (populated from models.dev).
-  const visibleProviders = providers.filter((p) => (p.models || []).length > 0)
-
-  // Sort: user-configured first (has api_key), then alphabetically.
-  const sortedProviders = [...visibleProviders].sort((a, b) => {
-    const aKey = a.api_key ? 0 : 1
-    const bKey = b.api_key ? 0 : 1
-    if (aKey !== bKey) return aKey - bKey
+  // Only show providers that have API keys configured.
+  const sortedProviders = [...providers].sort((a, b) => {
     return a.id.localeCompare(b.id)
   })
 
@@ -108,15 +143,31 @@ export default function ModelsTab() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-[15px] font-semibold m-0 mb-1">Providers</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">Models synced from models.dev. Edit providers to add API keys.</p>
+          <p className="text-[11px] text-[var(--text-dim)] m-0">Configure your AI model providers.</p>
         </div>
+        <button
+          onClick={openAdd}
+          className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded cursor-pointer bg-transparent border border-[var(--border)] hover:border-[var(--border-strong)] transition-colors"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          <IconPlus size={12} />
+          Add Provider
+        </button>
       </div>
 
       {sortedProviders.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
           <IconDatabase size={32} />
-          <span className="text-[13px] mt-3">No models loaded.</span>
-          <span className="text-[11px] mt-1">Ensure models.dev is accessible and restart Monika.</span>
+          <span className="text-[13px] mt-3">No providers configured</span>
+          <span className="text-[11px] mt-1 mb-3">Add a provider to start using Monika</span>
+          <button
+            onClick={openAdd}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded cursor-pointer transition-colors"
+            style={{ color: 'var(--accent)', background: 'var(--accent-muted)' }}
+          >
+            <IconPlus size={12} />
+            Add Your First Provider
+          </button>
         </div>
       ) : (
         <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -206,26 +257,64 @@ export default function ModelsTab() {
         </div>
       )}
 
-      {editingId && (
+      {(editingId || isAdding) && (
         <Modal onClose={closeModal} loading={loading} width={500}>
           <ModalHeader icon={<IconDatabase size={15} />}>
-            <h4 className="text-[14px] font-semibold m-0">Edit {name || editingId}</h4>
-            <p className="text-[11px] text-[var(--text-dim)] m-0 mt-0.5">Models are synced from models.dev. Update your credentials here.</p>
+            <h4 className="text-[14px] font-semibold m-0">{isAdding ? 'Add Provider' : `Edit ${name || editingId}`}</h4>
+            <p className="text-[11px] text-[var(--text-dim)] m-0 mt-0.5">{isAdding ? 'Select a provider from models.dev and configure your credentials.' : 'Update your provider credentials here.'}</p>
           </ModalHeader>
           <ModalBody>
             <div className="space-y-4">
+              {isAdding && (
+                <div>
+                  <label className={labelCls}>Select Provider</label>
+                  <select
+                    className={inputCls + ' cursor-pointer'}
+                    value={selectedAvailableProvider}
+                    onChange={e => handleProviderSelect(e.target.value)}
+                  >
+                    <option value="">-- Choose a provider --</option>
+                    {availableProvidersCatalog.map(p => (
+                      <option key={p.id} value={p.id}>{p.id} ({p.models.length} models)</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className={labelCls}>ID</label>
-                <input className={inputCls} value={provId} disabled />
+                <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!isAdding} placeholder={isAdding ? 'Auto-filled from selection' : ''} />
               </div>
               <div>
                 <label className={labelCls}>Display Name</label>
-                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My Provider" />
+                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My OpenAI" />
               </div>
               <div>
                 <label className={labelCls}>Base URL</label>
-                <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.example.com/v1" />
+                <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.openai.com/v1" />
               </div>
+              {isAdding && models.length > 0 && (
+                <div>
+                  <label className={labelCls}>Models ({models.filter(m => m.enabled).length}/{models.length} enabled)</label>
+                  <div className="max-h-32 overflow-y-auto rounded border border-[var(--border)] p-2 space-y-1">
+                    {models.map(m => (
+                      <label key={m.id} className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-[var(--bg-sidebar)] px-1 py-0.5 rounded">
+                        <input
+                          type="checkbox"
+                          checked={m.enabled}
+                          onChange={e => {
+                            setModels(models.map(x => x.id === m.id ? { ...x, enabled: e.target.checked } : x))
+                          }}
+                          className="w-3 h-3 accent-[var(--accent)]"
+                        />
+                        <span className="flex-1 truncate">{m.name}</span>
+                        {(m.context_limit || 0) > 0 && (
+                          <span className="text-[10px] text-[var(--text-dim)]">{formatContext(m.context_limit)}</span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Engine</label>
@@ -237,7 +326,7 @@ export default function ModelsTab() {
                 </div>
                 <div>
                   <label className={labelCls}>API Key</label>
-                  <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus />
+                  <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!isAdding} />
                 </div>
               </div>
             </div>

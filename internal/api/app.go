@@ -393,6 +393,43 @@ func (a *App) GetProviders() []ProviderInfo {
 	return result
 }
 
+// GetAvailableProviders returns all providers available from models.dev catalog.
+// This is used in the Settings UI to let users select a provider to add.
+func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
+	catalog, err := modelsdev.Catalog(a.home)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load models.dev catalog: %w", err)
+	}
+
+	result := make([]AvailableProviderInfo, 0, len(catalog))
+	for providerID, p := range catalog {
+		models := make([]AvailableModelInfo, 0, len(p.Models))
+		for modelID, md := range p.Models {
+			if md.Limit.Context > 0 {
+				models = append(models, AvailableModelInfo{
+					ID:           modelID,
+					Name:         modelID,
+					ContextLimit: md.Limit.Context,
+					OutputLimit:  md.Limit.Output,
+				})
+			}
+		}
+		if len(models) > 0 {
+			result = append(result, AvailableProviderInfo{
+				ID:     providerID,
+				Models: models,
+			})
+		}
+	}
+
+	// Sort by provider ID
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+
+	return result, nil
+}
+
 func (a *App) GetDefaultModel() map[string]string {
 	return map[string]string{
 		"provider": a.cfg.ModelProvider,
@@ -1883,9 +1920,9 @@ func (a *App) modelLimits(providerID, modelID string) (contextTokens, outputToke
 	return 0, 0
 }
 
-// syncProviderFromModelsDev populates a provider's model list from the models.dev
-// catalog. It enriches existing models with context/output limits and adds new
-// models (with Enabled=false) if the provider maps to a models.dev provider.
+// syncProviderFromModelsDev enriches a provider's model list from the models.dev
+// catalog. It only populates missing context/output limits for existing models,
+// and does NOT add new models. Users must explicitly add models through the Settings UI.
 func (a *App) syncProviderFromModelsDev(providerID string) {
 	pc, ok := a.cfg.ModelProviders[providerID]
 	if !ok {
@@ -1918,7 +1955,7 @@ func (a *App) syncProviderFromModelsDev(providerID string) {
 	changed := false
 	existingIDs := make(map[string]bool, len(pc.Models))
 
-	// 1. Enrich existing models with limits.
+	// Enrich existing models with limits from models.dev.
 	for i := range pc.Models {
 		m := &pc.Models[i]
 		existingIDs[m.ID] = true
@@ -1938,7 +1975,7 @@ func (a *App) syncProviderFromModelsDev(providerID string) {
 		}
 	}
 
-	// 2. Auto-detect modelsdev provider from existing models, or by
+	// Auto-detect modelsdev provider from existing models, or by
 	// fuzzy-matching the provider ID.
 	if pc.ModelsDevProvider == "" {
 		for modelID, info := range modelIndex {
@@ -1961,21 +1998,8 @@ func (a *App) syncProviderFromModelsDev(providerID string) {
 		}
 	}
 
-	// 3. Add new models from the mapped models.dev provider.
-	if pc.ModelsDevProvider != "" {
-		for modelID, info := range modelIndex {
-			if info.Provider == pc.ModelsDevProvider && !existingIDs[modelID] {
-				pc.Models = append(pc.Models, config2.ModelEntry{
-					ID:           modelID,
-					DisplayName:  modelID,
-					ContextLimit: info.Context,
-					OutputLimit:  info.Output,
-					Enabled:      false,
-				})
-				changed = true
-			}
-		}
-	}
+	// Do NOT auto-add new models from models.dev.
+	// Users must explicitly add models through the Settings UI.
 
 	if changed {
 		a.cfg.ModelProviders[providerID] = pc

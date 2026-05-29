@@ -326,33 +326,9 @@ func syncModelsDev(home string, cfg *config2.Config) {
 
 	changed := false
 
-	// New user: no providers configured yet — populate from models.dev.
-	if len(cfg.ModelProviders) == 0 {
-		cfg.ModelProviders = make(map[string]config2.ProviderConfig, len(catalog))
-		for pID, p := range catalog {
-			models := make([]config2.ModelEntry, 0, len(p.Models))
-			for modelID, md := range p.Models {
-				if md.Limit.Context > 0 {
-					models = append(models, config2.ModelEntry{
-						ID:           modelID,
-						DisplayName:  modelID,
-						ContextLimit: md.Limit.Context,
-						OutputLimit:  md.Limit.Output,
-						Enabled:      false,
-					})
-				}
-			}
-			if len(models) > 0 {
-				cfg.ModelProviders[pID] = config2.ProviderConfig{
-					Name:              pID,
-					ModelsDevProvider: pID,
-					Models:            models,
-				}
-			}
-		}
-		changed = true
-	} else {
-		// Existing user: enrich provider models from models.dev.
+	// Only enrich existing providers from models.dev — do not auto-populate for new users.
+	// Users must explicitly add providers through the Settings UI.
+	if len(cfg.ModelProviders) > 0 {
 		for key, pc := range cfg.ModelProviders {
 			existingIDs := make(map[string]bool, len(pc.Models))
 			for i := range pc.Models {
@@ -395,20 +371,8 @@ func syncModelsDev(home string, cfg *config2.Config) {
 				}
 			}
 
-			if pc.ModelsDevProvider != "" {
-				for modelID, info := range modelIndex {
-					if info.Provider == pc.ModelsDevProvider && !existingIDs[modelID] {
-						pc.Models = append(pc.Models, config2.ModelEntry{
-							ID:           modelID,
-							DisplayName:  modelID,
-							ContextLimit: info.Context,
-							OutputLimit:  info.Output,
-							Enabled:      false,
-						})
-						changed = true
-					}
-				}
-			}
+			// Do NOT auto-add new models from models.dev.
+			// Users must explicitly add models through the Settings UI.
 
 			cfg.ModelProviders[key] = pc
 		}
