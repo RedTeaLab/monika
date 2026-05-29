@@ -1,7 +1,37 @@
-import { useState, useEffect, useTransition } from 'react'
+import { useState, useEffect, useTransition, useCallback, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+
+function CodeBlock({ children, ...rest }: React.ComponentPropsWithoutRef<'pre'>) {
+  const ref = useRef<HTMLPreElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const text = el.textContent || ''
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [])
+
+  return (
+    <div className="relative group/codeblock">
+      <pre ref={ref} {...rest}>{children}</pre>
+      <button
+        className="absolute top-[6px] right-[6px] opacity-0 group-hover/codeblock:opacity-100 transition-opacity
+                   text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
+                   hover:bg-[var(--bg-hover)] cursor-pointer"
+        style={{ color: 'var(--text-dim)' }}
+        onClick={handleCopy}
+        aria-label="Copy code"
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  )
+}
 
 export default function MarkdownBlock({ content, muted, streaming }: { content: string; muted?: boolean; streaming?: boolean }) {
   const [pending, startTransition] = useTransition()
@@ -34,6 +64,7 @@ export default function MarkdownBlock({ content, muted, streaming }: { content: 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
+        components={{ pre: CodeBlock }}
       >
         {parsed || content}
       </ReactMarkdown>

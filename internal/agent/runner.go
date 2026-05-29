@@ -98,6 +98,12 @@ func (r *TaskRunner) Dispatch(ctx context.Context, task SubTask, parent *AgentLo
 				opts = append(opts, WithProvider(parent.providerID))
 			}
 		}
+		// Resolve context/output limits: parent > task explicit
+		if parent != nil && parent.modelContextLimit > 0 {
+			opts = append(opts, WithContextLimit(parent.modelContextLimit), WithOutputLimit(parent.modelOutputLimit))
+		} else if task.ContextLimit > 0 {
+			opts = append(opts, WithContextLimit(task.ContextLimit), WithOutputLimit(task.OutputLimit))
+		}
 		// Resolve provider engine: task explicit > parent inheritance > default
 		provEng := r.provider
 		resolvedProvider := task.Provider

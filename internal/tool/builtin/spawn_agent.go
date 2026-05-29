@@ -119,17 +119,19 @@ func (t *spawnAgentTool) Execute(ctx context.Context, args json.RawMessage) (too
 	}
 
 	task := agent.SubTask{
-		ID:          toolCallID,
-		SessionID:   toolCallID, // frontend loads child session by this ID
-		ParentID:    tool.SessionIDFromContext(ctx),
-		ProjectDir:  tool.ProjectDirFromContext(ctx),
-		Type:        agent.TaskSubtask,
-		Agent:       ag.Name,
-		Description: params.Description,
-		Prompt:      params.Prompt,
-		Status:      "pending",
-		Model:       tool.ModelFromContext(ctx),
-		Provider:    tool.ProviderFromContext(ctx),
+		ID:           toolCallID,
+		SessionID:    toolCallID, // frontend loads child session by this ID
+		ParentID:     tool.SessionIDFromContext(ctx),
+		ProjectDir:   tool.ProjectDirFromContext(ctx),
+		Type:         agent.TaskSubtask,
+		Agent:        ag.Name,
+		Description:  params.Description,
+		Prompt:       params.Prompt,
+		Status:       "pending",
+		Model:        tool.ModelFromContext(ctx),
+		Provider:     tool.ProviderFromContext(ctx),
+		ContextLimit: tool.ContextLimitFromContext(ctx),
+		OutputLimit:  tool.OutputLimitFromContext(ctx),
 	}
 
 	resultCh := t.dispatchFn(ctx, task)
@@ -212,17 +214,19 @@ func (t *spawnAgentTool) ExecuteStreaming(ctx context.Context, args json.RawMess
 	}
 
 	task := agent.SubTask{
-		ID:          toolCallID,
-		SessionID:   toolCallID,
-		ParentID:    tool.SessionIDFromContext(ctx),
-		ProjectDir:  tool.ProjectDirFromContext(ctx),
-		Type:        agent.TaskSubtask,
-		Agent:       ag.Name,
-		Description: params.Description,
-		Prompt:      params.Prompt,
-		Status:      "pending",
-		Model:       tool.ModelFromContext(ctx),
-		Provider:    tool.ProviderFromContext(ctx),
+		ID:           toolCallID,
+		SessionID:    toolCallID,
+		ParentID:     tool.SessionIDFromContext(ctx),
+		ProjectDir:   tool.ProjectDirFromContext(ctx),
+		Type:         agent.TaskSubtask,
+		Agent:        ag.Name,
+		Description:  params.Description,
+		Prompt:       params.Prompt,
+		Status:       "pending",
+		Model:        tool.ModelFromContext(ctx),
+		Provider:     tool.ProviderFromContext(ctx),
+		ContextLimit: tool.ContextLimitFromContext(ctx),
+		OutputLimit:  tool.OutputLimitFromContext(ctx),
 	}
 
 	return t.dispatchFn(ctx, task), nil

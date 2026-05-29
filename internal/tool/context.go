@@ -9,15 +9,19 @@ type toolCallIDKeyType struct{}
 type modelKeyType struct{}
 type providerKeyType struct{}
 type askUserFuncKeyType struct{}
+type contextLimitKeyType struct{}
+type outputLimitKeyType struct{}
 
 var (
-	projectDirKey  projectDirKeyType
-	sessionIDKey   sessionIDKeyType
-	taskStoreKey   taskStoreKeyType
-	toolCallIDKey  toolCallIDKeyType
-	modelKey       modelKeyType
-	providerKey    providerKeyType
-	askUserFuncKey askUserFuncKeyType
+	projectDirKey    projectDirKeyType
+	sessionIDKey     sessionIDKeyType
+	taskStoreKey     taskStoreKeyType
+	toolCallIDKey    toolCallIDKeyType
+	modelKey         modelKeyType
+	providerKey      providerKeyType
+	askUserFuncKey   askUserFuncKeyType
+	contextLimitKey  contextLimitKeyType
+	outputLimitKey   outputLimitKeyType
 )
 
 // AskUserFunc is the signature for a function that asks the user a question
@@ -141,4 +145,26 @@ type TaskUpdateFields struct {
 	Subject      *string  `json:"subject,omitempty"`
 	Description  *string  `json:"description,omitempty"`
 	AddBlockedBy []string `json:"addBlockedBy,omitempty"`
+}
+
+// WithContextLimit returns a child context carrying the model context limit.
+func WithContextLimit(ctx context.Context, n int64) context.Context {
+	return context.WithValue(ctx, contextLimitKey, n)
+}
+
+// ContextLimitFromContext extracts the context limit from context, or 0.
+func ContextLimitFromContext(ctx context.Context) int64 {
+	n, _ := ctx.Value(contextLimitKey).(int64)
+	return n
+}
+
+// WithOutputLimit returns a child context carrying the model output limit.
+func WithOutputLimit(ctx context.Context, n int64) context.Context {
+	return context.WithValue(ctx, outputLimitKey, n)
+}
+
+// OutputLimitFromContext extracts the output limit from context, or 0.
+func OutputLimitFromContext(ctx context.Context) int64 {
+	n, _ := ctx.Value(outputLimitKey).(int64)
+	return n
 }

@@ -507,6 +507,12 @@ func (a *AgentLoop) RunBlocking(ctx context.Context, conv *Conversation, userMes
 			if a.providerID != "" {
 				toolCtx = tool.WithProvider(toolCtx, a.providerID)
 			}
+			if a.modelContextLimit > 0 {
+				toolCtx = tool.WithContextLimit(toolCtx, a.modelContextLimit)
+			}
+			if a.modelOutputLimit > 0 {
+				toolCtx = tool.WithOutputLimit(toolCtx, a.modelOutputLimit)
+			}
 			if a.askUserFn != nil {
 				toolCtx = tool.WithAskUserFunc(toolCtx, a.askUserFn)
 			}
@@ -873,6 +879,12 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 			}
 			if a.providerID != "" {
 				toolCtx = tool.WithProvider(toolCtx, a.providerID)
+			}
+			if a.modelContextLimit > 0 {
+				toolCtx = tool.WithContextLimit(toolCtx, a.modelContextLimit)
+			}
+			if a.modelOutputLimit > 0 {
+				toolCtx = tool.WithOutputLimit(toolCtx, a.modelOutputLimit)
 			}
 			if a.askUserFn != nil {
 				toolCtx = tool.WithAskUserFunc(toolCtx, a.askUserFn)

@@ -305,6 +305,10 @@
     border-radius: var(--radius-md);
     padding: 12px 16px;
     overflow-x: auto;
+    margin: 0;
+  }
+
+  .markdown-body .group\/codeblock {
     margin: 10px 0;
   }
 
