@@ -155,7 +155,8 @@ func main() {
 	}
 	systemPrompt := strings.Join(systemParts, "\n\n")
 	skillsPrompt := agent.BuildSkillsPrompt(skillList)
-	systemPrompt = systemPrompt + skillsPrompt
+	mcpPrompt := agent.BuildMCPPrompt(mcpRegistry.GetTools())
+	systemPrompt = systemPrompt + skillsPrompt + mcpPrompt
 	loopOpts := []agent.LoopOption{
 		agent.WithProjectDir(cwd),
 		agent.WithModel(pr.Model),
@@ -244,7 +245,7 @@ func main() {
 		taskStoreAccessor = accessor
 	}
 
-	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, baseSystemPrompt)
+	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, baseSystemPrompt, mcpRegistry)
 	appGetProjectPath = appService.GetProjectPath
 
 	pipeline.SetConfirmUI(appService)

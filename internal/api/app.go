@@ -66,6 +66,7 @@ type App struct {
 	loopOpts          []agent2.LoopOption
 	baseLoopOptsCount int // number of opts passed at construction (before refreshSkillPrompt appends)
 	baseSystemPrompt  string
+	mcpRegistry       *engine2.MCPRegistry
 
 	permissionRequests map[string]chan permission.PermissionResponse
 	permMu             sync.Mutex
@@ -79,7 +80,7 @@ type App struct {
 	eventSeq atomic.Int64
 }
 
-func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner, baseSystemPrompt string) *App {
+func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.ProviderEngine, model string, registry *tool2.ToolRegistry, loopOpts []agent2.LoopOption, taskStoreAccessor TaskStoreAccessor, agentRegistry *agent2.AgentRegistry, taskRunner *agent2.TaskRunner, baseSystemPrompt string, mcpRegistry *engine2.MCPRegistry) *App {
 	return &App{
 		home:              home,
 		cfg:               cfg,
@@ -100,6 +101,7 @@ func NewApp(home, cwd string, cfg config2.Config, providers map[string]engine2.P
 		loopOpts:          loopOpts,
 		baseSystemPrompt:  baseSystemPrompt,
 		baseLoopOptsCount: len(loopOpts),
+		mcpRegistry:       mcpRegistry,
 		checker:           update.NewChecker(),
 	}
 }
@@ -110,8 +112,8 @@ func (a *App) AppendLoopOption(opt agent2.LoopOption) {
 	a.baseLoopOptsCount++
 }
 
-// refreshSkillPrompt rebuilds the system prompt in loopOpts with the current skill list.
-// Future sessions will see the updated skills; running sessions keep their existing prompt.
+// refreshSkillPrompt rebuilds the system prompt in loopOpts with the current skill list and MCP tools.
+// Future sessions will see the updated prompt; running sessions keep their existing prompt.
 func (a *App) refreshSkillPrompt() {
 	eng, err := engine2.EngineByID("skill")
 	if err != nil {
@@ -126,6 +128,9 @@ func (a *App) refreshSkillPrompt() {
 		return
 	}
 	fullPrompt := a.baseSystemPrompt + agent2.BuildSkillsPrompt(skills)
+	if a.mcpRegistry != nil {
+		fullPrompt += agent2.BuildMCPPrompt(a.mcpRegistry.GetTools())
+	}
 	a.loopOpts = append(a.loopOpts[:a.baseLoopOptsCount], agent2.WithSystemPrompt(fullPrompt))
 }
 
@@ -393,6 +398,21 @@ func (a *App) GetProviders() []ProviderInfo {
 	return result
 }
 
+// knownProviders is a curated list of provider IDs from models.dev that are
+// actual AI service providers. This filters out non-provider entries like
+// "merge-gateway" that appear in the catalog but aren't real AI providers.
+var knownProviders = map[string]string{
+	"anthropic":    "openai",
+	"azure":        "openai",
+	"deepseek":     "deepseek",
+	"google-genai": "openai",
+	"groq":         "openai",
+	"mistral":      "openai",
+	"openai":       "openai",
+	"openrouter":   "openai",
+	"xai":          "openai",
+}
+
 // GetAvailableProviders returns all providers available from models.dev catalog.
 // This is used in the Settings UI to let users select a provider to add.
 func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
@@ -401,8 +421,12 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 		return nil, fmt.Errorf("failed to load models.dev catalog: %w", err)
 	}
 
-	result := make([]AvailableProviderInfo, 0, len(catalog))
-	for providerID, p := range catalog {
+	result := make([]AvailableProviderInfo, 0, len(knownProviders))
+	for providerID, wireAPI := range knownProviders {
+		p, ok := catalog[providerID]
+		if !ok {
+			continue
+		}
 		models := make([]AvailableModelInfo, 0, len(p.Models))
 		for modelID, md := range p.Models {
 			if md.Limit.Context > 0 {
@@ -419,9 +443,15 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 			}
 		}
 		if len(models) > 0 {
+			displayName := p.Name
+			if displayName == "" {
+				displayName = providerID
+			}
 			result = append(result, AvailableProviderInfo{
-				ID:     providerID,
-				Models: models,
+				ID:          providerID,
+				DisplayName: displayName,
+				WireAPI:     wireAPI,
+				Models:      models,
 			})
 		}
 	}

@@ -63,9 +63,15 @@ const PromptToolUsage = `## Tool Usage
 - Use replace_all to replace every occurrence of the same old_string
 - Use the smallest possible old_string that uniquely identifies the target — DO NOT pass the entire file as old_string. Each edit should target only the lines that need to change, not the whole file.
 
+### MCP tool usage
+- MCP tools are provided by configured external servers and extend your capabilities
+- When a task matches an MCP tool's capability, use it instead of workarounds with bash or built-in tools
+- Examples: use web search MCP tools for research, database MCP tools for queries, browser MCP tools for web interaction
+- Do not ignore MCP tools — check if any are relevant before defaulting to built-in tools only
+
 ### Bash usage
-- Prefer dedicated tools (grep, glob, file_read, file_write, file_edit) over bash commands
-- Use bash only for operations that have no dedicated tool
+- Prefer dedicated tools (grep, glob, file_read, file_write, file_edit) and MCP tools over bash commands
+- Use bash only for operations that have no dedicated tool or MCP tool available
 - Maximum execution time: 120 seconds
 
 ### Context management
@@ -205,6 +211,7 @@ const PromptRemember = `## Remember
 - ALWAYS read with file_read before editing with file_edit — never edit blind
 - ALWAYS prefer editing existing files over creating new ones
 - ALWAYS check if you already read a file before reading it again
+- ALWAYS use MCP tools when they match the task — don't default to ignoring them
 - Prioritize technical accuracy over validating beliefs
 - If unsure about a destructive action, ask first
 - When in doubt, do the smallest thing that works`
@@ -227,5 +234,30 @@ func BuildSkillsPrompt(skills []engine.SkillMeta) string {
 		fmt.Fprintf(&b, "  <skill>\n    <name>%s</name>\n    <description>%s</description>\n  </skill>\n", xmlEscape(s.Name), xmlEscape(s.Description))
 	}
 	b.WriteString("</available_skills>")
+	return b.String()
+}
+
+// BuildMCPPrompt returns a system prompt section listing available MCP tools in XML format.
+// This makes the model aware of MCP capabilities and encourages active use.
+func BuildMCPPrompt(tools []engine.MCPTool) string {
+	if len(tools) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\n## MCP Tools\n\n")
+	b.WriteString("MCP (Model Context Protocol) tools extend your capabilities beyond built-in tools.\n")
+	b.WriteString("These tools are provided by configured MCP servers and give you access to additional functionality.\n")
+	b.WriteString("When a task matches an MCP tool's capability, use it instead of working around with built-in tools or bash.\n")
+	b.WriteString("Do NOT ignore MCP tools — they are part of your toolkit and should be used when relevant.\n\n")
+	b.WriteString("<available_mcp_tools>\n")
+	for _, t := range tools {
+		desc := t.Description
+		if desc == "" {
+			desc = "(no description)"
+		}
+		fmt.Fprintf(&b, "  <mcp_tool>\n    <name>%s</name>\n    <description>%s</description>\n  </mcp_tool>\n", xmlEscape(t.Name), xmlEscape(desc))
+	}
+	b.WriteString("</available_mcp_tools>\n")
+	b.WriteString("When the user's task involves operations that match an MCP tool's capability, use that MCP tool rather than workarounds with built-in tools.")
 	return b.String()
 }
