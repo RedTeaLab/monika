@@ -24,7 +24,6 @@ import (
 	engine2 "monika/pkg/engine"
 
 	_ "monika/internal/engines/mcp"
-	_ "monika/internal/engines/provider/deepseek"
 	_ "monika/internal/engines/provider/openai"
 	_ "monika/internal/engines/skill"
 

@@ -198,6 +198,7 @@ export default function ModelsTab() {
         models,
       })
       setSaved(true)
+      closeModal()
     } catch { setError('Failed to save provider') }
     finally { setLoading(false) }
   }, [isAdding, provId, name, baseURL, apiKey, wireAPI, providers, editingId, selectedAvailableProvider, availableProvidersCatalog, saveProvider])
@@ -235,7 +236,7 @@ export default function ModelsTab() {
           style={{ color: 'var(--text-primary)' }}
         >
           <IconPlus size={12} />
-          Add Provider
+          Add
         </button>
       </div>
 
@@ -351,8 +352,8 @@ export default function ModelsTab() {
             </div>
             {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
             {saved && !error && (
-              <p className="text-[11px] m-0 mt-4" style={{ color: 'var(--yellow)' }}>
-                Provider saved. Restart Monika to apply changes to the active session.
+              <p className="text-[11px] m-0 mt-4" style={{ color: 'var(--green)' }}>
+                Provider saved successfully.
               </p>
             )}
           </ModalBody>
