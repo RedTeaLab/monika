@@ -588,6 +588,26 @@ func (a *App) SendMessage(projectPath, sessionID, text, providerID, model string
 	a.cancelFuncs[sessionID] = cancel
 	a.cancelMu.Unlock()
 
+	// Route /skill-name [msg] to skill tool
+	if strings.HasPrefix(text, "/") {
+		parts := strings.SplitN(strings.TrimPrefix(text, "/"), " ", 2)
+		skillName := parts[0]
+		if skillName != "" {
+			skills := a.ListSkills()
+			for _, s := range skills {
+				if s.Name == skillName {
+					var sb strings.Builder
+					sb.WriteString(fmt.Sprintf("Load the skill %q and execute its full workflow.", skillName))
+					if len(parts) > 1 && strings.TrimSpace(parts[1]) != "" {
+						sb.WriteString(fmt.Sprintf("\n\nUser context: %s", strings.TrimSpace(parts[1])))
+					}
+					text = sb.String()
+					break
+				}
+			}
+		}
+	}
+
 	providerEng, ok := a.providers[providerID]
 	if !ok {
 		return fmt.Errorf("provider %q not available", providerID)
