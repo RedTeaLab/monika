@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
+import { formatTokens } from '../../lib/format'
 import MessageBubble from './MessageBubble'
 import ChatInput from './ChatInput'
 import ConfirmBar from './ConfirmBar'
@@ -37,8 +38,13 @@ function ChatArea(props: IDockviewPanelProps) {
   const isDefaultChat = sessionId === 'chat'
   const isOverlay = overlaySessionId !== null
 
+  const sessionTokens = useStore((s) => s.sessionTokens)
+  const overlayTokens = overlaySessionId ? sessionTokens[overlaySessionId] : null
+
   const isTodoCollapsed = useStore((s) => s.todoCollapsed[sessionId] || false)
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
+  const isOverlayTodoCollapsed = useStore((s) => overlaySessionId ? (s.todoCollapsed[overlaySessionId] || false) : false)
+  const setOverlayTodoCollapsed = useStore((s) => s.setTodoCollapsed)
 
   const handleStop = () => {
     const targetId = overlaySessionId || sessionId
@@ -209,15 +215,13 @@ function ChatArea(props: IDockviewPanelProps) {
               <span className="ml-1">({overlayStack.length} layers deep)</span>
             )}
           </span>
-          {isGenerating && (
-            <button
-              onClick={handleStop}
-              className="ml-auto text-[11px] px-2.5 py-1 rounded border border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)] cursor-pointer"
-              style={{ color: 'var(--accent)' }}
-            >
-              Stop
-            </button>
+          {overlayTokens && (
+            <span className="ml-auto text-[10px] font-mono" style={{ color: 'var(--text-dim)' }}>
+              {formatTokens(overlayTokens.count)}
+              {overlayTokens.max > 0 ? ` / ${formatTokens(overlayTokens.max)}` : ''}
+            </span>
           )}
+
         </div>
       )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
@@ -235,7 +239,13 @@ function ChatArea(props: IDockviewPanelProps) {
           ))
         )}
       </div>
-      {!isOverlay && (
+      {isOverlay ? (
+        <TodoPanel
+          sessionId={overlaySessionId!}
+          collapsed={isOverlayTodoCollapsed}
+          onToggle={() => overlaySessionId && setOverlayTodoCollapsed(overlaySessionId, !isOverlayTodoCollapsed)}
+        />
+      ) : (
         <>
           <TodoPanel
             sessionId={sessionId}
