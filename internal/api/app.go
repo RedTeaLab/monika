@@ -1928,19 +1928,32 @@ func (a *App) DeleteAgent(args json.RawMessage) error {
 }
 
 // writeConfig persists the current in-memory config to ~/.monika/config.json.
+// It also writes to the project-level config so that deletions and updates
+// are not silently reverted on the next restart (both files are loaded and merged).
 func (a *App) writeConfig() {
-	configPath := filepath.Join(a.home, ".monika", "config.json")
 	data, err := json.MarshalIndent(&a.cfg, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] writeConfig marshal: %v\n", err)
 		return
 	}
-	tmp := configPath + ".tmp"
-	if err := os.WriteFile(tmp, data, 0600); err != nil {
-		fmt.Fprintf(os.Stderr, "[monika] writeConfig write: %v\n", err)
-		return
+
+	writeTo := func(configPath string) {
+		tmp := configPath + ".tmp"
+		if err := os.WriteFile(tmp, data, 0600); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] writeConfig write: %v\n", err)
+			return
+		}
+		os.Rename(tmp, configPath)
 	}
-	os.Rename(tmp, configPath)
+
+	writeTo(filepath.Join(a.home, ".monika", "config.json"))
+
+	if pp := a.projectPath(); pp != "" && pp != a.home {
+		projectConfig := filepath.Join(pp, ".monika", "config.json")
+		if _, err := os.Stat(projectConfig); err == nil {
+			writeTo(projectConfig)
+		}
+	}
 }
 
 func (a *App) modelLimits(providerID, modelID string) (contextTokens, outputTokens int64) {
