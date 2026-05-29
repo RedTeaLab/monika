@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useStore } from '../../store'
+import { useStore, AvailableModelInfo } from '../../store'
 import { Call } from '@wailsio/runtime'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import { IconDatabase, IconEdit, IconPlus } from '../Icons'
+
+type SelectableModel = AvailableModelInfo & { enabled: boolean }
 
 function maskKey(key: string): string {
   if (!key) return '\u2014'
@@ -36,7 +38,7 @@ export default function ModelsTab() {
   const [apiKey, setApiKey] = useState('')
   const [wireAPI, setWireAPI] = useState('')
   const [selectedAvailableProvider, setSelectedAvailableProvider] = useState('')
-  const [models, setModels] = useState<any[]>([])
+  const [models, setModels] = useState<SelectableModel[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
@@ -79,7 +81,8 @@ export default function ModelsTab() {
     const catalog = availableProvidersCatalog.find(p => p.id === providerId)
     if (catalog) {
       setProvId(providerId)
-      setName(providerId.charAt(0).toUpperCase() + providerId.slice(1))
+      // Title-case the provider name: "google-genai" → "Google Genai"
+      setName(providerId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '))
       setWireAPI(providerId)
       setModels(catalog.models.map(m => ({
         id: m.id,
@@ -97,12 +100,19 @@ export default function ModelsTab() {
 
   const handleSave = useCallback(async () => {
     if (!provId.trim() || !name.trim()) { setError('ID and Name are required'); return }
+    if (isAdding) {
+      if (!apiKey.trim()) { setError('API Key is required when adding a provider'); return }
+      const enabledCount = models.filter(m => m.enabled).length
+      if (enabledCount === 0) { setError('At least one model must be enabled'); return }
+    }
     setLoading(true); setError('')
     try {
       await saveProvider({
         id: provId.trim(), display_name: name.trim(), name: name.trim(), base_url: baseURL.trim(),
         api_key: apiKey.trim(), wire_api: wireAPI.trim(),
-        models: isAdding ? models : (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
+        models: isAdding
+          ? models.filter(m => m.enabled).map(m => ({ id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: true }))
+          : (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
           id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: m.enabled ?? false,
         })),
       })
@@ -274,7 +284,7 @@ export default function ModelsTab() {
                     onChange={e => handleProviderSelect(e.target.value)}
                   >
                     <option value="">-- Choose a provider --</option>
-                    {availableProvidersCatalog.map(p => (
+                    {availableProvidersCatalog.filter(p => !providers.find(c => c.id === p.id)).map(p => (
                       <option key={p.id} value={p.id}>{p.id} ({p.models.length} models)</option>
                     ))}
                   </select>
@@ -282,7 +292,7 @@ export default function ModelsTab() {
               )}
               <div>
                 <label className={labelCls}>ID</label>
-                <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!isAdding} placeholder={isAdding ? 'Auto-filled from selection' : ''} />
+                <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!!selectedAvailableProvider} placeholder={isAdding ? 'Auto-filled from selection' : ''} />
               </div>
               <div>
                 <label className={labelCls}>Display Name</label>
@@ -302,7 +312,7 @@ export default function ModelsTab() {
                           type="checkbox"
                           checked={m.enabled}
                           onChange={e => {
-                            setModels(models.map(x => x.id === m.id ? { ...x, enabled: e.target.checked } : x))
+                            setModels(prev => prev.map(x => x.id === m.id ? { ...x, enabled: e.target.checked } : x))
                           }}
                           className="w-3 h-3 accent-[var(--accent)]"
                         />

@@ -17,8 +17,9 @@ type ProviderEntry struct {
 	Models map[string]ModelData `json:"models"`
 }
 
-// ModelData holds the limit data extracted from models.dev.
+// ModelData holds model data extracted from models.dev.
 type ModelData struct {
+	Name  string     `json:"name"`
 	Limit ModelLimit `json:"limit"`
 }
 

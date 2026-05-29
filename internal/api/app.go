@@ -406,9 +406,13 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 		models := make([]AvailableModelInfo, 0, len(p.Models))
 		for modelID, md := range p.Models {
 			if md.Limit.Context > 0 {
+				displayName := md.Name
+				if displayName == "" {
+					displayName = modelID
+				}
 				models = append(models, AvailableModelInfo{
 					ID:           modelID,
-					Name:         modelID,
+					Name:         displayName,
 					ContextLimit: md.Limit.Context,
 					OutputLimit:  md.Limit.Output,
 				})
