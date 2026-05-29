@@ -1064,7 +1064,50 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 	}
 
 	messages = append(messages, filteredMsgs...)
-	return messages
+	return sanitizeToolCallPairs(messages)
+}
+
+// sanitizeToolCallPairs ensures every assistant message with tool_calls
+// is followed by tool response messages for each tool_call_id.
+// If the session was interrupted during tool execution, synthetic error
+// responses are appended for any missing tool_call_ids.
+func sanitizeToolCallPairs(messages []engine.ChatMessage) []engine.ChatMessage {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	var result []engine.ChatMessage
+	for i := 0; i < len(messages); i++ {
+		msg := messages[i]
+		result = append(result, msg)
+
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			// Collect tool_call_ids that need responses
+			needResponses := make(map[string]string) // id -> tool name
+			for _, tc := range msg.ToolCalls {
+				needResponses[tc.ID] = tc.Function.Name
+			}
+
+			// Scan subsequent tool messages to find which IDs are already answered
+			for j := i + 1; j < len(messages) && len(needResponses) > 0; j++ {
+				if messages[j].Role != "tool" {
+					break
+				}
+				delete(needResponses, messages[j].ToolCallID)
+			}
+
+			// Append synthetic error responses for any missing IDs
+			for id, name := range needResponses {
+				result = append(result, engine.ChatMessage{
+					Role:       "tool",
+					Content:    fmt.Sprintf("Tool execution was interrupted before %s could complete.", name),
+					ToolCallID: id,
+					Name:       name,
+				})
+			}
+		}
+	}
+	return result
 }
 
 func (a *AgentLoop) buildToolDefs() []engine.ToolDef {
