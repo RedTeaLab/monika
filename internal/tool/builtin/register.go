@@ -48,3 +48,10 @@ func RegisterSpawnAgent(r *tool.ToolRegistry, registry *agent.AgentRegistry, dis
 func RegisterSkillTool(r *tool.ToolRegistry, skEng engine.SkillEngine, home string, getCwd func() string, cfg *config.Config) {
 	r.Register(NewSkillTool(skEng, home, getCwd, cfg))
 }
+
+// RegisterSkillManagement registers install_skill and uninstall_skill tools.
+// The installFn and uninstallFn callbacks are typically wired to App methods.
+func RegisterSkillManagement(r *tool.ToolRegistry, installFn func(url string, scope string) ([]string, error), uninstallFn func(name string) error) {
+	r.Register(NewSkillInstallTool(installFn))
+	r.Register(NewSkillUninstallTool(uninstallFn))
+}

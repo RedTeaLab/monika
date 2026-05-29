@@ -135,6 +135,24 @@ func main() {
 		builtin.RegisterSkillTool(registry, skEngine, home, getCwd, &pr.Config)
 	}
 
+	// Register skill management tools (install/uninstall) with deferred App binding
+	var skillInstallFn func(url string, scope string) ([]string, error)
+	var skillUninstallFn func(name string) error
+	builtin.RegisterSkillManagement(registry,
+		func(url string, scope string) ([]string, error) {
+			if skillInstallFn == nil {
+				return nil, fmt.Errorf("skill installation not available yet")
+			}
+			return skillInstallFn(url, scope)
+		},
+		func(name string) error {
+			if skillUninstallFn == nil {
+				return fmt.Errorf("skill uninstallation not available yet")
+			}
+			return skillUninstallFn(name)
+		},
+	)
+
 	application.RegisterEvent[api.StreamEvent]("stream")
 	application.RegisterEvent[update.UpdateInfo]("update-available")
 	application.RegisterEvent[string]("branch-changed")
@@ -246,6 +264,16 @@ func main() {
 
 	appService = api.NewApp(home, cwd, pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, baseSystemPrompt, mcpRegistry)
 	appGetProjectPath = appService.GetProjectPath
+
+	// Wire skill management callbacks to App
+	skillInstallFn = func(url string, scope string) ([]string, error) {
+		args, _ := json.Marshal(map[string]string{"url": url, "scope": scope})
+		return appService.InstallSkillFromURL(args)
+	}
+	skillUninstallFn = func(name string) error {
+		args, _ := json.Marshal(map[string]string{"Name": name})
+		return appService.UninstallSkill(args)
+	}
 
 	pipeline.SetConfirmUI(appService)
 	appService.SetPipeline(pipeline)

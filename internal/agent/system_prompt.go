@@ -224,8 +224,17 @@ func BuildSkillsPrompt(skills []engine.SkillMeta) string {
 		return ""
 	}
 	var b strings.Builder
-	b.WriteString("\n\nSkills provide specialized instructions and workflows for specific tasks.\n")
+	b.WriteString("\n\n## Skills — Specialized Workflows\n\n")
+	b.WriteString("Skills provide detailed, step-by-step workflows for specific tasks. When you load a skill, you are committing to executing its ENTIRE workflow.\n\n")
+	b.WriteString("### Skill Adherence Rules (MANDATORY)\n\n")
+	b.WriteString("1. **Complete execution required**: When you load a skill via the skill tool, you MUST follow ALL of its steps in order. Partial execution is a failure.\n")
+	b.WriteString("2. **No silent skipping**: Never skip a step without explicitly acknowledging it and explaining why. If a step does not apply, state that and why — do not just move on.\n")
+	b.WriteString("3. **Follow the workflow to the end**: Skills often have a defined terminal state (e.g., a final step, a required sub-skill invocation). You must reach that terminal state.\n")
+	b.WriteString("4. **Step-by-step discipline**: Execute one step at a time. Complete each step fully before moving to the next. Do not batch or merge steps.\n")
+	b.WriteString("5. **Self-check before responding**: After loading a skill, mentally track which step you are on. Before each response, verify: \"Am I still following the skill workflow? Have I completed all prior steps?\"\n\n")
 	b.WriteString("Use the skill tool to load a skill when a task matches its description.\n\n")
+	b.WriteString("### Skill Management\n\n")
+	b.WriteString("When a user asks to install, add, or download a skill from a URL (e.g., a GitHub repo), use the **install_skill** tool. When a user asks to remove or uninstall a skill, use the **uninstall_skill** tool. After installing or uninstalling, report what was done to the user.\n\n")
 	b.WriteString("<available_skills>\n")
 	for _, s := range skills {
 		if s.Enabled != nil && !*s.Enabled {

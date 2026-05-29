@@ -2171,7 +2171,7 @@ func (a *App) InstallSkillFromURL(args json.RawMessage) ([]string, error) {
 		return nil, err
 	}
 	if req.Scope == "" {
-		req.Scope = "project"
+		req.Scope = "global"
 	}
 	owner, repo, err := parseGitHubURL(req.URL)
 	if err != nil {
@@ -2212,7 +2212,7 @@ func (a *App) InstallSkillFromZip(args json.RawMessage) ([]string, error) {
 		return nil, err
 	}
 	if req.Scope == "" {
-		req.Scope = "project"
+		req.Scope = "global"
 	}
 	zipData, err := base64.StdEncoding.DecodeString(req.Data)
 	if err != nil {

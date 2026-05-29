@@ -37,7 +37,9 @@ func (t *skillTool) Name() string { return "skill" }
 func (t *skillTool) Description() string {
 	return `Load a specialized skill when the task at hand matches one of the skills listed in the system prompt.
 
-Use this tool to inject the skill's instructions and resources into current conversation. The output may contain detailed workflow guidance as well as references to scripts, files, etc in the same directory as the skill.
+Use this tool to inject the skill's instructions and resources into the current conversation. The output contains a detailed workflow with specific steps you MUST follow.
+
+CRITICAL: After loading a skill, you MUST execute its ENTIRE workflow from start to finish. Do NOT stop partway through. Each step is mandatory unless explicitly marked optional. If you cannot complete a step, state why explicitly — never silently skip.
 
 The skill name must match one of the skills listed in your system prompt.`
 }
@@ -109,8 +111,9 @@ func (t *skillTool) Execute(ctx context.Context, args json.RawMessage) (tool.Exe
 	}
 
 	output := fmt.Sprintf(
-		"<skill_content name=\"%s\">\n# Skill: %s\n\n%s\n\nBase directory for this skill: %s\nRelative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.\nNote: file list is sampled.\n\n<skill_files>\n%s\n</skill_files>\n</skill_content>",
+		"<skill_content name=\"%s\">\n%s\n\n# Skill: %s\n\n%s\n\nBase directory for this skill: %s\nRelative paths in this skill (e.g., scripts/, reference/) are relative to this base directory.\nNote: file list is sampled.\n\n<skill_files>\n%s\n</skill_files>\n\n---\n**SKILL COMPLETION CHECK**: Before your next response, verify you are following this skill's workflow. Execute ALL steps. Do not stop midway. Reach the skill's defined terminal state.\n</skill_content>",
 		xmlEscape(meta.Name),
+		"<!-- MANDATORY: You MUST follow ALL steps in this skill in order. Partial execution is not acceptable. Execute each step fully before proceeding. If a step is blocked, state why explicitly instead of silently skipping. -->",
 		meta.Name,
 		strings.TrimSpace(content.Instructions),
 		meta.Path,
