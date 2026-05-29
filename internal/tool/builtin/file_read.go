@@ -20,7 +20,7 @@ func NewFileRead(projectDir string) tool.Tool {
 
 func (f *fileRead) Name() string { return "file_read" }
 func (f *fileRead) Description() string {
-	return "Read a section of a file from the local filesystem. Use grep first to find the relevant file and line range, then read only the section you need using offset and limit. Both offset and limit are required."
+	return "Read a section of a file from the local filesystem. Use grep first to find the relevant file and line range, then read only the section you need using offset and limit."
 }
 
 func (f *fileRead) Parameters() map[string]any {
@@ -33,14 +33,14 @@ func (f *fileRead) Parameters() map[string]any {
 			},
 			"offset": map[string]any{
 				"type":        "integer",
-				"description": "The line number to start reading from (1-indexed).",
+				"description": "The line number to start reading from (1-indexed). Defaults to 1.",
 			},
 			"limit": map[string]any{
 				"type":        "integer",
-				"description": "Maximum number of lines to read.",
+				"description": "Maximum number of lines to read. Defaults to 200.",
 			},
 		},
-		"required": []string{"filePath", "offset", "limit"},
+		"required": []string{"filePath"},
 	}
 }
 
@@ -54,16 +54,16 @@ func (f *fileRead) Execute(ctx context.Context, args json.RawMessage) (tool.Exec
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
 	}
 
+	if params.Offset < 1 {
+		params.Offset = 1
+	}
+	if params.Limit < 1 {
+		params.Limit = 200
+	}
+
 	safePath, err := f.resolvePath(ctx, params.FilePath)
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
-	}
-
-	if params.Offset < 1 {
-		return tool.ExecutionResult{Content: "offset must be >= 1", IsError: true}, nil
-	}
-	if params.Limit < 1 {
-		return tool.ExecutionResult{Content: "limit must be >= 1", IsError: true}, nil
 	}
 
 	return readFileLines(safePath, params.Offset, params.Limit)
