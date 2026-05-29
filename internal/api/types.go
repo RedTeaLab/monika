@@ -118,8 +118,11 @@ type ModelEntryJSON struct {
 
 // AvailableProviderInfo represents a provider available from models.dev for users to add.
 type AvailableProviderInfo struct {
-	ID     string                `json:"id"`
-	Models []AvailableModelInfo `json:"models"`
+	ID          string               `json:"id"`
+	DisplayName string               `json:"display_name"`
+	Npm         string               `json:"npm"`
+	BaseURL     string               `json:"base_url"`
+	Models      []AvailableModelInfo `json:"models"`
 }
 
 // AvailableModelInfo represents a model from models.dev.

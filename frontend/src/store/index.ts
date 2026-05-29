@@ -33,6 +33,9 @@ export interface TaskItem {
 
 export interface AvailableProviderInfo {
   id: string
+  display_name: string
+  npm: string
+  base_url: string
   models: AvailableModelInfo[]
 }
 
@@ -389,25 +392,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (!found) {
         sessionMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
       }
-      const updates: Partial<AppState> = {
-        sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs },
-      }
-      if (id === s.activeSessionId) {
-        const activeMsgs = [...s.messages]
-        let activeFound = false
-        for (let i = activeMsgs.length - 1; i >= 0; i--) {
-          if (activeMsgs[i].role === 'assistant' && !(activeMsgs[i].tools && activeMsgs[i].tools!.length > 0)) {
-            activeMsgs[i] = { ...activeMsgs[i], content: activeMsgs[i].content + delta }
-            activeFound = true
-            break
-          }
-        }
-        if (!activeFound) {
-          activeMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: delta })
-        }
-        updates.messages = activeMsgs
-      }
-      return updates
+      return { sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs } }
     })
   },
 
@@ -425,25 +410,7 @@ export const useStore = create<AppState>((set, get) => ({
       if (!found) {
         sessionMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
       }
-      const updates: Partial<AppState> = {
-        sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs },
-      }
-      if (id === s.activeSessionId) {
-        const activeMsgs = [...s.messages]
-        let activeFound = false
-        for (let i = activeMsgs.length - 1; i >= 0; i--) {
-          if (activeMsgs[i].role === 'assistant' && !(activeMsgs[i].tools && activeMsgs[i].tools!.length > 0)) {
-            activeMsgs[i] = { ...activeMsgs[i], thinking: (activeMsgs[i].thinking || '') + delta }
-            activeFound = true
-            break
-          }
-        }
-        if (!activeFound) {
-          activeMsgs.push({ id: crypto.randomUUID(), role: 'assistant', content: '', thinking: delta })
-        }
-        updates.messages = activeMsgs
-      }
-      return updates
+      return { sessionMessages: { ...s.sessionMessages, [id]: sessionMsgs } }
     })
   },
 
@@ -567,18 +534,7 @@ export const useStore = create<AppState>((set, get) => ({
           break
         }
       }
-      const updates: Partial<AppState> = { sessionMessages: { ...s.sessionMessages, [sessionId]: sessionMsgs } }
-      if (sessionId === s.activeSessionId) {
-        const msgs = [...s.messages]
-        for (let i = msgs.length - 1; i >= 0; i--) {
-          if (msgs[i].role === 'assistant') {
-            msgs[i] = { ...msgs[i], ...meta }
-            break
-          }
-        }
-        updates.messages = msgs
-      }
-      return updates
+      return { sessionMessages: { ...s.sessionMessages, [sessionId]: sessionMsgs } }
     })
   },
   addTokens: (sid, t, max) => set((s) => {
@@ -900,9 +856,9 @@ export const useStore = create<AppState>((set, get) => ({
       if (!sessions || sessions.length === 0) return
       sessions.sort((a: SessionInfo, b: SessionInfo) => b.updated_at.localeCompare(a.updated_at))
 
-      // Load messages for each session without blocking the most recent one
-      for (const s of sessions) {
-        if (get().openSessions.some((o) => o.id === s.id)) continue
+      // Load messages for each session concurrently
+      const toLoad = sessions.filter(s => !get().openSessions.some(o => o.id === s.id))
+      await Promise.allSettled(toLoad.map(async (s) => {
         set((prev) => ({
           openSessions: [...prev.openSessions, { id: s.id, title: s.title }],
         }))
@@ -926,7 +882,7 @@ export const useStore = create<AppState>((set, get) => ({
             sessionMessages: { ...prev.sessionMessages, [s.id]: [] },
           }))
         }
-      }
+      }))
 
       // Activate the most recent
       if (!get().activeSessionId) {
@@ -1269,6 +1225,13 @@ export const useStore = create<AppState>((set, get) => ({
 
 }))
 
+export function syncActiveMessages(sid: string) {
+  const s = useStore.getState()
+  if (sid === s.activeSessionId) {
+    useStore.setState({ messages: [...(s.sessionMessages[sid] || [])] })
+  }
+}
+
 export function loadSessionMessages(raw: { role: string; content: string; reasoning_content?: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[]; tool_call_id?: string; name?: string }[], model?: string): Message[] {
   const result: Message[] = []
   let i = 0
@@ -1337,6 +1300,7 @@ export function setupWailsEvents() {
   let nextSeq = 1
   const pendingEvents: (StreamEvent & { seq?: number })[] = []
   let drainScheduled = false
+  let stalledSince = 0
 
   function drainPendingEvents() {
     drainScheduled = false
@@ -1348,12 +1312,27 @@ export function setupWailsEvents() {
       if (seq === 0 || seq === nextSeq) {
         pendingEvents.shift()
         nextSeq = seq > 0 ? seq + 1 : nextSeq
+        stalledSince = 0
         processEvent(front)
       } else if (seq < nextSeq) {
         pendingEvents.shift()
       } else {
+        if (!stalledSince) stalledSince = Date.now()
+        if (Date.now() - stalledSince > 2000) {
+          console.warn('[monika] seq stall: skipping from', nextSeq, 'to', seq)
+          nextSeq = seq
+          stalledSince = 0
+          continue
+        }
         break
       }
+    }
+    if (pendingEvents.length > 500) {
+      console.warn('[monika] event queue overflow, dropping', pendingEvents.length - 200, 'stale events')
+      const kept = pendingEvents.slice(-200)
+      pendingEvents.length = 0
+      pendingEvents.push(...kept)
+      stalledSince = 0
     }
     if (pendingEvents.length > 0 && !drainScheduled) {
       drainScheduled = true
@@ -1464,6 +1443,7 @@ export function setupWailsEvents() {
         store.setSessionStatus(sid, 'pending')
         store.setSessionError(sid, data.content || 'Unknown error')
         store.bumpSessionListVersion()
+        syncActiveMessages(sid)
         break
 
       case 'file_changed':
@@ -1489,6 +1469,7 @@ export function setupWailsEvents() {
         store.setSessionStatus(sid, 'pending')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
+        syncActiveMessages(sid)
         break
       }
 
@@ -1515,12 +1496,19 @@ export function setupWailsEvents() {
         break
 
       case 'compaction':
-        store.removeGeneratingSession(sid)
-        store.setSessionStatus(sid, 'pending')
         if (data.compaction) {
           const c = data.compaction
           if (c.after_tokens) {
             store.addTokens(sid, c.after_tokens, undefined)
+          }
+          // Auto-compaction: no empty card was pre-created (unlike manual /compact).
+          // Create one now so fillCompactionCard can find and fill it.
+          {
+            const msgs = store.sessionMessages[sid] || []
+            const hasPendingCard = msgs.some((m: any) => m.role === 'compaction' && !m.content)
+            if (!hasPendingCard) {
+              store.appendToSession(sid, [{ id: crypto.randomUUID(), role: 'compaction', content: '' }])
+            }
           }
           store.fillCompactionCard(sid, {
             summary: c.summary || '',

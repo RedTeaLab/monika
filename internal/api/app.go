@@ -398,21 +398,6 @@ func (a *App) GetProviders() []ProviderInfo {
 	return result
 }
 
-// knownProviders is a curated list of provider IDs from models.dev that are
-// actual AI service providers. This filters out non-provider entries like
-// "merge-gateway" that appear in the catalog but aren't real AI providers.
-var knownProviders = map[string]string{
-	"anthropic":    "openai",
-	"azure":        "openai",
-	"deepseek":     "deepseek",
-	"google-genai": "openai",
-	"groq":         "openai",
-	"mistral":      "openai",
-	"openai":       "openai",
-	"openrouter":   "openai",
-	"xai":          "openai",
-}
-
 // GetAvailableProviders returns all providers available from models.dev catalog.
 // This is used in the Settings UI to let users select a provider to add.
 func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
@@ -421,12 +406,8 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 		return nil, fmt.Errorf("failed to load models.dev catalog: %w", err)
 	}
 
-	result := make([]AvailableProviderInfo, 0, len(knownProviders))
-	for providerID, wireAPI := range knownProviders {
-		p, ok := catalog[providerID]
-		if !ok {
-			continue
-		}
+	result := make([]AvailableProviderInfo, 0, len(catalog))
+	for providerID, p := range catalog {
 		models := make([]AvailableModelInfo, 0, len(p.Models))
 		for modelID, md := range p.Models {
 			if md.Limit.Context > 0 {
@@ -450,7 +431,8 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 			result = append(result, AvailableProviderInfo{
 				ID:          providerID,
 				DisplayName: displayName,
-				WireAPI:     wireAPI,
+				Npm:         p.Npm,
+				BaseURL:     p.API,
 				Models:      models,
 			})
 		}

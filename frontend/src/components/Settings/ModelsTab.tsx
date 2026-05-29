@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useStore, AvailableModelInfo } from '../../store'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useStore, AvailableProviderInfo } from '../../store'
 import { Call } from '@wailsio/runtime'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import { IconDatabase, IconEdit, IconPlus } from '../Icons'
-
-type SelectableModel = AvailableModelInfo & { enabled: boolean }
+import ConfirmModal from '../Chat/ConfirmModal'
+import { IconDatabase, IconEdit, IconPlus, IconTrash } from '../Icons'
 
 function maskKey(key: string): string {
   if (!key) return '\u2014'
@@ -19,12 +18,100 @@ function formatContext(limit: number): string {
   return `${limit}`
 }
 
+function ProviderSelect({ catalog, onSelect }: { catalog: AvailableProviderInfo[]; onSelect: (p: AvailableProviderInfo) => void }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [focusIdx, setFocusIdx] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    if (!q) return catalog
+    return catalog.filter(p => p.id.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q))
+  }, [catalog, search])
+
+  useEffect(() => {
+    if (focusIdx >= filtered.length) setFocusIdx(Math.max(0, filtered.length - 1))
+  }, [filtered.length, focusIdx])
+
+  useEffect(() => {
+    if (!open) return
+    setSearch('')
+    setFocusIdx(0)
+    setTimeout(() => searchRef.current?.focus(), 0)
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { setOpen(false); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setFocusIdx(i => Math.min(i + 1, filtered.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusIdx(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter') {
+      e.preventDefault()
+      const p = filtered[focusIdx]
+      if (p) { onSelect(p); setOpen(false) }
+    }
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full px-3 py-2 text-[12px] rounded-md border cursor-pointer flex items-center justify-between"
+        style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit', textAlign: 'left' }}
+      >
+        <span className="text-[var(--text-dim)]">Choose a provider...</span>
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="2,3 4,5 6,3" /></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', width: '100%', maxHeight: '260px', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md, 6px)', padding: '4px', zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={e => { setSearch(e.target.value); setFocusIdx(0) }}
+            onKeyDown={handleKeyDown}
+            placeholder="Search providers..."
+            className="text-[11px] w-full px-2 py-1 rounded border mb-1 outline-none"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
+          />
+          {filtered.length === 0 ? (
+            <div className="text-[11px] text-[var(--text-dim)] px-2 py-1">No matches</div>
+          ) : (
+            filtered.map((p, idx) => (
+              <div
+                key={p.id}
+                onClick={() => { onSelect(p); setOpen(false) }}
+                className="text-[11px] px-2 py-1 rounded cursor-pointer flex justify-between items-center"
+                style={{
+                  background: idx === focusIdx ? 'var(--bg-sidebar)' : 'transparent',
+                  color: idx === focusIdx ? 'var(--text-primary)' : 'var(--text-secondary)',
+                }}
+                onMouseEnter={() => setFocusIdx(idx)}
+              >
+                <span>{p.display_name || p.id}</span>
+                <span className="text-[10px] text-[var(--text-dim)]">{p.models.length} models</span>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ModelsTab() {
   const providers = useStore((s) => s.providerDetails)
   const availableProvidersCatalog = useStore((s) => s.availableProvidersCatalog)
   const loadProviders = useStore((s) => s.loadProviderDetails)
   const loadAvailableProviders = useStore((s) => s.loadAvailableProviders)
   const saveProvider = useStore((s) => s.saveProviderDetail)
+  const deleteProvider = useStore((s) => s.deleteProviderDetail)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const selectedModel = useStore((s) => s.selectedModel)
   const setSelectedProvider = useStore((s) => s.setSelectedProvider)
@@ -38,10 +125,10 @@ export default function ModelsTab() {
   const [apiKey, setApiKey] = useState('')
   const [wireAPI, setWireAPI] = useState('')
   const [selectedAvailableProvider, setSelectedAvailableProvider] = useState('')
-  const [models, setModels] = useState<SelectableModel[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
   useEffect(() => {
     loadProviders()
@@ -57,7 +144,6 @@ export default function ModelsTab() {
     setApiKey(p.api_key)
     setWireAPI(p.wire_api || '')
     setSelectedAvailableProvider('')
-    setModels([])
     setError('')
     setSaved(false)
   }
@@ -69,32 +155,22 @@ export default function ModelsTab() {
     setName('')
     setBaseURL('')
     setApiKey('')
-    setWireAPI('')
+    setWireAPI('openai-compatible')
     setSelectedAvailableProvider('')
-    setModels([])
     setError('')
     setSaved(false)
   }
 
-  const handleProviderSelect = (providerId: string) => {
-    setSelectedAvailableProvider(providerId)
-    const catalog = availableProvidersCatalog.find(p => p.id === providerId)
-    if (catalog) {
-      setProvId(providerId)
-      // Title-case the provider name: "google-genai" → "Google Genai"
-      setName(providerId.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '))
-      setWireAPI(providerId)
-      setModels(catalog.models.map(m => ({
-        id: m.id,
-        name: m.name,
-        context_limit: m.context_limit,
-        output_limit: m.output_limit,
-        enabled: false,
-      })))
-    }
+  const handleProviderSelect = (catalog: AvailableProviderInfo) => {
+    setSelectedAvailableProvider(catalog.id)
+    setProvId(catalog.id)
+    setName(catalog.display_name || catalog.id.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' '))
+    setBaseURL(catalog.base_url || '')
+    setWireAPI('openai-compatible')
   }
 
   const closeModal = () => {
+    setIsAdding(false)
     setEditingId(null)
   }
 
@@ -102,24 +178,35 @@ export default function ModelsTab() {
     if (!provId.trim() || !name.trim()) { setError('ID and Name are required'); return }
     if (isAdding) {
       if (!apiKey.trim()) { setError('API Key is required when adding a provider'); return }
-      const enabledCount = models.filter(m => m.enabled).length
-      if (enabledCount === 0) { setError('At least one model must be enabled'); return }
     }
     setLoading(true); setError('')
     try {
+      let models
+      if (isAdding && selectedAvailableProvider) {
+        const cat = availableProvidersCatalog.find(p => p.id === selectedAvailableProvider)
+        models = (cat?.models || []).map(m => ({
+          id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: true,
+        }))
+      } else {
+        models = (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
+          id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: true,
+        }))
+      }
       await saveProvider({
         id: provId.trim(), display_name: name.trim(), name: name.trim(), base_url: baseURL.trim(),
         api_key: apiKey.trim(), wire_api: wireAPI.trim(),
-        models: isAdding
-          ? models.filter(m => m.enabled).map(m => ({ id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: true }))
-          : (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
-          id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: m.enabled ?? false,
-        })),
+        models,
       })
       setSaved(true)
     } catch { setError('Failed to save provider') }
     finally { setLoading(false) }
-  }, [isAdding, provId, name, baseURL, apiKey, wireAPI, models, providers, editingId, saveProvider])
+  }, [isAdding, provId, name, baseURL, apiKey, wireAPI, providers, editingId, selectedAvailableProvider, availableProvidersCatalog, saveProvider])
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return
+    try { await deleteProvider(deleteTarget) } catch { /* best effort */ }
+    setDeleteTarget(null)
+  }, [deleteTarget, deleteProvider])
 
   const setDefaultModel = useCallback(async (providerId: string, modelId: string) => {
     setSelectedProvider(providerId)
@@ -127,24 +214,11 @@ export default function ModelsTab() {
     try { await Call.ByName('monika/internal/api.App.SetDefaultModel', providerId, modelId) } catch { /* best effort */ }
   }, [setSelectedProvider, setSelectedModel])
 
-  const toggleModelEnabled = useCallback(async (providerId: string, modelId: string, enabled: boolean) => {
-    const p = providers.find((x) => x.id === providerId)
-    if (!p) return
-    const newModels = p.models.map(m => m.id === modelId ? { ...m, enabled } : m)
-    try {
-      await saveProvider({
-        id: p.id, display_name: p.display_name, name: p.display_name, base_url: p.base_url,
-        api_key: p.api_key, wire_api: p.wire_api || '',
-        models: newModels,
-      })
-    } catch { /* best effort */ }
-  }, [providers, saveProvider])
-
   const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
   const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
   // Only show providers that have API keys configured.
-  const sortedProviders = [...providers].sort((a, b) => {
+  const sortedProviders = [...providers].filter(p => p.api_key).sort((a, b) => {
     return a.id.localeCompare(b.id)
   })
 
@@ -182,7 +256,6 @@ export default function ModelsTab() {
       ) : (
         <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
           {sortedProviders.map((p) => {
-            const enabledModels = (p.models || []).filter((m) => m.enabled)
             const totalModels = (p.models || []).length
             return (
               <div
@@ -197,16 +270,14 @@ export default function ModelsTab() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[14px] font-semibold text-[var(--text-primary)]">{p.display_name}</span>
-                      {!p.api_key && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}>No API key</span>
-                      )}
-                      {p.api_key && enabledModels.length > 0 && (
-                        <span className="text-[10px] text-[var(--text-dim)]">{enabledModels.length}/{totalModels} enabled</span>
+                      {p.api_key && totalModels > 0 && (
+                        <span className="text-[10px] text-[var(--text-dim)]">{totalModels} models</span>
                       )}
                     </div>
                   </div>
                   <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
                     <button onClick={() => openEdit(p)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Edit ${p.display_name}`}><IconEdit size={13} /></button>
+                    <button onClick={() => setDeleteTarget(p.id)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Delete ${p.display_name}`}><IconTrash size={13} /></button>
                   </div>
                 </div>
                 {p.api_key && (
@@ -220,43 +291,23 @@ export default function ModelsTab() {
                     {p.models.map(m => {
                       const isDefault = p.id === selectedProvider && m.id === selectedModel
                       return (
-                        <div
+                        <button
                           key={m.id}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-colors group/chip"
+                          onClick={() => setDefaultModel(p.id, m.id)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-transparent border-none cursor-pointer transition-colors"
                           style={{
                             background: isDefault ? 'var(--accent-muted)' : 'var(--bg-sidebar)',
-                            border: 'none',
+                            color: isDefault ? 'var(--accent)' : 'var(--text-primary)',
                           }}
                         >
-                          <label
-                            className="flex items-center gap-1 cursor-pointer"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={!!m.enabled}
-                              onChange={(e) => {
-                                toggleModelEnabled(p.id, m.id, e.target.checked)
-                              }}
-                              className="w-3 h-3 accent-[var(--accent)]"
-                            />
-                          </label>
-                          <button
-                            onClick={() => setDefaultModel(p.id, m.id)}
-                            className="bg-transparent border-none p-0 cursor-pointer"
-                            style={{
-                              color: isDefault ? 'var(--accent)' : 'var(--text-primary)',
-                            }}
-                          >
-                            {isDefault && <span className="text-[9px]" style={{ color: 'var(--accent)' }}>&#9733; </span>}
-                            {m.name}
-                          </button>
+                          {isDefault && <span className="text-[9px]" style={{ color: 'var(--accent)' }}>&#9733; </span>}
+                          {m.name}
                           {(m.context_limit ?? 0) > 0 && (
                             <span className={isDefault ? 'opacity-70' : ''} style={{ color: 'var(--text-dim)', fontSize: 10 }}>
                               {formatContext(m.context_limit ?? 0)}
                             </span>
                           )}
-                        </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -278,16 +329,7 @@ export default function ModelsTab() {
               {isAdding && (
                 <div>
                   <label className={labelCls}>Select Provider</label>
-                  <select
-                    className={inputCls + ' cursor-pointer'}
-                    value={selectedAvailableProvider}
-                    onChange={e => handleProviderSelect(e.target.value)}
-                  >
-                    <option value="">-- Choose a provider --</option>
-                    {availableProvidersCatalog.filter(p => !providers.find(c => c.id === p.id)).map(p => (
-                      <option key={p.id} value={p.id}>{p.id} ({p.models.length} models)</option>
-                    ))}
-                  </select>
+                  <ProviderSelect catalog={availableProvidersCatalog.filter(p => p.npm === '@ai-sdk/openai-compatible' && !providers.find(c => c.id === p.id))} onSelect={handleProviderSelect} />
                 </div>
               )}
               <div>
@@ -302,42 +344,9 @@ export default function ModelsTab() {
                 <label className={labelCls}>Base URL</label>
                 <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.openai.com/v1" />
               </div>
-              {isAdding && models.length > 0 && (
-                <div>
-                  <label className={labelCls}>Models ({models.filter(m => m.enabled).length}/{models.length} enabled)</label>
-                  <div className="max-h-32 overflow-y-auto rounded border border-[var(--border)] p-2 space-y-1">
-                    {models.map(m => (
-                      <label key={m.id} className="flex items-center gap-2 text-[11px] cursor-pointer hover:bg-[var(--bg-sidebar)] px-1 py-0.5 rounded">
-                        <input
-                          type="checkbox"
-                          checked={m.enabled}
-                          onChange={e => {
-                            setModels(prev => prev.map(x => x.id === m.id ? { ...x, enabled: e.target.checked } : x))
-                          }}
-                          className="w-3 h-3 accent-[var(--accent)]"
-                        />
-                        <span className="flex-1 truncate">{m.name}</span>
-                        {(m.context_limit || 0) > 0 && (
-                          <span className="text-[10px] text-[var(--text-dim)]">{formatContext(m.context_limit)}</span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Engine</label>
-                  <select className={inputCls + ' cursor-pointer'} value={wireAPI} onChange={e => setWireAPI(e.target.value)}>
-                    <option value="">Auto (match provider ID)</option>
-                    <option value="openai">OpenAI Compatible</option>
-                    <option value="deepseek">DeepSeek</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>API Key</label>
-                  <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!isAdding} />
-                </div>
+              <div>
+                <label className={labelCls}>API Key</label>
+                <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!isAdding} />
               </div>
             </div>
             {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
@@ -354,6 +363,18 @@ export default function ModelsTab() {
             </ModalButton>
           </ModalFooter>
         </Modal>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title="Delete Provider"
+          message={`Are you sure you want to delete "${providers.find(p => p.id === deleteTarget)?.display_name || deleteTarget}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          icon={<IconTrash size={15} />}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   )

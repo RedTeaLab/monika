@@ -57,6 +57,86 @@ export class AskUserEvent {
 }
 
 /**
+ * AvailableModelInfo represents a model from models.dev.
+ */
+export class AvailableModelInfo {
+    "id": string;
+    "name": string;
+    "context_limit": number;
+    "output_limit": number;
+
+    /** Creates a new AvailableModelInfo instance. */
+    constructor($$source: Partial<AvailableModelInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("context_limit" in $$source)) {
+            this["context_limit"] = 0;
+        }
+        if (!("output_limit" in $$source)) {
+            this["output_limit"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AvailableModelInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AvailableModelInfo {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new AvailableModelInfo($$parsedSource as Partial<AvailableModelInfo>);
+    }
+}
+
+/**
+ * AvailableProviderInfo represents a provider available from models.dev for users to add.
+ */
+export class AvailableProviderInfo {
+    "id": string;
+    "display_name": string;
+    "npm": string;
+    "base_url": string;
+    "models": AvailableModelInfo[];
+
+    /** Creates a new AvailableProviderInfo instance. */
+    constructor($$source: Partial<AvailableProviderInfo> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("display_name" in $$source)) {
+            this["display_name"] = "";
+        }
+        if (!("npm" in $$source)) {
+            this["npm"] = "";
+        }
+        if (!("base_url" in $$source)) {
+            this["base_url"] = "";
+        }
+        if (!("models" in $$source)) {
+            this["models"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new AvailableProviderInfo instance from a string or object.
+     */
+    static createFrom($$source: any = {}): AvailableProviderInfo {
+        const $$createField4_0 = $$createType2;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("models" in $$parsedSource) {
+            $$parsedSource["models"] = $$createField4_0($$parsedSource["models"]);
+        }
+        return new AvailableProviderInfo($$parsedSource as Partial<AvailableProviderInfo>);
+    }
+}
+
+/**
  * BranchInfo represents a git branch (local or remote).
  */
 export class BranchInfo {
@@ -259,7 +339,7 @@ export class FileNode {
      * Creates a new FileNode instance from a string or object.
      */
     static createFrom($$source: any = {}): FileNode {
-        const $$createField3_0 = $$createType2;
+        const $$createField3_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("children" in $$parsedSource) {
             $$parsedSource["children"] = $$createField3_0($$parsedSource["children"]);
@@ -320,8 +400,8 @@ export class MCPServerInfo {
      */
     static createFrom($$source: any = {}): MCPServerInfo {
         const $$createField3_0 = $$createType0;
-        const $$createField4_0 = $$createType3;
-        const $$createField6_0 = $$createType3;
+        const $$createField4_0 = $$createType5;
+        const $$createField6_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("args" in $$parsedSource) {
             $$parsedSource["args"] = $$createField3_0($$parsedSource["args"]);
@@ -395,7 +475,7 @@ export class ProjectInfo {
      * Creates a new ProjectInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): ProjectInfo {
-        const $$createField3_0 = $$createType5;
+        const $$createField3_0 = $$createType7;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("worktrees" in $$parsedSource) {
             $$parsedSource["worktrees"] = $$createField3_0($$parsedSource["worktrees"]);
@@ -440,7 +520,7 @@ export class ProviderInfo {
      * Creates a new ProviderInfo instance from a string or object.
      */
     static createFrom($$source: any = {}): ProviderInfo {
-        const $$createField5_0 = $$createType7;
+        const $$createField5_0 = $$createType9;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("models" in $$parsedSource) {
             $$parsedSource["models"] = $$createField5_0($$parsedSource["models"]);
@@ -540,8 +620,8 @@ export class Session {
      * Creates a new Session instance from a string or object.
      */
     static createFrom($$source: any = {}): Session {
-        const $$createField3_0 = $$createType9;
-        const $$createField13_0 = $$createType11;
+        const $$createField3_0 = $$createType11;
+        const $$createField13_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
             $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
@@ -651,13 +731,13 @@ export class StreamEvent {
      * Creates a new StreamEvent instance from a string or object.
      */
     static createFrom($$source: any = {}): StreamEvent {
-        const $$createField5_0 = $$createType13;
-        const $$createField6_0 = $$createType15;
-        const $$createField7_0 = $$createType17;
-        const $$createField8_0 = $$createType19;
-        const $$createField9_0 = $$createType21;
-        const $$createField10_0 = $$createType23;
-        const $$createField11_0 = $$createType25;
+        const $$createField5_0 = $$createType15;
+        const $$createField6_0 = $$createType17;
+        const $$createField7_0 = $$createType19;
+        const $$createField8_0 = $$createType21;
+        const $$createField9_0 = $$createType23;
+        const $$createField10_0 = $$createType25;
+        const $$createField11_0 = $$createType27;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool" in $$parsedSource) {
             $$parsedSource["tool"] = $$createField5_0($$parsedSource["tool"]);
@@ -711,28 +791,30 @@ export class WorktreeInfo {
 
 // Private type creation functions
 const $$createType0 = $Create.Array($Create.Any);
-const $$createType1 = FileNode.createFrom;
+const $$createType1 = AvailableModelInfo.createFrom;
 const $$createType2 = $Create.Array($$createType1);
-const $$createType3 = $Create.Map($Create.Any, $Create.Any);
-const $$createType4 = WorktreeInfo.createFrom;
-const $$createType5 = $Create.Array($$createType4);
-const $$createType6 = ModelEntryJSON.createFrom;
+const $$createType3 = FileNode.createFrom;
+const $$createType4 = $Create.Array($$createType3);
+const $$createType5 = $Create.Map($Create.Any, $Create.Any);
+const $$createType6 = WorktreeInfo.createFrom;
 const $$createType7 = $Create.Array($$createType6);
-const $$createType8 = engine$0.ChatMessage.createFrom;
+const $$createType8 = ModelEntryJSON.createFrom;
 const $$createType9 = $Create.Array($$createType8);
-const $$createType10 = tool$0.Task.createFrom;
+const $$createType10 = engine$0.ChatMessage.createFrom;
 const $$createType11 = $Create.Array($$createType10);
-const $$createType12 = agent$0.ToolEvent.createFrom;
-const $$createType13 = $Create.Nullable($$createType12);
-const $$createType14 = agent$0.UsageEvent.createFrom;
+const $$createType12 = tool$0.Task.createFrom;
+const $$createType13 = $Create.Array($$createType12);
+const $$createType14 = agent$0.ToolEvent.createFrom;
 const $$createType15 = $Create.Nullable($$createType14);
-const $$createType16 = FileChangeEvent.createFrom;
+const $$createType16 = agent$0.UsageEvent.createFrom;
 const $$createType17 = $Create.Nullable($$createType16);
-const $$createType18 = agent$0.CompactionEvent.createFrom;
+const $$createType18 = FileChangeEvent.createFrom;
 const $$createType19 = $Create.Nullable($$createType18);
-const $$createType20 = agent$0.TaskItem.createFrom;
-const $$createType21 = $Create.Array($$createType20);
-const $$createType22 = permission$0.PermissionRequiredEvent.createFrom;
-const $$createType23 = $Create.Nullable($$createType22);
-const $$createType24 = AskUserEvent.createFrom;
+const $$createType20 = agent$0.CompactionEvent.createFrom;
+const $$createType21 = $Create.Nullable($$createType20);
+const $$createType22 = agent$0.TaskItem.createFrom;
+const $$createType23 = $Create.Array($$createType22);
+const $$createType24 = permission$0.PermissionRequiredEvent.createFrom;
 const $$createType25 = $Create.Nullable($$createType24);
+const $$createType26 = AskUserEvent.createFrom;
+const $$createType27 = $Create.Nullable($$createType26);

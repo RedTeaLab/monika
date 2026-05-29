@@ -8,6 +8,8 @@ export {
 
 export {
     AskUserEvent,
+    AvailableModelInfo,
+    AvailableProviderInfo,
     BranchInfo,
     ChangeStat,
     DiffResult,

@@ -14,6 +14,10 @@ const apiURL = "https://models.dev/api.json"
 
 // ProviderEntry maps model IDs to their limits within a provider.
 type ProviderEntry struct {
+	ID     string               `json:"id"`
+	Name   string               `json:"name"`
+	Npm    string               `json:"npm"`
+	API    string               `json:"api"`
 	Models map[string]ModelData `json:"models"`
 }
 
