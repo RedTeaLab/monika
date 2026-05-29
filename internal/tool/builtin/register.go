@@ -17,6 +17,7 @@ func RegisterDefaults(r *tool.ToolRegistry, projectDir string) error {
 	r.Register(NewFileList(projectDir))
 	r.Register(NewGlob(projectDir))
 	r.Register(NewGrep(projectDir))
+	r.Register(NewGit(projectDir))
 	sh, err := NewBash(projectDir)
 	if err != nil {
 		return err
