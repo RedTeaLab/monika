@@ -64,10 +64,21 @@ function FileTree(_props: IDockviewPanelProps) {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  // Reveal a file path (from CHANGES "View Source File") — use search to locate
+  // Reveal a file path (from CHANGES "View Source File") — search + expand path
   useEffect(() => {
     if (!revealFilePath) return
     const fileName = revealFilePath.split('/').pop() || revealFilePath
+    // Expand all ancestor directories
+    const parts = revealFilePath.split('/')
+    const dirsToExpand: string[] = []
+    for (let i = 1; i < parts.length; i++) {
+      dirsToExpand.push(parts.slice(0, i).join('/'))
+    }
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      for (const d of dirsToExpand) next.add(d)
+      return next
+    })
     setHeaderAction('search')
     setSearchQuery(fileName)
     setSelectedDir('')
