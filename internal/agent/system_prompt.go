@@ -252,6 +252,11 @@ Rules for the summary:
 
 ### Language
 - Match the user's language (Chinese or English)
+- Detect the user's language from their first message and maintain it throughout the session
+- Do not switch languages mid-conversation unless the user switches first
+- Code (identifiers, strings, syntax) stays in its original language — never translate code
+- Comments in code you generate should be in the user's language
+- When the user's preference is ambiguous, default to the language of their first message; if still unclear, use English
 
 ### Questions
 - Do the work without asking unnecessary questions. Treat short tasks as sufficient direction; infer missing details by reading the codebase.
