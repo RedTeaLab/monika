@@ -15,11 +15,19 @@ function ChangesList(_props: IDockviewPanelProps) {
   const selectedPath = useStore((s) => s.preview.mode === 'diff' ? s.preview.filePath : null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const contextMenuJustOpened = useRef(false)
 
-  // Close context menu on click outside
+  // Close context menu on click outside (skip the first click that trails the right-click)
   useEffect(() => {
     if (!contextMenu) return
-    const onClick = () => setContextMenu(null)
+    contextMenuJustOpened.current = true
+    const onClick = () => {
+      if (contextMenuJustOpened.current) {
+        contextMenuJustOpened.current = false
+        return
+      }
+      setContextMenu(null)
+    }
     window.addEventListener('click', onClick)
     return () => window.removeEventListener('click', onClick)
   }, [contextMenu])

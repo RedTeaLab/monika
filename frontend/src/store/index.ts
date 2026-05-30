@@ -169,6 +169,7 @@ interface AppState {
   availableProvidersCatalog: AvailableProviderInfo[]
   settingsOpen: boolean
   msgFilter: 'all' | 'chat' | 'user' | 'assistant'
+  chatInputAppendPath: string | null
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
@@ -255,6 +256,7 @@ interface AppState {
   saveProviderDetail: (cfg: ProviderFull) => Promise<void>
   deleteProviderDetail: (id: string) => Promise<void>
   resetProjectState: () => void
+  appendPathToInput: (path: string) => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -302,6 +304,7 @@ export const useStore = create<AppState>((set, get) => ({
   availableProvidersCatalog: [] as AvailableProviderInfo[],
   settingsOpen: false,
   msgFilter: 'all' as const,
+  chatInputAppendPath: null as string | null,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -533,6 +536,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   setMsgFilter: (filter) => set({ msgFilter: filter }),
+  appendPathToInput: (path) => set({ chatInputAppendPath: path }),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]

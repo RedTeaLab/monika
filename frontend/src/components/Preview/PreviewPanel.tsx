@@ -549,6 +549,23 @@ function PreviewPanel(props: IDockviewPanelProps) {
         keymap.of(defaultKeymap),
         getLangExtension(preview.filePath || ''),
         EditorView.editable.of(false),
+        EditorView.domEventHandlers({
+          copy: (event, view) => {
+            const selection = view.state.selection.main
+            if (selection.empty) return
+
+            const store = useStore.getState()
+            const fp = store.preview.filePath || ''
+            if (!fp) return
+            const fromLine = view.state.doc.lineAt(selection.from).number
+            const toLine = view.state.doc.lineAt(selection.to).number
+            const selectedText = view.state.sliceDoc(selection.from, selection.to)
+
+            const metadata = `[ref:${fp} ${fromLine}~${toLine}]\n`
+            event.clipboardData?.setData('text/plain', metadata + selectedText)
+            event.preventDefault()
+          },
+        }),
       ],
     })
     editorRef.current = new EditorView({ state, parent: containerRef.current })

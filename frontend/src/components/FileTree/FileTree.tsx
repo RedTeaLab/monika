@@ -4,6 +4,7 @@ import { IDockviewPanelProps } from 'dockview'
 import { App, FileNode } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import { IconChevronRight, IconChevronDown, IconFile, IconEye, IconSearch, IconFilePlus, IconFolderPlus, IconPencilLine, IconTrash, IconRestore, IconClipboardPaste, IconFiles, IconExternalLink } from '../Icons'
+import { Link, MessageSquare } from 'lucide-react'
 
 type HeaderAction = 'none' | 'new-file' | 'new-folder' | 'search'
 
@@ -34,6 +35,7 @@ function FileTree(_props: IDockviewPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const renameRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const contextMenuJustOpened = useRef(false)
   const projectPath = useStore((s) => s.projectPath)
   const fileTreeVersion = useStore((s) => s.fileTreeVersion)
   const bumpFileTreeVersion = useStore((s) => s.bumpFileTreeVersion)
@@ -98,10 +100,18 @@ function FileTree(_props: IDockviewPanelProps) {
     }
   }, [renaming])
 
-  // Close context menu on click outside
+  // Close context menu on click outside (skip the first click that trails the right-click)
   useEffect(() => {
     if (!contextMenu) return
-    const onClick = () => { setContextMenu(null); setContextHighlight('') }
+    contextMenuJustOpened.current = true
+    const onClick = () => {
+      if (contextMenuJustOpened.current) {
+        contextMenuJustOpened.current = false
+        return
+      }
+      setContextMenu(null)
+      setContextHighlight('')
+    }
     const onScroll = () => { setContextMenu(null); setContextHighlight('') }
     window.addEventListener('click', onClick)
     window.addEventListener('scroll', onScroll, true)
@@ -436,6 +446,11 @@ function FileTree(_props: IDockviewPanelProps) {
     menuItems.push({ label: 'Rename', icon: <IconPencilLine size={14} />, action: () => { setRenaming(node.path); setRenameValue(node.name) }, separator: true })
     menuItems.push({ label: 'Duplicate', icon: <IconFiles size={14} />, action: () => handleDuplicate(node) })
     menuItems.push({ label: 'Copy', icon: <IconRestore size={14} />, action: () => handleCopy(node) })
+    menuItems.push({ label: 'Copy Absolute Path', icon: <Link size={14} />, action: () => navigator.clipboard.writeText(projectPath ? `${projectPath}/${node.path}` : node.path) })
+    menuItems.push({ label: 'Copy Relative Path', icon: <Link size={14} />, action: () => navigator.clipboard.writeText(node.path) })
+    if (!node.is_dir) {
+      menuItems.push({ label: 'Add to Chat', icon: <MessageSquare size={14} />, action: () => useStore.getState().appendPathToInput(node.path), separator: true })
+    }
     menuItems.push({ label: 'Delete', icon: <IconTrash size={14} />, action: () => handleDelete(node), danger: true })
     menuItems.push({ label: 'Open in Explorer', icon: <IconExternalLink size={14} />, action: () => handleOpenInExplorer(node), separator: true })
 
