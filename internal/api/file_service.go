@@ -25,6 +25,115 @@ type FileNode struct {
 	Status   string     `json:"status,omitempty"`
 }
 
+func (f *FileService) CreateDir(relPath string) error {
+	absPath := filepath.Join(f.projectDir, relPath)
+	return os.MkdirAll(absPath, 0755)
+}
+
+func (f *FileService) Rename(oldRelPath, newRelPath string) error {
+	oldAbs := filepath.Join(f.projectDir, oldRelPath)
+	newAbs := filepath.Join(f.projectDir, newRelPath)
+	if err := os.MkdirAll(filepath.Dir(newAbs), 0755); err != nil {
+		return err
+	}
+	return os.Rename(oldAbs, newAbs)
+}
+
+func (f *FileService) Delete(relPath string) error {
+	absPath := filepath.Join(f.projectDir, relPath)
+	return os.RemoveAll(absPath)
+}
+
+func (f *FileService) Duplicate(relPath string) (string, error) {
+	absPath := filepath.Join(f.projectDir, relPath)
+	dir := filepath.Dir(relPath)
+	name := filepath.Base(relPath)
+	ext := filepath.Ext(name)
+	base := name[:len(name)-len(ext)]
+	if filepath.Base(relPath) == name && filepath.Dir(relPath) == "." {
+		dir = ""
+	}
+	var newPath string
+	for i := 1; ; i++ {
+		candidate := fmt.Sprintf("%s copy%d%s", base, i, ext)
+		fullCandidate := candidate
+		if dir != "" {
+			fullCandidate = dir + "/" + candidate
+		}
+		if _, err := os.Stat(filepath.Join(f.projectDir, fullCandidate)); os.IsNotExist(err) {
+			newPath = fullCandidate
+			break
+		}
+	}
+	newAbs := filepath.Join(f.projectDir, newPath)
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return "", err
+	}
+	if info.IsDir() {
+		if err := copyDirRecursive(absPath, newAbs); err != nil {
+			return "", err
+		}
+	} else {
+		if err := os.MkdirAll(filepath.Dir(newAbs), 0755); err != nil {
+			return "", err
+		}
+		if err := copyFile(absPath, newAbs); err != nil {
+			return "", err
+		}
+	}
+	return newPath, nil
+}
+
+func (f *FileService) CopyItem(srcRelPath, destDirRelPath string) error {
+	srcAbs := filepath.Join(f.projectDir, srcRelPath)
+	destAbs := filepath.Join(f.projectDir, destDirRelPath, filepath.Base(srcRelPath))
+	info, err := os.Stat(srcAbs)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return copyDirRecursive(srcAbs, destAbs)
+	}
+	if err := os.MkdirAll(filepath.Dir(destAbs), 0755); err != nil {
+		return err
+	}
+	return copyFile(srcAbs, destAbs)
+}
+
+func (f *FileService) OpenInExplorer(relPath string) error {
+	absPath := filepath.Join(f.projectDir, relPath)
+	return openInExplorer(absPath)
+}
+
+func copyDirRecursive(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, info.Mode()); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		if entry.IsDir() {
+			if err := copyDirRecursive(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (f *FileService) ReadFile(relPath string) (FileContent, error) {
 	absPath := filepath.Join(f.projectDir, relPath)
 	data, err := os.ReadFile(absPath)

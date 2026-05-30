@@ -1031,6 +1031,65 @@ func (a *App) WriteFile(projectPath, filePath, content string) error {
 	return nil
 }
 
+func (a *App) CreateDir(projectPath, dirPath string) error {
+	fs := a.getFileService(projectPath)
+	if err := fs.CreateDir(dirPath); err != nil {
+		return err
+	}
+	a.eventBus.Emit(StreamEvent{
+		Type: "file_changed",
+		FileChange: &FileChangeEvent{
+			Path:   dirPath,
+			Status: "added",
+		},
+	})
+	return nil
+}
+
+func (a *App) Rename(projectPath, oldPath, newPath string) error {
+	fs := a.getFileService(projectPath)
+	if err := fs.Rename(oldPath, newPath); err != nil {
+		return err
+	}
+	a.eventBus.Emit(StreamEvent{Type: "file_changed", FileChange: &FileChangeEvent{Path: oldPath, Status: "deleted"}})
+	a.eventBus.Emit(StreamEvent{Type: "file_changed", FileChange: &FileChangeEvent{Path: newPath, Status: "added"}})
+	return nil
+}
+
+func (a *App) DeleteItem(projectPath, filePath string) error {
+	fs := a.getFileService(projectPath)
+	if err := fs.Delete(filePath); err != nil {
+		return err
+	}
+	a.eventBus.Emit(StreamEvent{Type: "file_changed", FileChange: &FileChangeEvent{Path: filePath, Status: "deleted"}})
+	return nil
+}
+
+func (a *App) DuplicateItem(projectPath, filePath string) (string, error) {
+	fs := a.getFileService(projectPath)
+	newPath, err := fs.Duplicate(filePath)
+	if err != nil {
+		return "", err
+	}
+	a.eventBus.Emit(StreamEvent{Type: "file_changed", FileChange: &FileChangeEvent{Path: newPath, Status: "added"}})
+	return newPath, nil
+}
+
+func (a *App) CopyItem(projectPath, srcPath, destDir string) error {
+	fs := a.getFileService(projectPath)
+	if err := fs.CopyItem(srcPath, destDir); err != nil {
+		return err
+	}
+	dstPath := destDir + "/" + filepath.Base(srcPath)
+	a.eventBus.Emit(StreamEvent{Type: "file_changed", FileChange: &FileChangeEvent{Path: dstPath, Status: "added"}})
+	return nil
+}
+
+func (a *App) OpenInExplorer(projectPath, filePath string) error {
+	fs := a.getFileService(projectPath)
+	return fs.OpenInExplorer(filePath)
+}
+
 func (a *App) ListFileTree(projectPath string, showHidden bool) ([]FileNode, error) {
 	fs := a.getFileService(projectPath)
 	return fs.ListDir("", showHidden)

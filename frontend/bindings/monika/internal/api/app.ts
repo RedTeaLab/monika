@@ -70,6 +70,10 @@ export function CheckForUpdate(): $CancellablePromise<update$0.UpdateInfo | null
     });
 }
 
+export function CopyItem(projectPath: string, srcPath: string, destDir: string): $CancellablePromise<void> {
+    return $Call.ByID(3645916758, projectPath, srcPath, destDir);
+}
+
 /**
  * CreateBranch creates and checks out a new branch from the given base branch.
  */
@@ -77,11 +81,19 @@ export function CreateBranch(projectPath: string, name: string, baseBranch: stri
     return $Call.ByID(2177215684, projectPath, name, baseBranch);
 }
 
+export function CreateDir(projectPath: string, dirPath: string): $CancellablePromise<void> {
+    return $Call.ByID(1156687635, projectPath, dirPath);
+}
+
 /**
  * DeleteAgent disables an agent by name (soft-delete via Disabled flag).
  */
 export function DeleteAgent(args: json$0.RawMessage): $CancellablePromise<void> {
     return $Call.ByID(3042182576, args);
+}
+
+export function DeleteItem(projectPath: string, filePath: string): $CancellablePromise<void> {
+    return $Call.ByID(1892823524, projectPath, filePath);
 }
 
 /**
@@ -114,6 +126,10 @@ export function DeleteSession(projectPath: string, sessionID: string): $Cancella
  */
 export function DownloadUpdate(args: json$0.RawMessage): $CancellablePromise<void> {
     return $Call.ByID(2973123721, args);
+}
+
+export function DuplicateItem(projectPath: string, filePath: string): $CancellablePromise<string> {
+    return $Call.ByID(1041153378, projectPath, filePath);
 }
 
 export function EmitTaskEvent(sessionID: string, tasks: agent$0.TaskItem[]): $CancellablePromise<void> {
@@ -368,6 +384,10 @@ export function NewSession(projectPath: string, providerID: string, model: strin
     });
 }
 
+export function OpenInExplorer(projectPath: string, filePath: string): $CancellablePromise<void> {
+    return $Call.ByID(1908588784, projectPath, filePath);
+}
+
 /**
  * OpenInFileManager opens the given directory path in the system file manager.
  */
@@ -426,6 +446,10 @@ export function RefreshBranch(projectPath: string): $CancellablePromise<string> 
  */
 export function RemoveSkillPath(args: json$0.RawMessage): $CancellablePromise<void> {
     return $Call.ByID(2181192798, args);
+}
+
+export function Rename(projectPath: string, oldPath: string, newPath: string): $CancellablePromise<void> {
+    return $Call.ByID(2146600506, projectPath, oldPath, newPath);
 }
 
 export function RenameSession(projectPath: string, sessionID: string, newTitle: string): $CancellablePromise<void> {

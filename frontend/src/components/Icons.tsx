@@ -28,6 +28,13 @@ import {
   RefreshCw,
   Info,
   Eye,
+  Search,
+  FilePlus,
+  FolderPlus,
+  ClipboardPaste,
+  Files,
+  PencilLine,
+  ExternalLink,
 } from 'lucide-react'
 
 export function IconClose({ size }: { size?: number }) {
@@ -144,4 +151,32 @@ export function IconInfo({ size }: { size?: number }) {
 
 export function IconEye({ size }: { size?: number }) {
   return <Eye size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconSearch({ size }: { size?: number }) {
+  return <Search size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconFilePlus({ size }: { size?: number }) {
+  return <FilePlus size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconFolderPlus({ size }: { size?: number }) {
+  return <FolderPlus size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconClipboardPaste({ size }: { size?: number }) {
+  return <ClipboardPaste size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconFiles({ size }: { size?: number }) {
+  return <Files size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconPencilLine({ size }: { size?: number }) {
+  return <PencilLine size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconExternalLink({ size }: { size?: number }) {
+  return <ExternalLink size={size || 16} strokeWidth={1.5} />
 }
