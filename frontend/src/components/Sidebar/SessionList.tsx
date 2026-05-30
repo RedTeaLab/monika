@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconTrash, IconPlus, IconStar, IconFolder } from '../Icons'
+import { IconTrash, IconPlus, IconPin, IconInbox } from '../Icons'
 import { logger } from '../../lib/logger'
 import ConfirmModal from '../Chat/ConfirmModal'
 
@@ -326,7 +326,7 @@ function SessionList(props: IDockviewPanelProps) {
                           className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--yellow)] transition-colors"
                           title={s.pinned ? 'Unpin' : 'Pin'}
                         >
-                          <IconStar size={12} filled={s.pinned} />
+                          <IconPin size={12} filled={s.pinned} />
                         </button>
                         {st !== 'archived' && (
                           <button
@@ -335,7 +335,7 @@ function SessionList(props: IDockviewPanelProps) {
                             className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-[var(--text-dim)] hover:text-[var(--text-secondary)] transition-colors"
                             title="Archive"
                           >
-                            <IconFolder size={12} />
+                            <IconInbox size={12} />
                           </button>
                         )}
                         <button

@@ -20,6 +20,8 @@ import {
   ShieldCheck,
   Database,
   Star,
+  Pin,
+  Inbox,
   Plug,
   Copy,
   Zap,
@@ -110,6 +112,14 @@ export function IconShield({ size }: { size?: number }) {
 
 export function IconDatabase({ size }: { size?: number }) {
   return <Database size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconPin({ size, filled }: { size?: number; filled?: boolean }) {
+  return <Pin size={size || 16} strokeWidth={1.5} fill={filled ? 'currentColor' : 'none'} />
+}
+
+export function IconInbox({ size }: { size?: number }) {
+  return <Inbox size={size || 16} strokeWidth={1.5} />
 }
 
 export function IconStar({ size, filled }: { size?: number; filled?: boolean }) {
