@@ -167,10 +167,105 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slide-up {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
+  /* ── react-mentions chat input ── */
+
+  .chat-mentions {
+    position: relative;
+  }
+  .chat-mentions__control {
+    position: relative;
+    min-height: 52px;
+  }
+  .chat-mentions__highlighter {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    padding: 10px 14px 2px;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    color: transparent;
+  }
+  .chat-mentions__highlighter > span {
+    color: var(--text-primary);
+  }
+  .chat-mentions__highlighter > strong {
+    color: var(--accent);
+    background: var(--accent-muted);
+    border-radius: 3px;
+    padding: 0 1px;
+    font-weight: inherit;
+  }
+  .chat-mentions__input {
+    color: transparent;
+    caret-color: var(--text-primary);
+    background: transparent !important;
+    border: none !important;
+    outline: none;
+    resize: none;
+    width: 100%;
+    padding: 10px 14px 2px !important;
+    font-size: 13px;
+    font-family: inherit;
+    line-height: inherit;
+    position: relative;
+    z-index: 1;
+    display: block;
+    overflow: hidden;
+  }
+  .chat-mentions__input::placeholder {
+    color: var(--text-dim);
+  }
+  .chat-mentions__input::selection {
+    background: rgba(75, 125, 219, 0.3);
+  }
+  .chat-mentions__suggestions {
+    position: absolute;
+    z-index: 50;
+    left: 0; right: 0;
+    bottom: 100%;
+    margin-bottom: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+  }
+  .chat-mentions__suggestions ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 324px;
+    overflow-y: auto;
+  }
+  .chat-mentions__suggestions ul::-webkit-scrollbar { width: 5px; }
+  .chat-mentions__suggestions ul::-webkit-scrollbar-track { background: transparent; }
+  .chat-mentions__suggestions ul::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+  .chat-mentions__suggestion {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    min-height: 36px;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+  .chat-mentions__suggestion--focused {
+    background: var(--bg-active);
+  }
+  .chat-mentions__suggestion em {
+    font-style: normal;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
 
 .animate-slide-up {
   animation: slide-up 0.2s ease-out;

@@ -1,9 +1,9 @@
-import { useState, KeyboardEvent, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { MentionsInput, Mention, SuggestionDataItem } from 'react-mentions'
 import { useStore } from '../../store'
 import { formatTokens } from '../../lib/format'
 import ModelPicker from './ModelPicker'
 import PermissionModePicker from './PermissionModePicker'
-import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
 import { App } from '../../../bindings/monika'
 import { Call } from '@wailsio/runtime'
 
@@ -30,11 +30,74 @@ function flattenFiles(nodes: FileEntry[]): FileEntry[] {
 function loadHistory(): string[] {
   try {
     const stored = localStorage.getItem('monika-cmd-history')
-    return stored ? (JSON.parse(stored) as string[]) : []
+    return stored ? (JSON.parse(stored as string) as string[]) : []
   } catch { return [] }
 }
 
 const INITIAL_HISTORY = loadHistory()
+
+interface PasteChip {
+  id: string
+  display: string
+  text: string
+  type: 'paste-path' | 'paste-text'
+}
+
+/** Convert react-mentions markup value to plain text for submission. */
+function markupToPlainText(value: string): string {
+  return value
+    // /[display](id) → /id
+    .replace(/\/\[([^\]]*)\]\(([^)]*)\)/g, (_m, _d, id) => '/' + id)
+    // @[display](id) → @id
+    .replace(/@\[([^\]]*)\]\(([^)]*)\)/g, (_m, _d, id) => '@' + id)
+    // $[display](id) → $id
+    .replace(/\$\[([^\]]*)\]\(([^)]*)\)/g, (_m, _d, id) => '$' + id)
+}
+
+// ── Extended suggestion items (extra props for custom rendering) ──
+
+interface ExtSuggestion extends SuggestionDataItem {
+  detail?: string
+  icon?: string
+}
+
+function SuggestionRenderer(
+  suggestion: SuggestionDataItem,
+  _search: string,
+  highlightedDisplay: React.ReactNode,
+  _index: number,
+  focused: boolean,
+) {
+  const item = suggestion as ExtSuggestion
+  return (
+    <div
+      className="flex items-start gap-2 w-full"
+      style={{
+        padding: '6px 12px',
+        background: focused ? 'var(--bg-active)' : 'transparent',
+        minHeight: 36,
+      }}
+    >
+      {item.icon && (
+        <span className="shrink-0 w-4 text-center text-[11px] mt-px" style={{ color: 'var(--text-dim)' }}>
+          {item.icon}
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="truncate text-[13px]" style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          {highlightedDisplay}
+        </div>
+        {item.detail && (
+          <div className="truncate text-[11px]" style={{ color: 'var(--text-dim)' }}>
+            {item.detail}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Mirror div helpers for cursor line tracking ──
 
 let mirrorCache: HTMLDivElement | null = null
 
@@ -84,22 +147,25 @@ function getCursorLineInfo(textarea: HTMLTextAreaElement, value: string): { curr
   }
 }
 
+// ── Component ──
+
 function ChatInput({ onSend, onStop, onRunShell, disabled }: {
   onSend: (text: string) => void
   onStop: () => void
   onRunShell: (command: string) => void
   disabled: boolean
 }) {
+  // value = markup string (e.g. "hello @[file.ts](/path/to/file.ts) world")
   const [value, setValue] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [plainText, setPlainText] = useState('')
+  const [pasteChips, setPasteChips] = useState<PasteChip[]>([])
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const sessionTokens = useStore((s) => s.sessionTokens)
   const tokens = sessionTokens[activeSessionId] || { count: 0, max: 0 }
   const tokenCount = tokens.count
   const tokenMax = tokens.max
 
-  const [ac, setAc] = useState<AcState>({ open: false, items: [], selectedIdx: 0, prefix: '' })
-  const acDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const projectPath = useStore((s) => s.projectPath)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const selectedModel = useStore((s) => s.selectedModel)
@@ -122,13 +188,12 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     historyIndexRef.current = -1
   }, [activeSessionId])
 
-  // Stable ref for onStop to avoid re-registering ESC listener every render
   const onStopRef = useRef(onStop)
   onStopRef.current = onStop
 
   const prevDisabledRef = useRef(disabled)
 
-  // ESC key to stop generation
+  // ESC to stop generation
   useEffect(() => {
     if (!disabled) return
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
@@ -146,203 +211,171 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     const wasDisabled = prevDisabledRef.current
     prevDisabledRef.current = disabled
     if (wasDisabled && !disabled) {
-      requestAnimationFrame(() => {
-        textareaRef.current?.focus()
-      })
+      requestAnimationFrame(() => inputRef.current?.focus())
     }
   }, [disabled])
 
-  // Auto-resize textarea after value changes
+  // Auto-resize textarea
   useEffect(() => {
-    const el = textareaRef.current
+    const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
     const h = el.scrollHeight
-    if (h > 0) {
-      el.style.height = `${Math.min(h, 300)}px`
-    }
+    if (h > 0) el.style.height = `${Math.min(h, 300)}px`
   }, [value])
 
-  // Re-calc height after layout is ready (fixes squished input on reopened sessions)
+  // Focus on mount
   useEffect(() => {
     const timer = requestAnimationFrame(() => {
-      const el = textareaRef.current
+      const el = inputRef.current
       if (!el) return
       el.style.height = 'auto'
       const h = el.scrollHeight
       el.style.height = h > 0 ? `${Math.min(h, 300)}px` : ''
-      if (!disabled) {
-        el.focus()
-      }
+      if (!disabled) el.focus()
     })
     return () => cancelAnimationFrame(timer)
   }, [])
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setValue(e.target.value)
-  }
+  // ── Data loaders for each mention trigger ──
 
-  const COMMANDS: AcItem[] = [
-    { name: 'init', detail: 'Create agent.md from project analysis', icon: '/', insert: '/init ' },
-    { name: 'compact', detail: 'Manually trigger context compaction', icon: '/', insert: '/compact ' },
-  ]
-
-  const getQueryAtCursor = (): { prefix: string; query: string } | null => {
-    const el = textareaRef.current
-    if (!el) return null
-    const cursor = el.selectionStart
-    const text = value.slice(0, cursor)
-
-    // $ at line start or after space
-    const dollarMatch = text.match(/(?:^|\s)(\$)([^\s]*)$/)
-    if (dollarMatch) return { prefix: '$', query: dollarMatch[2] }
-
-    // @ anywhere
-    const atMatch = text.match(/@([^\s]*)$/)
-    if (atMatch) return { prefix: '@', query: atMatch[1] }
-
-    // / at line start
-    const slashMatch = text.match(/^\/([^\s]*)$/)
-    if (slashMatch) return { prefix: '/', query: slashMatch[1] }
-
-    return null
-  }
-
-  const fetchAutocomplete = useCallback(async (prefix: string, query: string) => {
-    let items: AcItem[] = []
+  const loadCommands = useCallback(async (query: string, callback: (items: SuggestionDataItem[]) => void) => {
     const lq = query.toLowerCase()
+    let skills: any[] = []
+    try {
+      skills = await Call.ByName('monika/internal/api.App.ListSkills') || []
+    } catch { /* ignore */ }
 
-    if (prefix === '/') {
-      let currentSkills: any[] = []
-      try {
-        currentSkills = await Call.ByName('monika/internal/api.App.ListSkills') || []
-      } catch { /* ignore */ }
-      const allItems = [
-        ...COMMANDS,
-        ...currentSkills.filter((sk: any) => sk.enabled !== false).map((sk: any) => ({
-          name: sk.name || sk.Name || '',
-          detail: sk.description || sk.Description || '',
-          icon: '/',
-          insert: `/${sk.name || sk.Name || ''} `,
-        })),
-      ]
-      items = allItems.filter(c => c.name.toLowerCase().startsWith(lq))
-    } else if (prefix === '$') {
-      const histItems: AcItem[] = historyRef.current
-        .filter(h => h.toLowerCase().startsWith(lq))
-        .slice(0, 5)
-        .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: `$${h} ` }))
-
-      const files = projectPath
-        ? await App.ListFileTree(projectPath, false).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
-        : []
-
-      const fileItems: AcItem[] = (files || [])
-        .filter(f => f.name.toLowerCase().startsWith(lq))
-        .slice(0, 15)
-        .map(f => ({
-          name: f.name,
-          detail: f.is_dir ? 'directory' : 'file',
-          icon: f.is_dir ? '▸' : '▹',
-          insert: `$${f.path} `,
-        }))
-
-      const seen = new Set(histItems.map(h => h.name))
-      items = [...histItems, ...fileItems.filter(f => !seen.has(f.name))]
-    } else if (prefix === '@') {
-      const files = projectPath
-        ? await App.ListFileTree(projectPath, false).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
-        : []
-      items = (files || [])
-        .filter(f => f.path.toLowerCase().includes(lq) || f.name.toLowerCase().includes(lq))
-        .slice(0, 15)
-        .map(f => ({
-          name: f.path,
-          detail: f.is_dir ? 'directory' : 'file',
-          icon: f.is_dir ? '▸' : '▹',
-          insert: f.is_dir ? `@${f.path}/` : f.path,
-        }))
-    }
-
-    setAc({ open: true, items, selectedIdx: 0, prefix, query })
-  }, [projectPath])
-
-  const updateAutocomplete = useCallback(() => {
-    const match = getQueryAtCursor()
-    if (!match) {
-      setAc(s => s.open ? { ...s, open: false } : s)
-      return
-    }
-    if (acDebounceRef.current) clearTimeout(acDebounceRef.current)
-    acDebounceRef.current = setTimeout(() => {
-      fetchAutocomplete(match.prefix, match.query)
-    }, 300)
-  }, [value, fetchAutocomplete])
-
-  useEffect(() => {
-    updateAutocomplete()
-  }, [value, updateAutocomplete])
-
-  const selectAcItem = (item: AcItem) => {
-    const match = getQueryAtCursor()
-    if (!match) return
-
-    const el = textareaRef.current!
-    const cursor = el.selectionStart
-    const replaceStart = cursor - match.prefix.length - match.query.length
-    const newText = value.slice(0, replaceStart) + item.insert + value.slice(cursor)
-    setValue(newText)
-    // For @ directory drill-down: keep autocomplete open to browse deeper
-    if (match.prefix === '@' && item.detail === 'directory') {
-      requestAnimationFrame(() => {
-        const pos = replaceStart + item.insert.length
-        el.setSelectionRange(pos, pos)
-        el.focus()
-      })
-      return
-    }
-    setAc({ open: false, items: [], selectedIdx: 0, prefix: '' })
-    requestAnimationFrame(() => {
-      const pos = replaceStart + item.insert.length
-      el.setSelectionRange(pos, pos)
-      el.focus()
-    })
-  }
-
-  const closeAutocomplete = useCallback(() => {
-    setAc(s => ({ ...s, open: false }))
+    const allItems: ExtSuggestion[] = [
+      { id: 'init', display: 'init', detail: 'Create agent.md from project analysis', icon: '/' },
+      { id: 'compact', display: 'compact', detail: 'Manually trigger context compaction', icon: '/' },
+      ...skills.filter((sk: any) => sk.enabled !== false).map((sk: any) => ({
+        id: sk.name || sk.Name || '',
+        display: sk.name || sk.Name || '',
+        detail: sk.description || sk.Description || '',
+        icon: '/',
+      })),
+    ]
+    callback(allItems.filter(c => String(c.id).toLowerCase().startsWith(lq)))
   }, [])
 
-  const handleSubmit = () => {
-    const trimmed = value.trim()
-    if (!trimmed || disabled) return
+  const loadFiles = useCallback(async (query: string, callback: (items: SuggestionDataItem[]) => void) => {
+    if (!projectPath) { callback([]); return }
+    const lq = query.toLowerCase()
+    const files = await App.ListFileTree(projectPath, false)
+      .then(r => flattenFiles(r as FileEntry[]))
+      .catch(() => [] as FileEntry[])
+
+    const items: ExtSuggestion[] = (files || [])
+      .filter(f => f.path.toLowerCase().includes(lq) || f.name.toLowerCase().includes(lq))
+      .slice(0, 15)
+      .map(f => ({
+        id: f.path,
+        display: f.name,
+        detail: f.is_dir ? 'directory' : 'file',
+        icon: f.is_dir ? '▸' : '▹',
+      }))
+    callback(items)
+  }, [projectPath])
+
+  const loadShell = useCallback(async (query: string, callback: (items: SuggestionDataItem[]) => void) => {
+    const lq = query.toLowerCase()
+
+    const histItems: ExtSuggestion[] = historyRef.current
+      .filter(h => h.toLowerCase().startsWith(lq))
+      .slice(0, 5)
+      .map(h => ({ id: h, display: h, detail: 'history', icon: '⏎' }))
+
+    const files = projectPath
+      ? await App.ListFileTree(projectPath, false)
+          .then(r => flattenFiles(r as FileEntry[]))
+          .catch(() => [] as FileEntry[])
+      : []
+
+    const fileItems: ExtSuggestion[] = (files || [])
+      .filter(f => f.name.toLowerCase().startsWith(lq))
+      .slice(0, 15)
+      .map(f => ({
+        id: f.path,
+        display: f.name,
+        detail: f.is_dir ? 'directory' : 'file',
+        icon: f.is_dir ? '▸' : '▹',
+      }))
+
+    const seen = new Set(histItems.map(h => h.id))
+    callback([...histItems, ...fileItems.filter(f => !seen.has(f.id))])
+  }, [projectPath])
+
+  // ── Paste handling ──
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text/plain')
+    if (!pasted) return
+
+    const looksLikePath = (/\.\w{1,10}$/.test(pasted) || /^[/\\]/.test(pasted) || /^[A-Za-z]:[\\/]/.test(pasted))
+      && !pasted.includes('\n')
+      && pasted.length < 500
+
+    if (looksLikePath) {
+      e.preventDefault()
+      const filename = pasted.replace(/[/\\]+$/, '').split(/[/\\]/).pop() || pasted
+      setPasteChips(prev => [...prev, {
+        id: crypto.randomUUID(),
+        display: filename,
+        text: pasted,
+        type: 'paste-path',
+      }])
+      return
+    }
+
+    if (pasted.length > 100) {
+      e.preventDefault()
+      setPasteChips(prev => [...prev, {
+        id: crypto.randomUUID(),
+        display: `Paste ${pasted.length}`,
+        text: pasted,
+        type: 'paste-text',
+      }])
+    }
+  }
+
+  // ── Submit logic ──
+
+  const handleSubmit = useCallback(() => {
+    const pt = plainText.trim()
+    if ((!pt && pasteChips.length === 0) || disabled) return
     historyIndexRef.current = -1
 
+    // Convert markup to plain text and combine with paste chips
+    const converted = markupToPlainText(value)
+    const chipsText = pasteChips.map(c => c.text).join(' ')
+    const fullText = (chipsText + ' ' + converted).trim()
+    const clearInput = () => { setValue(''); setPlainText(''); setPasteChips([]) }
+
     // $ shell command
-    if (trimmed.startsWith('$')) {
-      const command = trimmed.slice(1).trim()
-      if (!command) { onSend(trimmed); setValue(''); return }
-      // Record in history (deduped, keep last 50, persist)
+    if (fullText.startsWith('$')) {
+      const command = fullText.slice(1).trim()
+      if (!command) { onSend(fullText); clearInput(); return }
       const h = historyRef.current.filter(c => c !== command)
       const updated = [command, ...h].slice(0, 50)
       historyRef.current = updated
       try { localStorage.setItem('monika-cmd-history', JSON.stringify(updated)) } catch { /* ignore */ }
       onRunShell(command)
-      setValue('')
+      clearInput()
       return
     }
 
     // /init command
-    if (trimmed === '/init') {
+    if (fullText === '/init') {
       onSend(INIT_TEMPLATE)
-      setValue('')
+      clearInput()
       return
     }
 
     // /compact command
-    if (trimmed === '/compact') {
+    if (fullText === '/compact') {
       if (!projectPath || !activeSessionId || !selectedProvider || !selectedModel) return
-      setValue('')
+      clearInput()
       const store = useStore.getState()
       store.addGeneratingSession(activeSessionId)
       store.setSessionStatus(activeSessionId, 'compacting')
@@ -357,101 +390,90 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     }
 
     // /skill-name command
-    if (trimmed.startsWith('/') && trimmed.length > 1 && !trimmed.includes(' ')) {
-      const skillName = trimmed.slice(1)
+    if (fullText.startsWith('/') && fullText.length > 1 && !fullText.includes(' ')) {
+      const skillName = fullText.slice(1)
       const skill = useStore.getState().skills.find((s: any) => (s.name || s.Name) === skillName)
       if (skill) {
         onSend(`Use the skill tool to load the "${skillName}" skill, then follow its instructions.`)
-        setValue('')
+        clearInput()
         return
       }
     }
 
     // Normal message
-    onSend(trimmed)
-    setValue('')
-  }
+    onSend(fullText)
+    clearInput()
+  }, [value, plainText, pasteChips, disabled, projectPath, activeSessionId, selectedProvider, selectedModel, onSend, onRunShell])
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (ac.open && ac.items.length > 0) {
-      if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
-        e.preventDefault()
-        const item = ac.items[ac.selectedIdx]
-        if (item) { selectAcItem(item) }
-        return
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setAc(s => ({ ...s, selectedIdx: Math.min(s.selectedIdx + 1, s.items.length - 1) }))
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setAc(s => ({ ...s, selectedIdx: Math.max(s.selectedIdx - 1, 0) }))
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        closeAutocomplete()
-        return
-      }
-    }
+  // ── Keyboard handling ──
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+    // If suggestions are open, let react-mentions handle Tab/Enter/Escape/Arrow
+    const suggestionsEl = document.querySelector('.chat-mentions__suggestions')
+    const suggestionsOpen = suggestionsEl ? suggestionsEl.childElementCount > 0 : false
+
+    if (suggestionsOpen) return
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
+      return
     }
 
-    // History navigation with Up/Down at visual cursor boundaries
+    // History navigation
     if (!disabled && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
-      const el = textareaRef.current
-      if (el) {
-        const { currentLine, totalLines } = getCursorLineInfo(el, value)
+      const el = inputRef.current
+      if (!el) return
+      const { currentLine, totalLines } = getCursorLineInfo(el, plainText)
 
-        const userMsgs = useStore.getState().sessionMessages[sessionIdRef.current]?.filter(m => m.role === 'user').map(m => m.content) || []
+      const userMsgs = useStore.getState().sessionMessages[sessionIdRef.current]?.filter(m => m.role === 'user').map(m => m.content) || []
 
-        if (e.key === 'ArrowUp' && currentLine === 1 && userMsgs.length > 0) {
-          e.preventDefault()
-          const nextIdx = historyIndexRef.current === -1
-            ? userMsgs.length - 1
-            : Math.max(historyIndexRef.current - 1, 0)
-          if (nextIdx !== historyIndexRef.current) {
-            historyIndexRef.current = nextIdx
-            navigatingHistoryRef.current = true
-            setValue(userMsgs[nextIdx])
-            requestAnimationFrame(() => {
-              const len = userMsgs[nextIdx].length
-              textareaRef.current?.setSelectionRange(len, len)
-            })
-          }
+      if (e.key === 'ArrowUp' && currentLine === 1 && userMsgs.length > 0) {
+        e.preventDefault()
+        const nextIdx = historyIndexRef.current === -1
+          ? userMsgs.length - 1
+          : Math.max(historyIndexRef.current - 1, 0)
+        if (nextIdx !== historyIndexRef.current) {
+          historyIndexRef.current = nextIdx
+          navigatingHistoryRef.current = true
+          const msg = userMsgs[nextIdx]
+          setValue(msg)
+          setPlainText(msg)
+          requestAnimationFrame(() => {
+            const len = msg.length
+            inputRef.current?.setSelectionRange(len, len)
+          })
         }
-        if (e.key === 'ArrowDown' && currentLine === totalLines && historyIndexRef.current !== -1) {
-          e.preventDefault()
-          if (historyIndexRef.current < userMsgs.length - 1) {
-            historyIndexRef.current += 1
-            navigatingHistoryRef.current = true
-            setValue(userMsgs[historyIndexRef.current])
-            requestAnimationFrame(() => {
-              const len = userMsgs[historyIndexRef.current].length
-              textareaRef.current?.setSelectionRange(len, len)
-            })
-          } else if (historyIndexRef.current === userMsgs.length - 1) {
-            historyIndexRef.current = -1
-            navigatingHistoryRef.current = true
-            setValue('')
-          }
+      }
+      if (e.key === 'ArrowDown' && currentLine === totalLines && historyIndexRef.current !== -1) {
+        e.preventDefault()
+        if (historyIndexRef.current < userMsgs.length - 1) {
+          historyIndexRef.current += 1
+          navigatingHistoryRef.current = true
+          const msg = userMsgs[historyIndexRef.current]
+          setValue(msg)
+          setPlainText(msg)
+          requestAnimationFrame(() => {
+            const len = userMsgs[historyIndexRef.current].length
+            inputRef.current?.setSelectionRange(len, len)
+          })
+        } else if (historyIndexRef.current === userMsgs.length - 1) {
+          historyIndexRef.current = -1
+          navigatingHistoryRef.current = true
+          setValue('')
+          setPlainText('')
         }
       }
     }
   }
 
-  const handleSendClick = () => {
-    handleSubmit()
-  }
+  // ── Render ──
 
   const tokenText = tokenMax > 0
     ? `${formatTokens(tokenCount)} / ${formatTokens(tokenMax)}`
     : formatTokens(tokenCount)
+
+  const canSend = plainText.trim().length > 0 || pasteChips.length > 0
 
   return (
     <div className="border-t border-[var(--border)] px-4 py-3" style={{ background: 'var(--bg-sidebar)' }}>
@@ -462,25 +484,90 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
           borderColor: 'var(--border)',
         }}
       >
-        <AutocompleteDropdown
-          state={ac}
-          onSelect={selectAcItem}
-          onClose={closeAutocomplete}
-        />
-        <textarea
-          ref={textareaRef}
+        {/* Paste chips */}
+        {pasteChips.length > 0 && (
+          <div className="flex flex-wrap gap-[5px] px-[12px] pt-[8px]">
+            {pasteChips.map(chip => (
+              <span
+                key={chip.id}
+                className="inline-flex items-center gap-[3px] text-[11px] rounded-[4px] px-[6px] py-[1px] select-none group"
+                style={{
+                  background: 'rgba(255,255,255,0.06)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style={{ opacity: 0.5, flexShrink: 0 }}>
+                  <path d="M5 1a1 1 0 00-1 1v1H3a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2h-1V2a1 1 0 00-1-1H5zm4 8V7H7v2H5l3 3 3-3H9z"/>
+                </svg>
+                <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chip.display}</span>
+                <button
+                  onClick={() => setPasteChips(prev => prev.filter(c => c.id !== chip.id))}
+                  style={{
+                    background: 'none', border: 'none', color: 'inherit',
+                    cursor: 'pointer', padding: '0 1px', lineHeight: 1,
+                    opacity: 0.4, fontSize: '10px',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* MentionsInput */}
+        <MentionsInput
+          className="chat-mentions"
           value={value}
-          onChange={handleChange}
+          onChange={(_e, newValue, newPlainText) => {
+            setValue(newValue)
+            setPlainText(newPlainText)
+          }}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           disabled={disabled}
           placeholder={
             disabled ? 'Generating...'
-            : 'Send a message... (Enter to submit, Shift+Enter for newline)'
+            : 'Send a message... (/ commands, @ files, $ shell, Enter to submit)'
           }
-          className="text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent"
+          inputRef={inputRef}
+          allowSpaceInQuery
+          forceSuggestionsAboveCursor
           rows={4}
-        />
+        >
+          <Mention
+            trigger="/"
+            data={loadCommands}
+            markup="/[__display__](__id__)"
+            displayTransform={(_id, display) => '/' + display}
+            renderSuggestion={SuggestionRenderer}
+            appendSpaceOnAdd
+            className="chat-mentions__mention"
+          />
+          <Mention
+            trigger="@"
+            data={loadFiles}
+            markup="@[__display__](__id__)"
+            displayTransform={(_id, display) => '@' + display}
+            renderSuggestion={SuggestionRenderer}
+            appendSpaceOnAdd
+            className="chat-mentions__mention"
+          />
+          <Mention
+            trigger="$"
+            data={loadShell}
+            markup="$[__display__](__id__)"
+            displayTransform={(_id, display) => '$' + display}
+            renderSuggestion={SuggestionRenderer}
+            appendSpaceOnAdd
+            className="chat-mentions__mention"
+          />
+        </MentionsInput>
 
+        {/* Toolbar */}
         <div
           className="flex items-center gap-2 px-[10px] pb-[8px]"
           style={{ background: 'transparent' }}
@@ -499,17 +586,10 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
               onClick={onStop}
               title="Stop generating (Esc)"
               style={{
-                width: '28px',
-                height: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '6px',
-                border: 'none',
-                background: 'none',
-                color: 'var(--accent)',
-                cursor: 'pointer',
-                flexShrink: 0,
+                width: '28px', height: '28px', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                borderRadius: '6px', border: 'none', background: 'none',
+                color: 'var(--accent)', cursor: 'pointer', flexShrink: 0,
               }}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
@@ -518,21 +598,16 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
             </button>
           ) : (
             <button
-              onClick={handleSendClick}
-              disabled={!value.trim()}
+              onClick={handleSubmit}
+              disabled={!canSend}
               title="Send message (Enter)"
               style={{
-                width: '28px',
-                height: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '6px',
-                border: 'none',
-                background: 'none',
-                color: value.trim() ? 'var(--accent)' : 'var(--text-dim)',
-                cursor: value.trim() ? 'pointer' : 'default',
-                opacity: value.trim() ? 1 : 0.4,
+                width: '28px', height: '28px', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                borderRadius: '6px', border: 'none', background: 'none',
+                color: canSend ? 'var(--accent)' : 'var(--text-dim)',
+                cursor: canSend ? 'pointer' : 'default',
+                opacity: canSend ? 1 : 0.4,
                 transition: 'color 0.15s, opacity 0.15s',
                 flexShrink: 0,
               }}
