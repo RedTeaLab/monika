@@ -4,17 +4,22 @@ import { formatTokens } from '../../lib/format'
 import ModelPicker from './ModelPicker'
 import PermissionModePicker from './PermissionModePicker'
 import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
+import LabelChip, { findLabels, segmentText } from './LabelChip'
 import { App } from '../../../bindings/monika'
 import { Call } from '@wailsio/runtime'
 
-const INIT_TEMPLATE = `Please analyze this project and create an \`agent.md\` file in the project root. The file should contain:
+const INIT_TEMPLATE = `Please analyze this project and check if an \`AGENTS.md\` file exists in the project root.
 
+- If AGENTS.md does NOT exist, create one with compact, actionable information. Every line should answer: "would an agent likely miss this without help?"
+- If AGENTS.md already EXISTS, read it first, then update/improve it based on your analysis.
+
+The file should contain:
 1. Build, test, and run commands specific to this project
 2. Project structure overview (key directories and their purposes)
 3. Coding conventions and patterns used
 4. Framework and library specifics
 
-First, explore the codebase to understand the project, then create the agent.md file with compact, actionable information. Every line should answer "would an agent likely miss this without help?"`
+First, explore the codebase to understand the project, then create or update the AGENTS.md file accordingly.`
 
 interface FileEntry { name: string; path: string; is_dir: boolean; children?: FileEntry[] }
 
@@ -92,6 +97,9 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const pasteStoreRef = useRef<Map<string, string>>(new Map())
+  const labels = findLabels(value)
   const activeSessionId = useStore((s) => s.activeSessionId)
   const sessionTokens = useStore((s) => s.sessionTokens)
   const tokens = sessionTokens[activeSessionId] || { count: 0, max: 0 }
@@ -163,6 +171,40 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     }
   }, [value])
 
+  // Clean up paste markers that are no longer in the value
+  useEffect(() => {
+    const store = pasteStoreRef.current
+    for (const marker of store.keys()) {
+      if (!value.includes(marker)) {
+        store.delete(marker)
+      }
+    }
+  }, [value])
+
+  // Watch for file path append request from FileTree context menu
+  const appendPath = useStore((s) => s.chatInputAppendPath)
+  const appendPathToInput = useStore((s) => s.appendPathToInput)
+  useEffect(() => {
+    if (!appendPath || !projectPath) return
+    const el = textareaRef.current
+    if (!el) return
+
+    const cursor = el.selectionStart
+    const prefix = value.slice(0, cursor).endsWith('@') ? '' : '@'
+    const insertion = `${prefix}${appendPath} `
+    const newValue = value.slice(0, cursor) + insertion + value.slice(el.selectionEnd)
+    setValue(newValue)
+
+    // Clear the pending path
+    appendPathToInput('')
+
+    requestAnimationFrame(() => {
+      const pos = cursor + insertion.length
+      el.setSelectionRange(pos, pos)
+      el.focus()
+    })
+  }, [appendPath])
+
   // Re-calc height after layout is ready (fixes squished input on reopened sessions)
   useEffect(() => {
     const timer = requestAnimationFrame(() => {
@@ -182,8 +224,93 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     setValue(e.target.value)
   }
 
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const pastedText = e.clipboardData.getData('text/plain')
+    if (!pastedText) return
+
+    const el = textareaRef.current
+    if (!el) return
+    const cursor = el.selectionStart
+    const selEnd = el.selectionEnd
+
+    // Detect code reference copy from Preview panel: [ref:path/file.go 10~15]\n<code>
+    const refMatch = pastedText.match(/^\[ref:([^\]]+)\]\n/)
+    if (refMatch) {
+      e.preventDefault()
+      const rawRef = refMatch[1] // e.g., "src/handlers/example.go 10~15"
+      const code = pastedText.slice(refMatch[0].length)
+      const spaceIdx = rawRef.lastIndexOf(' ')
+      const fullPath = spaceIdx > 0 ? rawRef.slice(0, spaceIdx) : rawRef
+      const lineRange = spaceIdx > 0 ? rawRef.slice(spaceIdx + 1) : ''
+      const fileName = fullPath.replace(/^.*[/\\]/, '')
+      const displayLabel = lineRange ? `[${fileName} ${lineRange}]` : `[${fileName}]`
+      const resolvedLabel = lineRange ? `[${fullPath} ${lineRange}]` : `[${fullPath}]`
+
+      // Store mapping: display label resolves to full path reference + code
+      const resolvedContent = `${resolvedLabel}\n\n${code}`
+      pasteStoreRef.current.set(displayLabel, resolvedContent)
+
+      const replacement = `${displayLabel} `
+
+      const newValue = value.slice(0, cursor) + replacement + value.slice(selEnd)
+      setValue(newValue)
+      requestAnimationFrame(() => {
+        const pos = cursor + replacement.length
+        el.setSelectionRange(pos, pos)
+        el.focus()
+      })
+      return
+    }
+
+    // Detect if pasted text is a file path
+    const trimmed = pastedText.trim()
+    const isFilePath = /^[a-zA-Z]:[/\\]/.test(trimmed) || // C:\...
+      /^\.\.?[/\\]/.test(trimmed) || // ./../
+      (trimmed.length < 260 && (trimmed.includes('/') || trimmed.includes('\\')) && /\.[a-zA-Z0-9]{1,8}$/.test(trimmed))
+
+    if (isFilePath) {
+      e.preventDefault()
+      const filename = trimmed.replace(/^.*[/\\]/, '')
+      const replacement = `[${filename}] `
+      pasteStoreRef.current.set(`[${filename}]`, trimmed)
+      const newValue = value.slice(0, cursor) + replacement + value.slice(selEnd)
+      setValue(newValue)
+      requestAnimationFrame(() => {
+        const pos = cursor + replacement.length
+        el.setSelectionRange(pos, pos)
+        el.focus()
+      })
+      return
+    }
+
+    if (pastedText.length > 200) {
+      e.preventDefault()
+      const replacement = `[Paste ${pastedText.length}] `
+      pasteStoreRef.current.set(`[Paste ${pastedText.length}]`, pastedText)
+      const newValue = value.slice(0, cursor) + replacement + value.slice(selEnd)
+      setValue(newValue)
+      requestAnimationFrame(() => {
+        const pos = cursor + replacement.length
+        el.setSelectionRange(pos, pos)
+        el.focus()
+      })
+      return
+    }
+    // Otherwise: default paste behavior (do nothing)
+  }, [value])
+
+  /** Sync overlay scroll position with textarea */
+  const syncOverlayScroll = useCallback(() => {
+    const el = textareaRef.current
+    const ov = overlayRef.current
+    if (el && ov) {
+      ov.scrollTop = el.scrollTop
+      ov.scrollLeft = el.scrollLeft
+    }
+  }, [])
+
   const COMMANDS: AcItem[] = [
-    { name: 'init', detail: 'Create agent.md from project analysis', icon: '/', insert: '/init ' },
+    { name: 'init', detail: 'Create/update AGENTS.md from project analysis', icon: '/', insert: '/init ' },
     { name: 'compact', detail: 'Manually trigger context compaction', icon: '/', insert: '/compact ' },
   ]
 
@@ -260,7 +387,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
           name: f.path,
           detail: f.is_dir ? 'directory' : 'file',
           icon: f.is_dir ? '▸' : '▹',
-          insert: f.is_dir ? `@${f.path}/` : f.path,
+          insert: f.is_dir ? `@${f.path}/` : `@${f.path} `,
         }))
     }
 
@@ -318,10 +445,16 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     if (!trimmed || disabled) return
     historyIndexRef.current = -1
 
+    // Resolve paste/file markers to original content before sending
+    let resolved = trimmed
+    for (const [marker, original] of pasteStoreRef.current) {
+      resolved = resolved.split(marker).join(original)
+    }
+
     // $ shell command
-    if (trimmed.startsWith('$')) {
-      const command = trimmed.slice(1).trim()
-      if (!command) { onSend(trimmed); setValue(''); return }
+    if (resolved.startsWith('$')) {
+      const command = resolved.slice(1).trim()
+      if (!command) { onSend(resolved); setValue(''); return }
       // Record in history (deduped, keep last 50, persist)
       const h = historyRef.current.filter(c => c !== command)
       const updated = [command, ...h].slice(0, 50)
@@ -333,14 +466,14 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     }
 
     // /init command
-    if (trimmed === '/init') {
+    if (resolved === '/init') {
       onSend(INIT_TEMPLATE)
       setValue('')
       return
     }
 
     // /compact command
-    if (trimmed === '/compact') {
+    if (resolved === '/compact') {
       if (!projectPath || !activeSessionId || !selectedProvider || !selectedModel) return
       setValue('')
       const store = useStore.getState()
@@ -357,8 +490,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     }
 
     // /skill-name command
-    if (trimmed.startsWith('/') && trimmed.length > 1 && !trimmed.includes(' ')) {
-      const skillName = trimmed.slice(1)
+    if (resolved.startsWith('/') && resolved.length > 1 && !resolved.includes(' ')) {
+      const skillName = resolved.slice(1)
       const skill = useStore.getState().skills.find((s: any) => (s.name || s.Name) === skillName)
       if (skill) {
         onSend(`Use the skill tool to load the "${skillName}" skill, then follow its instructions.`)
@@ -368,11 +501,47 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     }
 
     // Normal message
-    onSend(trimmed)
+    onSend(resolved)
     setValue('')
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    const el = textareaRef.current
+    const selStart = el?.selectionStart ?? -1
+    const selEnd = el?.selectionEnd ?? -1
+
+    // Backspace at the end of a label → delete the entire chip
+    if (e.key === 'Backspace' && selStart === selEnd && selStart > 0) {
+      const labelAtCursor = labels.find(l => l.end === selStart)
+      if (labelAtCursor) {
+        e.preventDefault()
+        const newValue = value.slice(0, labelAtCursor.start) + value.slice(labelAtCursor.end)
+        setValue(newValue)
+        requestAnimationFrame(() => {
+          const pos = labelAtCursor.start
+          el?.setSelectionRange(pos, pos)
+          el?.focus()
+        })
+        return
+      }
+    }
+
+    // Delete at the start of a label → delete the entire chip
+    if (e.key === 'Delete' && selStart === selEnd) {
+      const labelAtCursor = labels.find(l => l.start === selStart)
+      if (labelAtCursor) {
+        e.preventDefault()
+        const newValue = value.slice(0, labelAtCursor.start) + value.slice(labelAtCursor.end)
+        setValue(newValue)
+        requestAnimationFrame(() => {
+          const pos = labelAtCursor.start
+          el?.setSelectionRange(pos, pos)
+          el?.focus()
+        })
+        return
+      }
+    }
+
     if (ac.open && ac.items.length > 0) {
       if (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey)) {
         e.preventDefault()
@@ -453,6 +622,8 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
     ? `${formatTokens(tokenCount)} / ${formatTokens(tokenMax)}`
     : formatTokens(tokenCount)
 
+  const segments = segmentText(value, labels)
+
   return (
     <div className="border-t border-[var(--border)] px-4 py-3" style={{ background: 'var(--bg-sidebar)' }}>
       <div
@@ -467,19 +638,75 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
           onSelect={selectAcItem}
           onClose={closeAutocomplete}
         />
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          placeholder={
-            disabled ? 'Generating...'
-            : 'Send a message... (Enter to submit, Shift+Enter for newline)'
-          }
-          className="text-[13px] text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent"
-          rows={4}
-        />
+
+        {/* Textarea wrapper — keeps overlay scoped to the textarea area */}
+        <div className="relative">
+          {/* Decoration overlay: renders labels as chips */}
+          <div
+            ref={overlayRef}
+            aria-hidden="true"
+            className="text-[13px] text-[var(--text-primary)] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent overflow-hidden whitespace-pre-wrap break-words"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          >
+            {segments.length === 0 ? (
+              <span style={{ color: 'var(--text-dim)', userSelect: 'none' }}>
+                {disabled ? 'Generating...' : 'Send a message... (Enter to submit, Shift+Enter for newline)'}
+              </span>
+            ) : null}
+            {segments.map((seg, i) => {
+              if (seg.type !== 'label' || !seg.labelRegion) {
+                return <span key={`t-${i}`}>{seg.text}</span>
+              }
+              const raw = value.slice(seg.labelRegion.start, seg.labelRegion.end)
+              const isAtPath = raw[0] === '@'
+              let inner: string
+              let firstHidden: string
+              let lastHidden: string
+              if (isAtPath) {
+                // @path → hide only @, show the rest
+                firstHidden = raw[0]
+                inner = raw.slice(1)
+                lastHidden = ''
+              } else {
+                // [filename.ext] or [Paste N] → hide both brackets
+                firstHidden = raw[0] || ''
+                inner = raw.length >= 2 ? raw.slice(1, -1) : raw
+                lastHidden = raw.length >= 2 ? raw[raw.length - 1] : ''
+              }
+              return (
+                <LabelChip key={`l-${i}`} type={seg.labelRegion.type}>
+                  {firstHidden && <span aria-hidden="true" style={{ opacity: 0 }}>{firstHidden}</span>}
+                  {inner}
+                  {lastHidden && <span aria-hidden="true" style={{ opacity: 0 }}>{lastHidden}</span>}
+                </LabelChip>
+              )
+            })}
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onScroll={syncOverlayScroll}
+            disabled={disabled}
+            placeholder=""
+            className="text-[13px] outline-none px-[14px] pt-[10px] pb-[2px] resize-none w-full bg-transparent overflow-hidden whitespace-pre-wrap break-words border-0"
+            style={{
+              color: 'transparent',
+              caretColor: 'var(--text-primary)',
+              position: 'relative',
+              zIndex: 2,
+            }}
+            rows={4}
+          />
+        </div>
 
         <div
           className="flex items-center gap-2 px-[10px] pb-[8px]"
