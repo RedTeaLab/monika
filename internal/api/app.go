@@ -1460,7 +1460,7 @@ func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
 	for _, entry := range entries {
 		nodes = append(nodes, FileNode{
 			Name:  entry.Name(),
-			Path:  filepath.Join(clean, entry.Name()),
+			Path:  filepath.ToSlash(filepath.Join(clean, entry.Name())),
 			IsDir: entry.IsDir(),
 		})
 	}

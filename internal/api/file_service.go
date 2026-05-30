@@ -178,15 +178,17 @@ func (f *FileService) ListDir(relPath string, showHidden bool) ([]FileNode, erro
 			}
 
 			entryRelPath := filepath.Join(relPath, name)
+			// Always use forward slashes so paths match git output and frontend comparisons.
+			normalizedPath := filepath.ToSlash(entryRelPath)
 			node := FileNode{
 				Name:  name,
-				Path:  entryRelPath,
+				Path:  normalizedPath,
 				IsDir: entry.IsDir(),
 			}
 
 			// Populate git status from the status map.
 			// git always uses forward slashes, but filepath.Join may use backslashes.
-			gitPath := filepath.ToSlash(entryRelPath)
+			gitPath := normalizedPath
 			if status, ok := statusMap[gitPath]; ok {
 				node.Status = status
 			}

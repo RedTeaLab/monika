@@ -118,13 +118,13 @@ function ChangesList(_props: IDockviewPanelProps) {
                 className="flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors duration-100 mx-1 px-[6px]"
                 style={{
                   color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  background: active ? 'rgba(75,125,219,0.10)' : 'transparent',
+                  background: active ? 'var(--bg-active)' : 'transparent',
                 }}
                 onMouseEnter={(e) => {
                   if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = active ? 'rgba(75,125,219,0.10)' : 'transparent'
+                  e.currentTarget.style.background = active ? 'var(--bg-active)' : 'transparent'
                 }}
                 onClick={() => handleClick(stat)}
                 onContextMenu={(e) => handleContextMenu(e, stat.path)}
