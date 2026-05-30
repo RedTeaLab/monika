@@ -1076,13 +1076,66 @@ func (a *AgentLoop) buildMessages(conv *Conversation) []engine.ChatMessage {
 	}
 
 	messages = append(messages, filteredMsgs...)
-	return sanitizeToolCallPairs(messages)
+	return sanitizeMessageSequence(sanitizeToolCallPairs(messages))
 }
 
 // sanitizeToolCallPairs ensures every assistant message with tool_calls
 // is followed by tool response messages for each tool_call_id.
 // If the session was interrupted during tool execution, synthetic error
 // responses are appended for any missing tool_call_ids.
+// sanitizeMessageSequence fixes invalid message sequences that can arise after
+// compaction splits the conversation within a turn. Two issues are handled:
+//
+//  1. Leading non-user messages after system (e.g. system→tool or system→assistant)
+//     are trimmed because the first non-system message must be "user".
+//  2. Orphan tool messages whose tool_call_id has no matching assistant tool_calls
+//     in the current context are removed.
+func sanitizeMessageSequence(messages []engine.ChatMessage) []engine.ChatMessage {
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// --- Step 1: trim leading non-user messages after system ---
+	start := 0
+	if messages[0].Role == "system" {
+		start = 1
+	}
+	for start < len(messages) && messages[start].Role != "user" {
+		start++
+	}
+	// Re-slice: keep system (if present) + from first user onward.
+	if messages[0].Role == "system" {
+		messages = append(messages[:1], messages[start:]...)
+	} else {
+		messages = messages[start:]
+	}
+
+	if len(messages) == 0 {
+		return messages
+	}
+
+	// --- Step 2: remove orphan tool messages ---
+	// Collect all tool_call_ids present in assistant messages.
+	validToolIDs := make(map[string]bool)
+	for _, m := range messages {
+		if m.Role == "assistant" {
+			for _, tc := range m.ToolCalls {
+				validToolIDs[tc.ID] = true
+			}
+		}
+	}
+
+	var filtered []engine.ChatMessage
+	for _, m := range messages {
+		if m.Role == "tool" && !validToolIDs[m.ToolCallID] {
+			continue // orphan tool message, skip
+		}
+		filtered = append(filtered, m)
+	}
+
+	return filtered
+}
+
 func sanitizeToolCallPairs(messages []engine.ChatMessage) []engine.ChatMessage {
 	if len(messages) == 0 {
 		return messages

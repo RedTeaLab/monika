@@ -254,3 +254,141 @@ func TestBuildCompactionPrompt_WithPreviousSummary(t *testing.T) {
 		t.Error("should say 'Update the anchored summary' for subsequent compactions")
 	}
 }
+
+func TestSanitizeMessageSequence_TrimLeadingNonUser(t *testing.T) {
+	// system → assistant → assistant → user → assistant
+	// should become system → user → assistant
+	msgs := []engine.ChatMessage{
+		{Role: "system", Content: "sys"},
+		{Role: "assistant", Content: "orphan assistant"},
+		{Role: "assistant", Content: "another orphan"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	result := sanitizeMessageSequence(msgs)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(result))
+	}
+	if result[0].Role != "system" {
+		t.Errorf("first should be system, got %s", result[0].Role)
+	}
+	if result[1].Role != "user" {
+		t.Errorf("second should be user, got %s", result[1].Role)
+	}
+	if result[2].Role != "assistant" {
+		t.Errorf("third should be assistant, got %s", result[2].Role)
+	}
+}
+
+func TestSanitizeMessageSequence_TrimLeadingTool(t *testing.T) {
+	// system → tool → user → assistant
+	// should become system → user → assistant
+	msgs := []engine.ChatMessage{
+		{Role: "system", Content: "sys"},
+		{Role: "tool", Content: "orphan tool", ToolCallID: "tc1"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	result := sanitizeMessageSequence(msgs)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(result))
+	}
+	if result[1].Role != "user" {
+		t.Errorf("second should be user, got %s", result[1].Role)
+	}
+}
+
+func TestSanitizeMessageSequence_RemoveOrphanTool(t *testing.T) {
+	// tool with tool_call_id that has no matching assistant tool_calls
+	msgs := []engine.ChatMessage{
+		{Role: "system", Content: "sys"},
+		{Role: "user", Content: "hello"},
+		{Role: "tool", Content: "orphan result", ToolCallID: "missing_id"},
+		{Role: "assistant", Content: "hi"},
+	}
+	result := sanitizeMessageSequence(msgs)
+	for _, m := range result {
+		if m.Role == "tool" && m.ToolCallID == "missing_id" {
+			t.Error("orphan tool message should be removed")
+		}
+	}
+	if len(result) != 3 {
+		t.Fatalf("expected 3 messages (sys, user, assistant), got %d", len(result))
+	}
+}
+
+func TestSanitizeMessageSequence_KeepValidTool(t *testing.T) {
+	// tool with matching assistant tool_calls should be kept
+	msgs := []engine.ChatMessage{
+		{Role: "system", Content: "sys"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "", ToolCalls: []engine.ToolCall{{ID: "tc1", Function: engine.ToolCallFunc{Name: "grep"}}}},
+		{Role: "tool", Content: "result", ToolCallID: "tc1"},
+		{Role: "assistant", Content: "done"},
+	}
+	result := sanitizeMessageSequence(msgs)
+	if len(result) != 5 {
+		t.Fatalf("expected 5 messages, got %d", len(result))
+	}
+	// tool message should be present
+	found := false
+	for _, m := range result {
+		if m.Role == "tool" && m.ToolCallID == "tc1" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("valid tool message should be kept")
+	}
+}
+
+func TestSanitizeMessageSequence_NoSystem(t *testing.T) {
+	// no system message, leading assistant should be trimmed
+	msgs := []engine.ChatMessage{
+		{Role: "assistant", Content: "orphan"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: "hi"},
+	}
+	result := sanitizeMessageSequence(msgs)
+	if len(result) != 2 {
+		t.Fatalf("expected 2 messages, got %d", len(result))
+	}
+	if result[0].Role != "user" {
+		t.Errorf("first should be user, got %s", result[0].Role)
+	}
+}
+
+func TestSanitizeMessageSequence_Empty(t *testing.T) {
+	result := sanitizeMessageSequence(nil)
+	if len(result) != 0 {
+		t.Errorf("expected empty, got %d", len(result))
+	}
+}
+
+func TestSanitizeMessageSequence_PostCompaction(t *testing.T) {
+	// Simulates the exact scenario after compaction within a turn:
+	// system (with summary) → tool (orphan) → assistant → user → assistant
+	// The tool is orphaned because its parent assistant was in the compacted head.
+	msgs := []engine.ChatMessage{
+		{Role: "system", Content: "system prompt\n<context-summary>\nsummary\n</context-summary>"},
+		{Role: "tool", Content: "orphan tool result", ToolCallID: "tc_old"},
+		{Role: "assistant", Content: "partial response"},
+		{Role: "user", Content: "latest question"},
+		{Role: "assistant", Content: "latest answer"},
+	}
+	result := sanitizeMessageSequence(msgs)
+
+	// Leading tool and assistant (before first user) should be trimmed
+	if len(result) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(result))
+	}
+	if result[0].Role != "system" {
+		t.Errorf("first should be system, got %s", result[0].Role)
+	}
+	if result[1].Content != "latest question" {
+		t.Errorf("second should be latest question, got %s", result[1].Content)
+	}
+	if result[2].Content != "latest answer" {
+		t.Errorf("third should be latest answer, got %s", result[2].Content)
+	}
+}
