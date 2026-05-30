@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
@@ -9,6 +9,8 @@ import ConfirmBar from './ConfirmBar'
 import AskUserBar from './AskUserBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
+import MessageFilter from './MessageFilter'
+import { IconClose } from '../Icons'
 
 const EMPTY_ARR: any[] = []
 const EMPTY_STR_ARR: string[] = []
@@ -38,6 +40,20 @@ function ChatArea(props: IDockviewPanelProps) {
   const isDefaultChat = sessionId === 'chat'
   const isOverlay = overlaySessionId !== null
 
+  const msgFilter = useStore((s) => s.msgFilter)
+
+  const rawMessages = isOverlay ? overlayMessages : parentMessages
+  const messages = useMemo(() => {
+    if (msgFilter === 'all') return rawMessages
+    if (msgFilter === 'chat') return rawMessages.filter((m: any) =>
+      m.role === 'user' || m.role === 'assistant'
+    )
+    if (msgFilter === 'user') return rawMessages.filter((m: any) => m.role === 'user')
+    if (msgFilter === 'assistant') return rawMessages.filter((m: any) => m.role === 'assistant')
+    return rawMessages
+  }, [rawMessages, msgFilter])
+  const hideExtras = msgFilter === 'chat' || msgFilter === 'assistant'
+
   const sessionTokens = useStore((s) => s.sessionTokens)
   const overlayTokens = overlaySessionId ? sessionTokens[overlaySessionId] : null
 
@@ -45,6 +61,11 @@ function ChatArea(props: IDockviewPanelProps) {
   const setTodoCollapsed = useStore((s) => s.setTodoCollapsed)
   const isOverlayTodoCollapsed = useStore((s) => overlaySessionId ? (s.todoCollapsed[overlaySessionId] || false) : false)
   const setOverlayTodoCollapsed = useStore((s) => s.setTodoCollapsed)
+
+  const openSessions = useStore((s) => s.openSessions)
+  const switchSessionTab = useStore((s) => s.switchSessionTab)
+  const closeSessionTab = useStore((s) => s.closeSessionTab)
+  const setMsgFilter = useStore((s) => s.setMsgFilter)
 
   const handleStop = () => {
     const targetId = overlaySessionId || sessionId
@@ -96,6 +117,7 @@ function ChatArea(props: IDockviewPanelProps) {
     }
 
     const store = useStore.getState()
+    store.setMsgFilter('all')
     const userMsg = { id: crypto.randomUUID(), role: 'user' as const, content: text }
     const assistantMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now() }
     store.appendToSession(sessionId, [userMsg, assistantMsg])
@@ -111,9 +133,9 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }
 
-  const messages = isOverlay ? overlayMessages : parentMessages
   const effectiveSessionId = isOverlay ? overlaySessionId! : sessionId
   const isGenerating = generatingSessionIds.includes(effectiveSessionId)
+
   let generatingIdx = -1
   if (isGenerating) {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -224,7 +246,48 @@ function ChatArea(props: IDockviewPanelProps) {
 
         </div>
       )}
+      {!isOverlay && (
+        <div
+          className="flex items-center gap-1 px-2 border-b border-[var(--border)] shrink-0"
+          style={{ background: 'var(--bg-sidebar)', height: '30px' }}
+        >
+          <div className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
+            {openSessions.map((tab) => {
+              const isActive = tab.id === sessionId
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => switchSessionTab(tab.id)}
+                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded shrink-0 max-w-[160px] hover:bg-[var(--bg-hover)] cursor-pointer"
+                  style={{
+                    background: isActive ? 'var(--bg-card)' : 'transparent',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-dim)',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
+                  <span className="truncate inline-block align-bottom" style={{ maxWidth: '120px' }}>{tab.title || 'Untitled'}</span>
+                  {openSessions.length > 1 && (
+                    <span
+                      onClick={(e) => { e.stopPropagation(); closeSessionTab(tab.id) }}
+                      className="hover:text-[var(--text-primary)] transition-colors"
+                      style={{ fontSize: '10px', lineHeight: 1, color: 'var(--text-dim)' }}
+                    >
+                      <IconClose size={10} />
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          <MessageFilter value={msgFilter} onChange={setMsgFilter} disabled={isGenerating} />
+        </div>
+      )}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+        {rawMessages.length > 0 && msgFilter !== 'all' && (
+          <div className="mb-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>
+            {messages.length} / {rawMessages.length} messages
+          </div>
+        )}
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[var(--text-dim)] text-[13px]">
             {isOverlay ? 'Loading subagent...' : 'No messages yet. Start a conversation.'}
@@ -235,6 +298,7 @@ function ChatArea(props: IDockviewPanelProps) {
               key={msg.id}
               message={msg}
               isGenerating={idx === generatingIdx}
+              hideExtras={hideExtras}
             />
           ))
         )}

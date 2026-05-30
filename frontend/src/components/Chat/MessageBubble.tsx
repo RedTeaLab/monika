@@ -495,9 +495,10 @@ function CompactionCard({ message }: { message: Message }) {
 interface MessageBubbleProps {
   message: Message
   isGenerating?: boolean
+  hideExtras?: boolean
 }
 
-const MessageBubble = React.memo(function MessageBubble({ message, isGenerating }: MessageBubbleProps) {
+const MessageBubble = React.memo(function MessageBubble({ message, isGenerating, hideExtras }: MessageBubbleProps) {
   const { role, content, thinking, tools, model, duration, subtaskAgent } = message
 
   if (role === 'shell') {
@@ -567,6 +568,10 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating 
 
   const hasSpawnAgent = tools?.some(t => t.name === 'spawn_agent')
 
+  if (hideExtras && role === 'assistant' && !content) {
+    return null
+  }
+
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
       {role === 'user' ? (
@@ -585,8 +590,8 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating 
         </div>
       ) : (
         <>
-          <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />
-          {thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
+          {!hideExtras && <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />}
+          {!hideExtras && thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
 
           {content && (
             <MsgBlock copyContent={content}>
@@ -594,7 +599,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating 
             </MsgBlock>
           )}
 
-          {tools?.map((tool, i) =>
+          {!hideExtras && tools?.map((tool, i) =>
             tool.name === 'spawn_agent' ? (
               <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
             ) : (
@@ -603,7 +608,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating 
           )}
 
           {/* "view subagents" hint — matches preview HTML */}
-          {hasSpawnAgent && (
+          {!hideExtras && hasSpawnAgent && (
             <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
               <span
                 className="text-[9px] font-mono px-1 py-0.5 rounded"

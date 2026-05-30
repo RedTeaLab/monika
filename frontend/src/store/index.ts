@@ -168,9 +168,11 @@ interface AppState {
   providerDetails: ProviderFull[]
   availableProvidersCatalog: AvailableProviderInfo[]
   settingsOpen: boolean
+  msgFilter: 'all' | 'chat' | 'user' | 'assistant'
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
+  setMsgFilter: (filter: 'all' | 'chat' | 'user' | 'assistant') => void
   toggleSettings: () => void
   appendToSession: (sessionId: string, msgs: Message[]) => void
   addToolStart: (tool: ToolCall) => void
@@ -295,6 +297,7 @@ export const useStore = create<AppState>((set, get) => ({
   providerDetails: [],
   availableProvidersCatalog: [] as AvailableProviderInfo[],
   settingsOpen: false,
+  msgFilter: 'all' as const,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -525,6 +528,7 @@ export const useStore = create<AppState>((set, get) => ({
     })
   },
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
+  setMsgFilter: (filter) => set({ msgFilter: filter }),
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
