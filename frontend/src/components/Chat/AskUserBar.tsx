@@ -43,9 +43,6 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
     if (e.key === 'Escape') {
       e.preventDefault()
       submitAnswer('')
-    } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault()
-      handleSubmit()
     }
   }
 
@@ -81,13 +78,6 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
         <textarea
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.nativeEvent?.isComposing) return
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              if (customText.trim()) submitAnswer(customText.trim())
-            }
-          }}
           placeholder="Type your answer..."
           className="w-full text-[12px] px-2 py-1.5 rounded-sm resize-none outline-none"
           style={{
@@ -184,13 +174,6 @@ function AskUserBar({ sessionId }: AskUserBarProps) {
                 setCustomText(e.target.value)
                 e.target.style.height = '0px'
                 e.target.style.height = `${e.target.scrollHeight}px`
-              }}
-              onKeyDown={(e) => {
-                if (e.nativeEvent?.isComposing) return
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  if (customText.trim()) submitAnswer(customText.trim())
-                }
               }}
               placeholder="Type your answer..."
               className="w-full text-[12px] px-2 py-1.5 rounded-sm resize-none outline-none ml-5.5"
