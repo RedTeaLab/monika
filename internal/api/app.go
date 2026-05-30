@@ -497,6 +497,23 @@ func (a *App) SetSessionPinned(projectPath, sessionID string, pinned bool) error
 	return sm.Save(s)
 }
 
+func (a *App) RenameSession(projectPath, sessionID, newTitle string) error {
+	runes := []rune(newTitle)
+	if len(runes) > 40 {
+		newTitle = string(runes[:40])
+	}
+	sm := a.getSessionManager(projectPath)
+	sm.Lock()
+	defer sm.Unlock()
+	s, err := sm.Load(sessionID)
+	if err != nil {
+		return err
+	}
+	s.Title = newTitle
+	s.CustomTitle = true
+	return sm.Save(s)
+}
+
 func (a *App) ArchiveSession(projectPath, sessionID string) error {
 	sm := a.getSessionManager(projectPath)
 	sm.Lock()

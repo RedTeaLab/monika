@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import { IDockviewPanelProps } from 'dockview'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
@@ -10,7 +10,6 @@ import AskUserBar from './AskUserBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 import MessageFilter from './MessageFilter'
-import { IconClose } from '../Icons'
 
 const EMPTY_ARR: any[] = []
 const EMPTY_STR_ARR: string[] = []
@@ -63,9 +62,38 @@ function ChatArea(props: IDockviewPanelProps) {
   const setOverlayTodoCollapsed = useStore((s) => s.setTodoCollapsed)
 
   const openSessions = useStore((s) => s.openSessions)
-  const switchSessionTab = useStore((s) => s.switchSessionTab)
-  const closeSessionTab = useStore((s) => s.closeSessionTab)
   const setMsgFilter = useStore((s) => s.setMsgFilter)
+  const renameSession = useStore((s) => s.renameSession)
+
+  const [editingTabId, setEditingTabId] = useState<string | null>(null)
+  const [editTabTitle, setEditTabTitle] = useState('')
+
+  const handleTabStartEdit = (tab: typeof openSessions[0], e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (generatingSessionIds.includes(tab.id)) return
+    setEditingTabId(tab.id)
+    setEditTabTitle(tab.title || '')
+  }
+
+  const handleTabFinishEdit = async () => {
+    if (editingTabId && editTabTitle.trim()) {
+      try {
+        await renameSession(editingTabId, editTabTitle.trim())
+      } catch { /* ignore */ }
+    }
+    setEditingTabId(null)
+    setEditTabTitle('')
+  }
+
+  const handleTabEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleTabFinishEdit()
+    } else if (e.key === 'Escape') {
+      setEditingTabId(null)
+      setEditTabTitle('')
+    }
+  }
 
   const handleStop = () => {
     const targetId = overlaySessionId || sessionId
@@ -251,33 +279,36 @@ function ChatArea(props: IDockviewPanelProps) {
           className="flex items-center gap-1 px-2 border-b border-[var(--border)] shrink-0"
           style={{ background: 'var(--bg-sidebar)', height: '30px' }}
         >
-          <div className="flex items-center gap-0.5 min-w-0 flex-1 overflow-hidden">
-            {openSessions.map((tab) => {
-              const isActive = tab.id === sessionId
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => switchSessionTab(tab.id)}
-                  className="flex items-center gap-1 text-[11px] px-2 py-1 rounded shrink-0 max-w-[160px] hover:bg-[var(--bg-hover)] cursor-pointer"
+          <div className="flex items-center gap-0.5 min-w-0 flex-1">
+            {(() => {
+              const currentTab = openSessions.find((t) => t.id === sessionId)
+              if (!currentTab) return null
+              const isEditing = editingTabId === currentTab.id
+              return isEditing ? (
+                <input
+                  value={editTabTitle}
+                  onChange={(e) => setEditTabTitle(e.target.value)}
+                  onBlur={handleTabFinishEdit}
+                  onKeyDown={handleTabEditKeyDown}
+                  autoFocus
+                      className="min-w-[80px] bg-transparent border-b border-[var(--border)] text-[11px] px-1 py-0 outline-none"
+                      style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}
+                      maxLength={40}
+                />
+              ) : (
+                <span
+                  className="text-[11px] px-2 py-1 rounded hover:bg-[var(--bg-hover)] cursor-pointer"
                   style={{
-                    background: isActive ? 'var(--bg-card)' : 'transparent',
-                    color: isActive ? 'var(--text-primary)' : 'var(--text-dim)',
+                    background: 'var(--bg-card)',
+                    color: 'var(--text-primary)',
                     fontFamily: 'var(--font-sans)',
                   }}
+                  onDoubleClick={(e) => handleTabStartEdit(currentTab, e)}
                 >
-                  <span className="truncate inline-block align-bottom" style={{ maxWidth: '120px' }}>{tab.title || 'Untitled'}</span>
-                  {openSessions.length > 1 && (
-                    <span
-                      onClick={(e) => { e.stopPropagation(); closeSessionTab(tab.id) }}
-                      className="hover:text-[var(--text-primary)] transition-colors"
-                      style={{ fontSize: '10px', lineHeight: 1, color: 'var(--text-dim)' }}
-                    >
-                      <IconClose size={10} />
-                    </span>
-                  )}
-                </button>
+                  {currentTab.title || 'Untitled'}
+                </span>
               )
-            })}
+            })()}
           </div>
           <MessageFilter value={msgFilter} onChange={setMsgFilter} disabled={isGenerating} />
         </div>

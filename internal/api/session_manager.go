@@ -25,6 +25,7 @@ const (
 type Session struct {
 	ID              string               `json:"id"`
 	Title           string               `json:"title"`
+	CustomTitle     bool                 `json:"custom_title,omitempty"`
 	ProjectDir      string               `json:"project_dir"`
 	Messages        []engine.ChatMessage `json:"messages"`
 	Model           string               `json:"model"`
@@ -105,7 +106,7 @@ func (sm *SessionManager) Load(id string) (*Session, error) {
 		s.Status = StatusIdle
 	}
 	// Repair title truncated mid-rune from old byte-based slicing
-	if s.Title != "" && len(s.Messages) > 0 {
+	if s.Title != "" && len(s.Messages) > 0 && !s.CustomTitle {
 		sm.SetTitle(&s)
 	}
 	return &s, nil
@@ -176,6 +177,9 @@ func (sm *SessionManager) List() ([]SessionInfo, error) {
 }
 
 func (sm *SessionManager) SetTitle(s *Session) {
+	if s.CustomTitle {
+		return
+	}
 	for _, m := range s.Messages {
 		if m.Role == "user" && m.Content != "" {
 			runes := []rune(m.Content)

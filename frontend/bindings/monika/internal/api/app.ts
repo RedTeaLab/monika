@@ -428,6 +428,10 @@ export function RemoveSkillPath(args: json$0.RawMessage): $CancellablePromise<vo
     return $Call.ByID(2181192798, args);
 }
 
+export function RenameSession(projectPath: string, sessionID: string, newTitle: string): $CancellablePromise<void> {
+    return $Call.ByID(3547192606, projectPath, sessionID, newTitle);
+}
+
 /**
  * RequestConfirm implements permission.ConfirmUI.
  */

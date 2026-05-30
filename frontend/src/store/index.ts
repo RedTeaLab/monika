@@ -201,6 +201,7 @@ interface AppState {
   bumpFileTreeVersion: () => void
   bumpSessionListVersion: () => void
   updateSessionTitle: (id: string, title: string) => void
+  renameSession: (id: string, title: string) => Promise<void>
   setSessionTasks: (sessionId: string, tasks: TaskItem[]) => void
   setTodoCollapsed: (sessionId: string, collapsed: boolean) => void
   pushSubagentOverlay: (parentId: string, subagentId: string, title: string) => Promise<void>
@@ -578,6 +579,14 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     }))
     get().dockviewApi?.getPanel(id)?.api.setTitle(title)
+  },
+  renameSession: async (id, title) => {
+    const state = useStore.getState()
+    const projectPath = state.projectPath
+    if (!projectPath || !title.trim()) return
+    await App.RenameSession(projectPath, id, title.trim())
+    useStore.getState().updateSessionTitle(id, title.trim())
+    useStore.getState().bumpSessionListVersion()
   },
   setSessionTasks: (sessionId, tasks) => {
     set((s) => ({ tasks: { ...s.tasks, [sessionId]: tasks } }))

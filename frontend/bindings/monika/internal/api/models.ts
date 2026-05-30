@@ -564,6 +564,7 @@ export class RecentProject {
 export class Session {
     "id": string;
     "title": string;
+    "custom_title"?: boolean;
     "project_dir": string;
     "messages": engine$0.ChatMessage[];
     "model": string;
@@ -620,14 +621,14 @@ export class Session {
      * Creates a new Session instance from a string or object.
      */
     static createFrom($$source: any = {}): Session {
-        const $$createField3_0 = $$createType11;
-        const $$createField13_0 = $$createType13;
+        const $$createField4_0 = $$createType11;
+        const $$createField14_0 = $$createType13;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("messages" in $$parsedSource) {
-            $$parsedSource["messages"] = $$createField3_0($$parsedSource["messages"]);
+            $$parsedSource["messages"] = $$createField4_0($$parsedSource["messages"]);
         }
         if ("tasks" in $$parsedSource) {
-            $$parsedSource["tasks"] = $$createField13_0($$parsedSource["tasks"]);
+            $$parsedSource["tasks"] = $$createField14_0($$parsedSource["tasks"]);
         }
         return new Session($$parsedSource as Partial<Session>);
     }

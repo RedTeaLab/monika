@@ -20,6 +20,8 @@ function SessionList(props: IDockviewPanelProps) {
   const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
   const projectPath = useStore((s) => s.projectPath)
   const sessionListVersion = useStore((s) => s.sessionListVersion)
   const sessionStatuses = useStore((s) => s.sessionStatuses)
@@ -32,6 +34,40 @@ function SessionList(props: IDockviewPanelProps) {
   const selectedModel = useStore((s) => s.selectedModel)
   const selectedProvider = useStore((s) => s.selectedProvider)
   const bumpSessionListVersion = useStore((s) => s.bumpSessionListVersion)
+  const renameSession = useStore((s) => s.renameSession)
+
+  const handleStartEdit = (s: SessionInfo, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
+    if (st === 'generating') return
+    setEditingId(s.id)
+    setEditTitle(s.title || '')
+  }
+
+  const handleFinishEdit = async () => {
+    const targetId = editingId
+    const newTitle = editTitle.trim()
+    setEditingId(null)
+    setEditTitle('')
+    if (targetId && newTitle) {
+      setSessions((prev) => prev.map((s) => s.id === targetId ? { ...s, title: newTitle } : s))
+      try {
+        await renameSession(targetId, newTitle)
+      } catch (err) {
+        logger.error('Failed to rename session:', err)
+      }
+    }
+  }
+
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleFinishEdit()
+    } else if (e.key === 'Escape') {
+      setEditingId(null)
+      setEditTitle('')
+    }
+  }
 
   const handleNewSession = async () => {
     if (!projectPath) return
@@ -268,7 +304,20 @@ function SessionList(props: IDockviewPanelProps) {
                             opacity: st === 'generating' ? 1 : 0.6,
                           }}
                         />
-                        <span className="truncate">{s.title || 'Untitled'}</span>
+                        <span className="truncate">{editingId === s.id
+                          ? <input
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              onBlur={handleFinishEdit}
+                              onKeyDown={handleEditKeyDown}
+                              onClick={(e) => e.stopPropagation()}
+                              autoFocus
+                              className="w-full bg-transparent border-b border-[var(--border)] text-[13px] px-1 py-0 outline-none"
+                              style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}
+                              maxLength={40}
+                            />
+                          : <span onDoubleClick={(e) => handleStartEdit(s, e)}>{s.title || 'Untitled'}</span>
+                        }</span>
                       </span>
                       <span className="flex items-center gap-1 flex-shrink-0 ml-1">
                         <button
