@@ -28,6 +28,7 @@ function FileTree(_props: IDockviewPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [contextHighlight, setContextHighlight] = useState<string>('')
+  const [revealHighlight, setRevealHighlight] = useState<string>('')
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [clipboard, setClipboard] = useState<Clipboard | null>(null)
@@ -66,7 +67,6 @@ function FileTree(_props: IDockviewPanelProps) {
   // Reveal a file path (from CHANGES "View Source File")
   useEffect(() => {
     if (!revealFilePath || tree.length === 0) return
-    // Expand all ancestor dirs and select the file
     const parts = revealFilePath.split('/')
     const dirsToExpand: string[] = []
     for (let i = 1; i < parts.length; i++) {
@@ -77,7 +77,10 @@ function FileTree(_props: IDockviewPanelProps) {
       for (const d of dirsToExpand) next.add(d)
       return next
     })
+    setRevealHighlight(revealFilePath)
     setRevealFilePath(null)
+    const timer = setTimeout(() => setRevealHighlight(''), 2000)
+    return () => clearTimeout(timer)
   }, [revealFilePath, tree])
 
   // Auto-focus input when action changes
@@ -361,18 +364,26 @@ function FileTree(_props: IDockviewPanelProps) {
     const isDirSelected = node.is_dir && selectedDir === node.path
     const isFileSelected = !node.is_dir && previewFilePath === node.path
     const isContexted = contextHighlight === node.path && !isDirSelected && !isFileSelected
+    const isRevealed = revealHighlight === node.path
     const gColor = gitColor(node.status)
     const isRenaming = renaming === node.path
+
+    const bgStyle = isRevealed
+      ? 'linear-gradient(90deg, rgba(75,125,219,0.18) 0%, rgba(75,125,219,0.06) 100%)'
+      : (isDirSelected || isFileSelected || isContexted) ? 'var(--bg-active)' : 'transparent'
+    const borderStyle = isRevealed ? '1px solid rgba(75,125,219,0.3)' : '1px solid transparent'
 
     return (
       <div key={node.path}>
         <div
-          className={`flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md transition-colors mx-1`}
+          className={`flex items-center gap-1 cursor-pointer text-[13px] leading-[26px] rounded-md mx-1`}
           style={{
             paddingLeft: `${depth * 14 + 6}px`,
             paddingRight: '6px',
-            color: gColor || ((isDirSelected || isFileSelected || isContexted) ? 'var(--text-primary)' : 'var(--text-secondary)'),
-            background: (isDirSelected || isFileSelected || isContexted) ? 'var(--bg-active)' : 'transparent',
+            color: gColor || ((isDirSelected || isFileSelected || isContexted || isRevealed) ? 'var(--text-primary)' : 'var(--text-secondary)'),
+            background: bgStyle,
+            border: borderStyle,
+            transition: isRevealed ? 'background 0.3s, border-color 0.3s' : 'background 0.1s',
           }}
           onClick={() => handleFileClick(node)}
           onContextMenu={(e) => handleContextMenu(e, node)}
