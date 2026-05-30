@@ -40,6 +40,8 @@ function FileTree(_props: IDockviewPanelProps) {
   const setPreviewFile = useStore((s) => s.setPreviewFile)
   const clearPreview = useStore((s) => s.clearPreview)
   const previewFilePath = useStore((s) => s.preview.filePath)
+  const revealFilePath = useStore((s) => s.revealFilePath)
+  const setRevealFilePath = useStore((s) => s.setRevealFilePath)
 
   useEffect(() => {
     if (!projectPath) return
@@ -60,6 +62,23 @@ function FileTree(_props: IDockviewPanelProps) {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
+
+  // Reveal a file path (from CHANGES "View Source File")
+  useEffect(() => {
+    if (!revealFilePath || tree.length === 0) return
+    // Expand all ancestor dirs and select the file
+    const parts = revealFilePath.split('/')
+    const dirsToExpand: string[] = []
+    for (let i = 1; i < parts.length; i++) {
+      dirsToExpand.push(parts.slice(0, i).join('/'))
+    }
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      for (const d of dirsToExpand) next.add(d)
+      return next
+    })
+    setRevealFilePath(null)
+  }, [revealFilePath, tree])
 
   // Auto-focus input when action changes
   useEffect(() => {

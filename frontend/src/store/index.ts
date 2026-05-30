@@ -217,6 +217,8 @@ interface AppState {
   setPreviewDiff: (filePath: string, fileName: string, lines: string[]) => void
   clearPreview: () => void
   setLastEditedFile: (filePath: string | null) => void
+  setRevealFilePath: (filePath: string | null) => void
+  revealFilePath: string | null
 
   loadRecentProjects: () => Promise<void>
   loadBranches: () => Promise<void>
@@ -271,6 +273,7 @@ export const useStore = create<AppState>((set, get) => ({
   preview: { mode: null, filePath: null, fileName: null, fileContent: null, diffLines: null },
   lastEditedFile: null,
   lastEditedOldContent: null,
+  revealFilePath: null,
   lastEditVersion: 0,
   fileTreeVersion: 0,
   sessionListVersion: 0,
@@ -925,6 +928,10 @@ export const useStore = create<AppState>((set, get) => ({
 
   setLastEditedFile: (filePath) => {
     set({ lastEditedFile: filePath })
+  },
+
+  setRevealFilePath: (filePath: string | null) => {
+    set({ revealFilePath: filePath })
   },
 
   loadRecentProjects: async () => {

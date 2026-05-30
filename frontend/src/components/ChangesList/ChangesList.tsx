@@ -1,13 +1,28 @@
+import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { IDockviewPanelProps } from 'dockview'
 import { App as MonikaApp } from '../../../bindings/monika'
 import type { ChangeStat } from '../../../bindings/monika'
 import { useStore } from '../../store'
+import { IconFile } from '../Icons'
 
 function ChangesList(_props: IDockviewPanelProps) {
   const projectPath = useStore((s) => s.projectPath)
   const changes = useStore((s) => s.changeStats)
   const setPreviewDiff = useStore((s) => s.setPreviewDiff)
+  const setPreviewFile = useStore((s) => s.setPreviewFile)
+  const setRevealFilePath = useStore((s) => s.setRevealFilePath)
   const selectedPath = useStore((s) => s.preview.mode === 'diff' ? s.preview.filePath : null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; path: string } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return
+    const onClick = () => setContextMenu(null)
+    window.addEventListener('click', onClick)
+    return () => window.removeEventListener('click', onClick)
+  }, [contextMenu])
 
   const handleClick = async (stat: ChangeStat) => {
     try {
@@ -21,7 +36,60 @@ function ChangesList(_props: IDockviewPanelProps) {
     }
   }
 
-  const basename = (p: string) => p.split('/').pop() || p
+  const handleViewSource = async (path: string) => {
+    try {
+      const fileName = path.split('/').pop() || path
+      const result = await MonikaApp.ReadFile(projectPath, path)
+      setPreviewFile(path, fileName, result?.content || '')
+      setRevealFilePath(path)
+    } catch {
+      // ignore
+    }
+  }
+
+  const handleContextMenu = (e: React.MouseEvent, path: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, path })
+  }
+
+  const renderContextMenu = () => {
+    if (!contextMenu) return null
+    return createPortal(
+      <div
+        ref={menuRef}
+        className="fixed"
+        style={{
+          left: contextMenu.x,
+          top: contextMenu.y,
+          zIndex: 2000,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-md)',
+          padding: '4px 0',
+          minWidth: '200px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          fontSize: '12px',
+          fontFamily: 'var(--font-sans)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="flex items-center gap-2.5 px-3 py-[5px] cursor-pointer transition-colors rounded-sm mx-1"
+          style={{ color: 'var(--text-secondary)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+          onClick={() => { setContextMenu(null); handleViewSource(contextMenu.path) }}
+        >
+          <span className="flex-shrink-0 flex items-center" style={{ opacity: 0.7, width: 14 }}><IconFile size={14} /></span>
+          <span>View Source File</span>
+        </div>
+      </div>,
+      document.body
+    )
+  }
+
+  const basenameFn = (p: string) => p.split('/').pop() || p
 
   return (
     <div
@@ -59,9 +127,10 @@ function ChangesList(_props: IDockviewPanelProps) {
                   e.currentTarget.style.background = active ? 'rgba(75,125,219,0.10)' : 'transparent'
                 }}
                 onClick={() => handleClick(stat)}
+                onContextMenu={(e) => handleContextMenu(e, stat.path)}
                 title={stat.path}
               >
-                <span className="truncate flex-1">{basename(stat.path)}</span>
+                <span className="truncate flex-1">{basenameFn(stat.path)}</span>
                 {stat.added > 0 && (
                   <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--green)' }}>
                     +{stat.added}
@@ -77,6 +146,8 @@ function ChangesList(_props: IDockviewPanelProps) {
           })
         )}
       </div>
+
+      {renderContextMenu()}
     </div>
   )
 }
