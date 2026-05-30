@@ -64,24 +64,18 @@ function FileTree(_props: IDockviewPanelProps) {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  // Reveal a file path (from CHANGES "View Source File")
+  // Reveal a file path (from CHANGES "View Source File") — use search to locate
   useEffect(() => {
-    if (!revealFilePath || tree.length === 0) return
-    const parts = revealFilePath.split('/')
-    const dirsToExpand: string[] = []
-    for (let i = 1; i < parts.length; i++) {
-      dirsToExpand.push(parts.slice(0, i).join('/'))
-    }
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      for (const d of dirsToExpand) next.add(d)
-      return next
-    })
+    if (!revealFilePath) return
+    const fileName = revealFilePath.split('/').pop() || revealFilePath
+    setHeaderAction('search')
+    setSearchQuery(fileName)
+    setSelectedDir('')
     setRevealHighlight(revealFilePath)
     setRevealFilePath(null)
-    const timer = setTimeout(() => setRevealHighlight(''), 2000)
+    const timer = setTimeout(() => setRevealHighlight(''), 2500)
     return () => clearTimeout(timer)
-  }, [revealFilePath, tree])
+  }, [revealFilePath])
 
   // Auto-focus input when action changes
   useEffect(() => {
