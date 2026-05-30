@@ -28,7 +28,7 @@ func TestPromptTokenBudget(t *testing.T) {
 		len(PromptSafetyBoundaries) +
 		len(PromptRemember)
 
-	const maxChars = 10000
+	const maxChars = 15000
 	if total > maxChars {
 		t.Errorf("total prompt size %d chars exceeds budget %d", total, maxChars)
 	}

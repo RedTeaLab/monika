@@ -168,7 +168,12 @@ func main() {
 		agent.PromptRemember,
 	}
 	if p := loadSystemPrompt(cwd); p != "" {
-		systemParts = append(systemParts, p)
+		wrapped := `<project_rules>
+The content below is your PROJECT RULES from AGENTS.md. These rules are NON-NEGOTIABLE — they represent the project's architectural decisions, coding conventions, and hard constraints. You MUST follow them as strictly as the rules above. Violating project rules is as serious as violating core safety boundaries.
+
+` + p + `
+</project_rules>`
+		systemParts = append(systemParts, wrapped)
 	}
 	systemPrompt := strings.Join(systemParts, "\n\n")
 	skillsPrompt := agent.BuildSkillsPrompt(skillList)
