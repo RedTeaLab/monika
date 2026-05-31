@@ -13,6 +13,7 @@ import ChangesList from './components/ChangesList/ChangesList'
 import { DefaultTab } from './components/Panel/DefaultTab'
 import { useLayoutPersistence } from './components/Panel/useLayoutPersistence'
 import { useChangeWatcher } from './hooks/useChangeWatcher'
+import { ToastContainer } from './components/Toast/ToastContainer'
 import { useStore } from './store'
 
 const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
@@ -117,6 +118,7 @@ function App() {
         />
       </div>
       <StatusBar />
+      <ToastContainer />
       {settingsOpen && <SettingsPage onClose={toggleSettings} />}
     </div>
   )
