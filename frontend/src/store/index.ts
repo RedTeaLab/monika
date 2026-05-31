@@ -177,8 +177,7 @@ interface AppState {
   settingsOpen: boolean
   msgFilter: 'all' | 'chat' | 'user' | 'assistant'
   chatInputAppendPath: string | null
-  selectedMessageIds: string[]
-  multiSelectMode: 'quote' | 'forward' | null
+  selection: { mode: 'quote' | 'forward'; ids: string[] } | null
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
@@ -317,8 +316,7 @@ export const useStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   msgFilter: 'all' as const,
   chatInputAppendPath: null as string | null,
-  selectedMessageIds: [] as string[],
-  multiSelectMode: null as 'quote' | 'forward' | null,
+  selection: null as { mode: 'quote' | 'forward'; ids: string[] } | null,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -553,20 +551,19 @@ export const useStore = create<AppState>((set, get) => ({
   appendPathToInput: (path) => set({ chatInputAppendPath: path }),
 
   toggleMessageSelection: (id) => set((s) => {
-    const ids = s.selectedMessageIds.includes(id)
-      ? s.selectedMessageIds.filter(x => x !== id)
-      : [...s.selectedMessageIds, id]
-    return { selectedMessageIds: ids }
+    if (!s.selection) return {}
+    const ids = s.selection.ids.includes(id)
+      ? s.selection.ids.filter(x => x !== id)
+      : [...s.selection.ids, id]
+    return { selection: { ...s.selection, ids } }
   }),
 
   enterMultiSelect: (mode, initialId) => set({
-    multiSelectMode: mode,
-    selectedMessageIds: [initialId],
+    selection: { mode, ids: [initialId] },
   }),
 
   clearSelection: () => set({
-    multiSelectMode: null,
-    selectedMessageIds: [],
+    selection: null,
   }),
 
   setLastAssistantMeta: (sessionId, meta) => {
@@ -1276,8 +1273,7 @@ export const useStore = create<AppState>((set, get) => ({
       settingsOpen: false,
       fileTreeVersion: 0,
       sessionListVersion: 0,
-      selectedMessageIds: [],
-      multiSelectMode: null,
+      selection: null,
     });
   },
 
