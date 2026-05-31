@@ -54,12 +54,19 @@ interface ToolCall {
   status: 'running' | 'done' | 'error'
 }
 
+export interface QuotedMessage {
+  id: string
+  role: string
+  content: string
+}
+
 interface Message {
   id: string
   role: 'user' | 'assistant' | 'system' | 'error' | 'compaction' | 'subtask' | 'shell'
   content: string
   thinking?: string
   tools?: ToolCall[]
+  quotedMessages?: QuotedMessage[]
   model?: string
   subtaskAgent?: string
   duration?: number
@@ -170,6 +177,8 @@ interface AppState {
   settingsOpen: boolean
   msgFilter: 'all' | 'chat' | 'user' | 'assistant'
   chatInputAppendPath: string | null
+  selectedMessageIds: string[]
+  multiSelectMode: 'quote' | 'forward' | null
 
   addMessage: (msg: Message) => void
   setPermissionMode: (mode: 'auto' | 'manual') => void
@@ -257,6 +266,9 @@ interface AppState {
   deleteProviderDetail: (id: string) => Promise<void>
   resetProjectState: () => void
   appendPathToInput: (path: string) => void
+  toggleMessageSelection: (id: string) => void
+  enterMultiSelect: (mode: 'quote' | 'forward', initialId: string) => void
+  clearSelection: () => void
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -305,6 +317,8 @@ export const useStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   msgFilter: 'all' as const,
   chatInputAppendPath: null as string | null,
+  selectedMessageIds: [] as string[],
+  multiSelectMode: null as 'quote' | 'forward' | null,
 
   addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -537,6 +551,24 @@ export const useStore = create<AppState>((set, get) => ({
   toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
   setMsgFilter: (filter) => set({ msgFilter: filter }),
   appendPathToInput: (path) => set({ chatInputAppendPath: path }),
+
+  toggleMessageSelection: (id) => set((s) => {
+    const ids = s.selectedMessageIds.includes(id)
+      ? s.selectedMessageIds.filter(x => x !== id)
+      : [...s.selectedMessageIds, id]
+    return { selectedMessageIds: ids }
+  }),
+
+  enterMultiSelect: (mode, initialId) => set({
+    multiSelectMode: mode,
+    selectedMessageIds: [initialId],
+  }),
+
+  clearSelection: () => set({
+    multiSelectMode: null,
+    selectedMessageIds: [],
+  }),
+
   setLastAssistantMeta: (sessionId, meta) => {
     set((s) => {
       const sessionMsgs = [...(s.sessionMessages[sessionId] || [])]
@@ -1244,6 +1276,8 @@ export const useStore = create<AppState>((set, get) => ({
       settingsOpen: false,
       fileTreeVersion: 0,
       sessionListVersion: 0,
+      selectedMessageIds: [],
+      multiSelectMode: null,
     });
   },
 
