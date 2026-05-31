@@ -618,7 +618,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             </div>
           )}
           {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
+            <div className="absolute right-[50px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
@@ -668,7 +668,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             </div>
           )}
           {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
+            <div className="absolute right-[50px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}

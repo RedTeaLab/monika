@@ -4,6 +4,7 @@
 export {
     ChatMessage,
     Model,
+    QuotedMessage,
     SkillMeta,
     ToolCall,
     ToolCallFunc,

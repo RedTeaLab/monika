@@ -403,7 +403,7 @@ function ChatArea(props: IDockviewPanelProps) {
           <MessageFilter value={msgFilter} onChange={setMsgFilter} disabled={isGenerating} />
         </div>
       )}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 pl-10 pr-4">
         {rawMessages.length > 0 && msgFilter !== 'all' && (
           <div className="mb-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>
             {messages.length} / {rawMessages.length} messages

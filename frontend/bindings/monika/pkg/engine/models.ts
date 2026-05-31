@@ -13,6 +13,7 @@ export class ChatMessage {
     "tool_call_id"?: string;
     "name"?: string;
     "token_usage"?: Usage | null;
+    "quoted_messages"?: QuotedMessage[];
 
     /** Creates a new ChatMessage instance. */
     constructor($$source: Partial<ChatMessage> = {}) {
@@ -35,12 +36,16 @@ export class ChatMessage {
     static createFrom($$source: any = {}): ChatMessage {
         const $$createField3_0 = $$createType1;
         const $$createField6_0 = $$createType3;
+        const $$createField7_0 = $$createType5;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("tool_calls" in $$parsedSource) {
             $$parsedSource["tool_calls"] = $$createField3_0($$parsedSource["tool_calls"]);
         }
         if ("token_usage" in $$parsedSource) {
             $$parsedSource["token_usage"] = $$createField6_0($$parsedSource["token_usage"]);
+        }
+        if ("quoted_messages" in $$parsedSource) {
+            $$parsedSource["quoted_messages"] = $$createField7_0($$parsedSource["quoted_messages"]);
         }
         return new ChatMessage($$parsedSource as Partial<ChatMessage>);
     }
@@ -68,6 +73,38 @@ export class Model {
     static createFrom($$source: any = {}): Model {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new Model($$parsedSource as Partial<Model>);
+    }
+}
+
+/**
+ * QuotedMessage is a snapshot of a referenced message used for quoting/forwarding.
+ */
+export class QuotedMessage {
+    "id": string;
+    "role": string;
+    "content": string;
+
+    /** Creates a new QuotedMessage instance. */
+    constructor($$source: Partial<QuotedMessage> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("role" in $$source)) {
+            this["role"] = "";
+        }
+        if (!("content" in $$source)) {
+            this["content"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new QuotedMessage instance from a string or object.
+     */
+    static createFrom($$source: any = {}): QuotedMessage {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new QuotedMessage($$parsedSource as Partial<QuotedMessage>);
     }
 }
 
@@ -133,7 +170,7 @@ export class ToolCall {
      * Creates a new ToolCall instance from a string or object.
      */
     static createFrom($$source: any = {}): ToolCall {
-        const $$createField2_0 = $$createType4;
+        const $$createField2_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("function" in $$parsedSource) {
             $$parsedSource["function"] = $$createField2_0($$parsedSource["function"]);
@@ -213,4 +250,6 @@ const $$createType0 = ToolCall.createFrom;
 const $$createType1 = $Create.Array($$createType0);
 const $$createType2 = Usage.createFrom;
 const $$createType3 = $Create.Nullable($$createType2);
-const $$createType4 = ToolCallFunc.createFrom;
+const $$createType4 = QuotedMessage.createFrom;
+const $$createType5 = $Create.Array($$createType4);
+const $$createType6 = ToolCallFunc.createFrom;
