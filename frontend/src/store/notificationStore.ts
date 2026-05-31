@@ -1,0 +1,63 @@
+import { create } from 'zustand'
+import { App } from '../../bindings/monika'
+
+export interface NotificationItem {
+  id: string
+  sessionId: string
+  sessionTitle: string
+  type: 'reply-complete' | 'permission-request'
+  message: string
+  timestamp: number
+}
+
+interface NotificationState {
+  items: NotificationItem[]
+  unreadHistory: NotificationItem[]
+  unreadCount: number
+
+  push: (item: Omit<NotificationItem, 'id' | 'timestamp'>) => void
+  dismiss: (id: string) => void
+  clearAll: () => void
+  markAllRead: () => void
+}
+
+let counter = 0
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
+  items: [],
+  unreadHistory: [],
+  unreadCount: 0,
+
+  push: (item) => {
+    const id = `notif-${++counter}-${Date.now()}`
+    const full: NotificationItem = { ...item, id, timestamp: Date.now() }
+    set((s) => ({
+      items: [...s.items, full],
+      unreadHistory: [...s.unreadHistory, full],
+      unreadCount: s.unreadCount + 1,
+    }))
+    // Trigger tray blink via Go
+    App.SendTrayNotification(full.sessionTitle, full.message).catch(() => {})
+
+    // Auto-dismiss toast after 5 seconds
+    setTimeout(() => {
+      get().dismiss(id)
+    }, 5000)
+  },
+
+  dismiss: (id) => {
+    set((s) => ({
+      items: s.items.filter((it) => it.id !== id),
+    }))
+  },
+
+  clearAll: () => {
+    set({ items: [], unreadHistory: [], unreadCount: 0 })
+    App.ClearTrayNotifications().catch(() => {})
+  },
+
+  markAllRead: () => {
+    set({ unreadHistory: [], unreadCount: 0 })
+    App.ClearTrayNotifications().catch(() => {})
+  },
+}))
