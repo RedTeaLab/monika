@@ -2942,3 +2942,18 @@ func (a *App) GetUpdateStatus() update.UpdateStatus {
 func (a *App) SetTrayManager(tm *TrayManager) {
 	a.trayMgr = tm
 }
+
+// SendTrayNotification 触发托盘图标闪烁（有新未读消息时前端调用）
+func (a *App) SendTrayNotification(title string, body string) {
+	if a.trayMgr != nil {
+		a.trayMgr.StartBlink()
+	}
+}
+
+// ClearTrayNotifications 清除所有未读消息，停止闪烁
+func (a *App) ClearTrayNotifications() {
+	if a.trayMgr != nil {
+		a.trayMgr.StopBlink()
+		a.trayMgr.HidePopup()
+	}
+}

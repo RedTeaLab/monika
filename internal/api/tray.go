@@ -222,6 +222,10 @@ func (tm *TrayManager) hidePopup() {
 	}
 }
 
+func (tm *TrayManager) HidePopup() {
+	tm.hidePopup()
+}
+
 func (tm *TrayManager) createPopupWindow() {
 	pw := tm.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:       "tray-popup",
