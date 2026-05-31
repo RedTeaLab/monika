@@ -354,16 +354,17 @@ The content below is your PROJECT RULES from AGENTS.md. These rules are NON-NEGO
 		StartState: application.WindowStateMaximised,
 	})
 
-	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		mainWindow.Hide()
-		e.Cancel()
-	})
-
 	trayMgr := api.NewTrayManager(app, mainWindow, iconICO)
 	if err := trayMgr.Init(); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] tray init failed: %v\n", err)
+	} else {
+		// Only intercept close if tray is active
+		mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			mainWindow.Hide()
+			e.Cancel()
+		})
+		appService.SetTrayManager(trayMgr)
 	}
-	appService.SetTrayManager(trayMgr)
 
 	if err := app.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

@@ -140,7 +140,7 @@ func (tm *TrayManager) Init() error {
 func (tm *TrayManager) StartBlink() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
-	if tm.blinking {
+	if tm.blinking || tm.systemTray == nil {
 		return
 	}
 	tm.blinking = true
