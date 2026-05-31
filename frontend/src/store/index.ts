@@ -1,6 +1,6 @@
 
 import { create } from 'zustand'
-import { useNotificationStore } from './notificationStore'
+import { useNotificationStore, setMainWindowVisible } from './notificationStore'
 import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat, SessionInfo } from '../../bindings/monika'
@@ -1673,6 +1673,18 @@ export function setupWailsEvents() {
 
   Events.On('branch-changed', (ev) => {
     useStore.getState().setBranch(ev.data as string)
+  })
+
+  // Track main window visibility to skip Toast when hidden
+  Events.On('common:WindowMaximise', () => setMainWindowVisible(true))
+  Events.On('common:WindowShow', () => setMainWindowVisible(true))
+  Events.On('common:WindowRestore', () => setMainWindowVisible(true))
+  Events.On('common:WindowMinimise', () => setMainWindowVisible(false))
+  Events.On('common:WindowHide', () => setMainWindowVisible(false))
+
+  // Auto-clear notifications when user focuses the main window
+  Events.On('common:WindowFocus', () => {
+    useNotificationStore.getState().markAllRead()
   })
 }
 

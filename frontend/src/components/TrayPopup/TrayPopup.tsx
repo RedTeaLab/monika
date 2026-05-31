@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Events } from '@wailsio/runtime'
 import { App } from '../../../bindings/monika'
 
 interface TrayNotification {
@@ -13,16 +14,17 @@ interface TrayNotification {
 export function TrayPopup() {
   const [notifications, setNotifications] = useState<TrayNotification[]>([])
 
-  const fetchNotifications = () => {
+  useEffect(() => {
+    // Initial fetch
     App.GetTrayNotifications().then((data: TrayNotification[]) => {
       setNotifications(data || [])
     }).catch(() => {})
-  }
 
-  useEffect(() => {
-    fetchNotifications()
-    const interval = setInterval(fetchNotifications, 2000)
-    return () => clearInterval(interval)
+    // Listen for push updates instead of polling
+    const unsub = Events.On('tray-notifications-changed', (ev: any) => {
+      setNotifications(ev.data || [])
+    })
+    return () => { if (unsub) unsub() }
   }, [])
 
   const handleClearAll = () => {
@@ -32,9 +34,7 @@ export function TrayPopup() {
   }
 
   const handleItemClick = (notifID: string) => {
-    App.ActivateSession(notifID).then(() => {
-      fetchNotifications()
-    }).catch(() => {})
+    App.ActivateSession(notifID).catch(() => {})
   }
 
   if (notifications.length === 0) {

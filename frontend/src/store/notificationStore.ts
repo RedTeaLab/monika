@@ -23,6 +23,12 @@ interface NotificationState {
 
 let counter = 0
 
+let isMainWindowVisible = true
+
+export function setMainWindowVisible(visible: boolean) {
+  isMainWindowVisible = visible
+}
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   items: [],
   unreadHistory: [],
@@ -32,7 +38,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     const id = `notif-${++counter}-${Date.now()}`
     const full: NotificationItem = { ...item, id, timestamp: Date.now() }
     set((s) => ({
-      items: [...s.items, full],
+      items: isMainWindowVisible ? [...s.items, full] : s.items,
       unreadHistory: [...s.unreadHistory, full],
       unreadCount: s.unreadCount + 1,
     }))

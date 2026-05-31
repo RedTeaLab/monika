@@ -53,7 +53,15 @@ func (tm *TrayManager) loadIcons() error {
 // AddNotification stores a notification for the tray popup.
 func (tm *TrayManager) AddNotification(sessionID, sessionTitle, notifType, message string) {
 	tm.notifMu.Lock()
-	defer tm.notifMu.Unlock()
+
+	// Dedup: if same session+type already exists, remove the old entry
+	for i, n := range tm.notifications {
+		if n.SessionID == sessionID && n.Type == notifType {
+			tm.notifications = append(tm.notifications[:i], tm.notifications[i+1:]...)
+			break
+		}
+	}
+
 	n := NotificationData{
 		ID:           fmt.Sprintf("notif-%d-%d", len(tm.notifications), time.Now().UnixMilli()),
 		SessionID:    sessionID,
@@ -63,13 +71,22 @@ func (tm *TrayManager) AddNotification(sessionID, sessionTitle, notifType, messa
 		Timestamp:    time.Now().UnixMilli(),
 	}
 	tm.notifications = append(tm.notifications, n)
+
+	// Cap at 20 notifications (drop oldest)
+	if len(tm.notifications) > 20 {
+		tm.notifications = tm.notifications[len(tm.notifications)-20:]
+	}
+
+	tm.notifMu.Unlock()
+	tm.emitNotificationsChanged()
 }
 
 // ClearNotifications clears all stored notifications.
 func (tm *TrayManager) ClearNotifications() {
 	tm.notifMu.Lock()
-	defer tm.notifMu.Unlock()
 	tm.notifications = nil
+	tm.notifMu.Unlock()
+	tm.emitNotificationsChanged()
 }
 
 // GetTrayNotifications returns current notifications for the popup window.
@@ -81,10 +98,20 @@ func (tm *TrayManager) GetTrayNotifications() []NotificationData {
 	return result
 }
 
+func (tm *TrayManager) emitNotificationsChanged() {
+	if tm.app == nil {
+		return
+	}
+	tm.notifMu.Lock()
+	data := make([]NotificationData, len(tm.notifications))
+	copy(data, tm.notifications)
+	tm.notifMu.Unlock()
+	tm.app.Event.Emit("tray-notifications-changed", data)
+}
+
 // RemoveNotification removes a single notification by ID.
 func (tm *TrayManager) RemoveNotification(notifID string) {
 	tm.notifMu.Lock()
-	defer tm.notifMu.Unlock()
 	filtered := make([]NotificationData, 0, len(tm.notifications))
 	for _, n := range tm.notifications {
 		if n.ID != notifID {
@@ -92,6 +119,8 @@ func (tm *TrayManager) RemoveNotification(notifID string) {
 		}
 	}
 	tm.notifications = filtered
+	tm.notifMu.Unlock()
+	tm.emitNotificationsChanged()
 }
 
 // ActivateAndGetSessionID shows the main window, returns the session ID for the
@@ -142,6 +171,10 @@ func (tm *TrayManager) Init() error {
 		if tm.mainWindow.IsVisible() {
 			tm.mainWindow.Hide()
 		} else {
+			// User is opening the main window — clear all notifications
+			tm.ClearNotifications()
+			tm.StopBlink()
+
 			wasMaximised := tm.mainWindow.IsMaximised()
 			tm.mainWindow.Show()
 			if wasMaximised {
@@ -255,6 +288,9 @@ func (tm *TrayManager) showPopup() {
 	}
 	pw.Show()
 	pw.Focus()
+
+	// Pause blink while popup is visible — user is already viewing messages
+	tm.StopBlink()
 }
 
 func (tm *TrayManager) hidePopup() {
@@ -267,6 +303,14 @@ func (tm *TrayManager) hidePopup() {
 	tm.mu.Unlock()
 	if pw != nil {
 		pw.Hide()
+	}
+
+	// Resume blink if there are still unread notifications
+	tm.notifMu.Lock()
+	hasNotifications := len(tm.notifications) > 0
+	tm.notifMu.Unlock()
+	if hasNotifications {
+		tm.StartBlink()
 	}
 }
 
