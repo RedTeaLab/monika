@@ -591,14 +591,14 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
           }}
         >
           {message.quotedMessages.map((qm, i) => (
-            <div key={i} className="flex gap-1.5 truncate">
+            <div key={qm.id} className="flex gap-1.5 truncate">
               <span
                 className="text-[10px] font-semibold uppercase shrink-0"
                 style={{ color: qm.role === 'user' ? 'var(--accent)' : 'var(--text-dim)' }}
               >
                 {qm.role === 'user' ? 'You' : qm.role === 'assistant' ? 'Assistant' : qm.role}
               </span>
-              <span className="truncate">{qm.content.slice(0, 100)}</span>
+              <span className="truncate" title={qm.content}>{qm.content.length > 100 ? qm.content.slice(0, 100) + '...' : qm.content}</span>
             </div>
           ))}
         </div>
@@ -613,25 +613,30 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
                 onChange={() => onToggleSelect?.(message.id)}
                 className="w-4 h-4 rounded cursor-pointer"
                 style={{ accentColor: 'var(--accent)' }}
+                aria-label="Select message"
               />
             </div>
           )}
-          {!isGenerating && !multiSelectMode && onQuote && onForward && (
+          {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
             <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
-                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
-                style={{ color: 'var(--text-dim)' }}
-              >
-                Quote
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
-                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
-                style={{ color: 'var(--text-dim)' }}
-              >
-                Forward
-              </button>
+              {onQuote && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  Quote
+                </button>
+              )}
+              {onForward && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  Forward
+                </button>
+              )}
             </div>
           )}
           <div style={{ borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent', paddingLeft: '12px', borderRadius: '0 4px 4px 0', transition: 'border-color 0.15s' }}>
@@ -658,25 +663,30 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
                 onChange={() => onToggleSelect?.(message.id)}
                 className="w-4 h-4 rounded cursor-pointer"
                 style={{ accentColor: 'var(--accent)' }}
+                aria-label="Select message"
               />
             </div>
           )}
-          {!isGenerating && !multiSelectMode && onQuote && onForward && (
+          {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
             <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
-              <button
-                onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
-                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
-                style={{ color: 'var(--text-dim)' }}
-              >
-                Quote
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
-                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
-                style={{ color: 'var(--text-dim)' }}
-              >
-                Forward
-              </button>
+              {onQuote && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  Quote
+                </button>
+              )}
+              {onForward && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
+                  className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                  style={{ color: 'var(--text-dim)' }}
+                >
+                  Forward
+                </button>
+              )}
             </div>
           )}
           <div style={{ borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent', paddingLeft: '12px', borderRadius: '0 4px 4px 0', transition: 'border-color 0.15s' }}>
