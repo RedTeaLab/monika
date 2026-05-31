@@ -481,7 +481,7 @@ function CompactionCard({ message }: { message: Message }) {
             </span>
           )}
           <span className="text-[10px] ml-auto" style={{ color: 'var(--text-dim)' }}>
-            {beforeStr} â†’ {afterStr}
+            {beforeStr} â†?{afterStr}
             {reduction > 0 && ` (-${reduction}%)`}
           </span>
         </button>
@@ -618,7 +618,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             </div>
           )}
           {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-[50px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
+            <div className="absolute right-[55px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
@@ -668,7 +668,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             </div>
           )}
           {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-[50px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
+            <div className="absolute right-[55px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
@@ -707,14 +707,14 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
               )
             )}
 
-            {/* "view subagents" hint â€” matches preview HTML */}
+            {/* "view subagents" hint â€?matches preview HTML */}
             {!hideExtras && hasSpawnAgent && (
               <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
                 <span
                   className="text-[9px] font-mono px-1 py-0.5 rounded"
                   style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
                 >
-                  click card â†’
+                  click card â†?
                 </span>
                 view subagents
               </div>
