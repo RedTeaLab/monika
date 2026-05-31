@@ -7,6 +7,7 @@ import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
 import LabelChip, { findLabels, segmentText } from './LabelChip'
 import { App } from '../../../bindings/monika'
 import { Call } from '@wailsio/runtime'
+import { IconMaximize, IconSend } from '../Icons'
 
 const INIT_TEMPLATE = `Please analyze this project and check if an \`AGENTS.md\` file exists in the project root.
 
@@ -739,9 +740,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
                 flexShrink: 0,
               }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <rect x="1" y="1" width="12" height="12" rx="2" />
-              </svg>
+              <IconMaximize size={14} />
             </button>
           ) : (
             <button
@@ -764,9 +763,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled }: {
                 flexShrink: 0,
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 8l12-6-5 12-2-6z" />
-              </svg>
+              <IconSend size={16} />
             </button>
           )}
         </div>

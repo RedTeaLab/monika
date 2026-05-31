@@ -294,6 +294,15 @@ export function ListDirectory(parentPath: string): $CancellablePromise<$models.F
     });
 }
 
+/**
+ * ListDrives returns available drive roots on Windows, or empty on other platforms.
+ */
+export function ListDrives(): $CancellablePromise<$models.FileNode[]> {
+    return $Call.ByID(2497242737).then(($result: any) => {
+        return $$createType26($result);
+    });
+}
+
 export function ListFileChanges(projectPath: string): $CancellablePromise<$models.FileChange[]> {
     return $Call.ByID(3265914211, projectPath).then(($result: any) => {
         return $$createType28($result);
@@ -372,6 +381,13 @@ export function LoadSession(projectPath: string, sessionID: string): $Cancellabl
     return $Call.ByID(665171952, projectPath, sessionID).then(($result: any) => {
         return $$createType41($result);
     });
+}
+
+/**
+ * MakeDirectory creates a new directory at the given absolute path.
+ */
+export function MakeDirectory(parentPath: string, name: string): $CancellablePromise<void> {
+    return $Call.ByID(3852488225, parentPath, name);
 }
 
 export function MarkSessionViewed(projectPath: string, sessionID: string): $CancellablePromise<void> {

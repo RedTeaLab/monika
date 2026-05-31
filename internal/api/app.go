@@ -1443,6 +1443,18 @@ func (a *App) saveLastProjectPath(path string) {
 	}
 }
 
+// MakeDirectory creates a new directory at the given absolute path.
+func (a *App) MakeDirectory(parentPath, name string) error {
+	clean := filepath.Clean(parentPath)
+	dirPath := filepath.Join(clean, name)
+	return os.MkdirAll(dirPath, 0755)
+}
+
+// ListDrives returns available drive roots on Windows, or empty on other platforms.
+func (a *App) ListDrives() []FileNode {
+	return listDrives()
+}
+
 // ListDirectory returns the non-recursive contents of a directory.
 func (a *App) ListDirectory(parentPath string) ([]FileNode, error) {
 	// Canonicalize and reject obviously invalid paths.

@@ -11,6 +11,7 @@ import { json } from '@codemirror/lang-json'
 import { go } from '@codemirror/lang-go'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
+import { IconFolder, IconMaximize, IconRestore } from '../Icons'
 
 const previewTheme = EditorView.theme({
   '&': {
@@ -243,9 +244,7 @@ function DiffView({ lines, fileName }: { lines: string[]; fileName: string }) {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.5 }}>
-            <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-          </svg>
+          <IconFolder size={13} style={{ opacity: 0.5 }} />
           {fileName}
         </span>
         <div className="flex-1" />
@@ -407,9 +406,7 @@ function FilePreviewHeader({ fileName, filePath, lineCount }: {
         background: 'rgba(255,255,255,0.02)',
       }}
     >
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.45 }}>
-        <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-      </svg>
+      <IconFolder size={13} style={{ opacity: 0.45 }} />
       <span style={{
         fontSize: 11,
         fontWeight: 600,
@@ -594,9 +591,9 @@ function PreviewPanel(props: IDockviewPanelProps) {
           title={maximized ? 'Restore' : 'Maximize'}
         >
           {maximized ? (
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="4.5" y="4.5" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" opacity="0.5" /><rect x="3" y="3" width="8" height="8" rx="1" stroke="currentColor" strokeWidth="1.2" /></svg>
+            <IconRestore size={12} />
           ) : (
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><rect x="3" y="3" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.5" /></svg>
+            <IconMaximize size={12} />
           )}
         </div>
       </div>

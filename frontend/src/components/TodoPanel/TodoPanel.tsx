@@ -1,35 +1,17 @@
 import { useRef, useEffect } from 'react'
 import { useStore, TaskItem } from '../../store'
+import { IconCircle, IconCircleDot, IconCheckCircle, IconXCircle } from '../Icons'
 
 function StatusIcon({ status }: { status: TaskItem['status'] }) {
   switch (status) {
     case 'pending':
-      return (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="1">
-          <circle cx="7" cy="7" r="5.5" />
-        </svg>
-      )
+      return <IconCircle size={14} style={{ color: 'var(--text-dim)' }} />
     case 'in_progress':
-      return (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="1">
-          <circle cx="7" cy="7" r="5.5" />
-          <circle cx="7" cy="7" r="2.5" fill="var(--green)" stroke="none" />
-        </svg>
-      )
+      return <IconCircleDot size={14} style={{ color: 'var(--text-dim)' }} />
     case 'completed':
-      return (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--green)" strokeWidth="1.2">
-          <circle cx="7" cy="7" r="5.5" />
-          <path d="M4.5 7l2 2 3-4" stroke="var(--green)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )
+      return <IconCheckCircle size={14} style={{ color: 'var(--green)' }} />
     case 'cancelled':
-      return (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="1" opacity={0.3}>
-          <circle cx="7" cy="7" r="5.5" />
-          <path d="M5 5l4 4M9 5l-4 4" stroke="var(--text-dim)" strokeWidth="1" strokeLinecap="round" />
-        </svg>
-      )
+      return <IconXCircle size={14} style={{ opacity: 0.3, color: 'var(--text-dim)' }} />
   }
 }
 

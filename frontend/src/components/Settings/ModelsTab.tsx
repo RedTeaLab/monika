@@ -3,7 +3,7 @@ import { useStore, AvailableProviderInfo } from '../../store'
 import { Call } from '@wailsio/runtime'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconDatabase, IconEdit, IconPlus, IconTrash } from '../Icons'
+import { IconDatabase, IconEdit, IconPlus, IconTrash, IconChevronDown } from '../Icons'
 
 function maskKey(key: string): string {
   if (!key) return '\u2014'
@@ -67,7 +67,7 @@ function ProviderSelect({ catalog, onSelect }: { catalog: AvailableProviderInfo[
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit', textAlign: 'left' }}
       >
         <span className="text-[var(--text-dim)]">Choose a provider...</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="2,3 4,5 6,3" /></svg>
+        <IconChevronDown size={8} />
       </button>
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', width: '100%', maxHeight: '260px', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md, 6px)', padding: '4px', zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>

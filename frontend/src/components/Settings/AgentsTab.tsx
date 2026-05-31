@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useStore, AgentInfo } from '../../store'
 import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
-import { IconBot, IconEdit, IconTrash, IconPlus, IconShield } from '../Icons'
+import { IconBot, IconEdit, IconTrash, IconPlus, IconShield, IconChevronDown, IconCheck } from '../Icons'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 
@@ -110,9 +110,7 @@ function InlineModelPicker({
         }}
       >
         <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-dim)' }}>{displayText}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
+        <IconChevronDown size={8} />
       </button>
       {open && (
         <div
@@ -158,7 +156,7 @@ function InlineModelPicker({
                   >
                     <span>Inherit (use default)</span>
                     {!value && (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2,6 5,9 10,3" /></svg>
+                      <IconCheck size={12} />
                     )}
                   </button>
                 )
@@ -189,7 +187,7 @@ function InlineModelPicker({
                 >
                   <span>{m.DisplayName}</span>
                   {isSelected && (
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2,6 5,9 10,3" /></svg>
+                    <IconCheck size={12} />
                   )}
                 </button>
               )

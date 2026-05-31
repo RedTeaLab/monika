@@ -3,6 +3,7 @@ import { useStore } from '../../store'
 import { App } from '../../../bindings/monika'
 import { logger } from '../../lib/logger'
 import type { ProviderInfo, ModelInfo } from '../../../bindings/monika'
+import { IconChevronDown, IconCheck } from '../Icons'
 
 function ModelPicker() {
   const availableProviders = useStore((s) => s.availableProviders)
@@ -142,9 +143,7 @@ function ModelPicker() {
       >
         <span style={{ fontWeight: 600 }}>{providerAbbr}</span>
         <span>{currentModel?.DisplayName || 'Select model'}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
+        <IconChevronDown size={8} />
       </button>
       {open && (
         <div
@@ -223,16 +222,7 @@ function ModelPicker() {
                 >
                   <span>{m.DisplayName}</span>
                   {isSelected && (
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 12 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="2,6 5,9 10,3" />
-                    </svg>
+                    <IconCheck size={12} />
                   )}
                 </button>
               )

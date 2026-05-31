@@ -17,3 +17,8 @@ func openInExplorer(absPath string) error {
 	}
 	return cmd.Start()
 }
+
+// listDrives returns nil on non-Windows platforms; drive listing is not applicable.
+func listDrives() []FileNode {
+	return nil
+}

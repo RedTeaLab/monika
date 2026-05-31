@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../../store'
+import { IconChevronDown } from '../Icons'
 
 const MODES: { id: 'auto' | 'manual'; label: string }[] = [
   { id: 'auto', label: 'Auto' },
@@ -61,9 +62,7 @@ function PermissionModePicker() {
         }}
       >
         <span>{current.label}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
+        <IconChevronDown size={8} />
       </button>
       {open && (
         <div

@@ -8,6 +8,7 @@ import {
   Folder,
   File,
   Circle,
+  CircleDot,
   Trash2,
   PanelLeft,
   MessageSquare,
@@ -35,6 +36,14 @@ import {
   Files,
   PencilLine,
   ExternalLink,
+  Check,
+  Send,
+  Maximize2,
+  Minimize2,
+  CheckCircle,
+  XCircle,
+  HardDrive,
+  FolderUp,
 } from 'lucide-react'
 
 export function IconClose({ size }: { size?: number }) {
@@ -61,16 +70,20 @@ export function IconChevronDown({ size, className, style }: { size?: number; cla
   return <ChevronDown size={size || 16} strokeWidth={1.5} className={className} style={style} />
 }
 
-export function IconFolder({ size }: { size?: number }) {
-  return <Folder size={size || 16} strokeWidth={1.5} />
+export function IconFolder({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return <Folder size={size || 16} strokeWidth={1.5} className={className} style={style} />
 }
 
 export function IconFile({ size }: { size?: number }) {
   return <File size={size || 16} strokeWidth={1.5} />
 }
 
-export function IconCircle({ size, filled }: { size?: number; filled?: boolean }) {
-  return <Circle size={size || 16} strokeWidth={1.5} fill={filled ? 'currentColor' : 'none'} />
+export function IconCircle({ size, filled, className, style }: { size?: number; filled?: boolean; className?: string; style?: React.CSSProperties }) {
+  return <Circle size={size || 16} strokeWidth={1.5} fill={filled ? 'currentColor' : 'none'} className={className} style={style} />
+}
+
+export function IconCircleDot({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return <CircleDot size={size || 16} strokeWidth={1.5} className={className} style={style} />
 }
 
 export function IconRestore({ size }: { size?: number }) {
@@ -179,4 +192,36 @@ export function IconPencilLine({ size }: { size?: number }) {
 
 export function IconExternalLink({ size }: { size?: number }) {
   return <ExternalLink size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconCheck({ size }: { size?: number }) {
+  return <Check size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconSend({ size }: { size?: number }) {
+  return <Send size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconMaximize2({ size }: { size?: number }) {
+  return <Maximize2 size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconMinimize2({ size }: { size?: number }) {
+  return <Minimize2 size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconCheckCircle({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return <CheckCircle size={size || 16} strokeWidth={1.5} className={className} style={style} />
+}
+
+export function IconXCircle({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
+  return <XCircle size={size || 16} strokeWidth={1.5} className={className} style={style} />
+}
+
+export function IconHardDrive({ size }: { size?: number }) {
+  return <HardDrive size={size || 16} strokeWidth={1.5} />
+}
+
+export function IconFolderUp({ size }: { size?: number }) {
+  return <FolderUp size={size || 16} strokeWidth={1.5} />
 }

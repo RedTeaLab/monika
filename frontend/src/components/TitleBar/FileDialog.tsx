@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
+import { App } from '../../../bindings/monika';
 import type { FileNode } from '../../../bindings/monika';
+import { IconFolder, IconFolderPlus, IconFolderUp, IconHardDrive } from '../Icons';
 
 interface FileDialogProps {
   isOpen: boolean;
@@ -16,24 +18,38 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [pathInput, setPathInput] = useState('');
   const [selectedPath, setSelectedPath] = useState('');
+  const [newFolderMode, setNewFolderMode] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const projectPath = useStore.getState().projectPath;
-    // Start at the current project's parent directory.
     const start = projectPath ? projectPath.replace(/[/\\][^/\\]+$/, '') : '';
     setCurrentPath(start || projectPath || '');
     setPathInput(start || projectPath || '');
     setSelectedPath('');
     setError(null);
+    setNewFolderMode(false);
+    setNewFolderName('');
   }, [isOpen]);
 
-  // Load directory listing.
   useEffect(() => {
-    if (!isOpen || !currentPath) return;
+    if (!isOpen) return;
     setLoading(true);
     setError(null);
-    import('../../../bindings/monika').then(({ App }) => {
+
+    if (!currentPath) {
+      App.ListDrives()
+        .then((drives: FileNode[]) => {
+          setEntries(drives);
+          setLoading(false);
+        })
+        .catch((e: Error) => {
+          setError(e.message);
+          setLoading(false);
+        });
+    } else {
       App.ListDirectory(currentPath)
         .then((nodes: FileNode[]) => {
           setEntries(nodes);
@@ -43,7 +59,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
           setError(e.message);
           setLoading(false);
         });
-    });
+    }
   }, [isOpen, currentPath]);
 
   const navigateTo = (dirPath: string) => {
@@ -53,9 +69,16 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
   };
 
   const goUp = () => {
+    if (/^[A-Za-z]:\\$/.test(currentPath) || /^[A-Za-z]:$/.test(currentPath)) {
+      setCurrentPath('');
+      setPathInput('');
+      setSelectedPath('');
+      return;
+    }
     const parent = currentPath.replace(/[/\\][^/\\]+$/, '');
     if (parent && parent !== currentPath) {
-      navigateTo(parent);
+      const normalized = /^[A-Za-z]:$/.test(parent) ? parent + '\\' : parent;
+      navigateTo(normalized);
     }
   };
 
@@ -69,13 +92,47 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
 
   const handlePathInputKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      import('../../../bindings/monika').then(({ App }) => {
-        App.ListDirectory(pathInput)
-          .then(() => navigateTo(pathInput))
-          .catch(() => setError('Path not found'));
-      });
+      App.ListDirectory(pathInput)
+        .then(() => navigateTo(pathInput))
+        .catch(() => setError('Path not found'));
     }
     if (e.key === 'Escape') onClose();
+  };
+
+  useEffect(() => {
+    if (newFolderMode && newFolderInputRef.current) {
+      newFolderInputRef.current.focus();
+    }
+  }, [newFolderMode]);
+
+  const startNewFolder = () => {
+    setNewFolderName('');
+    setNewFolderMode(true);
+    setError(null);
+  };
+
+  const handleNewFolderKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const name = newFolderName.trim();
+      if (!name) return;
+      App.MakeDirectory(currentPath, name)
+        .then(() => {
+          setNewFolderMode(false);
+          setNewFolderName('');
+          // Refresh the directory listing
+          return App.ListDirectory(currentPath);
+        })
+        .then((nodes: FileNode[]) => {
+          setEntries(nodes);
+        })
+        .catch((e: Error) => {
+          setError(e.message);
+        });
+    }
+    if (e.key === 'Escape') {
+      setNewFolderMode(false);
+      setNewFolderName('');
+    }
   };
 
   if (!isOpen) return null;
@@ -84,129 +141,208 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
 
   return createPortal(
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'rgba(0,0,0,0.5)',
-        zIndex: 2000,
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{
-        background: 'var(--bg-sidebar)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        width: 480,
-        boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
-      }}>
-        <div style={{
-          padding: '10px 14px',
-          borderBottom: '1px solid var(--border)',
-          fontSize: 12,
-          color: 'var(--text-primary)',
-          fontWeight: 600,
-        }}>
-          Open Project
+      <div
+        style={{
+          width: 480,
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border-strong)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-4 py-2.5"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+            Open Project
+          </span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center transition-colors"
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 14,
+              lineHeight: 1,
+              color: 'var(--text-dim)',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+          >
+            ✕
+          </button>
         </div>
 
-        <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+        {/* Path input */}
+        <div className="flex items-center gap-2 px-4 py-2" style={{ borderBottom: '1px solid var(--border)' }}>
           <input
             type="text"
             value={pathInput}
             onChange={e => setPathInput(e.target.value)}
             onKeyDown={handlePathInputKeyDown}
-            placeholder="Filter or type path..."
+            placeholder="Type a path or filter..."
+            className="flex-1 text-[13px] outline-none transition-colors"
             style={{
-              width: '100%',
+              padding: '6px 10px',
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
-              borderRadius: 2,
-              padding: '6px 8px',
-              fontSize: 12,
+              borderRadius: 'var(--radius-sm)',
               color: 'var(--text-primary)',
               boxSizing: 'border-box',
-              outline: 'none',
             }}
+            onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
           />
+          {currentPath && (
+            <button
+              onClick={startNewFolder}
+              title="New folder"
+              className="flex items-center justify-center transition-colors shrink-0"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-dim)',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)'; }}
+            >
+              <IconFolderPlus size={14} />
+            </button>
+          )}
         </div>
 
-        <div style={{ height: 240, overflowY: 'auto', padding: '4px 0' }}>
-          {loading && [1, 2, 3, 4].map(i => (
-            <div key={i} style={{ padding: '5px 14px' }}>
-              <div style={{ height: 10, background: 'var(--bg-card)', borderRadius: 2, marginBottom: 4 }} />
+        {/* File list */}
+        <div className="overflow-y-auto py-1" style={{ height: 240 }}>
+          {loading && (
+            <div className="px-4 py-2 space-y-2">
+              {[1, 2, 3, 4].map(i => (
+                <div
+                  key={i}
+                  style={{
+                    height: 10,
+                    background: 'var(--bg-card)',
+                    borderRadius: 'var(--radius-sm)',
+                  }}
+                />
+              ))}
             </div>
-          ))}
+          )}
 
-          {error && (
-            <div style={{ padding: '12px 14px', color: 'var(--red)', fontSize: 12 }}>{error}</div>
+          {!loading && error && (
+            <div className="px-4 py-3" style={{ fontSize: 12, color: 'var(--red)' }}>
+              {error}
+            </div>
           )}
 
           {!loading && !error && (
             <>
-              <div
-                onClick={goUp}
-                style={{
-                  padding: '5px 14px',
-                  fontSize: 12,
-                  color: 'var(--text-dim)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                <span>📁</span> ..
-              </div>
-
-              {dirs.map(d => (
+              {currentPath && (
                 <div
-                  key={d.path}
-                  onClick={() => setSelectedPath(d.path)}
-                  onDoubleClick={() => navigateTo(d.path)}
-                  style={{
-                    padding: '5px 14px',
-                    fontSize: 12,
-                    color: d.path === selectedPath ? 'var(--text-primary)' : 'var(--text-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    cursor: 'pointer',
-                    background: d.path === selectedPath ? 'var(--bg-active)' : 'transparent',
-                  }}
+                  onClick={goUp}
+                  className="flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors"
+                  style={{ fontSize: 13, color: 'var(--text-dim)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                 >
-                  <span>📁</span> {d.name}
+                  <IconFolderUp size={14} />
+                  <span>..</span>
                 </div>
-              ))}
+              )}
+
+              {newFolderMode && (
+                <div className="flex items-center gap-2 px-4 py-1.5">
+                  <IconFolder size={14} />
+                  <input
+                    ref={newFolderInputRef}
+                    type="text"
+                    value={newFolderName}
+                    onChange={e => setNewFolderName(e.target.value)}
+                    onKeyDown={handleNewFolderKeyDown}
+                    placeholder="Folder name"
+                    className="flex-1 text-[13px] outline-none"
+                    style={{
+                      padding: '2px 6px',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--accent)',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-primary)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
+
+              {dirs.map(d => {
+                const isSelected = d.path === selectedPath;
+                return (
+                  <div
+                    key={d.path}
+                    onClick={() => setSelectedPath(d.path)}
+                    onDoubleClick={() => navigateTo(d.path)}
+                    className="flex items-center gap-2 px-4 py-1.5 cursor-pointer transition-colors"
+                    style={{
+                      fontSize: 13,
+                      color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                      background: isSelected ? 'var(--bg-active)' : 'transparent',
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)';
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    {currentPath ? <IconFolder size={14} /> : <IconHardDrive size={14} />}
+                    <span className="truncate">{d.name}</span>
+                  </div>
+                );
+              })}
 
               {dirs.length === 0 && (
-                <div style={{ padding: '12px 14px', fontSize: 12, color: 'var(--text-dim)' }}>
-                  No subdirectories
+                <div className="px-4 py-3" style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                  {currentPath ? 'No subdirectories' : 'No drives found'}
                 </div>
               )}
             </>
           )}
         </div>
 
-        <div style={{
-          padding: '8px 12px',
-          borderTop: '1px solid var(--border)',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: 8,
-        }}>
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-2 px-4 py-2.5"
+          style={{ borderTop: '1px solid var(--border)', background: 'rgba(0,0,0,0.15)' }}
+        >
           <button
             onClick={onClose}
+            className="transition-colors"
             style={{
-              padding: '4px 16px',
-              fontSize: 11,
-              color: 'var(--text-dim)',
-              background: 'none',
+              padding: '5px 14px',
+              fontSize: 12,
+              fontWeight: 500,
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
+              background: 'transparent',
               border: 'none',
               cursor: 'pointer',
-              borderRadius: 2,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'var(--text-primary)';
+              e.currentTarget.style.background = 'var(--bg-hover)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'var(--text-secondary)';
+              e.currentTarget.style.background = 'transparent';
             }}
           >
             Cancel
@@ -214,14 +350,29 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
           <button
             onClick={handleOpenClick}
             disabled={!selectedPath && !currentPath}
+            className="transition-colors"
             style={{
-              padding: '4px 16px',
-              fontSize: 11,
+              padding: '5px 14px',
+              fontSize: 12,
+              fontWeight: 500,
+              borderRadius: 'var(--radius-sm)',
               background: 'var(--accent-muted)',
               color: 'var(--accent)',
               border: 'none',
-              borderRadius: 2,
-              cursor: 'pointer',
+              cursor: !selectedPath && !currentPath ? 'default' : 'pointer',
+              opacity: !selectedPath && !currentPath ? 0.5 : 1,
+            }}
+            onMouseEnter={e => {
+              if (selectedPath || currentPath) {
+                e.currentTarget.style.background = 'var(--accent)';
+                e.currentTarget.style.color = '#fff';
+              }
+            }}
+            onMouseLeave={e => {
+              if (selectedPath || currentPath) {
+                e.currentTarget.style.background = 'var(--accent-muted)';
+                e.currentTarget.style.color = 'var(--accent)';
+              }
             }}
           >
             Open

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconShield, IconTrash, IconPlus } from '../Icons'
+import { IconShield, IconTrash, IconPlus, IconChevronDown } from '../Icons'
 
 const TOOLS = [
   'bash', 'file_read', 'file_write', 'file_edit', 'file_list',
@@ -74,9 +74,7 @@ function DropdownSelect<T extends string>({
         }}
       >
         <span>{value}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
+        <IconChevronDown size={8} />
       </button>
       {open && (
         <div

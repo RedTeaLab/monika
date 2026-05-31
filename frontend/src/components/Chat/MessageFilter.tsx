@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { IconChevronDown } from '../Icons'
 
 export type MsgFilterKey = 'all' | 'chat' | 'user' | 'assistant'
 
@@ -56,9 +57,7 @@ function MessageFilter({ value, onChange, disabled }: { value: MsgFilterKey; onC
         }}
       >
         <span>{current.label}</span>
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <polyline points="2,3 4,5 6,3" />
-        </svg>
+        <IconChevronDown size={8} />
       </button>
       {open && createPortal(
         <div
