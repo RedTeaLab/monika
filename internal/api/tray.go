@@ -81,7 +81,10 @@ func brightenPNG(data []byte, factor float64) []byte {
 }
 
 func clamp(v float64) uint8 {
-	if v > 255 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
 		return 255
 	}
 	return uint8(v)
