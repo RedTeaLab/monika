@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo, useCallback, useEffect, KeyboardEvent } from 'react'
 import { useStore } from '../../store'
 
 interface SessionPickerProps {
@@ -10,15 +10,44 @@ interface SessionPickerProps {
 
 export default function SessionPicker({ open, onSelect, onCancel, excludeSessionId }: SessionPickerProps) {
   const [search, setSearch] = useState('')
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const openSessions = useStore((s) => s.openSessions)
 
-  if (!open) return null
+  const filtered = useMemo(() => {
+    if (!open) return []
+    return openSessions.filter((s) => {
+      if (s.id === excludeSessionId) return false
+      if (!search) return true
+      return s.title.toLowerCase().includes(search.toLowerCase())
+    })
+  }, [openSessions, search, excludeSessionId, open])
 
-  const filtered = openSessions.filter((s) => {
-    if (s.id === excludeSessionId) return false
-    if (!search) return true
-    return s.title.toLowerCase().includes(search.toLowerCase())
-  })
+  // Reset index when search changes
+  useEffect(() => {
+    setSelectedIdx(0)
+  }, [search])
+
+  const handleSelect = useCallback((id: string) => {
+    onSelect(id)
+  }, [onSelect])
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      onCancel()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIdx((prev) => Math.min(prev + 1, filtered.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIdx((prev) => Math.max(prev - 1, 0))
+    } else if (e.key === 'Enter' && filtered.length > 0) {
+      e.preventDefault()
+      onSelect(filtered[selectedIdx].id)
+    }
+  }, [filtered, selectedIdx, onSelect, onCancel])
+
+  if (!open) return null
 
   return (
     <div
@@ -27,9 +56,12 @@ export default function SessionPicker({ open, onSelect, onCancel, excludeSession
       onClick={onCancel}
     >
       <div
+        role="dialog"
+        aria-modal="true"
         className="rounded-lg p-4 min-w-[320px] max-w-[440px] max-h-[60vh] flex flex-col"
         style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleKeyDown}
       >
         <div className="text-[13px] font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
           Forward to Session
@@ -39,6 +71,7 @@ export default function SessionPicker({ open, onSelect, onCancel, excludeSession
           placeholder="Search sessions..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleKeyDown}
           autoFocus
           className="text-[13px] px-3 py-1.5 rounded-md mb-3 outline-none border"
           style={{
@@ -53,12 +86,17 @@ export default function SessionPicker({ open, onSelect, onCancel, excludeSession
               No sessions found
             </div>
           ) : (
-            filtered.map((s) => (
+            filtered.map((s, idx) => (
               <button
                 key={s.id}
-                onClick={() => onSelect(s.id)}
-                className="text-left text-[13px] px-3 py-2 rounded-md hover:bg-[var(--bg-hover)] transition-colors truncate cursor-pointer"
-                style={{ color: 'var(--text-primary)' }}
+                onClick={() => handleSelect(s.id)}
+                className={`text-left text-[13px] px-3 py-2 rounded-md transition-colors truncate cursor-pointer ${
+                  idx === selectedIdx ? 'bg-[var(--bg-hover)]' : ''
+                }`}
+                style={{
+                  color: 'var(--text-primary)',
+                  background: idx === selectedIdx ? 'var(--bg-hover)' : undefined,
+                }}
               >
                 {s.title || 'Untitled'}
               </button>
