@@ -2,6 +2,7 @@ import { useState, useEffect, useTransition, useCallback, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import { Browser } from '@wailsio/runtime'
 
 function CodeBlock({ children, ...rest }: React.ComponentPropsWithoutRef<'pre'>) {
   const ref = useRef<HTMLPreElement>(null)
@@ -31,6 +32,15 @@ function CodeBlock({ children, ...rest }: React.ComponentPropsWithoutRef<'pre'>)
       </button>
     </div>
   )
+}
+
+function ExternalLink({ href, children, ...rest }: React.ComponentPropsWithoutRef<'a'>) {
+  const handleClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault()
+    if (href) Browser.OpenURL(href)
+  }, [href])
+
+  return <a href={href} onClick={handleClick} target="_blank" rel="noopener noreferrer" {...rest}>{children}</a>
 }
 
 export default function MarkdownBlock({ content, muted, streaming }: { content: string; muted?: boolean; streaming?: boolean }) {
@@ -64,7 +74,7 @@ export default function MarkdownBlock({ content, muted, streaming }: { content: 
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
-        components={{ pre: CodeBlock }}
+        components={{ pre: CodeBlock, a: ExternalLink }}
       >
         {parsed || content}
       </ReactMarkdown>
