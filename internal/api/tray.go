@@ -24,7 +24,6 @@ type TrayManager struct {
 	mainWindow   application.Window
 	popupWindow  *application.WebviewWindow
 
-	normalIcon    []byte
 	iconData      []byte
 
 	mu          sync.Mutex
@@ -43,11 +42,6 @@ func NewTrayManager(app *application.App, mainWindow application.Window, iconDat
 		mainWindow: mainWindow,
 		iconData:   iconData,
 	}
-}
-
-func (tm *TrayManager) loadIcons() error {
-	tm.normalIcon = tm.iconData
-	return nil
 }
 
 // AddNotification stores a notification for the tray popup.
@@ -120,7 +114,6 @@ func (tm *TrayManager) RemoveNotification(notifID string) {
 	}
 	tm.notifications = filtered
 	tm.notifMu.Unlock()
-	tm.emitNotificationsChanged()
 }
 
 // ActivateAndGetSessionID shows the main window, returns the session ID for the
@@ -145,17 +138,17 @@ func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 	}
 	tm.mainWindow.Focus()
 
-	tm.RemoveNotification(notifID)
+	if sessionID != "" {
+		tm.RemoveNotification(notifID)
+		tm.emitNotificationsChanged()
+	}
+
 	return sessionID
 }
 
 func (tm *TrayManager) Init() error {
-	if err := tm.loadIcons(); err != nil {
-		return err
-	}
-
 	tm.systemTray = tm.app.SystemTray.New()
-	tm.systemTray.SetIcon(tm.normalIcon)
+	tm.systemTray.SetIcon(tm.iconData)
 	tm.systemTray.SetTooltip("Monika")
 
 	// Right-click menu: Exit only
@@ -227,11 +220,21 @@ func (tm *TrayManager) StartBlink() {
 	tm.blinkStop = make(chan struct{})
 	visible := true
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				tm.mu.Lock()
+				tm.blinking = false
+				tm.mu.Unlock()
+			}
+		}()
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
+				if tm.systemTray == nil {
+					return
+				}
 				if visible {
 					tm.systemTray.Show()
 				} else {
@@ -239,7 +242,9 @@ func (tm *TrayManager) StartBlink() {
 				}
 				visible = !visible
 			case <-tm.blinkStop:
-				tm.systemTray.Show()
+				if tm.systemTray != nil {
+					tm.systemTray.Show()
+				}
 				return
 			}
 		}

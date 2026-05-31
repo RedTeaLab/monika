@@ -2980,6 +2980,7 @@ func (a *App) ActivateSession(notifID string) string {
 func (a *App) DismissNotification(notifID string) {
 	if a.trayMgr != nil {
 		a.trayMgr.RemoveNotification(notifID)
+		a.trayMgr.emitNotificationsChanged()
 		remaining := a.trayMgr.GetTrayNotifications()
 		if len(remaining) == 0 {
 			a.trayMgr.StopBlink()
