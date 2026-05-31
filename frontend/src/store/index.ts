@@ -1292,7 +1292,16 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
   while (i < raw.length) {
     const m = raw[i]
     if (m.role === 'user') {
-      result.push({ id: crypto.randomUUID(), role: 'user', content: m.content || '' })
+      result.push({
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: m.content || '',
+        quotedMessages: (m as any).quoted_messages?.map((qm: any) => ({
+          id: qm.id || '',
+          role: qm.role || '',
+          content: qm.content || '',
+        })) || undefined,
+      })
       i++
     } else if (m.role === 'assistant') {
       if (m.name === 'compaction_summary') {
@@ -1326,6 +1335,11 @@ export function loadSessionMessages(raw: { role: string; content: string; reason
           thinking: m.reasoning_content || undefined,
           tools: tools.length > 0 ? tools : undefined,
           model,
+          quotedMessages: (m as any).quoted_messages?.map((qm: any) => ({
+            id: qm.id || '',
+            role: qm.role || '',
+            content: qm.content || '',
+          })) || undefined,
         })
         i++
       }
