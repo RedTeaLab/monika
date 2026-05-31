@@ -90,12 +90,13 @@ function getCursorLineInfo(textarea: HTMLTextAreaElement, value: string): { curr
   }
 }
 
-function ChatInput({ onSend, onStop, onRunShell, disabled, quotedMessages }: {
+function ChatInput({ onSend, onStop, onRunShell, disabled, quotedMessages, onQuotesConsumed }: {
   onSend: (text: string) => void
   onStop: () => void
   onRunShell: (command: string) => void
   disabled: boolean
   quotedMessages?: { id: string; role: string; content: string }[]
+  onQuotesConsumed?: () => void
 }) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -508,6 +509,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, quotedMessages }: {
         .map(qm => `> **${qm.role}**: ${qm.content.slice(0, 500)}`)
         .join('\n')
       resolved = `${quoteBlock}\n\n---\n${resolved}`
+      onQuotesConsumed?.()
     }
 
     // Normal message

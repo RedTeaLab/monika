@@ -62,6 +62,12 @@ export function findLabels(text: string): LabelRegion[] {
     regions.push({ type: 'file', label: m[1], start: m.index, end: m.index + m[0].length })
   }
 
+  // 5. General bracketed names (e.g. pasted directory paths without extensions)
+  const bracketRe = /\[([\w][\w.-]*)\]/g
+  while ((m = bracketRe.exec(text)) !== null) {
+    regions.push({ type: 'file', label: m[1], start: m.index, end: m.index + m[0].length })
+  }
+
   // Sort by start position and remove overlaps
   regions.sort((a, b) => a.start - b.start)
   const filtered: LabelRegion[] = []

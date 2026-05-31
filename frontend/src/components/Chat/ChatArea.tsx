@@ -51,7 +51,7 @@ function ChatArea(props: IDockviewPanelProps) {
   const toggleMessageSelection = useStore((s) => s.toggleMessageSelection)
   const enterMultiSelect = useStore((s) => s.enterMultiSelect)
   const clearSelection = useStore((s) => s.clearSelection)
-  const switchSessionTab = useStore((s) => s.switchSessionTab)
+  const openSessionTab = useStore((s) => s.openSessionTab)
 
   const rawMessages = isOverlay ? overlayMessages : parentMessages
   const messages = useMemo(() => {
@@ -147,7 +147,6 @@ function ChatArea(props: IDockviewPanelProps) {
   }
 
   const handleSend = async (text: string) => {
-    setQuotePreviewMessages([])
     if (!text.trim()) return
 
     if (!projectPath || !sessionId) return
@@ -315,17 +314,24 @@ function ChatArea(props: IDockviewPanelProps) {
     clearSelection()
   }
 
+  const pendingForwardRef = useRef<{ id: string; role: string; content: string }[] | null>(null)
+
   const handleConfirmForward = () => {
     const quoted = buildQuotedMessages()
-    setQuotePreviewMessages(quoted)
+    pendingForwardRef.current = quoted
     clearSelection()
     setSessionPickerOpen(true)
   }
 
-  const handleSessionPick = (targetSessionId: string) => {
-    setForwardedQuotes((prev) => ({ ...prev, [targetSessionId]: quotePreviewMessages }))
+  const handleSessionPick = (targetSessionId: string, sessions: { id: string; title: string }[]) => {
+    const quoted = pendingForwardRef.current
+    pendingForwardRef.current = null
+    if (quoted) {
+      setForwardedQuotes((prev) => ({ ...prev, [targetSessionId]: quoted }))
+    }
     setSessionPickerOpen(false)
-    switchSessionTab(targetSessionId)
+    const target = sessions.find((s) => s.id === targetSessionId)
+    openSessionTab(targetSessionId, target?.title || 'Untitled')
   }
 
   const handleRemoveQuoteMessage = (id: string) => {
@@ -403,7 +409,7 @@ function ChatArea(props: IDockviewPanelProps) {
           <MessageFilter value={msgFilter} onChange={setMsgFilter} disabled={isGenerating} />
         </div>
       )}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 pl-10 pr-4">
+      <div ref={scrollRef} className={`flex-1 overflow-y-auto py-4 pr-4 ${selection ? 'pl-10' : 'pl-4'}`}>
         {rawMessages.length > 0 && msgFilter !== 'all' && (
           <div className="mb-2 text-[10px]" style={{ color: 'var(--text-dim)' }}>
             {messages.length} / {rawMessages.length} messages
@@ -420,8 +426,8 @@ function ChatArea(props: IDockviewPanelProps) {
               message={msg}
               isGenerating={idx === generatingIdx}
               hideExtras={hideExtras}
-              onQuote={(msg.role === 'user' || msg.role === 'assistant') ? handleQuote : undefined}
-              onForward={(msg.role === 'user' || msg.role === 'assistant') ? handleForward : undefined}
+              onQuote={msg.content && (msg.role === 'user' || msg.role === 'assistant') ? handleQuote : undefined}
+              onForward={msg.content && (msg.role === 'user' || msg.role === 'assistant') ? handleForward : undefined}
               multiSelectMode={selection?.mode ?? null}
               isSelected={selection?.ids?.includes(msg.id) ?? false}
               onToggleSelect={toggleMessageSelection}
@@ -470,6 +476,7 @@ function ChatArea(props: IDockviewPanelProps) {
                   onRunShell={handleRunShell}
                   disabled={generatingSessionIds.includes(sessionId)}
                   quotedMessages={quotePreviewMessages.length > 0 ? quotePreviewMessages : undefined}
+                  onQuotesConsumed={() => setQuotePreviewMessages([])}
                 />
               )}
             </>
@@ -479,7 +486,7 @@ function ChatArea(props: IDockviewPanelProps) {
           <SessionPicker
             open={sessionPickerOpen}
             onSelect={handleSessionPick}
-            onCancel={() => setSessionPickerOpen(false)}
+            onCancel={() => { clearSelection(); setQuotePreviewMessages([]); setSessionPickerOpen(false) }}
             excludeSessionId={sessionId}
           />
         </>
