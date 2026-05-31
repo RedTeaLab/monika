@@ -1,5 +1,6 @@
 
 import { create } from 'zustand'
+import { useNotificationStore } from './notificationStore'
 import { Events, Call } from '@wailsio/runtime'
 import { App, StreamEvent } from '../../bindings/monika'
 import type { RecentProject, BranchInfo, ModelInfo, ProviderInfo, ChangeStat, SessionInfo } from '../../bindings/monika'
@@ -1537,6 +1538,16 @@ export function setupWailsEvents() {
         store.setSessionStatus(sid, 'pending')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
+        // Trigger notification for AI reply completion
+        const openSessions = useStore.getState().openSessions
+        const sessionInfo = openSessions.find((s) => s.id === sid)
+        const sessionTitle = sessionInfo?.title || sid.slice(0, 8)
+        useNotificationStore.getState().push({
+          sessionId: sid,
+          sessionTitle,
+          type: 'reply-complete',
+          message: '回复完成',
+        })
         syncActiveMessages(sid)
         break
       }
@@ -1616,6 +1627,16 @@ export function setupWailsEvents() {
     const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
     if (data.type === 'permission_required' && permPayload) {
       useStore.setState({ pendingPermission: permPayload })
+      // Trigger notification for permission request
+      const openSessions = useStore.getState().openSessions
+      const sessionInfo = openSessions.find((s) => s.id === permPayload.sessionId)
+      const sessionTitle = sessionInfo?.title || permPayload.sessionId.slice(0, 8)
+      useNotificationStore.getState().push({
+        sessionId: permPayload.sessionId,
+        sessionTitle,
+        type: 'permission-request',
+        message: `请求: ${permPayload.tool}`,
+      })
       if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
       return
     }
