@@ -39,6 +39,11 @@ export function ToastItem({ item, onDismiss }: ToastItemProps) {
       <div className="text-[11px] text-[var(--text-dim)]">
         {typeLabel}
       </div>
+      {item.message && (
+        <div className="text-[11px] text-[var(--text-dim)] truncate">
+          {item.message}
+        </div>
+      )}
     </div>
   )
 }

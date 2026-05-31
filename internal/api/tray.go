@@ -2,8 +2,8 @@ package api
 
 import (
 	"bytes"
+	"fmt"
 	"image"
-	"image/color"
 	"image/draw"
 	"image/png"
 	"sync"
@@ -11,6 +11,16 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
+
+// NotificationData represents a single notification for the tray popup.
+type NotificationData struct {
+	ID           string `json:"id"`
+	SessionID    string `json:"session_id"`
+	SessionTitle string `json:"session_title"`
+	Type         string `json:"type"`
+	Message      string `json:"message"`
+	Timestamp    int64  `json:"timestamp"`
+}
 
 type TrayManager struct {
 	app          *application.App
@@ -27,44 +37,31 @@ type TrayManager struct {
 	blinking    bool
 
 	popupDebounce *time.Timer
+
+	notifications []NotificationData
+	notifMu       sync.Mutex
 }
 
 func NewTrayManager(app *application.App, mainWindow application.Window, iconData []byte) *TrayManager {
 	return &TrayManager{
-		app:       app,
+		app:        app,
 		mainWindow: mainWindow,
-		iconData:  iconData,
+		iconData:   iconData,
 	}
 }
 
 func (tm *TrayManager) loadIcons() error {
-	normalPNG, err := icoToPNG(tm.iconData)
-	if err != nil {
-		return err
-	}
-	tm.normalIcon = normalPNG
-	tm.highlightIcon = brightenPNG(normalPNG, 1.2)
+	tm.normalIcon = tm.iconData
+	tm.highlightIcon = brightenPNG(tm.iconData, 1.2)
 	return nil
-}
-
-func icoToPNG(data []byte) ([]byte, error) {
-	reader := bytes.NewReader(data)
-	img, _, err := image.Decode(reader)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
 
 func brightenPNG(data []byte, factor float64) []byte {
 	reader := bytes.NewReader(data)
 	img, _, err := image.Decode(reader)
 	if err != nil {
-		return data
+		// Return a copy so normalIcon and highlightIcon don't share the same slice
+		return append([]byte{}, data...)
 	}
 	bounds := img.Bounds()
 	bright := image.NewRGBA(bounds)
@@ -72,10 +69,10 @@ func brightenPNG(data []byte, factor float64) []byte {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			c := bright.RGBAAt(x, y)
-			r := uint8(clamp(float64(c.R) * factor))
-			g := uint8(clamp(float64(c.G) * factor))
-			b := uint8(clamp(float64(c.B) * factor))
-			bright.SetRGBA(x, y, color.RGBA{R: r, G: g, B: b, A: c.A})
+			c.R = clamp(float64(c.R) * factor)
+			c.G = clamp(float64(c.G) * factor)
+			c.B = clamp(float64(c.B) * factor)
+			bright.SetRGBA(x, y, c)
 		}
 	}
 	var buf bytes.Buffer
@@ -83,11 +80,42 @@ func brightenPNG(data []byte, factor float64) []byte {
 	return buf.Bytes()
 }
 
-func clamp(v float64) float64 {
+func clamp(v float64) uint8 {
 	if v > 255 {
 		return 255
 	}
-	return v
+	return uint8(v)
+}
+
+// AddNotification stores a notification for the tray popup.
+func (tm *TrayManager) AddNotification(sessionID, sessionTitle, notifType, message string) {
+	tm.notifMu.Lock()
+	defer tm.notifMu.Unlock()
+	n := NotificationData{
+		ID:           fmt.Sprintf("notif-%d-%d", len(tm.notifications), time.Now().UnixMilli()),
+		SessionID:    sessionID,
+		SessionTitle: sessionTitle,
+		Type:         notifType,
+		Message:      message,
+		Timestamp:    time.Now().UnixMilli(),
+	}
+	tm.notifications = append(tm.notifications, n)
+}
+
+// ClearNotifications clears all stored notifications.
+func (tm *TrayManager) ClearNotifications() {
+	tm.notifMu.Lock()
+	defer tm.notifMu.Unlock()
+	tm.notifications = nil
+}
+
+// GetTrayNotifications returns current notifications for the popup window.
+func (tm *TrayManager) GetTrayNotifications() []NotificationData {
+	tm.notifMu.Lock()
+	defer tm.notifMu.Unlock()
+	result := make([]NotificationData, len(tm.notifications))
+	copy(result, tm.notifications)
+	return result
 }
 
 func (tm *TrayManager) Init() error {
@@ -193,19 +221,16 @@ func (tm *TrayManager) Close() {
 func (tm *TrayManager) showPopup() {
 	tm.mu.Lock()
 	pw := tm.popupWindow
-	tm.mu.Unlock()
-
 	if pw == nil {
+		tm.mu.Unlock()
 		tm.createPopupWindow()
 		tm.mu.Lock()
 		pw = tm.popupWindow
-		tm.mu.Unlock()
 	}
-
+	tm.mu.Unlock()
 	if pw == nil {
 		return
 	}
-	// Position near tray icon
 	if err := tm.systemTray.PositionWindow(pw, 5); err != nil {
 		return
 	}
@@ -215,6 +240,10 @@ func (tm *TrayManager) showPopup() {
 
 func (tm *TrayManager) hidePopup() {
 	tm.mu.Lock()
+	if tm.popupDebounce != nil {
+		tm.popupDebounce.Stop()
+		tm.popupDebounce = nil
+	}
 	pw := tm.popupWindow
 	tm.mu.Unlock()
 	if pw != nil {

@@ -2943,17 +2943,27 @@ func (a *App) SetTrayManager(tm *TrayManager) {
 	a.trayMgr = tm
 }
 
-// SendTrayNotification 触发托盘图标闪烁（有新未读消息时前端调用）
-func (a *App) SendTrayNotification(title string, body string) {
+// SendTrayNotification stores a notification and triggers tray blink.
+func (a *App) SendTrayNotification(sessionTitle string, message string) {
 	if a.trayMgr != nil {
+		a.trayMgr.AddNotification("", sessionTitle, "notification", message)
 		a.trayMgr.StartBlink()
 	}
 }
 
-// ClearTrayNotifications 清除所有未读消息，停止闪烁
+// ClearTrayNotifications clears all notifications and stops blink.
 func (a *App) ClearTrayNotifications() {
 	if a.trayMgr != nil {
 		a.trayMgr.StopBlink()
 		a.trayMgr.HidePopup()
+		a.trayMgr.ClearNotifications()
 	}
+}
+
+// GetTrayNotifications returns notifications for the popup window.
+func (a *App) GetTrayNotifications() []NotificationData {
+	if a.trayMgr != nil {
+		return a.trayMgr.GetTrayNotifications()
+	}
+	return nil
 }

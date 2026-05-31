@@ -34,8 +34,8 @@ import (
 //go:embed frontend/dist
 var embeddedAssets embed.FS
 
-//go:embed winres/icon.ico
-var iconICO []byte
+//go:embed winres/icon.png
+var iconPNG []byte
 
 func main() {
 	// Clean up leftover from previous update.
@@ -354,7 +354,7 @@ The content below is your PROJECT RULES from AGENTS.md. These rules are NON-NEGO
 		StartState: application.WindowStateMaximised,
 	})
 
-	trayMgr := api.NewTrayManager(app, mainWindow, iconICO)
+	trayMgr := api.NewTrayManager(app, mainWindow, iconPNG)
 	if err := trayMgr.Init(); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] tray init failed: %v\n", err)
 	} else {
