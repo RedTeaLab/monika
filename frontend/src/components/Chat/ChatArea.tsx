@@ -420,8 +420,8 @@ function ChatArea(props: IDockviewPanelProps) {
               message={msg}
               isGenerating={idx === generatingIdx}
               hideExtras={hideExtras}
-              onQuote={handleQuote}
-              onForward={handleForward}
+              onQuote={(msg.role === 'user' || msg.role === 'assistant') ? handleQuote : undefined}
+              onForward={(msg.role === 'user' || msg.role === 'assistant') ? handleForward : undefined}
               multiSelectMode={selection?.mode ?? null}
               isSelected={selection?.ids?.includes(msg.id) ?? false}
               onToggleSelect={toggleMessageSelection}
