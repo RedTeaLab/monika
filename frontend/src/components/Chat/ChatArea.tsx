@@ -17,6 +17,10 @@ import MultiSelectBar from './MultiSelectBar'
 const EMPTY_ARR: any[] = []
 const EMPTY_STR_ARR: string[] = []
 
+function truncateContent(content: string, maxLen: number): string {
+  return content.length > maxLen ? content.slice(0, maxLen) + '...' : content
+}
+
 function ChatArea(props: IDockviewPanelProps) {
   const activeSessionId = useStore((s) => s.activeSessionId)
   const sessionId = activeSessionId || 'chat'
@@ -287,10 +291,6 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }, [sessionId])
 
-  function truncateContent(content: string, maxLen: number): string {
-    return content.length > maxLen ? content.slice(0, maxLen) + '...' : content
-  }
-
   const handleQuote = (id: string) => {
     enterMultiSelect('quote', id)
   }
@@ -422,7 +422,7 @@ function ChatArea(props: IDockviewPanelProps) {
               onQuote={handleQuote}
               onForward={handleForward}
               multiSelectMode={selection?.mode ?? null}
-              isSelected={selection?.ids.includes(msg.id) ?? false}
+              isSelected={selection?.ids?.includes(msg.id) ?? false}
               onToggleSelect={toggleMessageSelection}
             />
           ))
