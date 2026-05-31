@@ -82,6 +82,8 @@ function ChatArea(props: IDockviewPanelProps) {
   const [quotePreviewMessages, setQuotePreviewMessages] = useState<{ id: string; role: string; content: string }[]>([])
   const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
   const [forwardedQuotes, setForwardedQuotes] = useState<Record<string, { id: string; role: string; content: string }[]>>({})
+  const forwardedQuotesRef = useRef(forwardedQuotes)
+  forwardedQuotesRef.current = forwardedQuotes
 
   const handleTabStartEdit = (tab: typeof openSessions[0], e: React.MouseEvent) => {
     e.stopPropagation()
@@ -264,7 +266,6 @@ function ChatArea(props: IDockviewPanelProps) {
 
   useEffect(() => {
     clearSelection()
-    setQuotePreviewMessages([])
     setSessionPickerOpen(false)
   }, [sessionId])
 
@@ -281,8 +282,8 @@ function ChatArea(props: IDockviewPanelProps) {
   }, [selection])
 
   useEffect(() => {
-    if (forwardedQuotes[sessionId]) {
-      setQuotePreviewMessages(forwardedQuotes[sessionId])
+    if (forwardedQuotesRef.current[sessionId]) {
+      setQuotePreviewMessages(forwardedQuotesRef.current[sessionId])
       setForwardedQuotes((prev) => {
         const next = { ...prev }
         delete next[sessionId]
