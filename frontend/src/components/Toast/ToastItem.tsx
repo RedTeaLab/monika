@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useStore } from '../../store'
 import type { NotificationItem } from '../../store/notificationStore'
 
 interface ToastItemProps {
@@ -8,22 +9,64 @@ interface ToastItemProps {
 
 export function ToastItem({ item, onDismiss }: ToastItemProps) {
   const [visible, setVisible] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const switchSessionTab = useStore((s) => s.switchSessionTab)
+  const openSessionTab = useStore((s) => s.openSessionTab)
+
+  const startDismissTimer = () => {
+    timerRef.current = setTimeout(() => {
+      setVisible(false)
+      setTimeout(() => onDismiss(item.id), 300)
+    }, 5000)
+  }
 
   useEffect(() => {
-    // Trigger slide-in animation on next frame
     requestAnimationFrame(() => setVisible(true))
-
-    const timer = setTimeout(() => {
-      setVisible(false)
-      setTimeout(() => onDismiss(item.id), 300) // wait for fade-out
-    }, 4700) // slightly before the 5s auto-dismiss in store
-    return () => clearTimeout(timer)
+    startDismissTimer()
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, [])
+
+  const handleMouseEnter = () => {
+    setIsHovered(true)
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  const handleMouseLeave = () => {
+    setIsHovered(false)
+    if (!timerRef.current) {
+      startDismissTimer()
+    }
+  }
+
+  const handleView = () => {
+    const state = useStore.getState()
+    const existing = state.openSessions.find((s) => s.id === item.sessionId)
+    if (existing) {
+      switchSessionTab(item.sessionId)
+    } else {
+      openSessionTab(item.sessionId, item.sessionTitle)
+    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    onDismiss(item.id)
+  }
+
+  const handleDismiss = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    onDismiss(item.id)
+  }
 
   const typeLabel = item.type === 'reply-complete' ? '回复完成' : '请求权限'
 
   return (
     <div
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className={`
         flex flex-col gap-0.5 px-3 py-2
         bg-[var(--bg-elevated)] border border-[var(--border)]
@@ -36,13 +79,27 @@ export function ToastItem({ item, onDismiss }: ToastItemProps) {
       <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">
         {item.sessionTitle}
       </div>
-      <div className="text-[11px] text-[var(--text-dim)]">
-        {typeLabel}
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-[var(--text-dim)]">{typeLabel}</span>
+        {isHovered && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleView}
+              className="text-[11px] text-[var(--accent)] hover:text-[var(--accent-hover)]"
+            >
+              View
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)]"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
       {item.message && (
-        <div className="text-[11px] text-[var(--text-dim)] truncate">
-          {item.message}
-        </div>
+        <div className="text-[11px] text-[var(--text-dim)] truncate">{item.message}</div>
       )}
     </div>
   )

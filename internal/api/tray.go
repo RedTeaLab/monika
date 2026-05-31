@@ -121,6 +121,45 @@ func (tm *TrayManager) GetTrayNotifications() []NotificationData {
 	return result
 }
 
+// RemoveNotification removes a single notification by ID.
+func (tm *TrayManager) RemoveNotification(notifID string) {
+	tm.notifMu.Lock()
+	defer tm.notifMu.Unlock()
+	filtered := make([]NotificationData, 0, len(tm.notifications))
+	for _, n := range tm.notifications {
+		if n.ID != notifID {
+			filtered = append(filtered, n)
+		}
+	}
+	tm.notifications = filtered
+}
+
+// ActivateAndGetSessionID shows the main window, returns the session ID for the
+// given notification, and removes the notification.
+func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
+	tm.notifMu.Lock()
+	var sessionID string
+	for _, n := range tm.notifications {
+		if n.ID == notifID {
+			sessionID = n.SessionID
+			break
+		}
+	}
+	tm.notifMu.Unlock()
+
+	if !tm.mainWindow.IsVisible() {
+		wasMaximised := tm.mainWindow.IsMaximised()
+		tm.mainWindow.Show()
+		if wasMaximised {
+			tm.mainWindow.Maximise()
+		}
+	}
+	tm.mainWindow.Focus()
+
+	tm.RemoveNotification(notifID)
+	return sessionID
+}
+
 func (tm *TrayManager) Init() error {
 	if err := tm.loadIcons(); err != nil {
 		return err
@@ -138,8 +177,19 @@ func (tm *TrayManager) Init() error {
 	})
 	tm.systemTray.SetMenu(menu)
 
-	// Attach main window for left-click toggle
-	tm.systemTray.AttachWindow(tm.mainWindow).WindowOffset(5)
+	// Custom left-click toggle that preserves maximised state
+	tm.systemTray.OnClick(func() {
+		if tm.mainWindow.IsVisible() {
+			tm.mainWindow.Hide()
+		} else {
+			wasMaximised := tm.mainWindow.IsMaximised()
+			tm.mainWindow.Show()
+			if wasMaximised {
+				tm.mainWindow.Maximise()
+			}
+			tm.mainWindow.Focus()
+		}
+	})
 
 	// Mouse enter -> show popup if main window is hidden
 	tm.systemTray.OnMouseEnter(func() {
@@ -172,6 +222,12 @@ func (tm *TrayManager) StartBlink() {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	if tm.blinking || tm.systemTray == nil {
+		return
+	}
+	tm.notifMu.Lock()
+	count := len(tm.notifications)
+	tm.notifMu.Unlock()
+	if count == 0 {
 		return
 	}
 	tm.blinking = true

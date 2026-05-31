@@ -2944,9 +2944,9 @@ func (a *App) SetTrayManager(tm *TrayManager) {
 }
 
 // SendTrayNotification stores a notification and triggers tray blink.
-func (a *App) SendTrayNotification(sessionTitle string, message string) {
+func (a *App) SendTrayNotification(sessionID string, sessionTitle string, message string) {
 	if a.trayMgr != nil {
-		a.trayMgr.AddNotification("", sessionTitle, "notification", message)
+		a.trayMgr.AddNotification(sessionID, sessionTitle, "notification", message)
 		a.trayMgr.StartBlink()
 	}
 }
@@ -2966,4 +2966,23 @@ func (a *App) GetTrayNotifications() []NotificationData {
 		return a.trayMgr.GetTrayNotifications()
 	}
 	return nil
+}
+
+// ActivateSession activates the main window and returns the session ID for the given notification.
+func (a *App) ActivateSession(notifID string) string {
+	if a.trayMgr != nil {
+		return a.trayMgr.ActivateAndGetSessionID(notifID)
+	}
+	return ""
+}
+
+// DismissNotification removes a single notification without activating.
+func (a *App) DismissNotification(notifID string) {
+	if a.trayMgr != nil {
+		a.trayMgr.RemoveNotification(notifID)
+		remaining := a.trayMgr.GetTrayNotifications()
+		if len(remaining) == 0 {
+			a.trayMgr.StopBlink()
+		}
+	}
 }

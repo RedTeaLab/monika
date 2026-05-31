@@ -37,12 +37,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: s.unreadCount + 1,
     }))
     // Trigger tray blink via Go
-    App.SendTrayNotification(full.sessionTitle, full.message).catch(() => {})
-
-    // Auto-dismiss toast after 5 seconds
-    setTimeout(() => {
-      get().dismiss(id)
-    }, 5000)
+    App.SendTrayNotification(full.sessionId, full.sessionTitle, full.message).catch(() => {})
   },
 
   dismiss: (id) => {

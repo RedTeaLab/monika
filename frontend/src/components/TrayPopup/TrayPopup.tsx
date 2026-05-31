@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { App } from '../../../bindings/monika'
 
-// Define the interface matching Go's NotificationData
 interface TrayNotification {
   id: string
   session_id: string
@@ -22,7 +21,6 @@ export function TrayPopup() {
 
   useEffect(() => {
     fetchNotifications()
-    // Poll every 2 seconds for updates
     const interval = setInterval(fetchNotifications, 2000)
     return () => clearInterval(interval)
   }, [])
@@ -30,6 +28,12 @@ export function TrayPopup() {
   const handleClearAll = () => {
     App.ClearTrayNotifications().then(() => {
       setNotifications([])
+    }).catch(() => {})
+  }
+
+  const handleItemClick = (notifID: string) => {
+    App.ActivateSession(notifID).then(() => {
+      fetchNotifications()
     }).catch(() => {})
   }
 
@@ -47,7 +51,8 @@ export function TrayPopup() {
         {notifications.map((item) => (
           <div
             key={item.id}
-            className="py-1.5 border-b border-[var(--border)] last:border-b-0"
+            onClick={() => handleItemClick(item.id)}
+            className="py-1.5 border-b border-[var(--border)] last:border-b-0 cursor-pointer hover:bg-[var(--bg-hover)] rounded px-1 -mx-1 transition-colors"
           >
             <div className="text-[var(--text-primary)] truncate">{item.session_title}</div>
             <div className="flex justify-between mt-0.5">

@@ -233,6 +233,20 @@ export function GetTrayNotifications(): $CancellablePromise<$models.Notification
 }
 
 /**
+ * ActivateSession activates the main window and returns the session ID for the given notification.
+ */
+export function ActivateSession(notifID: string): $CancellablePromise<string> {
+    return $Call.ByID(1420000001, notifID);
+}
+
+/**
+ * DismissNotification removes a single notification without activating.
+ */
+export function DismissNotification(notifID: string): $CancellablePromise<void> {
+    return $Call.ByID(1420000002, notifID);
+}
+
+/**
  * GetUpdateStatus returns the current update process status.
  */
 export function GetUpdateStatus(): $CancellablePromise<update$0.UpdateStatus> {
@@ -569,8 +583,8 @@ export function SendMessage(projectPath: string, sessionID: string, text: string
 /**
  * SendTrayNotification stores a notification and triggers tray blink.
  */
-export function SendTrayNotification(sessionTitle: string, message: string): $CancellablePromise<void> {
-    return $Call.ByID(654018345, sessionTitle, message);
+export function SendTrayNotification(sessionID: string, sessionTitle: string, message: string): $CancellablePromise<void> {
+    return $Call.ByID(654018345, sessionID, sessionTitle, message);
 }
 
 export function SetDefaultModel(providerID: string, modelID: string): $CancellablePromise<void> {
