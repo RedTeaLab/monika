@@ -6,7 +6,6 @@ import (
 	"image/color"
 	"image/draw"
 	"image/png"
-	"os"
 	"sync"
 	"time"
 
@@ -21,6 +20,7 @@ type TrayManager struct {
 
 	normalIcon    []byte
 	highlightIcon []byte
+	iconData      []byte
 
 	mu          sync.Mutex
 	blinkStop   chan struct{}
@@ -29,19 +29,16 @@ type TrayManager struct {
 	popupDebounce *time.Timer
 }
 
-func NewTrayManager(app *application.App, mainWindow application.Window) *TrayManager {
+func NewTrayManager(app *application.App, mainWindow application.Window, iconData []byte) *TrayManager {
 	return &TrayManager{
-		app:        app,
+		app:       app,
 		mainWindow: mainWindow,
+		iconData:  iconData,
 	}
 }
 
 func (tm *TrayManager) loadIcons() error {
-	data, err := os.ReadFile("winres/icon.ico")
-	if err != nil {
-		return err
-	}
-	normalPNG, err := icoToPNG(data)
+	normalPNG, err := icoToPNG(tm.iconData)
 	if err != nil {
 		return err
 	}
@@ -105,10 +102,7 @@ func (tm *TrayManager) Init() error {
 	// Right-click menu: Exit only
 	menu := tm.app.Menu.New()
 	menu.Add("退出").OnClick(func(c *application.Context) {
-		tm.StopBlink()
-		if tm.popupWindow != nil {
-			tm.popupWindow.Close()
-		}
+		tm.Close()
 		tm.app.Quit()
 	})
 	tm.systemTray.SetMenu(menu)
@@ -124,6 +118,7 @@ func (tm *TrayManager) Init() error {
 		tm.mu.Lock()
 		if tm.popupDebounce != nil {
 			tm.popupDebounce.Stop()
+			tm.popupDebounce = nil
 		}
 		tm.mu.Unlock()
 		tm.showPopup()
@@ -181,29 +176,54 @@ func (tm *TrayManager) StopBlink() {
 	close(tm.blinkStop)
 }
 
-func (tm *TrayManager) showPopup() {
-	if tm.popupWindow == nil {
-		tm.createPopupWindow()
+func (tm *TrayManager) Close() {
+	tm.StopBlink()
+	tm.mu.Lock()
+	pw := tm.popupWindow
+	tm.popupWindow = nil
+	tm.mu.Unlock()
+	if pw != nil {
+		pw.Close()
 	}
-	if tm.popupWindow == nil {
+	if tm.systemTray != nil {
+		tm.systemTray.Destroy()
+	}
+}
+
+func (tm *TrayManager) showPopup() {
+	tm.mu.Lock()
+	pw := tm.popupWindow
+	tm.mu.Unlock()
+
+	if pw == nil {
+		tm.createPopupWindow()
+		tm.mu.Lock()
+		pw = tm.popupWindow
+		tm.mu.Unlock()
+	}
+
+	if pw == nil {
 		return
 	}
 	// Position near tray icon
-	if err := tm.systemTray.PositionWindow(tm.popupWindow, 5); err != nil {
+	if err := tm.systemTray.PositionWindow(pw, 5); err != nil {
 		return
 	}
-	tm.popupWindow.Show()
-	tm.popupWindow.Focus()
+	pw.Show()
+	pw.Focus()
 }
 
 func (tm *TrayManager) hidePopup() {
-	if tm.popupWindow != nil {
-		tm.popupWindow.Hide()
+	tm.mu.Lock()
+	pw := tm.popupWindow
+	tm.mu.Unlock()
+	if pw != nil {
+		pw.Hide()
 	}
 }
 
 func (tm *TrayManager) createPopupWindow() {
-	tm.popupWindow = tm.app.Window.NewWithOptions(application.WebviewWindowOptions{
+	pw := tm.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:       "tray-popup",
 		Title:      "",
 		Width:      280,
@@ -222,4 +242,7 @@ func (tm *TrayManager) createPopupWindow() {
 		},
 		URL: "/#/tray-popup",
 	})
+	tm.mu.Lock()
+	tm.popupWindow = pw
+	tm.mu.Unlock()
 }
