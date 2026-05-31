@@ -60,6 +60,7 @@ function SessionList(props: IDockviewPanelProps) {
   }
 
   const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation()
     if (e.key === 'Enter') {
       e.preventDefault()
       handleFinishEdit()
