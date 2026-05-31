@@ -346,15 +346,12 @@ func (g *gitTool) execCommit(repo *gitutil.Repository, args struct {
 	if args.Message == "" {
 		return tool.ExecutionResult{Content: "commit message is required", IsError: true}, nil
 	}
-	author := gitutil.CommitAuthor{
-		Name:  args.AuthorName,
-		Email: args.AuthorEmail,
+	author := repo.DefaultAuthor()
+	if args.AuthorName != "" {
+		author.Name = args.AuthorName
 	}
-	if author.Name == "" {
-		author.Name = "Monika"
-	}
-	if author.Email == "" {
-		author.Email = "monika@monika.dev"
+	if args.AuthorEmail != "" {
+		author.Email = args.AuthorEmail
 	}
 	hash, err := repo.Commit(args.Message, author)
 	if err != nil {
