@@ -34,9 +34,9 @@ type CommitAuthor struct {
 }
 
 // DefaultAuthor returns the configured user from git config.
-// Falls back to "Monika <monika@monika.dev>" if the config is empty.
+// Returns an empty CommitAuthor if the config has no user set.
 func (r *Repository) DefaultAuthor() CommitAuthor {
-	a := CommitAuthor{Name: "Monika", Email: "monika@monika.dev"}
+	var a CommitAuthor
 	if cfg, err := r.inner.Config(); err == nil {
 		if cfg.User.Name != "" {
 			a.Name = cfg.User.Name
