@@ -1,7 +1,6 @@
 package api
 
 import (
-	"os"
 	"sync"
 	"testing"
 )
@@ -115,68 +114,28 @@ func TestTrayManager_GetTrayNotifications_IsCopy(t *testing.T) {
 	}
 }
 
-// TestBrightenPNG verifies brightenPNG produces valid output from
-// the actual winres/icon.png file.
-func TestBrightenPNG(t *testing.T) {
-	data, err := os.ReadFile("../../winres/icon.png")
-	if err != nil {
-		t.Skip("winres/icon.png not found, skipping:", err)
+// TestTrayManager_RemoveNotification verifies single notification removal.
+func TestTrayManager_RemoveNotification(t *testing.T) {
+	tm := &TrayManager{
+		notifications: nil,
+		notifMu:       sync.Mutex{},
 	}
 
-	result := brightenPNG(data, 1.2)
+	tm.AddNotification("sess-1", "title-a", "reply-complete", "msg a")
+	tm.AddNotification("sess-2", "title-b", "permission-request", "msg b")
+	tm.AddNotification("sess-3", "title-c", "reply-complete", "msg c")
 
-	if len(result) == 0 {
-		t.Fatal("brightenPNG returned empty result")
-	}
+	notifs := tm.GetTrayNotifications()
+	tm.RemoveNotification(notifs[1].ID) // remove middle one
 
-	// Should be different from the input
-	if len(result) == len(data) {
-		same := true
-		for i := range data {
-			if result[i] != data[i] {
-				same = false
-				break
-			}
-		}
-		if same {
-			t.Fatal("brightenPNG returned identical data (factor 1.2 should change brightness)")
-		}
+	got := tm.GetTrayNotifications()
+	if len(got) != 2 {
+		t.Fatalf("expected 2 after removing one, got %d", len(got))
 	}
-}
-
-// TestBrightenPNGFallback verifies that brightenPNG gracefully handles
-// invalid input by returning a copy of the original bytes.
-func TestBrightenPNGFallback(t *testing.T) {
-	invalidData := []byte{0, 1, 2, 3, 4, 5} // Not a valid image
-	result := brightenPNG(invalidData, 1.2)
-
-	if len(result) != len(invalidData) {
-		t.Fatalf("expected fallback to same length, got %d != %d", len(result), len(invalidData))
+	if got[0].SessionTitle != "title-a" {
+		t.Fatalf("expected first remaining to be title-a, got %s", got[0].SessionTitle)
 	}
-	for i := range invalidData {
-		if result[i] != invalidData[i] {
-			t.Fatalf("fallback data differs at index %d", i)
-		}
-	}
-}
-
-// TestClamp verifies the clamp function.
-func TestClamp(t *testing.T) {
-	tests := []struct {
-		input float64
-		want  uint8
-	}{
-		{0, 0},
-		{100, 100},
-		{255, 255},
-		{256, 255},
-		{300, 255},
-		{-1, 0},
-	}
-	for _, tt := range tests {
-		got := clamp(tt.input)
-		if got != tt.want {
-			t.Errorf("clamp(%f) = %d, want %d", tt.input, got, tt.want)
-		}
+	if got[1].SessionTitle != "title-c" {
+		t.Fatalf("expected second remaining to be title-c, got %s", got[1].SessionTitle)
 	}
 }

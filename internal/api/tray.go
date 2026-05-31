@@ -1,11 +1,7 @@
 package api
 
 import (
-	"bytes"
 	"fmt"
-	"image"
-	"image/draw"
-	"image/png"
 	"sync"
 	"time"
 
@@ -29,7 +25,6 @@ type TrayManager struct {
 	popupWindow  *application.WebviewWindow
 
 	normalIcon    []byte
-	highlightIcon []byte
 	iconData      []byte
 
 	mu          sync.Mutex
@@ -52,42 +47,7 @@ func NewTrayManager(app *application.App, mainWindow application.Window, iconDat
 
 func (tm *TrayManager) loadIcons() error {
 	tm.normalIcon = tm.iconData
-	tm.highlightIcon = brightenPNG(tm.iconData, 1.2)
 	return nil
-}
-
-func brightenPNG(data []byte, factor float64) []byte {
-	reader := bytes.NewReader(data)
-	img, _, err := image.Decode(reader)
-	if err != nil {
-		// Return a copy so normalIcon and highlightIcon don't share the same slice
-		return append([]byte{}, data...)
-	}
-	bounds := img.Bounds()
-	bright := image.NewRGBA(bounds)
-	draw.Draw(bright, bounds, img, bounds.Min, draw.Src)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			c := bright.RGBAAt(x, y)
-			c.R = clamp(float64(c.R) * factor)
-			c.G = clamp(float64(c.G) * factor)
-			c.B = clamp(float64(c.B) * factor)
-			bright.SetRGBA(x, y, c)
-		}
-	}
-	var buf bytes.Buffer
-	_ = png.Encode(&buf, bright)
-	return buf.Bytes()
-}
-
-func clamp(v float64) uint8 {
-	if v <= 0 {
-		return 0
-	}
-	if v >= 255 {
-		return 255
-	}
-	return uint8(v)
 }
 
 // AddNotification stores a notification for the tray popup.
@@ -232,21 +192,21 @@ func (tm *TrayManager) StartBlink() {
 	}
 	tm.blinking = true
 	tm.blinkStop = make(chan struct{})
-	normal := true
+	visible := true
 	go func() {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				if normal {
-					tm.systemTray.SetIcon(tm.normalIcon)
+				if visible {
+					tm.systemTray.Show()
 				} else {
-					tm.systemTray.SetIcon(tm.highlightIcon)
+					tm.systemTray.Hide()
 				}
-				normal = !normal
+				visible = !visible
 			case <-tm.blinkStop:
-				tm.systemTray.SetIcon(tm.normalIcon)
+				tm.systemTray.Show()
 				return
 			}
 		}
