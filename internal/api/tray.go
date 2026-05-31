@@ -1,0 +1,227 @@
+package api
+
+import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"os"
+	"sync"
+	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
+)
+
+type TrayManager struct {
+	app          *application.App
+	systemTray   *application.SystemTray
+	mainWindow   application.Window
+	popupWindow  *application.WebviewWindow
+
+	normalIcon    []byte
+	highlightIcon []byte
+
+	mu          sync.Mutex
+	blinkStop   chan struct{}
+	blinking    bool
+
+	popupDebounce *time.Timer
+}
+
+func NewTrayManager(app *application.App, mainWindow application.Window) *TrayManager {
+	return &TrayManager{
+		app:        app,
+		mainWindow: mainWindow,
+	}
+}
+
+func (tm *TrayManager) loadIcons() error {
+	data, err := os.ReadFile("winres/icon.ico")
+	if err != nil {
+		return err
+	}
+	normalPNG, err := icoToPNG(data)
+	if err != nil {
+		return err
+	}
+	tm.normalIcon = normalPNG
+	tm.highlightIcon = brightenPNG(normalPNG, 1.2)
+	return nil
+}
+
+func icoToPNG(data []byte) ([]byte, error) {
+	reader := bytes.NewReader(data)
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func brightenPNG(data []byte, factor float64) []byte {
+	reader := bytes.NewReader(data)
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		return data
+	}
+	bounds := img.Bounds()
+	bright := image.NewRGBA(bounds)
+	draw.Draw(bright, bounds, img, bounds.Min, draw.Src)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := bright.RGBAAt(x, y)
+			r := uint8(clamp(float64(c.R) * factor))
+			g := uint8(clamp(float64(c.G) * factor))
+			b := uint8(clamp(float64(c.B) * factor))
+			bright.SetRGBA(x, y, color.RGBA{R: r, G: g, B: b, A: c.A})
+		}
+	}
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, bright)
+	return buf.Bytes()
+}
+
+func clamp(v float64) float64 {
+	if v > 255 {
+		return 255
+	}
+	return v
+}
+
+func (tm *TrayManager) Init() error {
+	if err := tm.loadIcons(); err != nil {
+		return err
+	}
+
+	tm.systemTray = tm.app.SystemTray.New()
+	tm.systemTray.SetIcon(tm.normalIcon)
+	tm.systemTray.SetTooltip("Monika")
+
+	// Right-click menu: Exit only
+	menu := tm.app.Menu.New()
+	menu.Add("退出").OnClick(func(c *application.Context) {
+		tm.StopBlink()
+		if tm.popupWindow != nil {
+			tm.popupWindow.Close()
+		}
+		tm.app.Quit()
+	})
+	tm.systemTray.SetMenu(menu)
+
+	// Attach main window for left-click toggle
+	tm.systemTray.AttachWindow(tm.mainWindow).WindowOffset(5)
+
+	// Mouse enter -> show popup if main window is hidden
+	tm.systemTray.OnMouseEnter(func() {
+		if tm.mainWindow.IsVisible() {
+			return
+		}
+		if tm.popupDebounce != nil {
+			tm.popupDebounce.Stop()
+		}
+		tm.showPopup()
+	})
+
+	// Mouse leave -> hide popup after debounce
+	tm.systemTray.OnMouseLeave(func() {
+		tm.popupDebounce = time.AfterFunc(300*time.Millisecond, func() {
+			tm.hidePopup()
+		})
+	})
+
+	tm.systemTray.Run()
+	return nil
+}
+
+func (tm *TrayManager) StartBlink() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	if tm.blinking {
+		return
+	}
+	tm.blinking = true
+	tm.blinkStop = make(chan struct{})
+	normal := true
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if normal {
+					tm.systemTray.SetIcon(tm.normalIcon)
+				} else {
+					tm.systemTray.SetIcon(tm.highlightIcon)
+				}
+				normal = !normal
+			case <-tm.blinkStop:
+				tm.systemTray.SetIcon(tm.normalIcon)
+				return
+			}
+		}
+	}()
+}
+
+func (tm *TrayManager) StopBlink() {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	if !tm.blinking {
+		return
+	}
+	tm.blinking = false
+	close(tm.blinkStop)
+}
+
+func (tm *TrayManager) showPopup() {
+	if tm.popupWindow == nil {
+		tm.createPopupWindow()
+	}
+	if tm.popupWindow == nil {
+		return
+	}
+	// Position near tray icon
+	if err := tm.systemTray.PositionWindow(tm.popupWindow, 5); err != nil {
+		return
+	}
+	tm.popupWindow.Show()
+	tm.popupWindow.Focus()
+}
+
+func (tm *TrayManager) hidePopup() {
+	if tm.popupWindow != nil {
+		tm.popupWindow.Hide()
+	}
+}
+
+func (tm *TrayManager) createPopupWindow() {
+	tm.popupWindow = tm.app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:       "tray-popup",
+		Title:      "",
+		Width:      280,
+		Height:     200,
+		MinWidth:   280,
+		MinHeight:  150,
+		MaxWidth:   280,
+		MaxHeight:  400,
+		Frameless:  true,
+		DisableResize: true,
+		Hidden:     true,
+		AlwaysOnTop: true,
+		HideOnFocusLost: true,
+		Windows: application.WindowsWindow{
+			HiddenOnTaskbar: true,
+		},
+		URL: "/#/tray-popup",
+	})
+
+	// Hide on focus lost (user clicks elsewhere)
+	tm.popupWindow.RegisterHook(events.Common.WindowLostFocus, func(e *application.WindowEvent) {
+		tm.hidePopup()
+	})
+}
