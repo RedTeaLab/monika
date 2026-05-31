@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { TrayPopup } from './components/TrayPopup/TrayPopup'
 import { setupWailsEvents, initProject } from './store'
 
 class ErrorBoundary extends React.Component<
@@ -37,12 +38,23 @@ try {
   throw e
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary>
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  </ErrorBoundary>,
-)
+const isTrayPopup = window.location.hash === '#/tray-popup'
 
-initProject()
+if (isTrayPopup) {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <ErrorBoundary>
+      <React.StrictMode>
+        <TrayPopup />
+      </React.StrictMode>
+    </ErrorBoundary>,
+  )
+} else {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <ErrorBoundary>
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    </ErrorBoundary>,
+  )
+  initProject()
+}
