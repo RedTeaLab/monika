@@ -2987,3 +2987,17 @@ func (a *App) DismissNotification(notifID string) {
 		}
 	}
 }
+
+// CancelPopupHide stops the popup hide debounce.
+func (a *App) CancelPopupHide() {
+	if a.trayMgr != nil {
+		a.trayMgr.CancelPopupHide()
+	}
+}
+
+// SchedulePopupHide starts a debounce to hide the popup.
+func (a *App) SchedulePopupHide() {
+	if a.trayMgr != nil {
+		a.trayMgr.SchedulePopupHide()
+	}
+}

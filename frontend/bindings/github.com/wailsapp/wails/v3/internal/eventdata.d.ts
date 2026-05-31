@@ -17,6 +17,7 @@ declare module "@wailsio/runtime" {
         interface CustomEvents {
             "branch-changed": string;
             "stream": api$0.StreamEvent;
+            "tray-notifications-changed": api$0.NotificationData[];
             "update-available": update$0.UpdateInfo;
         }
     }

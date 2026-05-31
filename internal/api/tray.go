@@ -1,7 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/draw"
+	"image/png"
 	"sync"
 	"time"
 
@@ -25,6 +29,7 @@ type TrayManager struct {
 	popupWindow  *application.WebviewWindow
 
 	iconData      []byte
+	transparentIcon []byte
 
 	mu          sync.Mutex
 	blinkStop   chan struct{}
@@ -42,6 +47,27 @@ func NewTrayManager(app *application.App, mainWindow application.Window, iconDat
 		mainWindow: mainWindow,
 		iconData:   iconData,
 	}
+}
+
+func makeTransparent(data []byte, alpha uint8) []byte {
+	reader := bytes.NewReader(data)
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		return append([]byte{}, data...)
+	}
+	bounds := img.Bounds()
+	rgba := image.NewRGBA(bounds)
+	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := rgba.RGBAAt(x, y)
+			c.A = alpha
+			rgba.SetRGBA(x, y, c)
+		}
+	}
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, rgba)
+	return buf.Bytes()
 }
 
 // AddNotification stores a notification for the tray popup.
@@ -149,6 +175,7 @@ func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 func (tm *TrayManager) Init() error {
 	tm.systemTray = tm.app.SystemTray.New()
 	tm.systemTray.SetIcon(tm.iconData)
+	tm.transparentIcon = makeTransparent(tm.iconData, 64) // ~25% opacity
 	tm.systemTray.SetTooltip("Monika")
 
 	// Right-click menu: Exit only
@@ -236,14 +263,14 @@ func (tm *TrayManager) StartBlink() {
 					return
 				}
 				if visible {
-					tm.systemTray.Show()
+					tm.systemTray.SetIcon(tm.iconData)
 				} else {
-					tm.systemTray.Hide()
+					tm.systemTray.SetIcon(tm.transparentIcon)
 				}
 				visible = !visible
 			case <-tm.blinkStop:
 				if tm.systemTray != nil {
-					tm.systemTray.Show()
+					tm.systemTray.SetIcon(tm.iconData)
 				}
 				return
 			}
@@ -323,6 +350,28 @@ func (tm *TrayManager) HidePopup() {
 	tm.hidePopup()
 }
 
+// CancelPopupHide stops any pending hide debounce (called from popup frontend on mouse enter).
+func (tm *TrayManager) CancelPopupHide() {
+	tm.mu.Lock()
+	if tm.popupDebounce != nil {
+		tm.popupDebounce.Stop()
+		tm.popupDebounce = nil
+	}
+	tm.mu.Unlock()
+}
+
+// SchedulePopupHide starts a debounce to hide the popup (called from popup frontend on mouse leave).
+func (tm *TrayManager) SchedulePopupHide() {
+	tm.mu.Lock()
+	if tm.popupDebounce != nil {
+		tm.popupDebounce.Stop()
+	}
+	tm.popupDebounce = time.AfterFunc(300*time.Millisecond, func() {
+		tm.hidePopup()
+	})
+	tm.mu.Unlock()
+}
+
 func (tm *TrayManager) createPopupWindow() {
 	pw := tm.app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:       "tray-popup",
@@ -337,7 +386,6 @@ func (tm *TrayManager) createPopupWindow() {
 		DisableResize: true,
 		Hidden:     true,
 		AlwaysOnTop: true,
-		HideOnFocusLost: true,
 		Windows: application.WindowsWindow{
 			HiddenOnTaskbar: true,
 		},

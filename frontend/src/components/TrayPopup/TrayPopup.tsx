@@ -46,7 +46,12 @@ export function TrayPopup() {
   }
 
   return (
-    <div className="flex flex-col h-full select-none" style={{ background: 'var(--bg-elevated)' }}>
+    <div
+      className="flex flex-col h-full select-none"
+      style={{ background: 'var(--bg-elevated)' }}
+      onMouseEnter={() => App.CancelPopupHide().catch(() => {})}
+      onMouseLeave={() => App.SchedulePopupHide().catch(() => {})}
+    >
       <div className="flex-1 overflow-y-auto px-3 py-2" style={{ fontSize: 12 }}>
         {notifications.map((item) => (
           <div
