@@ -10,13 +10,21 @@ type ChatRequest struct {
 }
 
 type ChatMessage struct {
-	Role             string     `json:"role"`
-	Content          string     `json:"content"`
-	ReasoningContent string     `json:"reasoning_content"`
-	ToolCalls        []ToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string     `json:"tool_call_id,omitempty"`
-	Name             string     `json:"name,omitempty"`
-	TokenUsage       *Usage     `json:"token_usage,omitempty"`
+	Role             string          `json:"role"`
+	Content          string          `json:"content"`
+	ReasoningContent string          `json:"reasoning_content"`
+	ToolCalls        []ToolCall      `json:"tool_calls,omitempty"`
+	ToolCallID       string          `json:"tool_call_id,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	TokenUsage       *Usage          `json:"token_usage,omitempty"`
+	QuotedMessages   []QuotedMessage `json:"quoted_messages,omitempty"`
+}
+
+// QuotedMessage is a snapshot of a referenced message used for quoting/forwarding.
+type QuotedMessage struct {
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 type ChatEvent struct {
