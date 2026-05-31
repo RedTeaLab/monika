@@ -98,32 +98,41 @@ function formatModel(model: string): string {
     .replace(/-preview$/, '')
 }
 
+/* ---- copy button ---- */
+
+function CopyButton({ content }: { content?: string }) {
+  const [copied, setCopied] = useState(false)
+  if (!content) return null
+  return (
+    <button
+      className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+      style={{ color: 'var(--text-dim)' }}
+      onClick={(e) => {
+        e.stopPropagation()
+        navigator.clipboard.writeText(content)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      }}
+      aria-label="Copy"
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  )
+}
+
 /* ---- shared glass card shell ---- */
 
 function MsgBlock({
   accent,
   header,
   background,
-  copyContent,
   children,
 }: {
   accent?: string
   header?: React.ReactNode
   background?: string
-  copyContent?: string
   children: React.ReactNode
 }) {
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (copyContent) {
-      navigator.clipboard.writeText(copyContent)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    }
-  }
-
   return (
     <div
       className="rounded-lg px-[12px] py-[8px] w-full relative group/msg"
@@ -131,18 +140,6 @@ function MsgBlock({
         background: background || 'var(--bg-elevated)',
       }}
     >
-      {copyContent && (
-        <button
-          className="absolute top-[3px] right-[3px] opacity-0 group-hover/msg:opacity-100 transition-opacity z-10
-                     text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5
-                     hover:bg-[var(--bg-hover)] cursor-pointer"
-          style={{ color: 'var(--text-dim)' }}
-          onClick={handleCopy}
-          aria-label="Copy"
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      )}
       {header && <div className={children ? 'mb-2' : ''}>{header}</div>}
       {children}
     </div>
@@ -170,7 +167,7 @@ function ThinkingBlock({ content }: { content: string; isGenerating?: boolean })
 
 function TextBlock({ content, borderColor }: { content: string; borderColor: string }) {
   return (
-    <MsgBlock accent={borderColor} copyContent={content}>
+    <MsgBlock accent={borderColor}>
       <div
         className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
         style={{ fontFamily: 'var(--font-mono)' }}
@@ -512,7 +509,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
     return (
       <div className="flex flex-col gap-1.5 mb-1.5">
         <RoleLabel role="shell" />
-        <MsgBlock accent="var(--yellow)" copyContent={content}>
+        <MsgBlock accent="var(--yellow)">
           <div
             className="text-[13px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.6]"
             style={{ fontFamily: 'var(--font-mono)' }}
@@ -538,7 +535,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             </span>
           )}
         </div>
-        <MsgBlock accent="var(--subtask)" copyContent={content}>
+        <MsgBlock accent="var(--subtask)">
           <div className="text-[13px] text-[var(--text-dim)]">{content}</div>
         </MsgBlock>
       </div>
@@ -617,8 +614,9 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
               />
             </div>
           )}
-          {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-[55px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
+          {!isGenerating && !multiSelectMode && (content || onQuote || onForward) && (
+            <div className="absolute right-[3px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-0.5">
+              <CopyButton content={content} />
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
@@ -641,7 +639,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
           )}
           <div style={{ borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent', paddingLeft: '12px', borderRadius: '0 4px 4px 0', transition: 'border-color 0.15s' }}>
             <RoleLabel role="user" />
-            <MsgBlock accent="var(--accent)" copyContent={content}>
+            <MsgBlock accent="var(--accent)">
               <div className="text-[14px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.7]" style={{ wordBreak: 'break-word' }}>
                 {content}
               </div>
@@ -667,8 +665,9 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
               />
             </div>
           )}
-          {!isGenerating && !multiSelectMode && (onQuote || onForward) && (
-            <div className="absolute right-[55px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-20 flex gap-1">
+          {!isGenerating && !multiSelectMode && (content || onQuote || onForward) && (
+            <div className="absolute right-[3px] top-[2px] opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-0.5">
+              <CopyButton content={content} />
               {onQuote && (
                 <button
                   onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
@@ -694,7 +693,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             {!hideExtras && thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
 
             {content && (
-              <MsgBlock copyContent={content}>
+              <MsgBlock>
                 <MarkdownBlock content={content} streaming={isGenerating} />
               </MsgBlock>
             )}
