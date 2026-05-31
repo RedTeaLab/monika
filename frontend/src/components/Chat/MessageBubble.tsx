@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { QuotedMessage } from '../../store'
 import MarkdownBlock from './MarkdownBlock'
 import { IconChevronDown } from '../Icons'
 import SpawnBlock from './SpawnBlock'
@@ -25,6 +26,7 @@ interface Message {
   beforeTokens?: number
   afterTokens?: number
   subtaskAgent?: string
+  quotedMessages?: QuotedMessage[]
 }
 
 /* ---- role label ---- */
@@ -496,9 +498,14 @@ interface MessageBubbleProps {
   message: Message
   isGenerating?: boolean
   hideExtras?: boolean
+  onQuote?: (id: string) => void
+  onForward?: (id: string) => void
+  multiSelectMode?: 'quote' | 'forward' | null
+  isSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
-const MessageBubble = React.memo(function MessageBubble({ message, isGenerating, hideExtras }: MessageBubbleProps) {
+const MessageBubble = React.memo(function MessageBubble({ message, isGenerating, hideExtras, onQuote, onForward, multiSelectMode, isSelected, onToggleSelect }: MessageBubbleProps) {
   const { role, content, thinking, tools, model, duration, subtaskAgent } = message
 
   if (role === 'shell') {
@@ -574,14 +581,67 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
 
   return (
     <div className="flex flex-col gap-1.5 mb-1.5">
-      {role === 'user' ? (
-        <div>
-          <RoleLabel role="user" />
-          <MsgBlock accent="var(--accent)" copyContent={content}>
-            <div className="text-[14px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.7]" style={{ wordBreak: 'break-word' }}>
-              {content}
+      {message.quotedMessages && message.quotedMessages.length > 0 && (
+        <div
+          className="mb-2 px-2 py-1.5 rounded-md border-l-2 text-[12px]"
+          style={{
+            background: 'var(--bg-sidebar)',
+            borderColor: 'var(--border)',
+            color: 'var(--text-dim)',
+          }}
+        >
+          {message.quotedMessages.map((qm, i) => (
+            <div key={i} className="flex gap-1.5 truncate">
+              <span
+                className="text-[10px] font-semibold uppercase shrink-0"
+                style={{ color: qm.role === 'user' ? 'var(--accent)' : 'var(--text-dim)' }}
+              >
+                {qm.role === 'user' ? 'You' : qm.role === 'assistant' ? 'Assistant' : qm.role}
+              </span>
+              <span className="truncate">{qm.content.slice(0, 100)}</span>
             </div>
-          </MsgBlock>
+          ))}
+        </div>
+      )}
+      {role === 'user' ? (
+        <div className="group/bubble relative">
+          {multiSelectMode && (
+            <div className="absolute left-[-28px] top-1/2 -translate-y-1/2 z-10">
+              <input
+                type="checkbox"
+                checked={isSelected || false}
+                onChange={() => onToggleSelect?.(message.id)}
+                className="w-4 h-4 rounded cursor-pointer"
+                style={{ accentColor: 'var(--accent)' }}
+              />
+            </div>
+          )}
+          {!isGenerating && !multiSelectMode && onQuote && onForward && (
+            <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
+                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                style={{ color: 'var(--text-dim)' }}
+              >
+                Quote
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
+                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                style={{ color: 'var(--text-dim)' }}
+              >
+                Forward
+              </button>
+            </div>
+          )}
+          <div style={{ borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent', paddingLeft: '12px', borderRadius: '0 4px 4px 0', transition: 'border-color 0.15s' }}>
+            <RoleLabel role="user" />
+            <MsgBlock accent="var(--accent)" copyContent={content}>
+              <div className="text-[14px] text-[var(--text-primary)] whitespace-pre-wrap leading-[1.7]" style={{ wordBreak: 'break-word' }}>
+                {content}
+              </div>
+            </MsgBlock>
+          </div>
         </div>
       ) : role === 'error' ? (
         <div>
@@ -589,42 +649,73 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
           <TextBlock content={content} borderColor="var(--red)" />
         </div>
       ) : (
-        <>
-          {!hideExtras && <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />}
-          {!hideExtras && thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
-
-          {content && (
-            <MsgBlock copyContent={content}>
-              <MarkdownBlock content={content} streaming={isGenerating} />
-            </MsgBlock>
-          )}
-
-          {!hideExtras && tools?.map((tool, i) =>
-            tool.name === 'spawn_agent' ? (
-              <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
-            ) : (
-              <ToolBlock key={i} tool={tool} />
-            )
-          )}
-
-          {/* "view subagents" hint — matches preview HTML */}
-          {!hideExtras && hasSpawnAgent && (
-            <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
-              <span
-                className="text-[9px] font-mono px-1 py-0.5 rounded"
-                style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
-              >
-                click card →
-              </span>
-              view subagents
+        <div className="group/bubble relative">
+          {multiSelectMode && (
+            <div className="absolute left-[-28px] top-1/2 -translate-y-1/2 z-10">
+              <input
+                type="checkbox"
+                checked={isSelected || false}
+                onChange={() => onToggleSelect?.(message.id)}
+                className="w-4 h-4 rounded cursor-pointer"
+                style={{ accentColor: 'var(--accent)' }}
+              />
             </div>
           )}
-          {isGenerating && !content && !thinking && (!tools || tools.length === 0) && (
-            <MsgBlock>
-              <span className="text-[13px] text-[var(--text-dim)]">Thinking...</span>
-            </MsgBlock>
+          {!isGenerating && !multiSelectMode && onQuote && onForward && (
+            <div className="absolute right-0 top-0 opacity-0 group-hover/bubble:opacity-100 transition-opacity z-10 flex gap-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); onQuote(message.id) }}
+                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                style={{ color: 'var(--text-dim)' }}
+              >
+                Quote
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onForward(message.id) }}
+                className="text-[10px] font-semibold uppercase tracking-[0.04em] rounded px-1.5 py-0.5 hover:bg-[var(--bg-hover)] cursor-pointer"
+                style={{ color: 'var(--text-dim)' }}
+              >
+                Forward
+              </button>
+            </div>
           )}
-        </>
+          <div style={{ borderLeft: isSelected ? '3px solid var(--accent)' : '3px solid transparent', paddingLeft: '12px', borderRadius: '0 4px 4px 0', transition: 'border-color 0.15s' }}>
+            {!hideExtras && <RoleLabel role="assistant" isGenerating={isGenerating} model={model} duration={duration} />}
+            {!hideExtras && thinking && <ThinkingBlock content={thinking} isGenerating={isGenerating} />}
+
+            {content && (
+              <MsgBlock copyContent={content}>
+                <MarkdownBlock content={content} streaming={isGenerating} />
+              </MsgBlock>
+            )}
+
+            {!hideExtras && tools?.map((tool, i) =>
+              tool.name === 'spawn_agent' ? (
+                <SpawnBlock key={i} tool={tool} model={model} duration={duration} />
+              ) : (
+                <ToolBlock key={i} tool={tool} />
+              )
+            )}
+
+            {/* "view subagents" hint — matches preview HTML */}
+            {!hideExtras && hasSpawnAgent && (
+              <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
+                <span
+                  className="text-[9px] font-mono px-1 py-0.5 rounded"
+                  style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
+                >
+                  click card →
+                </span>
+                view subagents
+              </div>
+            )}
+            {isGenerating && !content && !thinking && (!tools || tools.length === 0) && (
+              <MsgBlock>
+                <span className="text-[13px] text-[var(--text-dim)]">Thinking...</span>
+              </MsgBlock>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )
