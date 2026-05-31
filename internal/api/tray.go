@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 type TrayManager struct {
@@ -122,17 +121,21 @@ func (tm *TrayManager) Init() error {
 		if tm.mainWindow.IsVisible() {
 			return
 		}
+		tm.mu.Lock()
 		if tm.popupDebounce != nil {
 			tm.popupDebounce.Stop()
 		}
+		tm.mu.Unlock()
 		tm.showPopup()
 	})
 
 	// Mouse leave -> hide popup after debounce
 	tm.systemTray.OnMouseLeave(func() {
+		tm.mu.Lock()
 		tm.popupDebounce = time.AfterFunc(300*time.Millisecond, func() {
 			tm.hidePopup()
 		})
+		tm.mu.Unlock()
 	})
 
 	tm.systemTray.Run()
@@ -218,10 +221,5 @@ func (tm *TrayManager) createPopupWindow() {
 			HiddenOnTaskbar: true,
 		},
 		URL: "/#/tray-popup",
-	})
-
-	// Hide on focus lost (user clicks elsewhere)
-	tm.popupWindow.RegisterHook(events.Common.WindowLostFocus, func(e *application.WindowEvent) {
-		tm.hidePopup()
 	})
 }
