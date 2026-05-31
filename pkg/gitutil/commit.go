@@ -33,6 +33,21 @@ type CommitAuthor struct {
 	Email string
 }
 
+// DefaultAuthor returns the configured user from git config.
+// Falls back to "Monika <monika@monika.dev>" if the config is empty.
+func (r *Repository) DefaultAuthor() CommitAuthor {
+	a := CommitAuthor{Name: "Monika", Email: "monika@monika.dev"}
+	if cfg, err := r.inner.Config(); err == nil {
+		if cfg.User.Name != "" {
+			a.Name = cfg.User.Name
+		}
+		if cfg.User.Email != "" {
+			a.Email = cfg.User.Email
+		}
+	}
+	return a
+}
+
 // Commit creates a commit with the given message from currently staged changes.
 // Returns the commit hash on success.
 func (r *Repository) Commit(message string, author CommitAuthor) (string, error) {

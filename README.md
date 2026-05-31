@@ -3,7 +3,11 @@
 </p>
 
 <p align="center">
-  开源 AI 编程编辑器 — 让 AI Agent 拥有对代码、文件和工具的一站式访问。
+  Open-source AI coding editor — gives an AI agent first-class access to code, files, and tools through a multi-panel GUI.
+</p>
+
+<p align="center">
+  <a href="README.zh.md">中文</a>
 </p>
 
 <p align="center">
@@ -18,35 +22,35 @@
 
 ---
 
-## Monika 是什么？
+## What is Monika?
 
-Monika 是一个基于 [Wails v3](https://wails.io) 构建的桌面端 AI 编程编辑器。Go 后端 + React 前端，通过多面板 GUI 让 AI Agent 直接读写文件、搜索代码、执行命令——不只是聊天窗口，而是一个完整的编程环境。
+Monika is a desktop AI coding editor built on [Wails v3](https://wails.io). A Go backend paired with a React frontend, it lets an AI agent read and write files, search code, and run commands through a multi-panel GUI — not just a chat window, but a complete coding environment.
 
-**不绑定任何模型提供商。** 只要兼容 OpenAI API，就能接入。模型上下文长度和输出限制自动从 [models.dev](https://models.dev) 获取。
+**Provider-agnostic.** Any OpenAI-compatible API endpoint works. Model context and output limits are automatically fetched from [models.dev](https://models.dev).
 
-## 安装
+## Quick Start
 
-从 [Releases](https://github.com/RedTeaLab/monika/releases) 下载对应平台的安装包，或从源码构建：
+Download from [Releases](https://github.com/RedTeaLab/monika/releases), or build from source:
 
 ```powershell
-# 前置依赖: Go 1.25+, Node.js 18+, Wails v3 CLI
+# Prerequisites: Go 1.25+, Node.js 18+, Wails v3 CLI
 go install github.com/wailsapp/wails/v3/cmd/wails3@latest
 
 git clone https://github.com/RedTeaLab/monika.git
 cd monika
 cd frontend && npm install && cd ..
 
-# 开发模式 (热重载)
+# Dev mode (hot reload)
 wails3 dev
 
-# 构建独立可执行文件
+# Build standalone
 cd frontend && npm run build && cd ..
 go build .
 ```
 
-### 配置模型提供商
+### Configure Provider
 
-首次运行会引导配置，或手动创建 `~/.monika/config.yaml`：
+First run will prompt for configuration, or create `~/.monika/config.yaml` manually:
 
 ```yaml
 model_provider: deepseek
@@ -58,130 +62,130 @@ model_providers:
     api_key: sk-xxx
 ```
 
-## 功能一览
+## Features
 
-### 多面板 GUI
+### Multi-Panel GUI
 
-会话列表、聊天区域、带 CodeMirror 6 的文件树编辑器、控制台、状态栏——一个窗口搞定全部。支持聊天、分屏（聊天 + 文件）、纯文件三种布局模式，可拖拽分隔条自由调节。
+Session list, chat area, file tree with CodeMirror 6 editor, console, and status bar — all in one window. Three layout modes (chat, split, files-only) with a draggable divider.
 
-### 多标签会话
+### Multi-Tab Sessions
 
-最多 8 个并发会话标签页，每个标签独立消息缓存。会话自动持久化为 JSON 文件，下次打开即恢复。
+Up to 8 concurrent session tabs with independent message caching. Sessions are automatically persisted as JSON and restored on next startup.
 
-### 流式 Agent 循环
+### Streaming Agent Loop
 
-实时文本流、工具调用卡片、Token 用量追踪。Agent 自动处理上下文压缩，当对话超出模型限制时用单独的 LLM 调用摘要历史消息。
+Real-time text deltas, tool execution cards, and token usage tracking. The agent handles context compaction automatically — when the conversation exceeds the model limit, it summarizes older messages with a separate LLM call.
 
-### 工具调用
+### Tool Calling
 
-Agent 可以直接操作你的项目：
+The agent can manipulate your project directly:
 
-| 工具 | 功能 |
-|------|------|
-| `file_read` | 读取文件（带 offset/limit 精确读取） |
-| `file_write` | 创建或覆盖文件 |
-| `file_edit` | 精确字符串替换 |
-| `file_list` | 列出目录内容 |
-| `glob` | Glob 模式文件查找 |
-| `grep` | 正则搜索文件内容 |
-| `bash` | 执行 Shell 命令（跨平台） |
+| Tool | Description |
+|------|-------------|
+| `file_read` | Read files with precision (offset/limit) |
+| `file_write` | Create or overwrite files |
+| `file_edit` | Exact string replacement |
+| `file_list` | List directory contents |
+| `glob` | Glob pattern file discovery |
+| `grep` | Regex search across files |
+| `bash` | Execute shell commands (cross-platform) |
 
-### Git 集成
+### Git Integration
 
-文件变更追踪、Diff 查看、本地/远程分支列表、创建和切换分支、Worktree 感知的分支管理。
+File change tracking, diff viewing, local/remote branch listing, branch creation and switching, worktree-aware branch management.
 
 ### Skills & MCP
 
-- **Skills** — 支持 [SKILL.md](https://github.com) 标准，从 GitHub 仓库自动发现和加载技能
-- **MCP** — Model Context Protocol，通过 stdio JSON-RPC 传输协议扩展 Agent 能力（数据库、浏览器、Web 搜索等）
+- **Skills** — Supports the [SKILL.md](https://github.com) standard, auto-discovers and loads skills from GitHub repos
+- **MCP** — Model Context Protocol, extends agent capabilities (databases, browser, web search, etc.) via stdio JSON-RPC transport
 
-### 子 Agent 并发
+### Concurrent Sub-Agents
 
-内置 TaskRunner 通过信号量调度最多 4 个并发子 Agent，适合大规模代码搜索、多文件修改等复杂任务。
+Built-in TaskRunner dispatches up to 4 concurrent child agents via semaphore, ideal for large-scale code search and multi-file modification tasks.
 
-### 权限安全
+### Permission Safety
 
-工具调用经过完整的权限管线检查——硬性规则 + 安全模型双重验证，确保 Agent 不会越权操作。
+Every tool call goes through a complete permission pipeline — hard rules and security model double validation to prevent unauthorized operations.
 
-## 支持的模型提供商
+## Supported Providers
 
-任何兼容 OpenAI API 的端点都能接入：
+Any OpenAI-compatible endpoint works:
 
-| 提供商 | Engine ID | 默认模型 |
-|--------|-----------|----------|
+| Provider | Engine ID | Default Model |
+|----------|-----------|---------------|
 | DeepSeek | `deepseek` | `deepseek-chat` |
 | OpenAI | `openai` | `gpt-4o` |
-| Anthropic Claude | via OpenAI 兼容 API | `claude-sonnet-4-5` |
-| Google Gemini | via OpenAI 兼容 API | `gemini-2.0-flash` |
-| 自定义 | 任意 OpenAI 兼容端点 | — |
+| Anthropic Claude | via OpenAI-compatible API | `claude-sonnet-4-5` |
+| Google Gemini | via OpenAI-compatible API | `gemini-2.0-flash` |
+| Custom | any OpenAI-compatible endpoint | — |
 
-## 架构
+## Architecture
 
 ```
 monika/
-├── main.go                # Wails 入口，嵌入前端，连接所有服务
+├── main.go                # Wails entry point, embeds frontend, wires all services
 ├── frontend/              # React 18 + TypeScript + Tailwind CSS v4
 │   └── src/
-│       ├── App.tsx        # 根组件，dockview 面板布局
-│       ├── store/         # 单一 Zustand Store，全部应用状态
-│       └── components/    # UI 组件
+│       ├── App.tsx        # Root component, dockview panel layout
+│       ├── store/         # Single Zustand store, all app state
+│       └── components/    # UI components
 ├── internal/
-│   ├── agent/             # Agent 循环、流式传输、上下文压缩、多 Agent 调度
-│   ├── api/               # Wails 服务: App, SessionManager, FileService, EventBus
-│   ├── bootstrap/         # Provider 初始化
-│   ├── config/            # YAML/JSON 配置加载 (~/.monika/ + .monika/)
-│   ├── engines/           # Provider 适配器 + Skill + MCP 引擎
-│   ├── permission/        # 工具权限管线
-│   └── tool/              # 工具接口 + 注册表 + 内置工具
+│   ├── agent/             # Agent loop, streaming, compaction, multi-agent dispatch
+│   ├── api/               # Wails services: App, SessionManager, FileService, EventBus
+│   ├── bootstrap/         # Provider initialization
+│   ├── config/            # YAML/JSON config loader (~/.monika/ + .monika/)
+│   ├── engines/           # Provider adapters + Skill + MCP engines
+│   ├── permission/        # Tool permission pipeline
+│   └── tool/              # Tool interface + registry + builtin tools
 └── pkg/
-    ├── engine/            # 公共 Engine 接口 + 注册表
-    ├── openai/            # OpenAI 兼容 SSE 流式客户端
-    ├── modelsdev/         # models.dev 模型目录获取
-    └── gitutil/           # Git 工具函数
+    ├── engine/            # Public Engine interface + registry
+    ├── openai/            # OpenAI-compatible SSE streaming client
+    ├── modelsdev/         # models.dev catalog fetcher
+    └── gitutil/           # Git utility functions
 ```
 
-### Engine 模式
+### Engine Pattern
 
-每个引擎实现 `pkg/engine.Engine` 接口，通过 `init()` + `engine.Register()` 自注册。Provider 引擎额外实现 `StreamChat` 和 `ListModels`。配置中的 `wire_api` 字段决定使用哪个引擎适配器。
+Every engine implements the `pkg/engine.Engine` interface and self-registers via `init()` + `engine.Register()`. Provider engines additionally implement `StreamChat` and `ListModels`. The `wire_api` field in config determines which engine adapter to use.
 
-### Tool 模式
+### Tool Pattern
 
-工具实现 `Name()` / `Description()` / `Parameters()` / `Execute()` 接口，通过可组合的注册函数（`RegisterDefaults`, `RegisterTasks`, `RegisterSpawnAgent` 等）灵活组合。
+Tools implement `Name()` / `Description()` / `Parameters()` / `Execute()` and are composed via combinable registration functions (`RegisterDefaults`, `RegisterTasks`, `RegisterSpawnAgent`, etc.).
 
-## 开发
+## Development
 
 ```powershell
-# 测试
+# Run tests
 go test ./...
 
-# 静态分析
+# Static analysis
 go vet ./...
 
-# 格式化
+# Format
 gofmt -w .
 
-# 前端构建
+# Build frontend
 cd frontend && npm run build
 
-# 重新生成 Wails 绑定 (修改 Go API 类型后)
+# Regenerate Wails bindings (after changing Go API types)
 wails3 generate bindings -f "..." -ts
 
-# 依赖整理
+# Tidy dependencies
 go mod tidy
 ```
 
-## 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request。开发细节请参考 [AGENTS.md](AGENTS.md)。
+Issues and pull requests are welcome. See [AGENTS.md](AGENTS.md) for development details.
 
 ## License
 
 [MIT License](LICENSE) © 2025 RedTeaLab
 
-第三方组件：
+Third-party components:
 
-| 组件 | 协议 |
-|------|------|
+| Component | License |
+|-----------|---------|
 | [Wails](https://wails.io) | MIT |
 | [CodeMirror](https://codemirror.net) | MIT |
 | [dockview](https://dockview.dev) | MIT |
