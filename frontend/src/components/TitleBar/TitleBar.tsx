@@ -149,7 +149,7 @@ function TitleBar() {
           {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}
         </button>
         <button
-          onClick={async () => { await Window.Close(); await App.QuitApp() }}
+          onClick={() => Window.Close()}
           className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-white hover:bg-[var(--red)] transition-colors"
           aria-label="Close"
         >
