@@ -28,10 +28,14 @@ import (
 	_ "monika/internal/engines/skill"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 //go:embed frontend/dist
 var embeddedAssets embed.FS
+
+//go:embed winres/icon.ico
+var iconICO []byte
 
 func main() {
 	// Clean up leftover from previous update.
@@ -340,7 +344,7 @@ The content below is your PROJECT RULES from AGENTS.md. These rules are NON-NEGO
 		},
 	})
 
-	app.Window.NewWithOptions(application.WebviewWindowOptions{
+	mainWindow := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:     "Monika",
 		Width:     1400,
 		Height:    900,
@@ -349,6 +353,17 @@ The content below is your PROJECT RULES from AGENTS.md. These rules are NON-NEGO
 		Frameless: true,
 		StartState: application.WindowStateMaximised,
 	})
+
+	mainWindow.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		mainWindow.Hide()
+		e.Cancel()
+	})
+
+	trayMgr := api.NewTrayManager(app, mainWindow, iconICO)
+	if err := trayMgr.Init(); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] tray init failed: %v\n", err)
+	}
+	appService.SetTrayManager(trayMgr)
 
 	if err := app.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

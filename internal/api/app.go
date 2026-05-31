@@ -77,6 +77,8 @@ type App struct {
 	pipeline *permission.Pipeline
 	checker  *update.Checker
 
+	trayMgr *TrayManager
+
 	eventSeq atomic.Int64
 }
 
@@ -2934,4 +2936,9 @@ func (a *App) InstallUpdate() error {
 // GetUpdateStatus returns the current update process status.
 func (a *App) GetUpdateStatus() update.UpdateStatus {
 	return a.checker.Status()
+}
+
+// SetTrayManager sets the tray manager for the application.
+func (a *App) SetTrayManager(tm *TrayManager) {
+	a.trayMgr = tm
 }
