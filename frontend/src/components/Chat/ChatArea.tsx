@@ -10,6 +10,9 @@ import AskUserBar from './AskUserBar'
 import SubagentFooter from './SubagentFooter'
 import TodoPanel from '../TodoPanel/TodoPanel'
 import MessageFilter from './MessageFilter'
+import QuotePreview from './QuotePreview'
+import SessionPicker from './SessionPicker'
+import MultiSelectBar from './MultiSelectBar'
 
 const EMPTY_ARR: any[] = []
 const EMPTY_STR_ARR: string[] = []
@@ -40,6 +43,11 @@ function ChatArea(props: IDockviewPanelProps) {
   const isOverlay = overlaySessionId !== null
 
   const msgFilter = useStore((s) => s.msgFilter)
+  const selection = useStore((s) => s.selection)
+  const toggleMessageSelection = useStore((s) => s.toggleMessageSelection)
+  const enterMultiSelect = useStore((s) => s.enterMultiSelect)
+  const clearSelection = useStore((s) => s.clearSelection)
+  const switchSessionTab = useStore((s) => s.switchSessionTab)
 
   const rawMessages = isOverlay ? overlayMessages : parentMessages
   const messages = useMemo(() => {
@@ -67,6 +75,9 @@ function ChatArea(props: IDockviewPanelProps) {
 
   const [editingTabId, setEditingTabId] = useState<string | null>(null)
   const [editTabTitle, setEditTabTitle] = useState('')
+  const [quotePreviewMessages, setQuotePreviewMessages] = useState<{ id: string; role: string; content: string }[]>([])
+  const [sessionPickerOpen, setSessionPickerOpen] = useState(false)
+  const [forwardedQuotes, setForwardedQuotes] = useState<Record<string, { id: string; role: string; content: string }[]>>({})
 
   const handleTabStartEdit = (tab: typeof openSessions[0], e: React.MouseEvent) => {
     e.stopPropagation()
@@ -130,6 +141,7 @@ function ChatArea(props: IDockviewPanelProps) {
   }
 
   const handleSend = async (text: string) => {
+    setQuotePreviewMessages([])
     if (!text.trim()) return
 
     if (!projectPath || !sessionId) return
@@ -246,6 +258,83 @@ function ChatArea(props: IDockviewPanelProps) {
     }
   }, [isOverlay])
 
+  useEffect(() => {
+    clearSelection()
+    setQuotePreviewMessages([])
+    setSessionPickerOpen(false)
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!selection) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        clearSelection()
+        setQuotePreviewMessages([])
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [selection])
+
+  useEffect(() => {
+    if (forwardedQuotes[sessionId]) {
+      setQuotePreviewMessages(forwardedQuotes[sessionId])
+      setForwardedQuotes((prev) => {
+        const next = { ...prev }
+        delete next[sessionId]
+        return next
+      })
+    }
+  }, [sessionId])
+
+  function truncateContent(content: string, maxLen: number): string {
+    return content.length > maxLen ? content.slice(0, maxLen) + '...' : content
+  }
+
+  const handleQuote = (id: string) => {
+    enterMultiSelect('quote', id)
+  }
+
+  const handleForward = (id: string) => {
+    enterMultiSelect('forward', id)
+  }
+
+  const buildQuotedMessages = (): { id: string; role: string; content: string }[] => {
+    const msgs = isOverlay ? overlayMessages : messages
+    const ids = selection?.ids || []
+    return ids
+      .map((id) => msgs.find((m: any) => m.id === id))
+      .filter(Boolean)
+      .map((m: any) => ({ id: m.id, role: m.role, content: truncateContent(m.content || m.thinking || '', 500) }))
+  }
+
+  const handleConfirmQuote = () => {
+    const quoted = buildQuotedMessages()
+    setQuotePreviewMessages(quoted)
+    clearSelection()
+  }
+
+  const handleConfirmForward = () => {
+    const quoted = buildQuotedMessages()
+    setQuotePreviewMessages(quoted)
+    clearSelection()
+    setSessionPickerOpen(true)
+  }
+
+  const handleSessionPick = (targetSessionId: string) => {
+    setForwardedQuotes((prev) => ({ ...prev, [targetSessionId]: quotePreviewMessages }))
+    setSessionPickerOpen(false)
+    switchSessionTab(targetSessionId)
+  }
+
+  const handleRemoveQuoteMessage = (id: string) => {
+    setQuotePreviewMessages((prev) => prev.filter((m) => m.id !== id))
+  }
+
+  const handleClearQuote = () => {
+    setQuotePreviewMessages([])
+  }
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-root)]">
       {isOverlay && (
@@ -330,6 +419,11 @@ function ChatArea(props: IDockviewPanelProps) {
               message={msg}
               isGenerating={idx === generatingIdx}
               hideExtras={hideExtras}
+              onQuote={handleQuote}
+              onForward={handleForward}
+              multiSelectMode={selection?.mode ?? null}
+              isSelected={selection?.ids.includes(msg.id) ?? false}
+              onToggleSelect={toggleMessageSelection}
             />
           ))
         )}
@@ -352,16 +446,41 @@ function ChatArea(props: IDockviewPanelProps) {
           ) : pendingPermission && pendingPermission.sessionId === sessionId ? (
             <ConfirmBar sessionId={sessionId} />
           ) : !isChildSession ? (
-            <ChatInput
-              key={sessionId}
-              onSend={handleSend}
-              onStop={handleStop}
-              onRunShell={handleRunShell}
-              disabled={generatingSessionIds.includes(sessionId)}
-            />
+            <>
+              {quotePreviewMessages.length > 0 && (
+                <QuotePreview
+                  messages={quotePreviewMessages}
+                  onRemove={handleRemoveQuoteMessage}
+                  onClear={handleClearQuote}
+                />
+              )}
+              {selection ? (
+                <MultiSelectBar
+                  count={selection.ids.length}
+                  mode={selection.mode}
+                  onConfirm={selection.mode === 'quote' ? handleConfirmQuote : handleConfirmForward}
+                  onCancel={() => { clearSelection(); setQuotePreviewMessages([]) }}
+                />
+              ) : (
+                <ChatInput
+                  key={sessionId}
+                  onSend={handleSend}
+                  onStop={handleStop}
+                  onRunShell={handleRunShell}
+                  disabled={generatingSessionIds.includes(sessionId)}
+                  quotedMessages={quotePreviewMessages.length > 0 ? quotePreviewMessages : undefined}
+                />
+              )}
+            </>
           ) : (
             <SubagentFooter />
           ))}
+          <SessionPicker
+            open={sessionPickerOpen}
+            onSelect={handleSessionPick}
+            onCancel={() => setSessionPickerOpen(false)}
+            excludeSessionId={sessionId}
+          />
         </>
       )}
     </div>
