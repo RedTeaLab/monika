@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/png"
 	"sync"
 	"time"
@@ -49,7 +48,7 @@ func NewTrayManager(app *application.App, mainWindow application.Window, iconDat
 	}
 }
 
-func makeTransparent(data []byte, factor float64) []byte {
+func makeTransparentIcon(data []byte) []byte {
 	reader := bytes.NewReader(data)
 	img, _, err := image.Decode(reader)
 	if err != nil {
@@ -57,17 +56,7 @@ func makeTransparent(data []byte, factor float64) []byte {
 	}
 	bounds := img.Bounds()
 	rgba := image.NewRGBA(bounds)
-	draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			c := rgba.RGBAAt(x, y)
-			// Blend toward white (taskbar background) by factor
-			c.R = uint8(float64(c.R) + (255-float64(c.R))*factor)
-			c.G = uint8(float64(c.G) + (255-float64(c.G))*factor)
-			c.B = uint8(float64(c.B) + (255-float64(c.B))*factor)
-			rgba.SetRGBA(x, y, c)
-		}
-	}
+	// All pixels alpha=0 → fully transparent → icon invisible on Windows tray
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, rgba)
 	return buf.Bytes()
@@ -178,7 +167,7 @@ func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 func (tm *TrayManager) Init() error {
 	tm.systemTray = tm.app.SystemTray.New()
 	tm.systemTray.SetIcon(tm.iconData)
-	tm.transparentIcon = makeTransparent(tm.iconData, 0.7) // blend 70% toward white
+	tm.transparentIcon = makeTransparentIcon(tm.iconData)
 	tm.systemTray.SetTooltip("Monika")
 
 	// Right-click menu: Exit only
