@@ -15,6 +15,10 @@ export function TrayPopup() {
   const [notifications, setNotifications] = useState<TrayNotification[]>([])
 
   useEffect(() => {
+    // Cancel hide timer on mount — mouse is already over popup since it's
+    // positioned centered on the tray icon, so onMouseEnter won't fire.
+    App.CancelPopupHide().catch(() => {})
+
     // Initial fetch
     App.GetTrayNotifications().then((data: TrayNotification[]) => {
       setNotifications(data || [])
