@@ -478,7 +478,7 @@ function CompactionCard({ message }: { message: Message }) {
             </span>
           )}
           <span className="text-[10px] ml-auto" style={{ color: 'var(--text-dim)' }}>
-            {beforeStr} â†?{afterStr}
+            {beforeStr} â†’{afterStr}
             {reduction > 0 && ` (-${reduction}%)`}
           </span>
         </button>
@@ -706,14 +706,14 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
               )
             )}
 
-            {/* "view subagents" hint â€?matches preview HTML */}
+            {/* "view subagents" hint â€”matches preview HTML */}
             {!hideExtras && hasSpawnAgent && (
               <div className="text-[10px] text-[var(--text-dim)] pl-3 flex items-center gap-1.5">
                 <span
                   className="text-[9px] font-mono px-1 py-0.5 rounded"
                   style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
                 >
-                  click card â†?
+                  click card â†’
                 </span>
                 view subagents
               </div>

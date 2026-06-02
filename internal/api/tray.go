@@ -49,7 +49,7 @@ func NewTrayManager(app *application.App, mainWindow application.Window, iconDat
 	}
 }
 
-func makeTransparent(data []byte, alpha uint8) []byte {
+func makeTransparent(data []byte, factor float64) []byte {
 	reader := bytes.NewReader(data)
 	img, _, err := image.Decode(reader)
 	if err != nil {
@@ -61,7 +61,10 @@ func makeTransparent(data []byte, alpha uint8) []byte {
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			c := rgba.RGBAAt(x, y)
-			c.A = alpha
+			// Blend toward white (taskbar background) by factor
+			c.R = uint8(float64(c.R) + (255-float64(c.R))*factor)
+			c.G = uint8(float64(c.G) + (255-float64(c.G))*factor)
+			c.B = uint8(float64(c.B) + (255-float64(c.B))*factor)
 			rgba.SetRGBA(x, y, c)
 		}
 	}
@@ -175,7 +178,7 @@ func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 func (tm *TrayManager) Init() error {
 	tm.systemTray = tm.app.SystemTray.New()
 	tm.systemTray.SetIcon(tm.iconData)
-	tm.transparentIcon = makeTransparent(tm.iconData, 64) // ~25% opacity
+	tm.transparentIcon = makeTransparent(tm.iconData, 0.7) // blend 70% toward white
 	tm.systemTray.SetTooltip("Monika")
 
 	// Right-click menu: Exit only
