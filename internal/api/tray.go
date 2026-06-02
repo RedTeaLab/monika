@@ -213,15 +213,6 @@ func (tm *TrayManager) Init() error {
 		tm.showPopup()
 	})
 
-	// Mouse leave -> hide popup after debounce
-	tm.systemTray.OnMouseLeave(func() {
-		tm.mu.Lock()
-		tm.popupDebounce = time.AfterFunc(300*time.Millisecond, func() {
-			tm.hidePopup()
-		})
-		tm.mu.Unlock()
-	})
-
 	tm.systemTray.Run()
 	return nil
 }
@@ -318,6 +309,16 @@ func (tm *TrayManager) showPopup() {
 
 	// Pause blink while popup is visible — user is already viewing messages
 	tm.StopBlink()
+
+	// Safety: auto-hide if mouse never enters popup (e.g. user moved away)
+	tm.mu.Lock()
+	if tm.popupDebounce != nil {
+		tm.popupDebounce.Stop()
+	}
+	tm.popupDebounce = time.AfterFunc(1500*time.Millisecond, func() {
+		tm.hidePopup()
+	})
+	tm.mu.Unlock()
 }
 
 func (tm *TrayManager) hidePopup() {
