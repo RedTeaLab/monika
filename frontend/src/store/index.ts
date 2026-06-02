@@ -1688,7 +1688,16 @@ export function setupWailsEvents() {
 
   // Auto-clear notifications when user focuses the main window
   Events.On('common:WindowFocus', () => {
+    console.log('[monika] common:WindowFocus fired, marking all read')
     useNotificationStore.getState().markAllRead()
+  })
+
+  // Navigate to session when tray notification is clicked
+  Events.On('tray-activate-session', (ev: any) => {
+    const { sessionId, sessionTitle } = ev.data || {}
+    if (sessionId) {
+      useStore.getState().openSessionTab(sessionId, sessionTitle || sessionId)
+    }
   })
 }
 

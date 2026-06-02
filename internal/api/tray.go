@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"os"
 	"sync"
 	"time"
 
@@ -35,9 +36,25 @@ type TrayManager struct {
 	blinking    bool
 
 	popupDebounce *time.Timer
+	popupVisible  bool // Flag to prevent clearing notifications while popup is shown
 
 	notifications []NotificationData
 	notifMu       sync.Mutex
+}
+
+var trayLog *os.File
+
+func init() {
+	f, err := os.OpenFile(os.TempDir()+"\\monika_tray.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err == nil {
+		trayLog = f
+	}
+}
+
+func trayLogf(format string, args ...interface{}) {
+	if trayLog != nil {
+		fmt.Fprintf(trayLog, time.Now().Format("15:04:05.000")+" "+format+"\n", args...)
+	}
 }
 
 func NewTrayManager(app *application.App, mainWindow application.Window, iconData []byte) *TrayManager {
@@ -64,6 +81,7 @@ func makeTransparentIcon(data []byte) []byte {
 
 // AddNotification stores a notification for the tray popup.
 func (tm *TrayManager) AddNotification(sessionID, sessionTitle, notifType, message string) {
+	trayLogf("AddNotification sessionID=%s type=%s", sessionID, notifType)
 	tm.notifMu.Lock()
 
 	// Dedup: if same session+type already exists, remove the old entry
@@ -95,9 +113,17 @@ func (tm *TrayManager) AddNotification(sessionID, sessionTitle, notifType, messa
 
 // ClearNotifications clears all stored notifications.
 func (tm *TrayManager) ClearNotifications() {
+	tm.mu.Lock()
+	if tm.popupVisible {
+		tm.mu.Unlock()
+		trayLogf("ClearNotifications: skipped because popupVisible=true")
+		return
+	}
+	tm.mu.Unlock()
 	tm.notifMu.Lock()
 	tm.notifications = nil
 	tm.notifMu.Unlock()
+	trayLogf("ClearNotifications: notifications cleared")
 	tm.emitNotificationsChanged()
 }
 
@@ -139,9 +165,11 @@ func (tm *TrayManager) RemoveNotification(notifID string) {
 func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 	tm.notifMu.Lock()
 	var sessionID string
+	var sessionTitle string
 	for _, n := range tm.notifications {
 		if n.ID == notifID {
 			sessionID = n.SessionID
+			sessionTitle = n.SessionTitle
 			break
 		}
 	}
@@ -158,7 +186,12 @@ func (tm *TrayManager) ActivateAndGetSessionID(notifID string) string {
 
 	if sessionID != "" {
 		tm.RemoveNotification(notifID)
+		tm.hidePopup()
 		tm.emitNotificationsChanged()
+		tm.app.Event.Emit("tray-activate-session", map[string]string{
+			"sessionId":    sessionID,
+			"sessionTitle": sessionTitle,
+		})
 	}
 
 	return sessionID
@@ -201,6 +234,7 @@ func (tm *TrayManager) Init() error {
 		tm.notifMu.Lock()
 		hasNotifs := len(tm.notifications) > 0
 		tm.notifMu.Unlock()
+		trayLogf("OnMouseEnter hasNotifs=%v", hasNotifs)
 		if !hasNotifs {
 			return
 		}
@@ -289,6 +323,7 @@ func (tm *TrayManager) Close() {
 }
 
 func (tm *TrayManager) showPopup() {
+	trayLogf("showPopup called")
 	tm.mu.Lock()
 	pw := tm.popupWindow
 	if pw == nil {
@@ -299,29 +334,26 @@ func (tm *TrayManager) showPopup() {
 	}
 	tm.mu.Unlock()
 	if pw == nil {
+		trayLogf("showPopup: popupWindow is nil, abort")
 		return
 	}
 	if err := tm.systemTray.PositionWindow(pw, 5); err != nil {
+		trayLogf("showPopup: PositionWindow failed: %v", err)
 		return
 	}
 	pw.Show()
-	pw.Focus()
+	tm.mu.Lock()
+	tm.popupVisible = true
+	tm.mu.Unlock()
+	trayLogf("showPopup: popup shown and positioned, popupVisible=true")
 
 	// Pause blink while popup is visible — user is already viewing messages
 	tm.StopBlink()
-
-	// Safety: auto-hide if mouse never enters popup (e.g. user moved away)
-	tm.mu.Lock()
-	if tm.popupDebounce != nil {
-		tm.popupDebounce.Stop()
-	}
-	tm.popupDebounce = time.AfterFunc(1500*time.Millisecond, func() {
-		tm.hidePopup()
-	})
-	tm.mu.Unlock()
+	trayLogf("showPopup: blink stopped")
 }
 
 func (tm *TrayManager) hidePopup() {
+	trayLogf("hidePopup called")
 	tm.mu.Lock()
 	if tm.popupDebounce != nil {
 		tm.popupDebounce.Stop()
@@ -331,7 +363,12 @@ func (tm *TrayManager) hidePopup() {
 	tm.mu.Unlock()
 	if pw != nil {
 		pw.Hide()
+		trayLogf("hidePopup: popup hidden")
 	}
+	tm.mu.Lock()
+	tm.popupVisible = false
+	tm.mu.Unlock()
+	trayLogf("hidePopup: popupVisible=false")
 
 	// Resume blink if there are still unread notifications
 	tm.notifMu.Lock()
@@ -348,6 +385,7 @@ func (tm *TrayManager) HidePopup() {
 
 // CancelPopupHide stops any pending hide debounce (called from popup frontend on mouse enter).
 func (tm *TrayManager) CancelPopupHide() {
+	trayLogf("CancelPopupHide called")
 	tm.mu.Lock()
 	if tm.popupDebounce != nil {
 		tm.popupDebounce.Stop()
@@ -358,14 +396,23 @@ func (tm *TrayManager) CancelPopupHide() {
 
 // SchedulePopupHide starts a debounce to hide the popup (called from popup frontend on mouse leave).
 func (tm *TrayManager) SchedulePopupHide() {
+	trayLogf("SchedulePopupHide called (will hide in 300ms)")
 	tm.mu.Lock()
 	if tm.popupDebounce != nil {
 		tm.popupDebounce.Stop()
 	}
 	tm.popupDebounce = time.AfterFunc(300*time.Millisecond, func() {
+		trayLogf("SchedulePopupHide debounce fired → hiding popup")
 		tm.hidePopup()
 	})
 	tm.mu.Unlock()
+}
+
+// IsPopupVisible returns whether the notification popup is currently shown.
+func (tm *TrayManager) IsPopupVisible() bool {
+	tm.mu.Lock()
+	defer tm.mu.Unlock()
+	return tm.popupVisible
 }
 
 func (tm *TrayManager) createPopupWindow() {

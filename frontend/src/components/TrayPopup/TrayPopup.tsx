@@ -15,16 +15,10 @@ export function TrayPopup() {
   const [notifications, setNotifications] = useState<TrayNotification[]>([])
 
   useEffect(() => {
-    // Cancel hide timer on mount — mouse is already over popup since it's
-    // positioned centered on the tray icon, so onMouseEnter won't fire.
-    App.CancelPopupHide().catch(() => {})
-
-    // Initial fetch
     App.GetTrayNotifications().then((data: TrayNotification[]) => {
       setNotifications(data || [])
     }).catch(() => {})
 
-    // Listen for push updates instead of polling
     const unsub = Events.On('tray-notifications-changed', (ev: any) => {
       setNotifications(ev.data || [])
     })
@@ -37,22 +31,32 @@ export function TrayPopup() {
     }).catch(() => {})
   }
 
-  const handleItemClick = (notifID: string) => {
+  const handleView = (notifID: string) => {
     App.ActivateSession(notifID).catch(() => {})
+  }
+
+  const handleDismiss = (e: React.MouseEvent, notifID: string) => {
+    e.stopPropagation()
+    App.DismissNotification(notifID).catch(() => {})
   }
 
   if (notifications.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-[12px] text-[var(--text-dim)] p-4">
-        暂无未读消息
+        No unread messages
       </div>
     )
   }
 
+  const typeLabel = (type: string) => {
+    if (type === 'reply-complete') return 'Reply complete'
+    if (type === 'permission-request') return 'Permission required'
+    return type
+  }
+
   return (
     <div
-      className="flex flex-col h-full select-none"
-      style={{ background: 'var(--bg-elevated)' }}
+      className="flex flex-col h-full select-none bg-[var(--bg-elevated)]"
       onMouseEnter={() => App.CancelPopupHide().catch(() => {})}
       onMouseLeave={() => App.SchedulePopupHide().catch(() => {})}
     >
@@ -60,17 +64,28 @@ export function TrayPopup() {
         {notifications.map((item) => (
           <div
             key={item.id}
-            onClick={() => handleItemClick(item.id)}
-            className="py-1.5 border-b border-[var(--border)] last:border-b-0 cursor-pointer hover:bg-[var(--bg-hover)] rounded px-1 -mx-1 transition-colors"
+            className="group py-1.5 border-b border-[var(--border)] last:border-b-0 rounded px-1 -mx-1 transition-colors hover:bg-[var(--bg-hover)]"
           >
             <div className="text-[var(--text-primary)] truncate">{item.session_title}</div>
             <div className="flex justify-between mt-0.5">
+              <span className="text-[var(--text-dim)] text-[11px]">{typeLabel(item.type)}</span>
               <span className="text-[var(--text-dim)] text-[11px]">
-                {item.type === 'reply-complete' ? '回复完成' : item.type === 'permission-request' ? '需要确认' : item.message}
+                {new Date(item.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
               </span>
-              <span className="text-[var(--text-dim)] text-[11px]">
-                {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-              </span>
+            </div>
+            <div className="hidden group-hover:flex gap-2 mt-1">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleView(item.id) }}
+                className="text-[11px] text-[var(--accent)] hover:text-[var(--accent-hover)]"
+              >
+                View
+              </button>
+              <button
+                onClick={(e) => handleDismiss(e, item.id)}
+                className="text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)]"
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         ))}
@@ -79,7 +94,7 @@ export function TrayPopup() {
         onClick={handleClearAll}
         className="mx-3 my-2 py-1.5 text-[12px] text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] rounded transition-colors border-t border-[var(--border)]"
       >
-        忽略全部
+        Dismiss all
       </button>
     </div>
   )

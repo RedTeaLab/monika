@@ -58,6 +58,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAllRead: () => {
+    console.log('[monika] markAllRead called, clearing tray notifications')
     set({ unreadHistory: [], unreadCount: 0 })
     App.ClearTrayNotifications().catch(() => {})
   },
