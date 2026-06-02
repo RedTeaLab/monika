@@ -1538,16 +1538,18 @@ export function setupWailsEvents() {
         store.setSessionStatus(sid, 'pending')
         store.bumpFileTreeVersion()
         store.bumpSessionListVersion()
-        // Trigger notification for AI reply completion
-        const openSessions = useStore.getState().openSessions
-        const sessionInfo = openSessions.find((s) => s.id === sid)
-        const sessionTitle = sessionInfo?.title || sid.slice(0, 8)
-        useNotificationStore.getState().push({
-          sessionId: sid,
-          sessionTitle,
-          type: 'reply-complete',
-          message: '回复完成',
-        })
+        // Trigger notification for AI reply completion (skip subagent sessions)
+        if (!sid.startsWith('call_') && !sid.startsWith('sub_')) {
+          const openSessions = useStore.getState().openSessions
+          const sessionInfo = openSessions.find((s) => s.id === sid)
+          const sessionTitle = sessionInfo?.title || sid.slice(0, 8)
+          useNotificationStore.getState().push({
+            sessionId: sid,
+            sessionTitle,
+            type: 'reply-complete',
+            message: '回复完成',
+          })
+        }
         syncActiveMessages(sid)
         break
       }
@@ -1627,16 +1629,18 @@ export function setupWailsEvents() {
     const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
     if (data.type === 'permission_required' && permPayload) {
       useStore.setState({ pendingPermission: permPayload })
-      // Trigger notification for permission request
-      const openSessions = useStore.getState().openSessions
-      const sessionInfo = openSessions.find((s) => s.id === permPayload.sessionId)
-      const sessionTitle = sessionInfo?.title || permPayload.sessionId.slice(0, 8)
-      useNotificationStore.getState().push({
-        sessionId: permPayload.sessionId,
-        sessionTitle,
-        type: 'permission-request',
-        message: `请求: ${permPayload.tool}`,
-      })
+      // Trigger notification for permission request (skip subagent sessions)
+      if (!permPayload.sessionId.startsWith('call_') && !permPayload.sessionId.startsWith('sub_')) {
+        const openSessions = useStore.getState().openSessions
+        const sessionInfo = openSessions.find((s) => s.id === permPayload.sessionId)
+        const sessionTitle = sessionInfo?.title || permPayload.sessionId.slice(0, 8)
+        useNotificationStore.getState().push({
+          sessionId: permPayload.sessionId,
+          sessionTitle,
+          type: 'permission-request',
+          message: '需要确认',
+        })
+      }
       if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
       return
     }

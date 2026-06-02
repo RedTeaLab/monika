@@ -62,7 +62,7 @@ export function TrayPopup() {
             <div className="text-[var(--text-primary)] truncate">{item.session_title}</div>
             <div className="flex justify-between mt-0.5">
               <span className="text-[var(--text-dim)] text-[11px]">
-                {item.type === 'reply-complete' ? '回复完成' : item.type === 'permission-request' ? '请求权限' : item.message}
+                {item.type === 'reply-complete' ? '回复完成' : item.type === 'permission-request' ? '需要确认' : item.message}
               </span>
               <span className="text-[var(--text-dim)] text-[11px]">
                 {new Date(item.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}

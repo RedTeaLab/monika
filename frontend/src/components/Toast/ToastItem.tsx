@@ -61,7 +61,7 @@ export function ToastItem({ item, onDismiss }: ToastItemProps) {
     onDismiss(item.id)
   }
 
-  const typeLabel = item.type === 'reply-complete' ? '回复完成' : '请求权限'
+  const typeLabel = item.type === 'reply-complete' ? '回复完成' : '需要确认'
 
   return (
     <div
@@ -79,27 +79,22 @@ export function ToastItem({ item, onDismiss }: ToastItemProps) {
       <div className="text-[13px] font-medium text-[var(--text-primary)] truncate">
         {item.sessionTitle}
       </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] text-[var(--text-dim)]">{typeLabel}</span>
-        {isHovered && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleView}
-              className="text-[11px] text-[var(--accent)] hover:text-[var(--accent-hover)]"
-            >
-              View
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)]"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-      </div>
-      {item.message && (
-        <div className="text-[11px] text-[var(--text-dim)] truncate">{item.message}</div>
+      <div className="text-[11px] text-[var(--text-dim)]">{typeLabel}</div>
+      {isHovered && (
+        <div className="flex gap-2 mt-0.5">
+          <button
+            onClick={handleView}
+            className="text-[11px] text-[var(--accent)] hover:text-[var(--accent-hover)]"
+          >
+            View
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="text-[11px] text-[var(--text-dim)] hover:text-[var(--text-primary)]"
+          >
+            Dismiss
+          </button>
+        </div>
       )}
     </div>
   )

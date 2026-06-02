@@ -41,14 +41,14 @@ Prioritize technical accuracy and truthfulness over validating the user's belief
 const PromptToolUsage = `## Tool Usage
 
 ### Search before reading
-- Use grep to locate relevant code: find the file AND approximate line numbers
+- ALWAYS grep before reading. Find the file AND the exact line numbers, then read only those lines
 - Use glob to discover file structure before targeting specific files
-- Only after grep/glob narrows the scope should you call file_read
+- Never call file_read without first narrowing scope via grep/glob — reading without searching is blind and wasteful
 
 ### Read with precision
-- Always provide offset and limit when you know the approximate location
-- Default limit is 200 lines. For large files, read in chunks
-- Never read an entire file blindly
+- After grep gives you line numbers, read ONLY the lines you need — typically 20-60 lines is plenty
+- Always provide offset and limit; the smaller the better for context efficiency
+- Never read an entire file or function blindly — grep for the specific symbols you need instead
 - Check if you have already read a file or directory before reading it again. Only re-read when content may have changed or you made edits.
 
 ### Parallel tool calls
@@ -76,6 +76,7 @@ const PromptToolUsage = `## Tool Usage
 - Maximum execution time: 120 seconds
 
 ### Context management
+- Every line you read stays in context — be surgical. If you are reading large blocks, stop and grep first
 - Keep tool calls minimal and targeted
 - Each unnecessary file_read wastes context window space
 - Prefer editing existing files over creating new ones
@@ -289,7 +290,7 @@ const PromptSafetyBoundaries = `## Safety Boundaries
 // The duplication with earlier modules is intentional — do not DRY it up.
 const PromptRemember = `## Remember
 
-- NEVER read entire files blindly — grep first, then read with offset/limit
+- NEVER read entire files blindly — grep first, find line numbers, then read only what you need
 - NEVER generate or guess URLs
 - NEVER force push to main/master
 - NEVER hardcode secrets (API keys, passwords, tokens)

@@ -148,7 +148,7 @@ function MsgBlock({
 
 /* ---- thinking block ---- */
 
-function ThinkingBlock({ content }: { content: string; isGenerating?: boolean }) {
+function ThinkingBlock({ content, isGenerating }: { content: string; isGenerating?: boolean }) {
   return (
     <MsgBlock
       background="var(--bg-card)"
@@ -158,7 +158,7 @@ function ThinkingBlock({ content }: { content: string; isGenerating?: boolean })
         </span>
       }
     >
-      <MarkdownBlock content={content} muted />
+      <MarkdownBlock content={content} muted streaming={isGenerating} />
     </MsgBlock>
   )
 }
