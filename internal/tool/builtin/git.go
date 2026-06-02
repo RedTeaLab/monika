@@ -353,6 +353,9 @@ func (g *gitTool) execCommit(repo *gitutil.Repository, args struct {
 	if args.AuthorEmail != "" {
 		author.Email = args.AuthorEmail
 	}
+	if author.Name == "" || author.Email == "" {
+		return tool.ExecutionResult{Content: "git author not configured. Please set your name and email:\n  git config --global user.name \"Your Name\"\n  git config --global user.email \"you@example.com\"", IsError: true}, nil
+	}
 	hash, err := repo.Commit(args.Message, author)
 	if err != nil {
 		return tool.ExecutionResult{Content: err.Error(), IsError: true}, nil
@@ -380,6 +383,9 @@ func (g *gitTool) execAddAndCommit(repo *gitutil.Repository, args struct {
 	}
 	if args.AuthorEmail != "" {
 		author.Email = args.AuthorEmail
+	}
+	if author.Name == "" || author.Email == "" {
+		return tool.ExecutionResult{Content: "git author not configured. Please set your name and email:\n  git config --global user.name \"Your Name\"\n  git config --global user.email \"you@example.com\"", IsError: true}, nil
 	}
 	hash, err := repo.AddAndCommit(args.Message, author)
 	if err != nil {
