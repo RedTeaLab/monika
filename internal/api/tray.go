@@ -196,9 +196,12 @@ func (tm *TrayManager) Init() error {
 		}
 	})
 
-	// Mouse enter -> show popup if main window is hidden
+	// Mouse enter -> show popup if there are notifications
 	tm.systemTray.OnMouseEnter(func() {
-		if tm.mainWindow.IsVisible() {
+		tm.notifMu.Lock()
+		hasNotifs := len(tm.notifications) > 0
+		tm.notifMu.Unlock()
+		if !hasNotifs {
 			return
 		}
 		tm.mu.Lock()
