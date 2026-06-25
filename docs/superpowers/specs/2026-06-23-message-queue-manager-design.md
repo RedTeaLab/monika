@@ -1,7 +1,7 @@
 # Session Message Queue Manager — Design Spec
 
 **Date:** 2026-06-23
-**Status:** Draft
+**Status:** Implemented
 **Approach:** A — Embed queue in SessionManager
 
 ## Problem
@@ -18,10 +18,10 @@ Add a per-session message queue. Messages sent while the agent is busy are queue
 |---|---|
 | Execution mode | Hybrid — auto-execute by default, user can pause for manual control |
 | Persistence | Queue saved to disk as part of session JSON, survives app restart |
-| UI layout | Sidebar panel (up to 10 items) + overflow full management page |
+| UI layout | Inline bar above chat input (always visible, auto/manual mode toggle) |
 | Queue scope | Chat messages only (shell commands and compaction still reject when busy) |
 | Error handling | Pause queue on failure, user decides: retry / skip / edit-then-retry |
-| Queue operations | Modify text, drag-to-reorder, cancel |
+| Queue operations | Modify text, drag-to-reorder, cancel, manual run (manual mode) |
 
 ## Architecture: Approach A (Embed in SessionManager)
 
@@ -63,40 +63,63 @@ type Session struct {
 
 Current behavior: if `cancelFuncs[sessionID]` exists, return error `"session is already generating"`.
 
-New behavior:
+New behavior — **always enqueue**:
 
 ```
 SendMessage(projectPath, sessionID, text, providerID, model):
   1. Lock session, Load
-  2. If session NOT generating:
-     → Execute immediately (existing logic unchanged)
-  3. If session IS generating:
-     → Create QueuedMessage{ID: uuid, Text, ProviderID, Model, Status: "queued", CreatedAt: now}
-     → Append to s.Queue
-     → Save session
-     → Emit "queue_updated" event
-     → Return nil (success — message queued, no error)
+  2. Validate provider exists
+  3. Create QueuedMessage{ID: uuid, Text, ProviderID, Model, Status: "queued", CreatedAt: now}
+  4. Append to s.Queue
+  5. Save session, Unlock
+  6. Emit "queue_updated" event
+  7. If agent is idle (cancelFuncs[sessionID] absent) AND not paused:
+     → drainQueue(sm, sessionID)  // picks up the item immediately
 ```
+
+> **Design deviation from original spec:** The original spec proposed enqueuing only when busy and executing immediately when idle. The actual implementation **always enqueues** then calls `drainQueue`. This eliminates the conditional branch entirely and avoids a check-then-act race on `cancelFuncs`. When the agent is idle, `drainQueue` picks up the item within milliseconds — the user perceives immediate execution. When busy, the item waits in the queue.
 
 ### Auto-drain mechanism
 
-In the agent loop completion goroutine (current `app.go:797` area), after persisting messages/tokens/status:
+In the agent loop completion goroutine (`startAgentLoop` in `app.go`), after the agent loop finishes:
 
 ```
-goroutine cleanup:
-  1. Save messages, tokens, status (existing logic)
-  2. If current message came from queue → remove that QueuedMessage from Queue
-  3. Check QueuePaused:
-     - false AND Queue has "queued" items → take first, mark "executing", start new agent loop
-     - true OR Queue empty → set StatusPending, done
+goroutine cleanup (3 paths):
+  1. Cancel path (ctx.Err() != nil):
+     → Reload session from disk (preserve concurrent changes)
+     → Copy conversation data via copyConversationData()
+     → Set StatusPending, Save
+     → delete(cancelFuncs[sessionID])
+     → return (no drain)
+
+  2. Error path (hadError && queueItemID != ""):
+     → Reload session from disk
+     → Copy conversation data
+     → Set queue item Status="error"
+     → Set QueuePaused = true
+     → Set StatusPending, Save
+     → delete(cancelFuncs[sessionID])
+     → Emit "queue_error"
+     → return (no drain — queue paused)
+
+  3. Normal completion path:
+     → Reload session from disk
+     → Copy conversation data
+     → Remove completed queue item
+     → Set StatusPending, Save
+     → Sync s.Queue from fresh copy
+     → Emit "queue_updated"
+     → delete(cancelFuncs[sessionID])  // BEFORE drain so drainQueue sees idle
+     → drainQueue(sm, sessionID)       // chains to next item if not paused
 ```
 
-This creates chained execution: each completion triggers the next until the queue is empty or paused.
+> **Concurrency safety:** All three paths reload the session from disk before saving (`sm.Load(sessionID)`) to avoid overwriting concurrent queue modifications from `SendMessage`/`PauseQueue`/`CancelQueueItem`. The `copyConversationData()` helper copies Messages/TokenCount/TokenMax/CompactionCount/CompactionFrom/Provider/Model from the goroutine's in-memory session to the fresh disk copy.
 
-### Pause / Resume
+### Pause / Resume (Auto / Manual mode)
 
-- `PauseQueue(sessionID)`: set `QueuePaused = true`, Save.
-- `ResumeQueue(sessionID)`: set `QueuePaused = false`, Save. If session is idle and queue has queued items → immediately trigger execution of the first item.
+- `PauseQueue(sessionID)`: set `QueuePaused = true`, Save. UI shows "Manual Mode".
+- `ResumeQueue(sessionID)`: set `QueuePaused = false`, Save. UI shows "Auto Mode". If session is idle and queue has queued items → immediately trigger execution of the first item.
+- `ExecuteQueueItem(sessionID, itemID)` (manual mode only): move target item to front of queue, mark "executing", start agent loop directly. Bypasses normal drain order — user picks which item runs next.
 
 ### Error handling
 
@@ -121,18 +144,21 @@ User recovery options:
 |---|---|
 | `GetQueue(projectPath, sessionID) []QueuedMessage` | Return current queue |
 | `EditQueueItem(projectPath, sessionID, itemID, newText)` | Edit a queued message's text |
-| `ReorderQueue(projectPath, sessionID, itemIDs [])` | Reorder queue by given ID sequence |
+| `ReorderQueue(projectPath, sessionID, itemIds [])` | Reorder queue by given ID sequence (preserves unlisted items) |
 | `CancelQueueItem(projectPath, sessionID, itemID)` | Cancel/remove a queue item (behavior depends on status — see Cancel Behavior below) |
-| `PauseQueue(projectPath, sessionID)` | Pause auto-execution |
+| `PauseQueue(projectPath, sessionID)` | Pause auto-execution (switch to manual mode) |
 | `ResumeQueue(projectPath, sessionID)` | Resume auto-execution (triggers if idle) |
 | `RetryQueueItem(projectPath, sessionID, itemID)` | Reset failed item to "queued" and resume queue |
 | `SkipQueueItem(projectPath, sessionID, itemID)` | Remove failed item and resume queue |
+| `ExecuteQueueItem(projectPath, sessionID, itemID)` | Manual mode: execute specific item immediately (moves to front, bypasses drain order) |
 
 All methods follow the `sm.Lock() → Load → modify Queue → Save → Unlock` pattern for thread safety.
 
 ### Modified existing methods
 
-`SendMessage` — only the busy branch changes (reject → enqueue). All other logic unchanged.
+`SendMessage` — always enqueues, then triggers `drainQueue` if idle. No direct execution path remains. Also validates provider before enqueuing.
+
+`CancelGeneration` — now also resets any `"executing"` queue items to `"error"` (Stop button path).
 
 ### Events emitted via Wails EventEmit
 
@@ -169,21 +195,22 @@ CancelQueueItem(sessionID, itemID):
 
 ### New components
 
-**`QueuePanel`** (dockview sidebar panel)
-- Shows current session's queue, max 10 items visible
-- Each item: text preview, status badge (queued / executing / error), drag handle, edit/cancel buttons
-- Footer: pause/resume toggle button + queue count
-- "View all" link when items exceed 10
+**`QueuePanel`** (inline bar above chat input, always visible)
+- Auto/Manual mode toggle button (green "Auto Mode" / yellow "Manual Mode")
+- Shows queue count badge when items exist
+- Collapsible list of queue items below the bar
 
 **`QueueItem`** (reusable single-item component)
 - Click to enter inline edit mode
-- Drag handle for reorder (HTML5 drag or @dnd-kit)
+- Drag handle for reorder (HTML5 drag-and-drop)
+- Status indicator (queued / executing / error)
+- In manual mode: shows "Run" button to execute this specific item
 - Error state: additional retry/skip buttons
 
-**`QueueFullPage`** (full management view)
-- Full list with all queue items
-- Bulk operations (cancel all, retry all failed)
-- Opened via dockview panel or modal when queue exceeds 10 items
+### `ChatInput` changes
+
+- New `isGenerating` prop: when true, input stays editable. Shows both stop button (cancel agent) and send button (queue message, yellow icon).
+- QueuePanel rendered above the input field.
 
 ### Zustand store additions (`frontend/src/store/index.ts`)
 
@@ -210,9 +237,7 @@ toggleQueuePause(sessionId)
 
 ### Send message flow change (`ChatArea.tsx`)
 
-Remove the frontend busy guard (`generatingSessionIds.includes(sessionId)` check at line 190). Always call `SendMessage`. The backend decides: execute immediately or enqueue. If enqueued, the `queue_updated` event refreshes the QueuePanel UI.
-
-The optimistic UI append (user message + assistant placeholder) should only happen for immediately-executed messages. For queued messages, the QueuePanel shows the item instead — no chat placeholder is added until the item actually starts executing.
+Always calls `SendMessage` (no busy guard). The backend always enqueues. No optimistic UI — the `queue_item_started` event adds the user message + assistant placeholder to chat when the item actually begins executing. The `queue_updated` event refreshes the QueuePanel immediately to show the queued item.
 
 ## 6. Edge Cases & Recovery
 
@@ -226,8 +251,10 @@ Existing `resetStaleSessions` (`app.go:1556`) resets `StatusGenerating` → `Sta
 
 ### Concurrency
 
-- The busy branch of `SendMessage` (enqueue) and all queue operation methods go through `sm.Lock() → Load → Save → Unlock`, ensuring serialization.
-- Two rapid `SendMessage` calls to the same busy session: both serialize via Lock, both enqueue correctly, no race condition.
+- All queue operation methods go through `sm.Lock() → Load → modify Queue → Save → Unlock`, ensuring serialization.
+- The agent loop goroutine runs concurrently with `SendMessage`/`PauseQueue`/etc. To avoid stale overwrites, the goroutine **reloads the session from disk** (`sm.Load(sessionID)`) at all save points before writing.
+- `cancelFuncs[sessionID]` serves as the "agent busy" indicator. It is deleted explicitly in each goroutine return path **before** calling `drainQueue`, so `drainQueue` correctly sees the session as idle.
+- `copyConversationData()` helper centralizes the 7-field conversation data copy, avoiding duplication across the 3 goroutine save paths.
 
 ### Operation permissions by status
 
