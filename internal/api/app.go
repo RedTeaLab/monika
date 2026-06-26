@@ -29,6 +29,7 @@ import (
 	"monika/internal/lsp"
 	"monika/internal/memory"
 	"monika/internal/permission"
+	"monika/internal/remote"
 	tool2 "monika/internal/tool"
 	"monika/internal/tool/builtin"
 	"monika/internal/update"
@@ -95,6 +96,10 @@ type App struct {
 
 	dapManager *dap.DapManager
 	debugAPI   *DebugAPI
+
+	remoteServer *remote.RemoteServer
+	remoteClient *remote.RemoteClient
+	remoteMu     sync.RWMutex
 
 	headWatcher    *fsnotify.Watcher
 	watchedGitDirs map[string]string // gitDir → projectPath

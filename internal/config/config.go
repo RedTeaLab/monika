@@ -27,6 +27,7 @@ type Config struct {
 	Tools          ToolsConfig                    `yaml:"tools" json:"tools"`
 	LSP            LSPConfig                      `yaml:"lsp" json:"lsp"`
 	Formatters     map[string]lsp.FormatterConfig `yaml:"formatters" json:"formatters"`
+	Remote         RemoteConfig                   `yaml:"remote" json:"remote"`
 }
 
 // AgentEntry defines a configurable agent that can be referenced by name.
@@ -91,6 +92,16 @@ type ToolsConfig struct {
 
 type LSPConfig struct {
 	Servers map[string]lsp.ServerConfig `yaml:"servers" json:"servers"`
+}
+
+type RemoteConfig struct {
+	MaxClients          int      `yaml:"max_clients" json:"max_clients"`
+	DefaultPort         int      `yaml:"default_port" json:"default_port"`
+	CodeTTL             int      `yaml:"code_ttl" json:"code_ttl"`
+	HeartbeatInterval   int      `yaml:"heartbeat_interval" json:"heartbeat_interval"`
+	HeartbeatTimeout    int      `yaml:"heartbeat_timeout" json:"heartbeat_timeout"`
+	EnableUPnP          bool     `yaml:"enable_upnp" json:"enable_upnp"`
+	TrustedFingerprints []string `yaml:"trusted_fingerprints" json:"trusted_fingerprints"`
 }
 
 func Load(opts Options) (Config, error) {
@@ -295,6 +306,27 @@ func Merge(dst *Config, src Config) {
 		for lang, fc := range src.Formatters {
 			dst.Formatters[lang] = fc
 		}
+	}
+	if src.Remote.MaxClients > 0 {
+		dst.Remote.MaxClients = src.Remote.MaxClients
+	}
+	if src.Remote.DefaultPort > 0 {
+		dst.Remote.DefaultPort = src.Remote.DefaultPort
+	}
+	if src.Remote.CodeTTL > 0 {
+		dst.Remote.CodeTTL = src.Remote.CodeTTL
+	}
+	if src.Remote.HeartbeatInterval > 0 {
+		dst.Remote.HeartbeatInterval = src.Remote.HeartbeatInterval
+	}
+	if src.Remote.HeartbeatTimeout > 0 {
+		dst.Remote.HeartbeatTimeout = src.Remote.HeartbeatTimeout
+	}
+	if src.Remote.EnableUPnP {
+		dst.Remote.EnableUPnP = src.Remote.EnableUPnP
+	}
+	if len(src.Remote.TrustedFingerprints) > 0 {
+		dst.Remote.TrustedFingerprints = append(dst.Remote.TrustedFingerprints, src.Remote.TrustedFingerprints...)
 	}
 }
 

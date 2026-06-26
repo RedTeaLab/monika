@@ -9,6 +9,10 @@ function StatusBar() {
     const loadLSPStatus = useStore((s) => s.loadLSPStatus)
     const memoryStatus = useStore((s) => s.memoryStatus)
 
+    // remote state
+    const remoteMode = useStore((s) => s.remoteMode)
+    const toggleRemoteModal = useStore((s) => s.toggleRemoteModal)
+
     const hasServers = lspServers.length > 0
 
     useEffect(() => {
@@ -17,11 +21,40 @@ function StatusBar() {
         return () => clearInterval(id)
     }, [loadLSPStatus])
 
+    const remoteColors: Record<string, string> = {
+        idle: 'var(--text-dim)',
+        connecting: 'var(--blue)',
+        connected: 'var(--green)',
+        serving: 'var(--red)',
+    }
+    const remoteTitles: Record<string, string> = {
+        idle: '远程连接',
+        connecting: '正在连接...',
+        connected: '已连接到远程',
+        serving: '远程服务运行中',
+    }
+
     return (
         <div
             className="flex items-center h-[28px] text-[11px] select-none border-t border-[var(--border)]"
             style={{ background: 'var(--bg-elevated)', padding: '0 14px' }}
         >
+            {/* Remote indicator */}
+            <button
+                onClick={toggleRemoteModal}
+                title={remoteTitles[remoteMode] || '远程连接'}
+                className="flex items-center bg-transparent border-none cursor-pointer p-0 mr-2"
+            >
+                <span
+                    className="block rounded-full"
+                    style={{
+                        width: 7, height: 7,
+                        background: remoteColors[remoteMode] || 'var(--text-dim)',
+                        animation: remoteMode === 'connecting' ? 'pulse 1.2s ease-in-out infinite' : undefined,
+                    }}
+                />
+            </button>
+
             <div className="flex items-center gap-2">
                 <span
                     className="block rounded-full"

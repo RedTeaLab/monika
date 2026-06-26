@@ -15,6 +15,7 @@ import { DefaultTab } from './components/Panel/DefaultTab'
 import { useLayoutPersistence } from './components/Panel/useLayoutPersistence'
 import { useChangeWatcher } from './hooks/useChangeWatcher'
 import { ToastContainer } from './components/Toast/ToastContainer'
+import RemoteModal from './components/Remote/RemoteModal'
 import { useStore } from './store'
 
 const components: Record<string, React.FunctionComponent<IDockviewPanelProps>> = {
@@ -141,6 +142,7 @@ function App() {
             <StatusBar />
             <ToastContainer />
             {settingsOpen && <SettingsPage onClose={toggleSettings} />}
+            <RemoteModal />
         </div>
     )
 }

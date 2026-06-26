@@ -251,6 +251,13 @@ interface AppState {
     sessionQueues: Record<string, QueuedMessage[]>
     queuePaused: Record<string, boolean>
 
+    // remote
+    remoteMode: 'idle' | 'serving' | 'connecting' | 'connected'
+    remoteModalOpen: boolean
+    remoteStatus: import('../components/Remote/types').RemoteStatus | null
+    toggleRemoteModal: () => void
+    setRemoteMode: (mode: 'idle' | 'serving' | 'connecting' | 'connected') => void
+
     addMessage: (msg: Message) => void
     setPermissionMode: (mode: 'auto' | 'manual') => void
     setInputMode: (sessionId: string, mode: 'normal' | 'shell') => void
@@ -490,6 +497,11 @@ export const useStore = create<AppState>((set, get) => ({
 
     sessionQueues: {},
     queuePaused: {},
+
+    // remote
+    remoteMode: 'idle' as const,
+    remoteModalOpen: false,
+    remoteStatus: null as import('../components/Remote/types').RemoteStatus | null,
 
     addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -759,6 +771,8 @@ export const useStore = create<AppState>((set, get) => ({
         inputModes: { ...s.inputModes, [sessionId]: mode },
     })),
     toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
+    toggleRemoteModal: () => set((s) => ({ remoteModalOpen: !s.remoteModalOpen })),
+    setRemoteMode: (mode) => set({ remoteMode: mode }),
     setMsgFilter: (filter) => set({ msgFilter: filter }),
     appendPathToInput: (path) => set({ chatInputAppendPath: path }),
 
