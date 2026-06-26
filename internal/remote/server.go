@@ -32,20 +32,23 @@ type ClientInfo struct {
 
 // RemoteServer accepts encrypted P2P connections and dispatches RPC calls.
 type RemoteServer struct {
-	mu          sync.Mutex
-	listener    net.Listener
-	noiseLn     *NoiseListener
-	upnpMapping *UPnPMapping
-	staticPub   [32]byte
-	staticPriv  [32]byte
-	registry    *MethodRegistry
-	clients     map[string]*serverClient
-	maxClients  int
-	logBuffer   *logRingBuffer
-	onEvent     func(clientID string, method string, params json.RawMessage)
-	ctx         context.Context
-	cancel      context.CancelFunc
-	running     atomic.Bool
+	mu                sync.Mutex
+	listener          net.Listener
+	noiseLn           *NoiseListener
+	upnpMapping       *UPnPMapping
+	staticPub         [32]byte
+	staticPriv        [32]byte
+	registry          *MethodRegistry
+	clients           map[string]*serverClient
+	maxClients        int
+	logBuffer         *logRingBuffer
+	onEvent           func(clientID string, method string, params json.RawMessage)
+	ctx               context.Context
+	cancel            context.CancelFunc
+	running           atomic.Bool
+	codeTTL           int64
+	heartbeatInterval time.Duration
+	heartbeatTimeout  int
 }
 
 type serverClient struct {
@@ -63,10 +66,34 @@ const (
 // NewRemoteServer creates a new server instance.
 func NewRemoteServer(registry *MethodRegistry, onEvent func(clientID string, method string, params json.RawMessage)) *RemoteServer {
 	return &RemoteServer{
-		registry:   registry,
-		onEvent:    onEvent,
-		maxClients: defaultMaxClients,
-		logBuffer:  newLogRingBuffer(1000),
+		registry:          registry,
+		onEvent:           onEvent,
+		maxClients:        defaultMaxClients,
+		logBuffer:         newLogRingBuffer(1000),
+		codeTTL:           3600,
+		heartbeatInterval: defaultHeartbeatInterval,
+		heartbeatTimeout:  defaultHeartbeatTimeout,
+	}
+}
+
+// SetCodeTTL sets the connection code time-to-live in seconds.
+func (s *RemoteServer) SetCodeTTL(ttl int64) {
+	if ttl > 0 {
+		s.codeTTL = ttl
+	}
+}
+
+// SetHeartbeatInterval sets the heartbeat check interval.
+func (s *RemoteServer) SetHeartbeatInterval(d time.Duration) {
+	if d > 0 {
+		s.heartbeatInterval = d
+	}
+}
+
+// SetHeartbeatTimeout sets the number of missed heartbeats before disconnect.
+func (s *RemoteServer) SetHeartbeatTimeout(n int) {
+	if n > 0 {
+		s.heartbeatTimeout = n
 	}
 }
 
@@ -91,6 +118,7 @@ func (s *RemoteServer) Serve(port int, enableUPnP bool) (string, error) {
 		return "", fmt.Errorf("generate key: %w", err)
 	}
 	s.staticPub = pub
+	s.staticPub = pub
 	s.staticPriv = priv
 
 	ln, err := net.Listen("tcp", net.JoinHostPort("0.0.0.0", itoa(port)))
@@ -110,7 +138,7 @@ func (s *RemoteServer) Serve(port int, enableUPnP bool) (string, error) {
 	endpoints, upnpMapping := DiscoverEndpoints(actualPort, enableUPnP)
 	s.upnpMapping = upnpMapping
 
-	code, err := GenerateConnectionCode(s.staticPub, actualPort, endpoints, 3600)
+	code, err := GenerateConnectionCode(s.staticPub, actualPort, endpoints, s.codeTTL)
 	if err != nil {
 		s.cleanup()
 		return "", fmt.Errorf("generate connection code: %w", err)
@@ -139,8 +167,11 @@ func (s *RemoteServer) Stop() error {
 		s.cancel()
 	}
 
-	// Close all client connections first.
+	// Send disconnect notification to all clients before closing.
+	disconnectNotif := NewRPCNotification("remote-disconnect", nil)
+	disconnectData, _ := json.Marshal(disconnectNotif)
 	for _, c := range s.clients {
+		WriteFrame(c.conn, disconnectData)
 		c.conn.Close()
 	}
 	s.clients = nil
@@ -171,10 +202,43 @@ func (s *RemoteServer) cleanup() {
 	}
 }
 
-// RefreshCode requires a server restart to take effect.
-// Use Stop() then Serve() to regenerate.
+// RefreshCode generates a new key pair and connection code without interrupting existing connections.
+// Existing clients stay connected on the old session; only new connections use the new code.
 func (s *RemoteServer) RefreshCode() (string, error) {
-	return "", fmt.Errorf("refresh not supported: use Stop then Serve to generate a new code")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.running.Load() {
+		return "", fmt.Errorf("server not running")
+	}
+
+	pub, priv, err := GenerateKeyPair()
+	if err != nil {
+		return "", fmt.Errorf("generate key: %w", err)
+	}
+
+	// Zero old private key.
+	for i := range s.staticPriv {
+		s.staticPriv[i] = 0
+	}
+
+	s.staticPub = pub
+	s.staticPriv = priv
+
+	// Recreate noise listener with new key.
+	newNoiseLn, err := NewNoiseListener(s.listener, s.staticPriv, s.staticPub)
+	if err != nil {
+		return "", fmt.Errorf("refresh noise listener: %w", err)
+	}
+	if s.noiseLn != nil {
+		s.noiseLn.Close()
+	}
+	s.noiseLn = newNoiseLn
+
+	port := s.listener.Addr().(*net.TCPAddr).Port
+	endpoints, _ := DiscoverEndpoints(port, s.upnpMapping != nil)
+
+	return GenerateConnectionCode(s.staticPub, port, endpoints, s.codeTTL)
 }
 
 // GetClients returns the currently connected clients.
@@ -328,8 +392,25 @@ func (s *RemoteServer) SendEvent(clientID string, method string, params json.Raw
 	return WriteFrame(c.conn, data)
 }
 
+// BroadcastEvent sends a notification event to all connected clients.
+func (s *RemoteServer) BroadcastEvent(method string, params json.RawMessage) {
+	notif := NewRPCNotification(method, params)
+	data, _ := json.Marshal(notif)
+
+	s.mu.Lock()
+	clients := make([]net.Conn, 0, len(s.clients))
+	for _, c := range s.clients {
+		clients = append(clients, c.conn)
+	}
+	s.mu.Unlock()
+
+	for _, conn := range clients {
+		WriteFrame(conn, data)
+	}
+}
+
 func (s *RemoteServer) heartbeatLoop(ctx context.Context, sc *serverClient, clientID string) {
-	ticker := time.NewTicker(defaultHeartbeatInterval)
+	ticker := time.NewTicker(s.heartbeatInterval)
 	defer ticker.Stop()
 
 	missed := 0
@@ -339,9 +420,9 @@ func (s *RemoteServer) heartbeatLoop(ctx context.Context, sc *serverClient, clie
 			return
 		case <-ticker.C:
 			lastHB := time.Unix(sc.heartbeat.Load(), 0)
-			if time.Since(lastHB) > defaultHeartbeatInterval*time.Duration(defaultHeartbeatTimeout) {
+			if time.Since(lastHB) > s.heartbeatInterval*time.Duration(s.heartbeatTimeout) {
 				missed++
-				if missed >= defaultHeartbeatTimeout {
+				if missed >= s.heartbeatTimeout {
 					s.mu.Lock()
 					if _, ok := s.clients[clientID]; ok {
 						delete(s.clients, clientID)

@@ -64,11 +64,18 @@ func collectLocalIPs(port int) []string {
 			default:
 				continue
 			}
-			ip4 := ip.To4()
-			if ip4 == nil || ip4.IsLoopback() {
+			if ip.IsLoopback() {
 				continue
 			}
-			s := net.JoinHostPort(ip4.String(), itoa(port))
+			// Include both IPv4 and global IPv6 addresses.
+			var s string
+			if ip4 := ip.To4(); ip4 != nil {
+				s = net.JoinHostPort(ip4.String(), itoa(port))
+			} else if ip.IsGlobalUnicast() {
+				s = net.JoinHostPort(ip.String(), itoa(port))
+			} else {
+				continue
+			}
 			if !seen[s] {
 				seen[s] = true
 				ips = append(ips, s)

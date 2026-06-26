@@ -1340,6 +1340,16 @@ func (a *App) SkipQueueItem(projectPath, sessionID, itemID string) error {
 }
 
 func (a *App) safeEmit(eventName string, data any) {
+	// Forward to remote clients if serving.
+	a.remoteMu.RLock()
+	srv := a.remoteServer
+	a.remoteMu.RUnlock()
+	if srv != nil {
+		if dataBytes, err := json.Marshal(data); err == nil {
+			srv.BroadcastEvent(eventName, dataBytes)
+		}
+	}
+
 	app := application.Get()
 	if app == nil {
 		return

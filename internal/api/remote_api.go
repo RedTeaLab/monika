@@ -34,6 +34,15 @@ func (a *App) RemoteServe() (string, error) {
 	if cfg.MaxClients > 0 {
 		srv.SetMaxClients(cfg.MaxClients)
 	}
+	if cfg.CodeTTL > 0 {
+		srv.SetCodeTTL(int64(cfg.CodeTTL))
+	}
+	if cfg.HeartbeatInterval > 0 {
+		srv.SetHeartbeatInterval(time.Duration(cfg.HeartbeatInterval) * time.Second)
+	}
+	if cfg.HeartbeatTimeout > 0 {
+		srv.SetHeartbeatTimeout(cfg.HeartbeatTimeout)
+	}
 
 	code, err := srv.Serve(cfg.DefaultPort, cfg.EnableUPnP)
 	if err != nil {

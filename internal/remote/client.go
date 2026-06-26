@@ -57,6 +57,7 @@ func Dial(code string, onNotification func(method string, params json.RawMessage
 	rc.connected.Store(true)
 
 	go rc.readLoop(ctx)
+	go rc.heartbeatLoop(ctx)
 
 	return &DialResult{
 		Client:      rc,
@@ -203,9 +204,23 @@ func (rc *RemoteClient) readLoop(ctx context.Context) {
 				ch <- &raw
 			}
 			rc.mu.Unlock()
-		} else if msg.Method != "" && rc.onNotification != nil {
-			// It's a notification from the server.
-			rc.onNotification(msg.Method, msg.Params)
+		} else if msg.Method != "" {
+			// Handle server notifications.
+			if msg.Method == "remote-disconnect" {
+				rc.connected.Store(false)
+				if rc.onNotification != nil {
+					rc.onNotification("remote-disconnect", nil)
+				}
+				rc.Close()
+				return
+			}
+			if msg.Method == "pong" {
+				continue // heartbeat response, no action needed
+			}
+			// Forward other notifications (stream events, etc.) to the frontend.
+			if rc.onNotification != nil {
+				rc.onNotification(msg.Method, msg.Params)
+			}
 		}
 	}
 }
@@ -252,4 +267,29 @@ func happyEyeballsDial(endpoints []string, remotePubKey [32]byte, handshakeTimeo
 	}
 
 	return nil, "", fmt.Errorf("all endpoints failed: %w", lastErr)
+}
+
+const clientHeartbeatInterval = 30 * time.Second
+
+func (rc *RemoteClient) heartbeatLoop(ctx context.Context) {
+	ticker := time.NewTicker(clientHeartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !rc.connected.Load() {
+				return
+			}
+			ping := NewRPCNotification("ping", nil)
+			data, _ := json.Marshal(ping)
+			rc.mu.Lock()
+			if rc.conn != nil {
+				_ = WriteFrame(rc.conn, data)
+			}
+			rc.mu.Unlock()
+		}
+	}
 }

@@ -255,9 +255,20 @@ interface AppState {
     remoteMode: 'idle' | 'serving' | 'connecting' | 'connected'
     remoteModalOpen: boolean
     remoteStatus: import('../components/Remote/types').RemoteStatus | null
+    serveCode: string
+    serveClients: import('../components/Remote/types').RemoteClientInfo[]
+    serveLog: import('../components/Remote/types').RemoteLogEntry[]
+    remoteFingerprint: string
+    remoteEndpoint: string
     toggleRemoteModal: () => void
     setRemoteMode: (mode: 'idle' | 'serving' | 'connecting' | 'connected') => void
-
+    remoteServe: () => Promise<void>
+    remoteStop: () => Promise<void>
+    remoteRefreshCode: () => Promise<void>
+    remoteKick: (clientID: string) => Promise<void>
+    remoteConnect: (code: string) => Promise<void>
+    remoteDisconnect: () => Promise<void>
+    loadRemoteStatus: () => Promise<void>
     addMessage: (msg: Message) => void
     setPermissionMode: (mode: 'auto' | 'manual') => void
     setInputMode: (sessionId: string, mode: 'normal' | 'shell') => void
@@ -502,6 +513,11 @@ export const useStore = create<AppState>((set, get) => ({
     remoteMode: 'idle' as const,
     remoteModalOpen: false,
     remoteStatus: null as import('../components/Remote/types').RemoteStatus | null,
+    serveCode: '',
+    serveClients: [] as import('../components/Remote/types').RemoteClientInfo[],
+    serveLog: [] as import('../components/Remote/types').RemoteLogEntry[],
+    remoteFingerprint: '',
+    remoteEndpoint: '',
 
     addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
@@ -773,6 +789,97 @@ export const useStore = create<AppState>((set, get) => ({
     toggleSettings: () => set((s) => ({ settingsOpen: !s.settingsOpen })),
     toggleRemoteModal: () => set((s) => ({ remoteModalOpen: !s.remoteModalOpen })),
     setRemoteMode: (mode) => set({ remoteMode: mode }),
+
+    remoteServe: async () => {
+        try {
+            const code = await App.RemoteServe()
+            if (code) {
+                set({ serveCode: code, remoteMode: 'serving' })
+                const clients = await App.RemoteSessions()
+                set({ serveClients: clients || [] })
+            }
+        } catch (e) {
+            console.error('remote serve failed:', e)
+        }
+    },
+
+    remoteStop: async () => {
+        try {
+            await App.RemoteStop()
+            set({ serveCode: '', serveClients: [], serveLog: [], remoteMode: 'idle' })
+        } catch (e) {
+            console.error('remote stop failed:', e)
+        }
+    },
+
+    remoteRefreshCode: async () => {
+        try {
+            const code = await App.RemoteRefreshCode()
+            if (code) set({ serveCode: code })
+        } catch (e) {
+            console.error('remote refresh code failed:', e)
+        }
+    },
+
+    remoteKick: async (clientID) => {
+        try {
+            await App.RemoteKick(clientID)
+            const clients = await App.RemoteSessions()
+            set({ serveClients: clients || [] })
+        } catch (e) {
+            console.error('remote kick failed:', e)
+        }
+    },
+
+    remoteConnect: async (code) => {
+        try {
+            set({ remoteMode: 'connecting' })
+            await App.RemoteConnect(code)
+            const status = await App.RemoteStatus()
+            if (status) {
+                set({
+                    remoteMode: 'connected',
+                    remoteFingerprint: status.fingerprint || '',
+                    remoteEndpoint: status.endpoint || '',
+                })
+            }
+        } catch (e) {
+            set({ remoteMode: 'idle' })
+            console.error('remote connect failed:', e)
+            throw e
+        }
+    },
+
+    remoteDisconnect: async () => {
+        try {
+            await App.RemoteDisconnect()
+            set({ remoteMode: 'idle', remoteFingerprint: '', remoteEndpoint: '' })
+        } catch (e) {
+            console.error('remote disconnect failed:', e)
+        }
+    },
+
+    loadRemoteStatus: async () => {
+        try {
+            const status = await App.RemoteStatus()
+            if (status) {
+                set({
+                    remoteMode: status.mode as any,
+                    remoteFingerprint: status.fingerprint || '',
+                    remoteEndpoint: status.endpoint || '',
+                })
+            }
+            if (status?.mode === 'serving') {
+                const [clients, log] = await Promise.all([
+                    App.RemoteSessions(),
+                    App.RemoteLog(),
+                ])
+                set({ serveClients: clients || [], serveLog: log || [] })
+            }
+        } catch {
+            // RPC may not be registered yet
+        }
+    },
     setMsgFilter: (filter) => set({ msgFilter: filter }),
     appendPathToInput: (path) => set({ chatInputAppendPath: path }),
 

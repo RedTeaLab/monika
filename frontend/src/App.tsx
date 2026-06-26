@@ -54,6 +54,16 @@ function App() {
         return () => { unsub() }
     }, [setFileTreeActiveTab])
 
+    // Listen for remote status changes
+    const loadRemoteStatus = useStore((s) => s.loadRemoteStatus)
+    useEffect(() => {
+        loadRemoteStatus()
+        const unsub = Events.On('remote-status', () => {
+            loadRemoteStatus()
+        })
+        return () => { unsub() }
+    }, [loadRemoteStatus])
+
     const effectiveChangesPath = useMemo(() => {
         const wt = activeSessionId ? sessionWorktrees[activeSessionId] : undefined
         return wt || projectPath
