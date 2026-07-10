@@ -4,19 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"monika/internal/tool"
 )
 
 type MCPServerInfo struct {
-	ID      string            `json:"id"`
-	Type    string            `json:"type"`
-	Command string            `json:"command"`
-	Args    []string          `json:"args"`
-	Env     map[string]string `json:"env"`
-	URL     string            `json:"url"`
-	Status  string            `json:"status"`
+	ID      string   `json:"id"`
+	Type    string   `json:"type"`
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+	URL     string   `json:"url"`
+	Status  string   `json:"status"`
+	Scope   string   `json:"scope"`
 }
 
 type mcpListTool struct {
@@ -56,12 +57,25 @@ func (t *mcpListTool) Execute(_ context.Context, _ json.RawMessage) (tool.Execut
 			parts = append(parts, s.Args...)
 			detail = "stdio: " + strings.Join(parts, " ")
 		} else if s.URL != "" {
-			detail = "http: " + s.URL
+			detail = "http: " + maskURL(s.URL)
 		}
-		lines = append(lines, fmt.Sprintf("- %s (%s) [%s]", s.ID, detail, s.Status))
+		scope := s.Scope
+		if scope == "" {
+			scope = "project"
+		}
+		lines = append(lines, fmt.Sprintf("- %s (%s) [%s] {%s}", s.ID, detail, s.Status, scope))
 	}
 
 	return tool.ExecutionResult{
 		Content: fmt.Sprintf("Configured MCP servers (%d):\n%s", len(servers), strings.Join(lines, "\n")),
 	}, nil
+}
+
+// userinfoRe matches the "scheme://user[:pass]@" portion of a URL.
+var userinfoRe = regexp.MustCompile(`(://)[^/@]*@`)
+
+// maskURL redacts credentials embedded in a URL's userinfo
+// (e.g. "postgres://user:pass@host:5432/db" → "postgres://***@host:5432/db").
+func maskURL(raw string) string {
+	return userinfoRe.ReplaceAllString(raw, "${1}***@")
 }

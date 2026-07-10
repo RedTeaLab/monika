@@ -23,7 +23,7 @@ export function QueuePanel() {
 
     const headerBtnClass = 'flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--bg-hover)] transition-colors'
 
-    if (queue.length === 0 && !manualMode) return null
+    if (queue.length === 0) return null
 
     const hasError = queue.some((q) => q.status === 'error')
     const visibleItems = showAll ? queue : queue.slice(0, MAX_VISIBLE)

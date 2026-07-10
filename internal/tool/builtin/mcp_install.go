@@ -25,7 +25,9 @@ func (t *mcpInstallTool) Description() string {
 
 Use this tool when the user asks to add, configure, or install an MCP server. MCP servers extend capabilities by providing additional tools (e.g., web search, database access, browser automation).
 
-Provide either a command (for stdio servers) or a URL (for HTTP/SSE servers). The tool will save the config and attempt to connect.`
+Provide either a command (for stdio servers) or a URL (for HTTP/SSE servers). The tool will save the config and attempt to connect.
+
+Note: env vars, URL credentials, and headers are automatically extracted and stored in a separate credentials file (.monika/credentials.json) that is not readable by tools. Only the server ID, type, command, and sanitized URL appear in the main config.`
 }
 
 func (t *mcpInstallTool) Parameters() map[string]any {
@@ -59,6 +61,11 @@ func (t *mcpInstallTool) Parameters() map[string]any {
 				"additionalProperties": map[string]any{"type": "string"},
 				"description": "HTTP headers to send (for HTTP/SSE type)",
 			},
+			"scope": map[string]any{
+				"type":        "string",
+				"enum":        []string{"project", "global"},
+				"description": "Where to store the config: \"project\" (default, in .monika/config.json) or \"global\" (~/.monika/config.json)",
+			},
 		},
 		"required": []string{"id"},
 	}
@@ -72,6 +79,7 @@ func (t *mcpInstallTool) Execute(_ context.Context, args json.RawMessage) (tool.
 		Env     map[string]string `json:"env"`
 		URL     string            `json:"url"`
 		Headers map[string]string `json:"headers"`
+		Scope   string            `json:"scope"`
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return tool.ExecutionResult{}, fmt.Errorf("install_mcp_server: invalid args: %w", err)
@@ -89,6 +97,12 @@ func (t *mcpInstallTool) Execute(_ context.Context, args json.RawMessage) (tool.
 		srvType = "http"
 	}
 
+	// Determine scope (default project)
+	scope := params.Scope
+	if scope != "global" {
+		scope = "project"
+	}
+
 	// Build the save payload
 	savePayload, _ := json.Marshal(map[string]any{
 		"id":      params.ID,
@@ -98,6 +112,7 @@ func (t *mcpInstallTool) Execute(_ context.Context, args json.RawMessage) (tool.
 		"env":     params.Env,
 		"url":     params.URL,
 		"headers": params.Headers,
+		"scope":   scope,
 	})
 
 	if err := t.saveFn(savePayload); err != nil {

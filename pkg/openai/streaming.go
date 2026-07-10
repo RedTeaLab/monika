@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"monika/pkg/engine"
+	"monika/pkg/proxy"
 )
 
 type chatRequest struct {
@@ -79,6 +80,7 @@ func httpClientFor(baseURL string) *http.Client {
 	c := &http.Client{
 		Transport: &http.Transport{
 			MaxIdleConnsPerHost: 2,
+			Proxy:               proxy.Func(),
 		},
 	}
 	clientCache.Store(baseURL, c)

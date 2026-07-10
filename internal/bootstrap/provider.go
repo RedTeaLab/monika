@@ -52,9 +52,11 @@ func InitProvider(ctx context.Context, home, projectDir, modelOverride string) (
 		}
 		eng := template.NewInstance()
 		initCfg := map[string]any{
-			"base_url": providerCfg.BaseURL,
-			"api_key":  providerCfg.APIKey,
-			"models":   providerCfg.Models,
+			"base_url":         providerCfg.BaseURL,
+			"api_key":          providerCfg.APIKey,
+			"models":           providerCfg.Models,
+			"refresh_token":    providerCfg.RefreshToken,
+			"token_expires_at": providerCfg.TokenExpiresAt,
 		}
 		if err := eng.Init(ctx, initCfg); err != nil {
 			fmt.Fprintf(os.Stderr, "[monika] skipping provider %q: init failed: %v\n", providerID, err)

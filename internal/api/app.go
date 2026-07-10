@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,14 +27,18 @@ import (
 	config2 "monika/internal/config"
 	"monika/internal/dap"
 	"monika/internal/dbdiscovery"
+	copilotprovider "monika/internal/engines/provider/copilot"
+	"monika/internal/mcpdiscovery"
 	"monika/internal/lsp"
 	"monika/internal/memory"
 	"monika/internal/permission"
 	tool2 "monika/internal/tool"
 	"monika/internal/tool/builtin"
 	"monika/internal/update"
+	"monika/pkg/copilot"
 	engine2 "monika/pkg/engine"
 	"monika/pkg/modelsdev"
+	"monika/pkg/proxy"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -444,6 +449,68 @@ func (a *App) onProjectSwitch(path string) {
 	}
 	a.projectRules = loadProjectRules(path)
 	a.discoverProjectDatabases(path)
+	a.discoverProjectMCPServers(path)
+	a.syncMCPServers()
+}
+
+// stripDBCredentialsIfNeeded saves real DSNs to credentials.json and rewrites
+// databases.json with masked DSNs. The in-memory cache retains real DSNs.
+// Idempotent: if credentials.json already has entries, only missing ones are added.
+func stripDBCredentialsIfNeeded(cache *dbdiscovery.CacheFile, cachePath, credPath string) {
+	if credPath == "" || cache == nil || len(cache.Connections) == 0 {
+		return
+	}
+	store, _ := config2.LoadCredentials(credPath)
+	if store.Entries == nil {
+		store.Entries = make(map[string]config2.CredentialEntry)
+	}
+
+	var newCreds bool
+	for _, c := range cache.Connections {
+		if c.DSN != "" && config2.HasDSNCredentials(c.DSN) {
+			key := "db/" + c.Name
+			if existing, ok := store.Entries[key]; !ok || existing.DSN == "" {
+				store.Entries[key] = config2.CredentialEntry{DSN: c.DSN}
+				newCreds = true
+			}
+		}
+	}
+
+	if !newCreds {
+		return
+	}
+
+	config2.SaveCredentials(credPath, store)
+
+	masked := *cache
+	masked.Connections = make([]dbdiscovery.DiscoveredDB, len(cache.Connections))
+	for i, c := range cache.Connections {
+		masked.Connections[i] = c
+		masked.Connections[i].DSN = config2.MaskDSN(c.DSN)
+	}
+	data, err := json.MarshalIndent(masked, "", "  ")
+	if err == nil {
+		os.WriteFile(cachePath, data, 0o600)
+	}
+}
+
+// applyDBCredentials replaces masked DSNs in the cache with real DSNs from credentials.json.
+func applyDBCredentials(cache *dbdiscovery.CacheFile, credPath string) {
+	if credPath == "" || cache == nil {
+		return
+	}
+	store, err := config2.LoadCredentials(credPath)
+	if err != nil {
+		return
+	}
+	for i := range cache.Connections {
+		key := "db/" + cache.Connections[i].Name
+		if cred, ok := store.Entries[key]; ok && cred.DSN != "" {
+			if !config2.HasDSNCredentials(cache.Connections[i].DSN) {
+				cache.Connections[i].DSN = cred.DSN
+			}
+		}
+	}
 }
 
 // discoverProjectDatabases scans the project for database connections and
@@ -461,6 +528,10 @@ func (a *App) discoverProjectDatabases(projectPath string) {
 	if cache == nil || len(cache.Connections) == 0 {
 		return
 	}
+	credPath := a.credentialsPathForScope("project")
+	cachePath := filepath.Join(wsRoot, ".monika", "databases.json")
+	stripDBCredentialsIfNeeded(cache, cachePath, credPath)
+	applyDBCredentials(cache, credPath)
 	if a.dbMgr == nil {
 		a.dbMgr = NewDBManager(wsRoot)
 		a.dbMgr.Init(cache)
@@ -470,6 +541,69 @@ func (a *App) discoverProjectDatabases(projectPath string) {
 		a.dbMgr.Reset(cache)
 	}
 	a.dbSchemaNote = "This project has connected databases. Use db_schema to inspect their structure."
+}
+
+func (a *App) discoverProjectMCPServers(projectPath string) {
+	if projectPath == "" {
+		return
+	}
+	wsRoot := memory.ResolveWorkspaceRoot(projectPath)
+	servers, err := mcpdiscovery.Scan(wsRoot)
+	if err != nil || len(servers) == 0 {
+		return
+	}
+	var existingIDs []string
+	a.mu.Lock()
+	for _, s := range a.cfg.MCP.Servers {
+		existingIDs = append(existingIDs, s.ID)
+	}
+	a.mu.Unlock()
+	newServers := mcpdiscovery.FilterExisting(servers, existingIDs)
+	if len(newServers) == 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[monika] mcpdiscovery: found %d new MCP server(s):\n%s\n",
+		len(newServers), mcpdiscovery.FormatSummary(newServers))
+	a.safeEmit("mcp-discovered", map[string]any{
+		"count":   len(newServers),
+		"servers": newServers,
+	})
+	scope := "project"
+	credPath := a.credentialsPathForScope(scope)
+	for _, s := range newServers {
+		entry := config2.MCPServerEntry{
+			ID:      s.ID,
+			Type:    s.Type,
+			Command: s.Command,
+			Args:    s.Args,
+			Env:     s.Env,
+			URL:     s.URL,
+			Headers: s.Headers,
+		}
+		cred := config2.StripCredentials(&entry)
+		if err := a.writeConfigForScope(scope, func(cfg *config2.Config) {
+			found := false
+			for i, existing := range cfg.MCP.Servers {
+				if existing.ID == entry.ID {
+					cfg.MCP.Servers[i] = entry
+					found = true
+					break
+				}
+			}
+			if !found {
+				cfg.MCP.Servers = append(cfg.MCP.Servers, entry)
+			}
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] mcpdiscovery: failed to save %s: %v\n", s.ID, err)
+			continue
+		}
+		if credPath != "" && !cred.Empty() {
+			if err := config2.UpdateCredentials(credPath, s.ID, cred); err != nil {
+				fmt.Fprintf(os.Stderr, "[monika] mcpdiscovery: credentials write for %s: %v\n", s.ID, err)
+			}
+		}
+	}
+	a.reloadMergedConfig()
 }
 
 func loadProjectRules(projectDir string) string {
@@ -534,12 +668,13 @@ func (a *App) GetProviders() []ProviderInfo {
 			})
 		}
 		result = append(result, ProviderInfo{
-			ID:          id,
-			DisplayName: displayName,
-			BaseURL:     pc.BaseURL,
-			APIKey:      pc.APIKey,
-			WireAPI:     pc.WireAPI,
-			Models:      models,
+			ID:             id,
+			DisplayName:    displayName,
+			BaseURL:        pc.BaseURL,
+			APIKey:         pc.APIKey,
+			WireAPI:        pc.WireAPI,
+			Models:         models,
+			TokenExpiresAt: pc.TokenExpiresAt,
 		})
 	}
 	sort.Slice(result, func(i, j int) bool {
@@ -584,6 +719,7 @@ func (a *App) GetAvailableProviders() ([]AvailableProviderInfo, error) {
 				DisplayName: displayName,
 				Npm:         p.Npm,
 				BaseURL:     p.API,
+				Env:         p.Env,
 				Models:      models,
 			})
 		}
@@ -606,6 +742,49 @@ func (a *App) GetDefaultModel() map[string]string {
 
 func (a *App) SetDefaultModel(providerID, modelID string) {
 	a.PersistSelection(providerID, modelID)
+}
+
+func (a *App) GetProxyConfig() config2.ProxyConfig {
+	return a.cfg.Proxy
+}
+
+func (a *App) SaveProxyConfig(args json.RawMessage) error {
+	var req struct {
+		Enabled bool   `json:"enabled"`
+		URL     string `json:"url"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.cfg.Proxy = config2.ProxyConfig{Enabled: req.Enabled, URL: req.URL}
+	a.mu.Unlock()
+
+	if req.Enabled && req.URL != "" {
+		proxy.SetURL(req.URL)
+	} else {
+		proxy.SetURL("")
+	}
+
+	return a.writeConfigForScope("global", func(cfg *config2.Config) {
+		cfg.Proxy = config2.ProxyConfig{Enabled: req.Enabled, URL: req.URL}
+	})
+}
+
+// TestProxyConnection tests connectivity to GitHub through the current proxy.
+func (a *App) TestProxyConnection() (string, error) {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			Proxy: proxy.Func(),
+		},
+	}
+	resp, err := client.Get("https://github.com")
+	if err != nil {
+		return "", fmt.Errorf("connection failed: %w", err)
+	}
+	defer resp.Body.Close()
+	return fmt.Sprintf("OK — GitHub reachable (HTTP %d)", resp.StatusCode), nil
 }
 
 func (a *App) GetModels(providerID string) ([]engine2.Model, error) {
@@ -3599,6 +3778,10 @@ func (a *App) RescanDatabases() ([]ConnectionInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	credPath := a.credentialsPathForScope("project")
+	cachePath := filepath.Join(cwd, ".monika", "databases.json")
+	stripDBCredentialsIfNeeded(cache, cachePath, credPath)
+	applyDBCredentials(cache, credPath)
 	a.dbMgr.Reset(cache)
 	return a.dbMgr.ListConnections(), nil
 }
@@ -3625,6 +3808,7 @@ type MCPServerInfo struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
 	Status  string            `json:"status"` // "connected" | "disconnected"
+	Scope   string            `json:"scope"` // "project" | "global"
 }
 
 // ListAgents returns all registered agents.
@@ -3638,20 +3822,22 @@ func (a *App) SaveAgent(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &entry); err != nil {
 		return err
 	}
-	found := false
-	for i, ag := range a.cfg.Agents {
-		if ag.Name == entry.Name {
-			a.cfg.Agents[i] = entry
-			found = true
-			break
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		found := false
+		for i, ag := range cfg.Agents {
+			if ag.Name == entry.Name {
+				cfg.Agents[i] = entry
+				found = true
+				break
+			}
 		}
+		if !found {
+			cfg.Agents = append(cfg.Agents, entry)
+		}
+	}); err != nil {
+		return err
 	}
-	if !found {
-		a.cfg.Agents = append(a.cfg.Agents, entry)
-	}
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.Agents = a.cfg.Agents
-	})
+	a.reloadMergedConfig()
 	a.agentRegistry.MergeConfig(a.cfg.Agents)
 	return nil
 }
@@ -3662,72 +3848,26 @@ func (a *App) DeleteAgent(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	found := false
-	for i, ag := range a.cfg.Agents {
-		if ag.Name == req.Name {
-			a.cfg.Agents[i].Disabled = true
-			found = true
-			break
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		found := false
+		for i, ag := range cfg.Agents {
+			if ag.Name == req.Name {
+				cfg.Agents[i].Disabled = true
+				found = true
+				break
+			}
 		}
+		if !found {
+			cfg.Agents = append(cfg.Agents, config2.AgentEntry{
+				Name: req.Name, Disabled: true,
+			})
+		}
+	}); err != nil {
+		return err
 	}
-	if !found {
-		a.cfg.Agents = append(a.cfg.Agents, config2.AgentEntry{
-			Name: req.Name, Disabled: true,
-		})
-	}
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.Agents = a.cfg.Agents
-	})
+	a.reloadMergedConfig()
 	a.agentRegistry.MergeConfig(a.cfg.Agents)
 	return nil
-}
-
-// writeConfig persists the current in-memory config to ~/.monika/config.json.
-// It also writes to the project-level config so that deletions and updates
-// are not silently reverted on the next restart (both files are loaded and merged).
-func (a *App) writeConfig() {
-	data, err := json.MarshalIndent(&a.cfg, "", "  ")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "[monika] writeConfig marshal: %v\n", err)
-		return
-	}
-
-	writeTo := func(configPath string) {
-		if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "[monika] writeConfig mkdir: %v\n", err)
-			return
-		}
-		tmp := configPath + ".tmp"
-		if err := os.WriteFile(tmp, data, 0600); err != nil {
-			fmt.Fprintf(os.Stderr, "[monika] writeConfig write: %v\n", err)
-			return
-		}
-		os.Rename(tmp, configPath)
-	}
-
-	writeTo(filepath.Join(a.home, ".monika", "config.json"))
-
-	if pp := a.projectPath(); pp != "" && pp != a.home {
-		projectConfig := filepath.Join(pp, ".monika", "config.json")
-		if _, err := os.Stat(projectConfig); err == nil {
-			projectCfg := a.cfg
-			projectCfg.ModelProvider = ""
-			projectCfg.Model = ""
-			projectCfg.ModelProviders = nil
-			projectCfg.Agents = nil
-			projectData, err := json.MarshalIndent(&projectCfg, "", "  ")
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "[monika] writeConfig project marshal: %v\n", err)
-				return
-			}
-			tmp := projectConfig + ".tmp"
-			if err := os.WriteFile(tmp, projectData, 0600); err != nil {
-				fmt.Fprintf(os.Stderr, "[monika] writeConfig project write: %v\n", err)
-				return
-			}
-			os.Rename(tmp, projectConfig)
-		}
-	}
 }
 
 func (a *App) validateModel(providerID, modelID string) (resolvedProvider, resolvedModel string) {
@@ -3762,6 +3902,50 @@ func (a *App) modelLimits(providerID, modelID string) (contextTokens, outputToke
 		}
 	}
 	return 0, 0
+}
+
+// syncCopilotModels fetches the real model list from the Copilot API and writes
+// it into the provider's config, replacing any models.dev-sourced entries.
+func (a *App) syncCopilotModels(providerID, token string) {
+	pc, ok := a.cfg.ModelProviders[providerID]
+	if !ok {
+		return
+	}
+	ctx, cancel := context.WithTimeout(a.ctx, 15*time.Second)
+	defer cancel()
+	apiModels, err := copilot.FetchModels(ctx, token)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] syncCopilotModels: %v\n", err)
+		return
+	}
+	if len(apiModels) == 0 {
+		return
+	}
+	models := make([]config2.ModelEntry, 0, len(apiModels))
+	for _, m := range apiModels {
+		if !m.ModelPickerEnabled {
+			continue
+		}
+		models = append(models, config2.ModelEntry{
+			ID:              m.ID,
+			DisplayName:     m.Name,
+			ContextLimit:    int64(m.Capabilities.Limits.MaxContextWindowTokens),
+			OutputLimit:     int64(m.Capabilities.Limits.MaxOutputTokens),
+			Enabled:         true,
+			SupportedInputs: copilotSupportedInputs(m),
+		})
+	}
+	pc.Models = models
+	pc.ModelsDevProvider = "" // Copilot doesn't use models.dev
+	a.cfg.ModelProviders[providerID] = pc
+}
+
+func copilotSupportedInputs(m copilot.CopilotModel) []string {
+	inputs := []string{"text"}
+	if m.Capabilities.Supports.Vision {
+		inputs = append(inputs, "image")
+	}
+	return inputs
 }
 
 // syncProviderFromModelsDev enriches a provider's model list from the models.dev
@@ -3929,23 +4113,24 @@ func (a *App) ToggleSkillEnabled(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	disabled := a.cfg.Skill.DisabledSkills
-	found := false
-	filtered := make([]string, 0, len(disabled))
-	for _, n := range disabled {
-		if n == req.Name {
-			found = true
-		} else {
-			filtered = append(filtered, n)
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		found := false
+		filtered := make([]string, 0, len(cfg.Skill.DisabledSkills))
+		for _, n := range cfg.Skill.DisabledSkills {
+			if n == req.Name {
+				found = true
+			} else {
+				filtered = append(filtered, n)
+			}
 		}
+		if !found {
+			filtered = append(filtered, req.Name)
+		}
+		cfg.Skill.DisabledSkills = filtered
+	}); err != nil {
+		return err
 	}
-	if !found {
-		filtered = append(filtered, req.Name)
-	}
-	a.cfg.Skill.DisabledSkills = filtered
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.Skill = a.cfg.Skill
-	})
+	a.reloadMergedConfig()
 	return nil
 }
 
@@ -3955,10 +4140,12 @@ func (a *App) AddSkillPath(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	a.cfg.Skill.Paths = append(a.cfg.Skill.Paths, req.Path)
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.Skill = a.cfg.Skill
-	})
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		cfg.Skill.Paths = append(cfg.Skill.Paths, req.Path)
+	}); err != nil {
+		return err
+	}
+	a.reloadMergedConfig()
 	return nil
 }
 
@@ -3968,16 +4155,18 @@ func (a *App) RemoveSkillPath(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	filtered := make([]string, 0, len(a.cfg.Skill.Paths))
-	for _, p := range a.cfg.Skill.Paths {
-		if p != req.Path {
-			filtered = append(filtered, p)
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		filtered := make([]string, 0, len(cfg.Skill.Paths))
+		for _, p := range cfg.Skill.Paths {
+			if p != req.Path {
+				filtered = append(filtered, p)
+			}
 		}
+		cfg.Skill.Paths = filtered
+	}); err != nil {
+		return err
 	}
-	a.cfg.Skill.Paths = filtered
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.Skill = a.cfg.Skill
-	})
+	a.reloadMergedConfig()
 	return nil
 }
 
@@ -4237,6 +4426,12 @@ func parseSkillFrontmatter(data []byte) (string, string) {
 	return fm.Name, fm.Description
 }
 func (a *App) ListMCPServers() []MCPServerInfo {
+	projIDs := make(map[string]bool)
+	if projCfg, err := a.readConfigForScope("project"); err == nil {
+		for _, s := range projCfg.MCP.Servers {
+			projIDs[s.ID] = true
+		}
+	}
 	servers := make([]MCPServerInfo, 0, len(a.cfg.MCP.Servers))
 	for _, s := range a.cfg.MCP.Servers {
 		info := MCPServerInfo{
@@ -4249,6 +4444,11 @@ func (a *App) ListMCPServers() []MCPServerInfo {
 			Headers: s.Headers,
 			Status:  "disconnected",
 		}
+		if projIDs[s.ID] {
+			info.Scope = "project"
+		} else {
+			info.Scope = "global"
+		}
 		if a.isMCPConnected(s.ID) {
 			info.Status = "connected"
 		}
@@ -4259,6 +4459,7 @@ func (a *App) ListMCPServers() []MCPServerInfo {
 
 // ImportMCPServers parses a standard mcpServers JSON block and adds the servers to config.
 // The input format is: { "mcpServers": { "name": { "type": "stdio", "command": "...", ... } } }
+// An optional "scope" field ("project" default, or "global") selects the target config.
 // Returns the list of server IDs that were imported.
 func (a *App) ImportMCPServers(args json.RawMessage) ([]string, error) {
 	// The frontend sends the JSON string via Call.ByName, which wraps it as a JSON string.
@@ -4272,6 +4473,7 @@ func (a *App) ImportMCPServers(args json.RawMessage) ([]string, error) {
 
 	var raw struct {
 		McpServers map[string]json.RawMessage `json:"mcpServers"`
+		Scope      string                     `json:"scope"`
 	}
 	if err := json.Unmarshal(args, &raw); err != nil {
 		// Try as a bare map of name -> config
@@ -4286,6 +4488,11 @@ func (a *App) ImportMCPServers(args json.RawMessage) ([]string, error) {
 		return nil, fmt.Errorf("no servers found in JSON")
 	}
 
+	scope := normalizeScope(raw.Scope)
+
+	// Pre-parse all entries so we can apply them in a single scoped write.
+	entries := make([]config2.MCPServerEntry, 0, len(raw.McpServers))
+	creds := make(map[string]config2.CredentialEntry, len(raw.McpServers))
 	var imported []string
 	for name, rawCfg := range raw.McpServers {
 		var cfg struct {
@@ -4316,22 +4523,41 @@ func (a *App) ImportMCPServers(args json.RawMessage) ([]string, error) {
 			URL:     cfg.URL,
 			Headers: cfg.Headers,
 		}
-		found := false
-		for i, s := range a.cfg.MCP.Servers {
-			if s.ID == name {
-				a.cfg.MCP.Servers[i] = entry
-				found = true
-				break
-			}
+		cred := config2.StripCredentials(&entry)
+		if !cred.Empty() {
+			creds[name] = cred
 		}
-		if !found {
-			a.cfg.MCP.Servers = append(a.cfg.MCP.Servers, entry)
-		}
+		entries = append(entries, entry)
 		imported = append(imported, name)
 	}
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.MCP = a.cfg.MCP
-	})
+
+	if err := a.writeConfigForScope(scope, func(cfg *config2.Config) {
+		existing := make(map[string]int, len(cfg.MCP.Servers))
+		for i, s := range cfg.MCP.Servers {
+			existing[s.ID] = i
+		}
+		for _, entry := range entries {
+			if idx, ok := existing[entry.ID]; ok {
+				cfg.MCP.Servers[idx] = entry
+			} else {
+				cfg.MCP.Servers = append(cfg.MCP.Servers, entry)
+				existing[entry.ID] = len(cfg.MCP.Servers) - 1
+			}
+		}
+	}); err != nil {
+		return nil, err
+	}
+	if credPath := a.credentialsPathForScope(scope); credPath != "" && len(creds) > 0 {
+		store, _ := config2.LoadCredentials(credPath)
+		for id, cred := range creds {
+			store.Entries[id] = cred
+		}
+		if err := config2.SaveCredentials(credPath, store); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] ImportMCPServers: credentials write: %v\n", err)
+		}
+	}
+	a.reloadMergedConfig()
+	a.syncMCPServers()
 	return imported, nil
 }
 
@@ -4391,6 +4617,96 @@ func (a *App) TestMCPServer(args json.RawMessage) ([]string, error) {
 	return names, nil
 }
 
+// getMCPEngine returns the initialized MCP engine, or nil if unavailable.
+func (a *App) getMCPEngine() engine2.MCPEngine {
+	eng, err := engine2.EngineByID("mcp")
+	if err != nil {
+		return nil
+	}
+	_ = eng.Init(context.Background(), nil)
+	mcpEng, ok := eng.(engine2.MCPEngine)
+	if !ok {
+		return nil
+	}
+	return mcpEng
+}
+
+// connectMCPServer connects a single MCP server and registers it in the registry.
+func (a *App) connectMCPServer(entry config2.MCPServerEntry) error {
+	mcpEng := a.getMCPEngine()
+	if mcpEng == nil || a.mcpRegistry == nil {
+		return fmt.Errorf("mcp engine or registry not available")
+	}
+	cfg := engine2.MCPServerConfig{
+		ID: entry.ID, Type: entry.Type, Command: entry.Command,
+		Args: entry.Args, Env: entry.Env, URL: entry.URL, Headers: entry.Headers,
+	}
+	mcpCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	conn, err := mcpEng.ConnectServer(mcpCtx, cfg)
+	cancel()
+	if err != nil {
+		if mcpEng.IsConnected(entry.ID) {
+			return nil
+		}
+		return fmt.Errorf("connect %q: %w", entry.ID, err)
+	}
+	tools, err := conn.ListTools(context.Background())
+	if err != nil {
+		_ = mcpEng.DisconnectServer(context.Background(), entry.ID)
+		return fmt.Errorf("list tools %q: %w", entry.ID, err)
+	}
+	meta := conn.ServerMeta()
+	a.mcpRegistry.AddServer(meta, conn, tools)
+	fmt.Fprintf(os.Stderr, "[monika] MCP server %q connected (%d tools)\n", entry.ID, len(tools))
+	return nil
+}
+
+// disconnectMCPServer disconnects a server and removes it from the registry.
+func (a *App) disconnectMCPServer(id string) {
+	mcpEng := a.getMCPEngine()
+	if mcpEng != nil {
+		_ = mcpEng.DisconnectServer(context.Background(), id)
+	}
+	if a.mcpRegistry != nil {
+		a.mcpRegistry.RemoveServer(id)
+	}
+}
+
+// syncMCPServers connects servers present in a.cfg but missing from the registry,
+// and disconnects servers in the registry but absent from a.cfg.
+func (a *App) syncMCPServers() {
+	if a.mcpRegistry == nil {
+		return
+	}
+	mcpEng := a.getMCPEngine()
+	a.mu.RLock()
+	configured := make(map[string]bool, len(a.cfg.MCP.Servers))
+	var toConnect []config2.MCPServerEntry
+	for _, s := range a.cfg.MCP.Servers {
+		configured[s.ID] = true
+		if _, ok := a.mcpRegistry.GetConnection(s.ID); ok {
+			continue
+		}
+		if mcpEng != nil && mcpEng.IsConnected(s.ID) {
+			continue
+		}
+		toConnect = append(toConnect, s)
+	}
+	a.mu.RUnlock()
+
+	for _, s := range toConnect {
+		if err := a.connectMCPServer(s); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] syncMCPServers: %v\n", err)
+		}
+	}
+
+	for _, meta := range a.mcpRegistry.GetServers() {
+		if !configured[meta.ID] {
+			a.disconnectMCPServer(meta.ID)
+		}
+	}
+}
+
 // ReconnectMCPServer disconnects and reconnects a configured MCP server,
 // then returns its available tool names.
 func (a *App) ReconnectMCPServer(args json.RawMessage) ([]string, error) {
@@ -4399,43 +4715,32 @@ func (a *App) ReconnectMCPServer(args json.RawMessage) ([]string, error) {
 		return nil, err
 	}
 
-	eng, err := engine2.EngineByID("mcp")
-	if err != nil {
-		return nil, err
-	}
-	_ = eng.Init(context.Background(), nil)
-	mcpEng, ok := eng.(engine2.MCPEngine)
-	if !ok {
+	mcpEng := a.getMCPEngine()
+	if mcpEng == nil {
 		return nil, fmt.Errorf("mcp engine not available")
 	}
 
-	// Disconnect if currently connected
-	_ = mcpEng.DisconnectServer(context.Background(), req.ID)
+	// Disconnect + remove from registry
+	a.disconnectMCPServer(req.ID)
 
 	var entry *config2.MCPServerEntry
+	a.mu.RLock()
 	for i := range a.cfg.MCP.Servers {
 		if a.cfg.MCP.Servers[i].ID == req.ID {
 			entry = &a.cfg.MCP.Servers[i]
 			break
 		}
 	}
+	a.mu.RUnlock()
 	if entry == nil {
 		return nil, fmt.Errorf("server %q not found in config", req.ID)
 	}
 
-	cfg := engine2.MCPServerConfig{
-		ID: entry.ID, Type: entry.Type, Command: entry.Command,
-		Args: entry.Args, Env: entry.Env, URL: entry.URL, Headers: entry.Headers,
-	}
-	conn, err := mcpEng.ConnectServer(context.Background(), cfg)
-	if err != nil {
+	if err := a.connectMCPServer(*entry); err != nil {
 		return nil, fmt.Errorf("reconnect failed: %w", err)
 	}
 
-	tools, err := conn.ListTools(context.Background())
-	if err != nil {
-		return nil, fmt.Errorf("list tools failed: %w", err)
-	}
+	tools := a.mcpRegistry.GetToolsByServer(req.ID)
 	names := make([]string, len(tools))
 	for i, t := range tools {
 		names[i] = t.Name
@@ -4517,67 +4822,120 @@ func (a *App) isMCPConnected(id string) bool {
 	return mcpEng.IsConnected(id)
 }
 
-// SaveMCPServer creates or updates an MCP server entry in config.
+// SaveMCPServer creates or updates an MCP server entry in the given scope's config.
+// The "scope" field in args defaults to "project" when empty.
 func (a *App) SaveMCPServer(args json.RawMessage) error {
-	var srv config2.MCPServerEntry
-	if err := json.Unmarshal(args, &srv); err != nil {
-		return err
+	var req struct {
+		config2.MCPServerEntry
+		Scope string `json:"scope"`
 	}
-	found := false
-	for i, s := range a.cfg.MCP.Servers {
-		if s.ID == srv.ID {
-			a.cfg.MCP.Servers[i] = srv
-			found = true
-			break
-		}
-	}
-	if !found {
-		a.cfg.MCP.Servers = append(a.cfg.MCP.Servers, srv)
-	}
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.MCP = a.cfg.MCP
-	})
-	return nil
-}
-
-// DeleteMCPServer removes an MCP server entry from config by ID.
-func (a *App) DeleteMCPServer(args json.RawMessage) error {
-	var req struct{ ID string }
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	filtered := make([]config2.MCPServerEntry, 0)
-	for _, s := range a.cfg.MCP.Servers {
-		if s.ID != req.ID {
-			filtered = append(filtered, s)
+	scope := normalizeScope(req.Scope)
+	srv := req.MCPServerEntry
+	cred := config2.StripCredentials(&srv)
+	if err := a.writeConfigForScope(scope, func(cfg *config2.Config) {
+		found := false
+		for i, s := range cfg.MCP.Servers {
+			if s.ID == srv.ID {
+				cfg.MCP.Servers[i] = srv
+				found = true
+				break
+			}
+		}
+		if !found {
+			cfg.MCP.Servers = append(cfg.MCP.Servers, srv)
+		}
+	}); err != nil {
+		return err
+	}
+	if credPath := a.credentialsPathForScope(scope); credPath != "" {
+		if err := config2.UpdateCredentials(credPath, srv.ID, cred); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] SaveMCPServer: credentials write: %v\n", err)
 		}
 	}
-	a.cfg.MCP.Servers = filtered
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.MCP = a.cfg.MCP
-	})
+	a.reloadMergedConfig()
+	a.mu.RLock()
+	saved := srv
+	for _, s := range a.cfg.MCP.Servers {
+		if s.ID == srv.ID {
+			saved = s
+			break
+		}
+	}
+	a.mu.RUnlock()
+	a.disconnectMCPServer(srv.ID)
+	if err := a.connectMCPServer(saved); err != nil {
+		fmt.Fprintf(os.Stderr, "[monika] SaveMCPServer: connect: %v\n", err)
+	}
 	return nil
+}
+
+// DeleteMCPServer removes an MCP server entry from the given scope by ID.
+// The "scope" field in args defaults to "project" when empty.
+func (a *App) DeleteMCPServer(args json.RawMessage) error {
+	var req struct {
+		ID    string `json:"id"`
+		Scope string `json:"scope"`
+	}
+	if err := json.Unmarshal(args, &req); err != nil {
+		return err
+	}
+	scope := normalizeScope(req.Scope)
+	// Disconnect the server before removing from config
+	a.disconnectMCPServer(req.ID)
+	if err := a.writeConfigForScope(scope, func(cfg *config2.Config) {
+		filtered := make([]config2.MCPServerEntry, 0, len(cfg.MCP.Servers))
+		for _, s := range cfg.MCP.Servers {
+			if s.ID != req.ID {
+				filtered = append(filtered, s)
+			}
+		}
+		cfg.MCP.Servers = filtered
+	}); err != nil {
+		return err
+	}
+	if credPath := a.credentialsPathForScope(scope); credPath != "" {
+		if err := config2.DeleteCredentials(credPath, req.ID); err != nil {
+			fmt.Fprintf(os.Stderr, "[monika] DeleteMCPServer: credentials delete: %v\n", err)
+		}
+	}
+	a.reloadMergedConfig()
+	return nil
+}
+
+// normalizeScope validates a scope string, defaulting to "project".
+func normalizeScope(scope string) string {
+	if scope == "global" {
+		return "global"
+	}
+	return "project"
 }
 
 // SaveProvider creates or updates a model provider in config.
 func (a *App) SaveProvider(args json.RawMessage) error {
 	var req struct {
-		ID      string               `json:"id"`
-		Name    string               `json:"name"`
-		BaseURL string               `json:"base_url"`
-		APIKey  string               `json:"api_key"`
-		WireAPI string               `json:"wire_api"`
-		Models  []config2.ModelEntry `json:"models"`
+		ID             string               `json:"id"`
+		Name           string               `json:"name"`
+		BaseURL        string               `json:"base_url"`
+		APIKey         string               `json:"api_key"`
+		WireAPI        string               `json:"wire_api"`
+		Models         []config2.ModelEntry `json:"models"`
+		RefreshToken   string               `json:"refresh_token"`
+		TokenExpiresAt int64                `json:"token_expires_at"`
 	}
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
 	pc := config2.ProviderConfig{
-		Name:    req.Name,
-		BaseURL: req.BaseURL,
-		APIKey:  req.APIKey,
-		WireAPI: req.WireAPI,
-		Models:  req.Models,
+		Name:           req.Name,
+		BaseURL:        req.BaseURL,
+		APIKey:         req.APIKey,
+		WireAPI:        req.WireAPI,
+		Models:         req.Models,
+		RefreshToken:   req.RefreshToken,
+		TokenExpiresAt: req.TokenExpiresAt,
 	}
 	if existing, ok := a.cfg.ModelProviders[req.ID]; ok {
 		if pc.Name == "" {
@@ -4598,20 +4956,33 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 		if pc.ModelsDevProvider == "" {
 			pc.ModelsDevProvider = existing.ModelsDevProvider
 		}
+		if pc.RefreshToken == "" {
+			pc.RefreshToken = existing.RefreshToken
+		}
+		if pc.TokenExpiresAt == 0 {
+			pc.TokenExpiresAt = existing.TokenExpiresAt
+		}
 	}
 	if a.cfg.ModelProviders == nil {
 		a.cfg.ModelProviders = make(map[string]config2.ProviderConfig)
 	}
 	a.cfg.ModelProviders[req.ID] = pc
 
-	// Auto-populate model limits from models.dev on first save.
-	if len(pc.Models) == 0 || pc.ModelsDevProvider == "" {
+	// Copilot providers: fetch real model list from the Copilot API instead of models.dev.
+	if pc.WireAPI == "copilot" && pc.APIKey != "" {
+		a.syncCopilotModels(req.ID, pc.APIKey)
+	} else if len(pc.Models) == 0 || pc.ModelsDevProvider == "" {
+		// Auto-populate model limits from models.dev on first save.
 		a.syncProviderFromModelsDev(req.ID)
 	}
+	pc = a.cfg.ModelProviders[req.ID]
 
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.ModelProviders = a.cfg.ModelProviders
-	})
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		cfg.ModelProviders[req.ID] = pc
+	}); err != nil {
+		return err
+	}
+	a.reloadMergedConfig()
 
 	// Initialize engine at runtime so provider is immediately available.
 	engineID := pc.WireAPI
@@ -4625,9 +4996,11 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 	}
 	eng := template.NewInstance()
 	if err := eng.Init(a.ctx, map[string]any{
-		"base_url": pc.BaseURL,
-		"api_key":  pc.APIKey,
-		"models":   pc.Models,
+		"base_url":         pc.BaseURL,
+		"api_key":          pc.APIKey,
+		"models":           pc.Models,
+		"refresh_token":    pc.RefreshToken,
+		"token_expires_at": pc.TokenExpiresAt,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "[monika] SaveProvider: init engine %q failed: %v\n", engineID, err)
 		return nil
@@ -4639,7 +5012,93 @@ func (a *App) SaveProvider(args json.RawMessage) error {
 	}
 	a.providers[req.ID] = providerEng
 
+	// Inject token refresh callback for copilot providers.
+	if cp, ok := providerEng.(*copilotprovider.CopilotProvider); ok {
+		providerID := req.ID
+		cp.SetOnTokenRefresh(func(at, rt string, exp int64) {
+			a.updateCopilotToken(providerID, at, rt, exp)
+		})
+	}
+
 	return nil
+}
+
+// StartCopilotLogin initiates GitHub Device Flow authentication.
+func (a *App) StartCopilotLogin() (*CopilotLoginInfo, error) {
+	resp, err := copilot.RequestDeviceCode(a.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("copilot login: %w", err)
+	}
+	return &CopilotLoginInfo{
+		DeviceCode:      resp.DeviceCode,
+		UserCode:        resp.UserCode,
+		VerificationURI: resp.VerificationURI,
+		ExpiresIn:       resp.ExpiresIn,
+		Interval:        resp.Interval,
+	}, nil
+}
+
+// PollCopilotLogin polls the OAuth token endpoint once.
+func (a *App) PollCopilotLogin(deviceCode string) (*CopilotTokenResult, error) {
+	resp, err := copilot.PollForToken(a.ctx, deviceCode)
+	if err != nil {
+		switch {
+		case errors.Is(err, copilot.ErrAuthorizationPending):
+			return &CopilotTokenResult{Status: "pending"}, nil
+		case errors.Is(err, copilot.ErrSlowDown):
+			return &CopilotTokenResult{Status: "pending", Error: "slow_down"}, nil
+		case errors.Is(err, copilot.ErrExpiredToken):
+			return &CopilotTokenResult{Status: "error", Error: "Device code expired"}, nil
+		case errors.Is(err, copilot.ErrAccessDenied):
+			return &CopilotTokenResult{Status: "error", Error: "Access denied by user"}, nil
+		default:
+			return &CopilotTokenResult{Status: "error", Error: err.Error()}, nil
+		}
+	}
+	return &CopilotTokenResult{
+		AccessToken:  resp.AccessToken,
+		RefreshToken: resp.RefreshToken,
+		ExpiresIn:    resp.ExpiresIn,
+		Status:       "success",
+	}, nil
+}
+
+// updateCopilotToken persists refreshed tokens to config.
+func (a *App) updateCopilotToken(providerID, accessToken, refreshToken string, expiresAt int64) {
+	a.mu.Lock()
+	if pc, ok := a.cfg.ModelProviders[providerID]; ok {
+		pc.APIKey = accessToken
+		if refreshToken != "" {
+			pc.RefreshToken = refreshToken
+		}
+		pc.TokenExpiresAt = expiresAt
+		a.cfg.ModelProviders[providerID] = pc
+	}
+	a.mu.Unlock()
+
+	a.writeConfigForScope("global", func(cfg *config2.Config) {
+		if pc, ok := cfg.ModelProviders[providerID]; ok {
+			pc.APIKey = accessToken
+			if refreshToken != "" {
+				pc.RefreshToken = refreshToken
+			}
+			pc.TokenExpiresAt = expiresAt
+			cfg.ModelProviders[providerID] = pc
+		}
+	})
+}
+
+// InjectCopilotRefreshCallbacks injects token refresh callbacks into all
+// existing copilot providers. Called once after App creation in main.go.
+func InjectCopilotRefreshCallbacks(a *App) {
+	for id, eng := range a.providers {
+		if cp, ok := eng.(*copilotprovider.CopilotProvider); ok {
+			providerID := id
+			cp.SetOnTokenRefresh(func(at, rt string, exp int64) {
+				a.updateCopilotToken(providerID, at, rt, exp)
+			})
+		}
+	}
 }
 
 // DeleteProvider removes a model provider from config by ID.
@@ -4648,11 +5107,13 @@ func (a *App) DeleteProvider(args json.RawMessage) error {
 	if err := json.Unmarshal(args, &req); err != nil {
 		return err
 	}
-	delete(a.cfg.ModelProviders, req.ID)
 	delete(a.providers, req.ID)
-	a.writeConfigForScope("global", func(cfg *config2.Config) {
-		cfg.ModelProviders = a.cfg.ModelProviders
-	})
+	if err := a.writeConfigForScope("global", func(cfg *config2.Config) {
+		delete(cfg.ModelProviders, req.ID)
+	}); err != nil {
+		return err
+	}
+	a.reloadMergedConfig()
 	return nil
 }
 
@@ -5181,6 +5642,17 @@ func (a *App) configPathForScope(scope string) string {
 	return filepath.Join(a.home, ".monika", "config.json")
 }
 
+func (a *App) credentialsPathForScope(scope string) string {
+	if scope == "project" {
+		pp := a.projectPath()
+		if pp == "" {
+			return ""
+		}
+		return filepath.Join(pp, ".monika", "credentials.json")
+	}
+	return filepath.Join(a.home, ".monika", "credentials.json")
+}
+
 func (a *App) readConfigForScope(scope string) (config2.Config, error) {
 	configPath := a.configPathForScope(scope)
 	if configPath == "" {
@@ -5273,6 +5745,12 @@ func (a *App) SaveFormatterConfig(scope string, formatters map[string]lsp.Format
 }
 
 func (a *App) reloadMergedConfig() {
+	// Migrate inline credentials before reading config files
+	config2.MigrateInlineCredentials(a.configPathForScope("global"), a.credentialsPathForScope("global"))
+	if pp := a.projectPath(); pp != "" {
+		config2.MigrateInlineCredentials(a.configPathForScope("project"), a.credentialsPathForScope("project"))
+	}
+
 	var cfg config2.Config
 	if globalCfg, err := a.readConfigForScope("global"); err == nil {
 		cfg = globalCfg
@@ -5280,6 +5758,18 @@ func (a *App) reloadMergedConfig() {
 	if pp := a.projectPath(); pp != "" {
 		if projCfg, err := a.readConfigForScope("project"); err == nil {
 			config2.Merge(&cfg, projCfg)
+		}
+	}
+	if credPath := a.credentialsPathForScope("global"); credPath != "" {
+		if store, err := config2.LoadCredentials(credPath); err == nil {
+			config2.ApplyCredentialsStore(&cfg, store)
+		}
+	}
+	if pp := a.projectPath(); pp != "" {
+		if credPath := a.credentialsPathForScope("project"); credPath != "" {
+			if store, err := config2.LoadCredentials(credPath); err == nil {
+				config2.ApplyCredentialsStore(&cfg, store)
+			}
 		}
 	}
 	a.mu.Lock()

@@ -27,8 +27,10 @@ import (
 	"monika/internal/update"
 	engine2 "monika/pkg/engine"
 	"monika/pkg/modelsdev"
+	"monika/pkg/proxy"
 
 	_ "monika/internal/engines/mcp"
+	_ "monika/internal/engines/provider/copilot"
 	_ "monika/internal/engines/provider/openai"
 	_ "monika/internal/engines/skill"
 
@@ -107,6 +109,9 @@ func main() {
 						cfg := engine2.MCPServerConfig{
 							ID: srv.ID, Type: srv.Type, Command: srv.Command,
 							Args: srv.Args, Env: srv.Env, URL: srv.URL, Headers: srv.Headers,
+						}
+						if mcp.IsConnected(srv.ID) {
+							continue
 						}
 						mcpCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 						conn, err := mcp.ConnectServer(mcpCtx, cfg)
@@ -414,6 +419,12 @@ changes as you install or configure them. Always search before assuming:
 	}
 
 	appService = api.NewApp(home, "", pr.Config, pr.Providers, pr.Model, registry, loopOpts, taskStoreAccessor, agentRegistry, taskRunner, mcpRegistry, kbStore, systemPrompt)
+	api.InjectCopilotRefreshCallbacks(appService)
+
+	// Initialize proxy from saved config.
+	if pr.Config.Proxy.Enabled && pr.Config.Proxy.URL != "" {
+		proxy.SetURL(pr.Config.Proxy.URL)
+	}
 
 	appService.InitTSBridge(tsBridge)
 	// Background memory maintenance: decay (archive/delete stale) + review (conflict/upgrade detection).
@@ -529,7 +540,7 @@ changes as you install or configure them. Always search before assuming:
 		for i, s := range servers {
 			result[i] = builtin.MCPServerInfo{
 				ID: s.ID, Type: s.Type, Command: s.Command,
-				Args: s.Args, Env: s.Env, URL: s.URL, Status: s.Status,
+				Args: s.Args, URL: s.URL, Status: s.Status, Scope: s.Scope,
 			}
 		}
 		return result
@@ -707,6 +718,11 @@ func syncModelsDev(home string, cfg *config2.Config) {
 	// users must explicitly add providers through the Settings UI.
 	if len(cfg.ModelProviders) > 0 {
 		for key, pc := range cfg.ModelProviders {
+			// Copilot providers are synced from the Copilot API, not models.dev.
+			if pc.WireAPI == "copilot" {
+				cfg.ModelProviders[key] = pc
+				continue
+			}
 			existingIDs := make(map[string]bool, len(pc.Models))
 			for i := range pc.Models {
 				m := &pc.Models[i]

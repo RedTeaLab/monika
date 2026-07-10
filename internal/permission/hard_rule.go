@@ -18,15 +18,35 @@ func NewHardRuleEngine(userRules []Rule, projectDir string) *HardRuleEngine {
 	return &HardRuleEngine{
 		rules:      userRules,
 		projectDir: projectDir,
-		blacklist:  []Rule{},
+		blacklist:  defaultBuiltinBlacklist(),
+	}
+}
+
+func defaultBuiltinBlacklist() []Rule {
+	return []Rule{
+		{Tool: "file_read", Pattern: ".monika/credentials.json", Decision: "deny", Source: SourceBuiltin},
+		{Tool: "file_edit", Pattern: ".monika/credentials.json", Decision: "deny", Source: SourceBuiltin},
+		{Tool: "patch", Pattern: ".monika/credentials.json", Decision: "deny", Source: SourceBuiltin},
+		{Tool: "file_read", Pattern: ".monika/databases.json", Decision: "deny", Source: SourceBuiltin},
+		{Tool: "file_edit", Pattern: ".monika/databases.json", Decision: "deny", Source: SourceBuiltin},
+		{Tool: "patch", Pattern: ".monika/databases.json", Decision: "deny", Source: SourceBuiltin},
 	}
 }
 
 // CheckBuiltinBlacklist checks only the built-in blacklist.
 // Returns Deny on match, nil otherwise.
+// Uses substring matching (not prefix) so patterns match absolute paths.
 func (e *HardRuleEngine) CheckBuiltinBlacklist(ctx CheckContext) *Decision {
 	for _, r := range e.blacklist {
-		if e.matchRule(r, ctx) {
+		if r.Tool != ctx.ToolName {
+			continue
+		}
+		value := e.extractMatchValue(ctx)
+		if value == "" {
+			continue
+		}
+		normalized := strings.ReplaceAll(value, "\\", "/")
+		if strings.Contains(normalized, r.Pattern) {
 			d := Deny
 			return &d
 		}
@@ -81,7 +101,7 @@ func (e *HardRuleEngine) extractMatchValue(ctx CheckContext) string {
 		if cmd, ok := args["command"].(string); ok {
 			return cmd
 		}
-	case "file_write", "file_edit", "patch":
+	case "file_read", "file_write", "file_edit", "patch":
 		if path, ok := args["filePath"].(string); ok {
 			return path
 		}

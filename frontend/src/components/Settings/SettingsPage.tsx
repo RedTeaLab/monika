@@ -8,9 +8,10 @@ import AboutTab from './AboutTab'
 import LspFormattersTab from './LspFormattersTab'
 import DatabasesTab from './DatabasesTab'
 import KnowledgeBaseTab from './KnowledgeBaseTab'
+import NetworkTab from './NetworkTab'
 import { IconDatabase, IconBot, IconShield, IconStar, IconPlug, IconServer, IconInfo, IconHardDrive, IconBookOpen } from '../Icons'
 
-type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models' | 'lsp-formatters' | 'databases' | 'knowledge-base' | 'about'
+type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models' | 'lsp-formatters' | 'databases' | 'knowledge-base' | 'network' | 'about'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'models', label: 'Providers', icon: <IconDatabase size={14} /> },
@@ -21,6 +22,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'lsp-formatters', label: 'LSP & Format', icon: <IconServer size={14} /> },
     { id: 'databases', label: 'Databases', icon: <IconHardDrive size={14} /> },
     { id: 'knowledge-base', label: 'Memory', icon: <IconBookOpen size={14} /> },
+    { id: 'network', label: 'Network', icon: <IconServer size={14} /> },
     { id: 'about', label: 'About', icon: <IconInfo size={14} /> },
 ]
 
@@ -74,6 +76,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
                     {activeTab === 'models' && <ModelsTab />}
                     {activeTab === 'databases' && <DatabasesTab />}
                     {activeTab === 'knowledge-base' && <KnowledgeBaseTab />}
+                    {activeTab === 'network' && <NetworkTab />}
                     {activeTab === 'about' && <AboutTab />}
                 </main>
             </div>

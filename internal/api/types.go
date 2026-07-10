@@ -136,12 +136,13 @@ type CommitInfo struct {
 
 // ProviderInfo identifies a configured provider for the frontend selector.
 type ProviderInfo struct {
-	ID          string           `json:"id"`
-	DisplayName string           `json:"display_name"`
-	BaseURL     string           `json:"base_url"`
-	APIKey      string           `json:"api_key"`
-	WireAPI     string           `json:"wire_api,omitempty"`
-	Models      []ModelEntryJSON `json:"models"`
+	ID             string           `json:"id"`
+	DisplayName    string           `json:"display_name"`
+	BaseURL        string           `json:"base_url"`
+	APIKey         string           `json:"api_key"`
+	WireAPI        string           `json:"wire_api,omitempty"`
+	Models         []ModelEntryJSON `json:"models"`
+	TokenExpiresAt int64            `json:"token_expires_at,omitempty"`
 }
 
 type ModelEntryJSON struct {
@@ -159,6 +160,7 @@ type AvailableProviderInfo struct {
 	DisplayName string               `json:"display_name"`
 	Npm         string               `json:"npm"`
 	BaseURL     string               `json:"base_url"`
+	Env         []string             `json:"env,omitempty"`
 	Models      []AvailableModelInfo `json:"models"`
 }
 
@@ -283,4 +285,22 @@ type QueuedMessage struct {
 type MediaThumbnail struct {
 	T   float64 `json:"t"`
 	URL string  `json:"url"`
+}
+
+// CopilotLoginInfo is returned by StartCopilotLogin.
+type CopilotLoginInfo struct {
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	ExpiresIn       int    `json:"expires_in"`
+	Interval        int    `json:"interval"`
+}
+
+// CopilotTokenResult is returned by PollCopilotLogin.
+type CopilotTokenResult struct {
+	AccessToken  string `json:"access_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	ExpiresIn    int    `json:"expires_in,omitempty"`
+	Status       string `json:"status"`
+	Error        string `json:"error,omitempty"`
 }

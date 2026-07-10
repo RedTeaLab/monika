@@ -32,6 +32,11 @@ func (t *mcpUninstallTool) Parameters() map[string]any {
 				"type":        "string",
 				"description": "The ID of the MCP server to remove",
 			},
+			"scope": map[string]any{
+				"type":        "string",
+				"enum":        []string{"project", "global"},
+				"description": "Which config to remove from: \"project\" (default) or \"global\"",
+			},
 		},
 		"required": []string{"id"},
 	}
@@ -39,7 +44,8 @@ func (t *mcpUninstallTool) Parameters() map[string]any {
 
 func (t *mcpUninstallTool) Execute(_ context.Context, args json.RawMessage) (tool.ExecutionResult, error) {
 	var params struct {
-		ID string `json:"id"`
+		ID    string `json:"id"`
+		Scope string `json:"scope"`
 	}
 	if err := json.Unmarshal(args, &params); err != nil {
 		return tool.ExecutionResult{}, fmt.Errorf("uninstall_mcp_server: invalid args: %w", err)
@@ -48,7 +54,11 @@ func (t *mcpUninstallTool) Execute(_ context.Context, args json.RawMessage) (too
 		return tool.ExecutionResult{Content: "Error: id is required", IsError: true}, nil
 	}
 
-	payload, _ := json.Marshal(map[string]string{"ID": params.ID})
+	scope := params.Scope
+	if scope != "global" {
+		scope = "project"
+	}
+	payload, _ := json.Marshal(map[string]string{"id": params.ID, "scope": scope})
 	if err := t.deleteFn(payload); err != nil {
 		return tool.ExecutionResult{Content: fmt.Sprintf("Failed to remove MCP server: %s", err), IsError: true}, nil
 	}

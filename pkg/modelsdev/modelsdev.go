@@ -18,6 +18,7 @@ type ProviderEntry struct {
 	Name   string               `json:"name"`
 	Npm    string               `json:"npm"`
 	API    string               `json:"api"`
+	Env    []string             `json:"env"`
 	Models map[string]ModelData `json:"models"`
 }
 

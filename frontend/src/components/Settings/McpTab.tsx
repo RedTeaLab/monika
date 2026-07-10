@@ -35,6 +35,17 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: 
             >
               {srv.type || 'stdio'}
             </span>
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium"
+              style={{
+                background: srv.scope === 'global' ? 'var(--bg-sidebar)' : 'var(--bg-input)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-dim)',
+              }}
+              title={srv.scope === 'global' ? 'Stored in ~/.monika/config.json' : 'Stored in .monika/config.json'}
+            >
+              {srv.scope || 'project'}
+            </span>
             {srv.status === 'connected' ? (
               <span className="inline-flex items-center gap-1 text-green-400 text-[10px]">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -154,6 +165,7 @@ export default function McpTab() {
   const [jsonText, setJsonText] = useState('')
   const [importError, setImportError] = useState('')
   const [importing, setImporting] = useState(false)
+  const [importScope, setImportScope] = useState<'project' | 'global'>('project')
   const [addTestResult, setAddTestResult] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [testStates, setTestStates] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
@@ -170,14 +182,20 @@ export default function McpTab() {
     if (!parsed.servers.length) return
     setImporting(true); setImportError('')
     try {
-      await importServers(jsonText)
+      let payload = jsonText
+      try {
+        const parsedJson = JSON.parse(jsonText)
+        if (parsedJson && !parsedJson.scope) parsedJson.scope = importScope
+        payload = JSON.stringify(parsedJson)
+      } catch { /* pass through raw json */ }
+      await importServers(payload)
       setJsonText('')
       setShowAddModal(false)
       setAddTestResult({})
     } catch (e: any) {
       setImportError(e?.message || 'Failed to import servers')
     } finally { setImporting(false) }
-  }, [jsonText, parsed, importServers])
+  }, [jsonText, parsed, importServers, importScope])
 
   const handleAddTest = useCallback(async (srvId: string) => {
     const srv = parsed.servers.find(s => s.id === srvId)
@@ -254,6 +272,7 @@ export default function McpTab() {
           url: s.url,
           headers: s.headers,
           status: editServer.status,
+          scope: editServer.scope,
         })
       }
       setEditServer(null)
@@ -269,9 +288,9 @@ export default function McpTab() {
           <h3 className="text-[15px] font-semibold m-0 mb-1">MCP Servers</h3>
           <p className="text-[11px] text-[var(--text-dim)] m-0">Manage MCP server connections</p>
         </div>
-        <button
-          onClick={() => { setShowAddModal(true); setJsonText(''); setImportError(''); setAddTestResult({}) }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
+          <button
+            onClick={() => { setShowAddModal(true); setJsonText(''); setImportError(''); setImportScope('project'); setAddTestResult({}) }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
         >
           <IconPlus size={12} />
           Add
@@ -308,6 +327,17 @@ export default function McpTab() {
             <h4 className="text-[14px] font-semibold m-0">Add MCP Server</h4>
           </ModalHeader>
           <ModalBody>
+            <div className="flex items-center gap-2 mb-3">
+              <label className="text-[11px] font-medium text-[var(--text-secondary)]">Scope:</label>
+              <select
+                value={importScope}
+                onChange={(e) => setImportScope(e.target.value as 'project' | 'global')}
+                className="text-[11px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] outline-none cursor-pointer"
+              >
+                <option value="project">project (.monika/config.json)</option>
+                <option value="global">global (~/.monika/config.json)</option>
+              </select>
+            </div>
             <textarea
               value={jsonText}
               onChange={(e) => { setJsonText(e.target.value); setImportError('') }}
@@ -391,7 +421,11 @@ export default function McpTab() {
           message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
           confirmLabel="Delete"
           icon={<IconTrash size={15} />}
-          onConfirm={async () => { await deleteServer(confirmDelete); setConfirmDelete(null) }}
+          onConfirm={async () => {
+            const srv = servers.find(s => s.id === confirmDelete)
+            await deleteServer(confirmDelete, srv?.scope)
+            setConfirmDelete(null)
+          }}
           onCancel={() => setConfirmDelete(null)}
         />
       )}

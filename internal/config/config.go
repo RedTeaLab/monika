@@ -27,6 +27,12 @@ type Config struct {
 	Tools          ToolsConfig                    `yaml:"tools" json:"tools"`
 	LSP            LSPConfig                      `yaml:"lsp" json:"lsp"`
 	Formatters     map[string]lsp.FormatterConfig `yaml:"formatters" json:"formatters"`
+	Proxy          ProxyConfig                    `yaml:"proxy" json:"proxy"`
+}
+
+type ProxyConfig struct {
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	URL     string `yaml:"url" json:"url"`
 }
 
 // AgentEntry defines a configurable agent that can be referenced by name.
@@ -57,6 +63,8 @@ type ProviderConfig struct {
 	WireAPI           string       `yaml:"wire_api" json:"wire_api"`
 	ModelsDevProvider string       `yaml:"modelsdev_provider,omitempty" json:"modelsdev_provider,omitempty"`
 	Models            []ModelEntry `yaml:"models" json:"models"`
+	RefreshToken      string       `yaml:"refresh_token,omitempty" json:"refresh_token,omitempty"`
+	TokenExpiresAt    int64        `yaml:"token_expires_at,omitempty" json:"token_expires_at,omitempty"`
 }
 
 type SkillConfig struct {
@@ -96,6 +104,28 @@ type LSPConfig struct {
 
 func Load(opts Options) (Config, error) {
 	var cfg Config
+
+	// Migrate inline credentials from config files before loading
+	if opts.HomeDir != "" {
+		credPath := filepath.Join(opts.HomeDir, ".monika", "credentials.json")
+		jsonPath := filepath.Join(opts.HomeDir, ".monika", "config.json")
+		yamlPath := filepath.Join(opts.HomeDir, ".monika", "config.yaml")
+		if _, err := os.Stat(jsonPath); err == nil {
+			MigrateInlineCredentials(jsonPath, credPath)
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			MigrateInlineCredentials(yamlPath, credPath)
+		}
+	}
+	if opts.ProjectDir != "" {
+		credPath := filepath.Join(opts.ProjectDir, ".monika", "credentials.json")
+		jsonPath := filepath.Join(opts.ProjectDir, ".monika", "config.json")
+		yamlPath := filepath.Join(opts.ProjectDir, ".monika", "config.yaml")
+		if _, err := os.Stat(jsonPath); err == nil {
+			MigrateInlineCredentials(jsonPath, credPath)
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			MigrateInlineCredentials(yamlPath, credPath)
+		}
+	}
 
 	if opts.HomeDir != "" {
 		jsonPath := filepath.Join(opts.HomeDir, ".monika", "config.json")
@@ -145,6 +175,20 @@ func Load(opts Options) (Config, error) {
 			}
 		}
 	}
+
+	if opts.HomeDir != "" {
+		credPath := filepath.Join(opts.HomeDir, ".monika", "credentials.json")
+		if store, err := LoadCredentials(credPath); err == nil {
+			ApplyCredentialsStore(&cfg, store)
+		}
+	}
+	if opts.ProjectDir != "" {
+		credPath := filepath.Join(opts.ProjectDir, ".monika", "credentials.json")
+		if store, err := LoadCredentials(credPath); err == nil {
+			ApplyCredentialsStore(&cfg, store)
+		}
+	}
+
 	return cfg, nil
 }
 
@@ -245,7 +289,17 @@ func Merge(dst *Config, src Config) {
 		dst.Skill.Paths = append(dst.Skill.Paths, src.Skill.Paths...)
 	}
 	if len(src.MCP.Servers) > 0 {
-		dst.MCP.Servers = append(dst.MCP.Servers, src.MCP.Servers...)
+		existing := make(map[string]int, len(dst.MCP.Servers))
+		for i, s := range dst.MCP.Servers {
+			existing[s.ID] = i
+		}
+		for _, s := range src.MCP.Servers {
+			if idx, ok := existing[s.ID]; ok {
+				dst.MCP.Servers[idx] = s // src (project) overrides dst (global)
+			} else {
+				dst.MCP.Servers = append(dst.MCP.Servers, s)
+			}
+		}
 	}
 	if len(src.Tools.Confirm) > 0 || len(src.Tools.Disallow) > 0 {
 		dst.Tools.Confirm = src.Tools.Confirm
