@@ -338,69 +338,64 @@ function ChangesTab({ effectivePath }: { effectivePath: string }) {
                 )}
             </div>
 
-            <div className="shrink-0 border-t border-[var(--border)]" style={{ padding: '8px' }}>
-                <div
-                    className="rounded-md border transition-colors"
-                    style={{ background: 'var(--bg-card)', borderColor: 'var(--border)' }}
-                >
-                    <textarea
-                        className="w-full text-[12px] outline-none border-0 resize-none bg-transparent"
+            <div className="shrink-0 border-t border-[var(--border)] flex flex-col" style={{ background: 'var(--bg-root)' }}>
+                <textarea
+                    className="w-full text-[12px] outline-none border-0 resize-none bg-transparent"
+                    style={{
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-sans)',
+                        padding: '8px 12px',
+                        height: '48px',
+                    }}
+                    placeholder="Commit message..."
+                    value={commitMsg}
+                    onChange={(e) => setCommitMsg(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={committing}
+                />
+                <div className="flex items-center gap-2 px-3 pb-2">
+                    {staged.length > 0 && (
+                        <span className="text-[11px] text-[var(--text-dim)] select-none">
+                            {staged.length} staged
+                        </span>
+                    )}
+                    <div className="flex-1" />
+                    <button
+                        className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
                         style={{
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--font-sans)',
-                            padding: '8px 10px',
-                            height: '48px',
+                            background: 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
+                            color: canCommit ? 'var(--text-secondary)' : 'var(--text-dim)',
+                            fontFamily: 'inherit',
+                            opacity: canCommit ? 1 : 0.5,
+                            cursor: canCommit ? 'pointer' : 'not-allowed',
                         }}
-                        placeholder="Commit message..."
-                        value={commitMsg}
-                        onChange={(e) => setCommitMsg(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        disabled={committing}
-                    />
-                    <div className="flex items-center gap-2 px-[10px] pb-[8px]">
-                        {staged.length > 0 && (
-                            <span className="text-[11px] text-[var(--text-dim)] select-none">
-                                {staged.length} staged
-                            </span>
-                        )}
-                        <div className="flex-1" />
-                        <button
-                            className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
-                            style={{
-                                background: 'var(--bg-elevated)',
-                                border: '1px solid var(--border)',
-                                color: canCommit ? 'var(--text-secondary)' : 'var(--text-dim)',
-                                fontFamily: 'inherit',
-                                opacity: canCommit ? 1 : 0.5,
-                                cursor: canCommit ? 'pointer' : 'not-allowed',
-                            }}
-                            onMouseEnter={(e) => { if (canCommit) e.currentTarget.style.borderColor = 'var(--border-strong)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
-                            onClick={() => handleCommit(false)}
-                            disabled={committing || !canCommit}
-                        >
-                            <GitCommitHorizontal size={12} strokeWidth={1.5} />
-                            {committing ? 'Committing...' : 'Commit'}
-                        </button>
-                        <button
-                            className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
-                            style={{
-                                background: canCommit ? 'var(--accent)' : 'var(--bg-elevated)',
-                                border: '1px solid var(--border)',
-                                color: canCommit ? '#fff' : 'var(--text-dim)',
-                                fontFamily: 'inherit',
-                                opacity: canCommit ? 1 : 0.5,
-                                cursor: canCommit ? 'pointer' : 'not-allowed',
-                            }}
-                            onMouseEnter={(e) => { if (canCommit) e.currentTarget.style.background = 'var(--accent-hover)' }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = canCommit ? 'var(--accent)' : 'var(--bg-elevated)' }}
-                            onClick={() => handleCommit(true)}
-                            disabled={committing || !canCommit}
-                        >
-                            <Upload size={12} strokeWidth={1.5} />
-                            {committing ? 'Pushing...' : 'Commit & Push'}
-                        </button>
-                    </div>
+                        onMouseEnter={(e) => { if (canCommit) e.currentTarget.style.borderColor = 'var(--border-strong)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+                        onClick={() => handleCommit(false)}
+                        disabled={committing || !canCommit}
+                    >
+                        <GitCommitHorizontal size={12} strokeWidth={1.5} />
+                        {committing ? 'Committing...' : 'Commit'}
+                    </button>
+                    <button
+                        className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1 transition-colors"
+                        style={{
+                            background: canCommit ? 'var(--accent)' : 'var(--bg-elevated)',
+                            border: '1px solid var(--border)',
+                            color: canCommit ? '#fff' : 'var(--text-dim)',
+                            fontFamily: 'inherit',
+                            opacity: canCommit ? 1 : 0.5,
+                            cursor: canCommit ? 'pointer' : 'not-allowed',
+                        }}
+                        onMouseEnter={(e) => { if (canCommit) e.currentTarget.style.background = 'var(--accent-hover)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = canCommit ? 'var(--accent)' : 'var(--bg-elevated)' }}
+                        onClick={() => handleCommit(true)}
+                        disabled={committing || !canCommit}
+                    >
+                        <Upload size={12} strokeWidth={1.5} />
+                        {committing ? 'Pushing...' : 'Commit & Push'}
+                    </button>
                 </div>
             </div>
         </div>
