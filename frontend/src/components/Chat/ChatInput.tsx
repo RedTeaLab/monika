@@ -11,7 +11,7 @@ import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
 import { findLabels, LabelRegion, renderChipHTML } from './LabelChip'
 import { App } from '../../../bindings/monika'
 import { Call, Events } from '@wailsio/runtime'
-import { IconSend, IconPaperclip } from '../Icons'
+import { IconSend, IconPaperclip, IconCornerDownLeft, IconChevronRight } from '../Icons'
 import { QueuePanel } from '../QueuePanel/QueuePanel'
 
 const INIT_TEMPLATE = `Please analyze this project and check if an \`AGENTS.md\` file exists in the project root.
@@ -602,7 +602,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
             const histItems: AcItem[] = historyRef.current
                 .filter(h => h.toLowerCase().startsWith(lq))
                 .slice(0, 5)
-                .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: `$${h} ` }))
+                .map(h => ({ name: h, detail: 'history', icon: <IconCornerDownLeft size={12} />, insert: `$${h} ` }))
 
             const files = projectPath
                 ? await App.ListFileTree(projectPath, false).then(r => flattenFiles(r as FileEntry[])).catch(() => [] as FileEntry[])
@@ -614,7 +614,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
                 .map(f => ({
                     name: f.name,
                     detail: f.is_dir ? 'directory' : 'file',
-                    icon: f.is_dir ? '▸' : '▹',
+                    icon: <IconChevronRight size={12} />,
                     insert: `$${f.path} `,
                 }))
 
@@ -630,7 +630,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
                 .map(f => ({
                     name: f.path,
                     detail: f.is_dir ? 'directory' : 'file',
-                    icon: f.is_dir ? '▸' : '▹',
+                    icon: <IconChevronRight size={12} />,
                     insert: f.is_dir ? `@${f.path}/` : `@${f.path} `,
                 }))
         } else if (prefix === '') {
@@ -638,7 +638,7 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
             const histItems: AcItem[] = historyRef.current
                 .filter(h => h.toLowerCase().startsWith(lq))
                 .slice(0, 10)
-                .map(h => ({ name: h, detail: 'history', icon: '⏎', insert: h }))
+                .map(h => ({ name: h, detail: 'history', icon: <IconCornerDownLeft size={12} />, insert: h }))
 
             items = histItems
         }

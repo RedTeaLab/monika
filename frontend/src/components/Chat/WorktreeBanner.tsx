@@ -47,27 +47,27 @@ export default function WorktreeBanner({ sessionId, deletedPath, onClose, onMana
             <button
                 onClick={handleRebuild}
                 disabled={rebuilding}
-                className="text-[11px] px-2 py-0.5 rounded border ml-2"
+                className="text-[11px] px-2 py-0.5 rounded border ml-2 cursor-pointer"
                 style={{ borderColor: 'currentColor' }}
             >
                 {rebuilding ? 'Rebuilding...' : 'Rebuild'}
             </button>
             <button
                 onClick={handleRevert}
-                className="text-[11px] px-2 py-0.5 rounded border"
+                className="text-[11px] px-2 py-0.5 rounded border cursor-pointer"
                 style={{ borderColor: 'currentColor' }}
             >Revert to Project Root</button>
             {error && (
                 <>
                     <button
                         onClick={onManageWorktree}
-                        className="text-[11px] px-2 py-0.5 rounded border"
+                        className="text-[11px] px-2 py-0.5 rounded border cursor-pointer"
                         style={{ borderColor: 'currentColor' }}
                     >Manage</button>
                     <span className="text-[11px]" style={{ color: 'var(--red)' }}>{error}</span>
                 </>
             )}
-            <button onClick={onClose} className="ml-auto text-[14px] opacity-60 hover:opacity-100">&times;</button>
+            <button onClick={onClose} className="ml-auto text-[14px] opacity-60 hover:opacity-100 cursor-pointer">&times;</button>
         </div>
     )
 }

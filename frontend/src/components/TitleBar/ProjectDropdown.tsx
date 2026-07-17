@@ -1,153 +1,67 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useState } from 'react';
 import { useStore } from '../../store';
-import { useClickOutside } from '../../hooks/useClickOutside';
-import { dropdownContainerStyle, sectionHeaderStyle } from './dropdownHelpers';
+import { Combobox, type ComboboxOption } from '../ui';
+import { getErrorMessage } from './dropdownHelpers';
 
 interface ProjectDropdownProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onOpenFileDialog: () => void;
+  /** Called with the chosen project path when the user picks one. */
   onSelectProject: (path: string) => void;
-  triggerRef: React.RefObject<HTMLElement | null>;
+  /** Whether the control is disabled (e.g. during an active switch). */
+  disabled?: boolean;
+  /** Optional className forwarded to the Combobox trigger. */
+  className?: string;
 }
 
-export function ProjectDropdown({ isOpen, onClose, onOpenFileDialog, onSelectProject, triggerRef }: ProjectDropdownProps) {
+/**
+ * Self-contained project picker backed by `recentProjects`.
+ *
+ * Renders a single searchable Combobox (own trigger + panel, open state,
+ * search, and keyboard nav handled by the shared primitive). Emits the chosen
+ * path via `onSelectProject`. No custom dropdown markup remains.
+ */
+export function ProjectDropdown({ onSelectProject, disabled, className }: ProjectDropdownProps) {
   const recentProjects = useStore(s => s.recentProjects);
   const projectPath = useStore(s => s.projectPath);
   const loadRecentProjects = useStore(s => s.loadRecentProjects);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [focusIndex, setFocusIndex] = useState(0);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Keep the recent list fresh on mount. Combobox owns its own open state, so
+  // there is no `isOpen` gate; we hydrate up-front rather than lazily.
   useEffect(() => {
-    if (!isOpen) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    setFocusIndex(0);
     loadRecentProjects()
-      .then(() => setLoading(false))
-      .catch((e: Error) => { setError(e.message); setLoading(false); });
-  }, [isOpen, loadRecentProjects]);
+      .then(() => { if (!cancelled) setLoading(false); })
+      .catch((e: Error) => {
+        if (!cancelled) { setError(getErrorMessage(e, 'Failed to load projects')); setLoading(false); }
+      });
+    return () => { cancelled = true; };
+  }, [loadRecentProjects]);
 
-  useClickOutside(dropdownRef, triggerRef, onClose, isOpen);
+  const options: ComboboxOption[] = recentProjects.map(p => ({
+    value: p.path,
+    label: p.name,
+    description: p.path,
+  }));
 
-  // Close on Escape. Keyboard nav.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setFocusIndex(i => Math.min(i + 1, Math.max(recentProjects.length - 1, 0)));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setFocusIndex(i => Math.max(i - 1, 0));
-        return;
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        const target = recentProjects[focusIndex];
-        if (target && target.path !== projectPath) {
-          onSelectProject(target.path);
-          onClose();
-        }
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, recentProjects, focusIndex, projectPath, onClose, onSelectProject]);
+  const handleChange = (path: string) => {
+    if (path !== projectPath) onSelectProject(path);
+  };
 
-  if (!isOpen) return null;
-
-  const triggerEl = triggerRef.current;
-  const top = triggerEl ? triggerEl.getBoundingClientRect().bottom + 4 : 0;
-  const left = triggerEl ? triggerEl.getBoundingClientRect().left : 0;
-
-  return createPortal(
-    <div
-      ref={dropdownRef}
-      style={{ ...dropdownContainerStyle, top, left }}
-    >
-      <div style={sectionHeaderStyle}>Recent Projects</div>
-
-      {loading && [1, 2, 3].map(i => (
-        <div key={i} style={{ padding: '6px 12px' }}>
-          <div style={{ height: 12, width: '60%', background: 'var(--bg-card)', borderRadius: 2, marginBottom: 4 }} />
-          <div style={{ height: 8, width: '40%', background: 'var(--bg-sidebar)', borderRadius: 2 }} />
-        </div>
-      ))}
-
-      {error && (
-        <div style={{ padding: '12px', color: 'var(--red)', fontSize: 12 }}>
-          {error}
-          <button
-            onClick={() => loadRecentProjects()}
-            style={{ marginLeft: 8, color: 'var(--accent)', cursor: 'pointer', background: 'none', border: 'none', fontSize: 11 }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {!loading && !error && recentProjects.length === 0 && (
-        <div style={{ padding: '12px', color: 'var(--text-dim)', fontSize: 12 }}>
-          No recent projects
-        </div>
-      )}
-
-      {!loading && !error && recentProjects.map((p, i) => (
-        <div
-          key={p.path}
-          onClick={() => {
-            if (p.path !== projectPath) {
-              onSelectProject(p.path);
-            }
-            onClose();
-          }}
-          onMouseEnter={() => setFocusIndex(i)}
-          style={{
-            padding: '6px 12px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            background: i === focusIndex ? 'var(--bg-hover)' : p.path === projectPath ? 'var(--bg-active)' : 'transparent',
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>{p.name}</div>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{p.path}</div>
-          </div>
-          {p.path === projectPath && (
-            <span style={{ fontSize: 10, color: 'var(--accent)' }}>active</span>
-          )}
-        </div>
-      ))}
-
-      <div style={{ borderTop: '1px solid var(--border)', marginTop: 4 }}>
-        <div
-          onClick={() => { onClose(); onOpenFileDialog(); }}
-          style={{
-            padding: '8px 12px',
-            fontSize: 12,
-            color: 'var(--accent)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          + Open New Project...
-        </div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <Combobox
+      aria-label="Recent projects"
+      value={projectPath}
+      options={options}
+      onChange={handleChange}
+      loading={loading}
+      disabled={disabled}
+      placeholder={projectPath ? (recentProjects.find(p => p.path === projectPath)?.name ?? 'project') : 'project'}
+      searchPlaceholder="Search projects…"
+      emptyMessage={error ?? 'No recent projects'}
+      className={className}
+    />
   );
 }

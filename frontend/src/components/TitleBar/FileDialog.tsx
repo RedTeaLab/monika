@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
 import type { FileNode } from '../../../bindings/monika';
-import { IconFolder, IconFolderPlus, IconFolderUp, IconHardDrive } from '../Icons';
+import { IconFolder, IconFolderPlus, IconFolderUp, IconHardDrive, IconClose } from '../Icons';
 
 interface FileDialogProps {
   isOpen: boolean;
@@ -201,7 +201,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            ✕
+            <IconClose size={14} />
           </button>
         </div>
 
@@ -390,7 +390,7 @@ export function FileDialog({ isOpen, onClose, onOpen }: FileDialogProps) {
             onMouseEnter={e => {
               if (selectedPath || currentPath) {
                 e.currentTarget.style.background = 'var(--accent)';
-                e.currentTarget.style.color = '#fff';
+                e.currentTarget.style.color = 'var(--text-inverse)';
               }
             }}
             onMouseLeave={e => {

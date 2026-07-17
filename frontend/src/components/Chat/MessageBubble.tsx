@@ -381,7 +381,7 @@ function JsonValue({ value, line }: { value?: string; line?: string }) {
     while (i < s.length) {
         if (s[i] === '"') {
             const end = findStrEnd(s, i + 1)
-            nodes.push(<span key={i} style={{ color: '#c4a86b' }}>{s.slice(i, end + 1)}</span>)
+            nodes.push(<span key={i} style={{ color: 'var(--md-code)' }}>{s.slice(i, end + 1)}</span>)
             i = end + 1
             continue
         }

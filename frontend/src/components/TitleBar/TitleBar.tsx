@@ -4,8 +4,9 @@ import { useStore } from '../../store'
 import { App } from '../../../bindings/monika'
 import {
   IconMinimize, IconMaximize, IconClose, IconRestore,
-  IconChevronDown,
+  IconPlus,
 } from '../Icons'
+import { IconButton } from '../ui'
 import { ProjectDropdown } from './ProjectDropdown'
 import { BranchDropdown } from './BranchDropdown'
 import { CreateBranchPanel } from './CreateBranchPanel'
@@ -21,13 +22,10 @@ function TitleBar() {
   } = useStore()
   const [isMaximised, setIsMaximised] = useState(false)
 
-  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
-  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false)
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [fileDialogOpen, setFileDialogOpen] = useState(false)
   const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; targetPath: string } | null>(null)
-  const projectTriggerRef = useRef<HTMLSpanElement>(null)
-  const branchTriggerRef = useRef<HTMLSpanElement>(null)
+  const newBranchBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     Window.IsMaximised().then(setIsMaximised)
@@ -37,7 +35,6 @@ function TitleBar() {
     return () => { un1(); un2(); un3() }
   }, [])
 
-  const projectName = projectPath ? projectPath.split(/[/\\]/).pop() || projectPath : ''
   const isGitRepo = projectPath && branch !== '—'
 
   const doSwitchProject = async (targetPath: string) => {
@@ -64,9 +61,14 @@ function TitleBar() {
     await doSwitchProject(targetPath)
   }, [generatingSessionIds])
 
+  // Position the create-branch popover under the + button.
+  const newBranchRect = newBranchBtnRef.current?.getBoundingClientRect()
+  const createBranchTop = newBranchRect ? newBranchRect.bottom + 4 : 0
+  const createBranchLeft = newBranchRect ? newBranchRect.left : 0
+
   return (
     <div
-      className="flex items-center h-[28px] border-b border-[var(--border)] select-none"
+      className="flex items-center h-9 border-b border-[var(--border)] select-none"
       style={{
         '--wails-draggable': 'drag' as string,
         background: 'var(--bg-elevated)',
@@ -77,116 +79,96 @@ function TitleBar() {
     >
       <span className="text-[13px] font-semibold text-[var(--text-secondary)] tracking-tight">Monika</span>
 
-      <span
-        ref={projectTriggerRef}
-        onClick={() => { setProjectDropdownOpen(!projectDropdownOpen); setBranchDropdownOpen(false) }}
-        style={{
-          fontSize: 11,
-          color: projectDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
-          cursor: 'pointer',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 2,
-          padding: '2px 4px',
-          borderRadius: 2,
-          marginLeft: 12,
-          WebkitAppRegion: 'no-drag',
-          background: projectDropdownOpen ? 'var(--accent-muted)' : 'transparent',
-        } as React.CSSProperties}
+      {/* Interactive cluster — no-drag overrides the inherited drag region so
+          the Combobox triggers and action buttons are clickable. The CSS
+          variable inherits to all descendants, including the Combobox's
+          internal trigger button. */}
+      <div
+        className="flex items-center gap-1 ml-3"
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
       >
-        {projectName || 'project'}
-        <span style={{ display: 'inline-flex', transform: projectDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-          <IconChevronDown size={10} />
-        </span>
-      </span>
-
-      <span
-        ref={branchTriggerRef}
-        onClick={() => {
-          if (!isGitRepo) return
-          setBranchDropdownOpen(!branchDropdownOpen)
-          setProjectDropdownOpen(false)
-          setShowCreateBranch(false)
-        }}
-        title={isGitRepo ? undefined : 'Not a git repository'}
-        style={{
-          fontSize: 11,
-          color: branchDropdownOpen ? 'var(--accent)' : 'var(--text-dim)',
-          cursor: isGitRepo ? 'pointer' : 'default',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 2,
-          padding: '2px 4px',
-          borderRadius: 2,
-          marginLeft: 6,
-          WebkitAppRegion: 'no-drag',
-          background: branchDropdownOpen ? 'var(--accent-muted)' : 'transparent',
-          opacity: isGitRepo ? 1 : 0.5,
-        } as React.CSSProperties}
-      >
-        {isGitRepo ? branch : '—'}
-        {isGitRepo && (
-          <span style={{ display: 'inline-flex', transform: branchDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-            <IconChevronDown size={10} />
-          </span>
-        )}
-      </span>
-
-      <div className="flex-1" />
-      <div style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties} className="flex h-full">
-        <button
-          onClick={() => Window.Minimise()}
-          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-          aria-label="Minimize"
+        <div className="w-[180px]">
+          <ProjectDropdown onSelectProject={handleProjectSelect} />
+        </div>
+        <IconButton
+          label="Open new project"
+          size="sm"
+          onClick={() => setFileDialogOpen(true)}
         >
-          <IconMinimize size={14} />
-        </button>
-        <button
-          onClick={() => Window.ToggleMaximise()}
-          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
-          aria-label={isMaximised ? 'Restore' : 'Maximize'}
-        >
-          {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}
-        </button>
-        <button
-          onClick={() => Window.Close()}
-          className="w-[40px] h-full flex items-center justify-center text-[var(--text-dim)] hover:text-white hover:bg-[var(--red)] transition-colors"
-          aria-label="Close"
-        >
-          <IconClose size={14} />
-        </button>
+          <IconPlus size={12} />
+        </IconButton>
       </div>
 
-      <ProjectDropdown
-        isOpen={projectDropdownOpen}
-        onClose={() => setProjectDropdownOpen(false)}
-        onOpenFileDialog={() => { setProjectDropdownOpen(false); setFileDialogOpen(true) }}
-        onSelectProject={handleProjectSelect}
-        triggerRef={projectTriggerRef}
-      />
+      <div
+        className="flex items-center gap-1 ml-2"
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+      >
+        <div className="w-[150px]">
+          <BranchDropdown disabled={!isGitRepo} />
+        </div>
+        {isGitRepo && (
+          <IconButton
+            ref={newBranchBtnRef}
+            label="Create new branch"
+            size="sm"
+            onClick={() => setShowCreateBranch(true)}
+          >
+            <IconPlus size={12} />
+          </IconButton>
+        )}
+      </div>
 
-      <BranchDropdown
-        isOpen={branchDropdownOpen && !showCreateBranch}
-        onClose={() => { setBranchDropdownOpen(false); setShowCreateBranch(false) }}
-        onNewBranch={() => setShowCreateBranch(true)}
-        triggerRef={branchTriggerRef}
-      />
+      <div className="flex-1" />
 
-      {branchDropdownOpen && showCreateBranch && (
+      {/* Window controls */}
+      <div
+        className="flex h-full"
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+      >
+        <IconButton
+          label="Minimize"
+          onClick={() => Window.Minimise()}
+        >
+          <IconMinimize size={14} />
+        </IconButton>
+        <IconButton
+          label={isMaximised ? 'Restore' : 'Maximize'}
+          onClick={() => Window.ToggleMaximise()}
+        >
+          {isMaximised ? <IconRestore size={13} /> : <IconMaximize size={13} />}
+        </IconButton>
+        <IconButton
+          label="Close"
+          onClick={() => Window.Close()}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'var(--color-error)'
+            e.currentTarget.style.color = 'white'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = ''
+            e.currentTarget.style.color = ''
+          }}
+        >
+          <IconClose size={14} />
+        </IconButton>
+      </div>
+
+      {/* Create-branch popover */}
+      {showCreateBranch && (
         <div style={{
           position: 'fixed',
-          top: (branchTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-          left: branchTriggerRef.current?.getBoundingClientRect().left ?? 0,
+          top: createBranchTop,
+          left: createBranchLeft,
           minWidth: 280,
           background: 'var(--bg-sidebar)',
           border: '1px solid var(--border)',
-          borderRadius: 4,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          borderRadius: 'var(--radius-md)',
+          boxShadow: 'var(--shadow-lg)',
           zIndex: 1000,
         }}>
           <CreateBranchPanel
             onCancel={() => setShowCreateBranch(false)}
-            onCreated={() => { setShowCreateBranch(false); setBranchDropdownOpen(true) }}
+            onCreated={() => setShowCreateBranch(false)}
           />
         </div>
       )}

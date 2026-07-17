@@ -54,6 +54,7 @@ import {
     ImageIcon,
     Paperclip,
     FileText,
+    CornerDownLeft,
     Music,
 } from 'lucide-react'
 
@@ -279,4 +280,8 @@ export function IconFileText({ size, className, style }: { size?: number; classN
 
 export function IconMusic({ size, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
     return <Music size={size || 16} strokeWidth={1.5} className={className} style={style} />
+}
+
+export function IconCornerDownLeft({ size }: { size?: number }) {
+    return <CornerDownLeft size={size || 16} strokeWidth={1.5} />
 }

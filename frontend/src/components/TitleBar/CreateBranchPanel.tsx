@@ -3,6 +3,7 @@ import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
 import ConfirmModal from '../Chat/ConfirmModal';
 import { getErrorMessage, parseUnmergedError, sectionHeaderStyle, resolveUnmergedWithAI } from './dropdownHelpers';
+import { Button, Input, Select } from '../ui';
 
 interface CreateBranchPanelProps {
   onCancel: () => void;
@@ -47,84 +48,51 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
           Create New Branch
         </div>
 
-        <input
+        <Input
+          inputSize="sm"
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
           placeholder="Branch name"
           autoFocus
           onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onCancel(); }}
-          style={{
-            width: '100%',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: 2,
-            padding: '6px 8px',
-            fontSize: 12,
-            color: 'var(--text-primary)',
-            marginBottom: 8,
-            boxSizing: 'border-box',
-            outline: 'none',
-          }}
+          style={{ marginBottom: 8 }}
         />
 
         <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>From branch</div>
-        <select
+        <Select
           value={baseBranch}
           onChange={e => setBaseBranch(e.target.value)}
-          style={{
-            width: '100%',
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            borderRadius: 2,
-            padding: '6px 8px',
-            fontSize: 12,
-            color: 'var(--text-primary)',
-            marginBottom: 10,
-            outline: 'none',
-          }}
+          style={{ marginBottom: 10 }}
         >
           {allBranches.map(b => (
             <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.remote ? `${b.remote}/${b.name}` : b.name}>
               {b.remote ? `${b.remote}/${b.name}` : b.name}{b.name === branch && !b.remote ? ' (current)' : ''}
             </option>
           ))}
-        </select>
+        </Select>
 
         {error && (
           <div style={{ color: 'var(--red)', fontSize: 11, marginBottom: 8 }}>{error}</div>
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onCancel}
             disabled={creating}
-            style={{
-              padding: '4px 12px',
-              fontSize: 11,
-              color: 'var(--text-dim)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-            }}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
             onClick={handleCreate}
             disabled={!name.trim() || creating}
-            style={{
-              padding: '4px 16px',
-              fontSize: 11,
-              background: name.trim() && !creating ? 'var(--accent-muted)' : 'var(--bg-card)',
-              color: name.trim() && !creating ? 'var(--accent)' : 'var(--text-dim)',
-              border: 'none',
-              borderRadius: 2,
-              cursor: name.trim() && !creating ? 'pointer' : 'default',
-            }}
           >
             {creating ? 'Creating...' : 'Create & Switch'}
-          </button>
+          </Button>
         </div>
       </div>
       {unmergedFiles && (

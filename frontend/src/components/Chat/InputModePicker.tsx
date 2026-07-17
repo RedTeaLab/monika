@@ -1,116 +1,35 @@
-import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../../store'
-import { IconChevronDown } from '../Icons'
+import { Combobox } from '../ui'
+import type { ComboboxOption } from '../ui'
 
-const MODES: { id: 'normal' | 'shell'; label: string }[] = [
-    { id: 'normal', label: 'Normal' },
-    { id: 'shell', label: 'Shell' },
+const OPTIONS: ComboboxOption[] = [
+    { value: 'normal', label: 'Normal' },
+    { value: 'shell', label: 'Shell' },
 ]
+
+// Compact override for the chat-input toolbar: the Combobox trigger defaults to
+// h-9/form-field sizing; we collapse it to match the surrounding inline pickers.
+const COMPACT = (
+    '!w-auto ' +
+    '[&>button]:!w-auto [&>button]:!h-auto [&>button]:!py-0.5 [&>button]:!px-2 ' +
+    '[&>button]:!text-[11px] [&>button]:!gap-1 [&>button]:!bg-[var(--bg-elevated)] ' +
+    '[&>button]:!border-[var(--border)] [&>button]:!rounded'
+)
 
 function InputModePicker() {
     const activeSessionId = useStore((s) => s.activeSessionId)
     const inputMode = useStore((s) => s.inputModes[activeSessionId] || 'normal')
     const setInputMode = useStore((s) => s.setInputMode)
 
-    const [open, setOpen] = useState(false)
-    const [focusIdx, setFocusIdx] = useState(0)
-    const ref = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        if (!open) return
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handler)
-        return () => document.removeEventListener('mousedown', handler)
-    }, [open])
-
-    useEffect(() => {
-        if (open) setFocusIdx(0)
-    }, [open])
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') { setOpen(false); return }
-        if (e.key === 'ArrowDown') {
-            e.preventDefault()
-            setFocusIdx((prev) => Math.min(prev + 1, MODES.length - 1))
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault()
-            setFocusIdx((prev) => Math.max(prev - 1, 0))
-        } else if (e.key === 'Enter') {
-            e.preventDefault()
-            handleSelect(MODES[focusIdx].id)
-        }
-    }
-
-    const current = MODES.find((m) => m.id === inputMode) || MODES[0]
-
-    const handleSelect = (id: 'normal' | 'shell') => {
-        setInputMode(activeSessionId, id)
-        setOpen(false)
-    }
-
     return (
-        <div ref={ref} style={{ position: 'relative' }}>
-            <button
-                onClick={() => setOpen((v) => !v)}
-                className="text-[11px] px-2 py-0.5 rounded cursor-pointer flex items-center gap-1"
-                style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'inherit',
-                }}
-            >
-                <span>{current.label}</span>
-                <IconChevronDown size={8} />
-            </button>
-            {open && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 0,
-                        marginBottom: '4px',
-                        minWidth: '100%',
-                        maxHeight: '240px',
-                        overflowY: 'auto',
-                        background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-strong)',
-                        borderRadius: 'var(--radius-md, 6px)',
-                        padding: '4px',
-                        zIndex: 1000,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-                    }}
-                    onKeyDown={handleKeyDown}
-                >
-                    {MODES.map((mode, idx) => {
-                        const isSelected = mode.id === inputMode
-                        return (
-                            <button
-                                key={mode.id}
-                                onClick={() => handleSelect(mode.id)}
-                                onMouseEnter={() => setFocusIdx(idx)}
-                                className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer"
-                                style={{
-                                    background:
-                                        idx === focusIdx
-                                            ? 'var(--bg-hover)'
-                                            : isSelected
-                                                ? 'var(--accent-muted)'
-                                                : 'transparent',
-                                    color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
-                                    border: 'none',
-                                    fontFamily: 'inherit',
-                                }}
-                            >
-                                {mode.label}
-                            </button>
-                        )
-                    })}
-                </div>
-            )}
-        </div>
+        <Combobox
+            value={inputMode}
+            options={OPTIONS}
+            onChange={(v) => setInputMode(activeSessionId, v as 'normal' | 'shell')}
+            searchable={false}
+            aria-label="Input mode"
+            className={COMPACT}
+        />
     )
 }
 

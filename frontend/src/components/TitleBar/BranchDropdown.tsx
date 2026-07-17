@@ -1,19 +1,46 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
-import { useClickOutside } from '../../hooks/useClickOutside';
 import { App } from '../../../bindings/monika';
+import type { BranchInfo } from '../../../bindings/monika';
 import ConfirmModal from '../Chat/ConfirmModal';
-import { dropdownContainerStyle, sectionHeaderStyle, getErrorMessage, parseUnmergedError, buildDirtyGuardMessage, resolveUnmergedWithAI } from './dropdownHelpers';
+import { Combobox, type ComboboxOption } from '../ui';
+import {
+  getErrorMessage,
+  parseUnmergedError,
+  buildDirtyGuardMessage,
+  resolveUnmergedWithAI,
+} from './dropdownHelpers';
 
 interface BranchDropdownProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onNewBranch: () => void;
-  triggerRef: React.RefObject<HTMLElement | null>;
+  /** Whether the control is disabled (e.g. not a git repo, or during a switch). */
+  disabled?: boolean;
+  /** Optional className forwarded to the Combobox trigger. */
+  className?: string;
 }
 
-export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: BranchDropdownProps) {
+/**
+ * Stable value encoding for a branch option. Local branches use their bare
+ * name; remote branches use `remote/name`. This round-trips through the
+ * Combobox value and is split back into name + remote on selection.
+ */
+function branchValue(b: BranchInfo): string {
+  return b.remote ? `${b.remote}/${b.name}` : b.name;
+}
+
+/**
+ * Self-contained branch picker backed by `allBranches`.
+ *
+ * Renders a single searchable Combobox (own trigger + panel, open state,
+ * search, and keyboard nav handled by the shared primitive). Local and remote
+ * branches are flattened into one list — remotes are tagged via the option
+ * `description` field so the flat searchable list stays scannable.
+ *
+ * Business logic preserved verbatim from the legacy inline dropdown:
+ *  - active-generation dirty guard (ConfirmModal before switching)
+ *  - unmerged-conflict detection with an AI-resolve fallback
+ * No custom dropdown markup remains.
+ */
+export function BranchDropdown({ disabled, className }: BranchDropdownProps) {
   const allBranches = useStore(s => s.allBranches);
   const branch = useStore(s => s.branch);
   const projectPath = useStore(s => s.projectPath);
@@ -22,33 +49,29 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
   const [error, setError] = useState<string | null>(null);
   const [dirtyConfirm, setDirtyConfirm] = useState<{ branchName: string; remote: string } | null>(null);
   const [unmergedFiles, setUnmergedFiles] = useState<string[] | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Keep the branch list fresh on mount. Combobox owns its own open state, so
+  // there is no `isOpen` gate; we hydrate up-front rather than lazily.
   useEffect(() => {
-    if (!isOpen) {
-      setDirtyConfirm(null);
-      setUnmergedFiles(null);
-      return;
-    }
+    let cancelled = false;
     setLoading(true);
     setError(null);
     loadBranches()
-      .then(() => setLoading(false))
-      .catch((e: Error) => { setError(e.message); setLoading(false); });
-  }, [isOpen, loadBranches]);
+      .then(() => { if (!cancelled) setLoading(false); })
+      .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false); } });
+    return () => { cancelled = true; };
+  }, [loadBranches]);
 
-  // Close on outside click.
-  useClickOutside(dropdownRef, triggerRef, onClose, isOpen);
+  const options: ComboboxOption[] = useMemo(() => allBranches.map(b => ({
+    value: branchValue(b),
+    label: b.remote ? `${b.remote}/${b.name}` : b.name,
+    description: b.remote ? 'remote' : undefined,
+  })), [allBranches]);
 
-  // Close on Escape.
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [isOpen, onClose]);
+  const currentValue = useMemo(() => {
+    const match = allBranches.find(b => b.name === branch && !b.remote);
+    return match ? branchValue(match) : branch;
+  }, [allBranches, branch]);
 
   const handleSwitch = async (branchName: string, remote: string) => {
     setError(null);
@@ -71,7 +94,6 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
 
       useStore.getState().setBranch(branchName);
       await loadBranches();
-      onClose();
     } catch (e: unknown) {
       const unmerged = parseUnmergedError(e);
       if (unmerged) {
@@ -82,91 +104,12 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
     }
   };
 
-  if (!isOpen) return null;
-
-  const localBranches = allBranches.filter(b => !b.remote);
-  const remoteBranches = allBranches.filter(b => b.remote);
-
-  const triggerEl = triggerRef.current;
-  const top = triggerEl ? triggerEl.getBoundingClientRect().bottom + 4 : 0;
-  const left = triggerEl ? triggerEl.getBoundingClientRect().left : 0;
-
-  const portal = createPortal(
-    <div
-      ref={dropdownRef}
-      style={{ ...dropdownContainerStyle, top, left }}
-    >
-      <div style={sectionHeaderStyle}>Local Branches</div>
-
-      {loading && [1, 2, 3].map(i => (
-        <div key={i} style={{ padding: '8px 12px' }}>
-          <div style={{ height: 10, background: 'var(--bg-card)', borderRadius: 2, marginBottom: 6 }} />
-        </div>
-      ))}
-
-      {!loading && localBranches.map(b => (
-        <div
-          key={b.name}
-          onClick={() => handleSwitch(b.name, '')}
-          style={{
-            padding: '5px 12px',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'space-between',
-            color: b.name === branch ? 'var(--text-primary)' : 'var(--text-dim)',
-            fontSize: 12,
-            background: b.name === branch ? 'var(--bg-active)' : 'transparent',
-          }}
-        >
-          <span>{b.name}</span>
-          {b.name === branch && <span style={{ color: 'var(--accent)', fontSize: 10 }}>✓</span>}
-        </div>
-      ))}
-
-      {remoteBranches.length > 0 && (
-        <div style={{ ...sectionHeaderStyle, borderTop: '1px solid var(--border)' }}>Remote Branches</div>
-      )}
-
-      {!loading && remoteBranches.map(b => (
-        <div
-          key={`${b.remote}/${b.name}`}
-          onClick={() => handleSwitch(b.name, b.remote)}
-          style={{
-            padding: '5px 12px',
-            cursor: 'pointer',
-            color: 'var(--text-dim)',
-            fontSize: 12,
-          }}
-        >
-          <span>{b.remote}/{b.name}</span>
-        </div>
-      ))}
-
-      {error && (
-        <div style={{ padding: '8px 12px', color: 'var(--red)', fontSize: 11, borderTop: '1px solid var(--border)' }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{ borderTop: '1px solid var(--border)', marginTop: error ? 0 : 4 }}>
-        <div
-          onClick={onNewBranch}
-          style={{
-            padding: '8px 12px',
-            fontSize: 12,
-            color: 'var(--accent)',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          + New Branch...
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
+  const handleChange = (value: string) => {
+    // Split the encoded value back into name + remote.
+    const match = allBranches.find(b => branchValue(b) === value);
+    if (!match) return;
+    handleSwitch(match.name, match.remote);
+  };
 
   const confirmMessage = dirtyConfirm
     ? buildDirtyGuardMessage(
@@ -178,7 +121,18 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
 
   return (
     <>
-      {portal}
+      <Combobox
+        aria-label="Switch branch"
+        value={currentValue}
+        options={options}
+        onChange={handleChange}
+        loading={loading}
+        disabled={disabled}
+        placeholder={branch || 'branch'}
+        searchPlaceholder="Search branches…"
+        emptyMessage={error ?? 'No branches'}
+        className={className}
+      />
       {dirtyConfirm && (
         <ConfirmModal
           title="Switch Branch"
@@ -202,7 +156,6 @@ export function BranchDropdown({ isOpen, onClose, onNewBranch, triggerRef }: Bra
             const files = unmergedFiles;
             await resolveUnmergedWithAI(projectPath, files, useStore.getState());
             setUnmergedFiles(null);
-            onClose();
           }}
           onCancel={() => setUnmergedFiles(null)}
         />

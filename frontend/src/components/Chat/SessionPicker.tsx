@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, KeyboardEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
+import Modal, { ModalHeader, ModalFooter } from '../ui/Modal'
+import { Button, Input } from '../ui'
 
 interface SessionPickerProps {
   open: boolean
@@ -59,80 +60,55 @@ export default function SessionPicker({ open, onSelect, onCancel, excludeSession
       e.preventDefault()
       onSelect(filtered[selectedIdx].id, allSessions)
     }
-  }, [filtered, selectedIdx, onSelect, onCancel])
+  }, [filtered, selectedIdx, onSelect, onCancel, allSessions])
 
   if (!open) return null
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop-enter"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
-      onClick={onCancel}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="modal-panel-enter flex flex-col bg-[var(--bg-elevated)] rounded-[var(--radius-lg)] border border-[var(--border-strong)] overflow-hidden"
-        style={{ width: 380, maxHeight: '85vh', boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)' }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border)]">
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-              Forward to Session
-            </div>
-          </div>
+  return (
+    <Modal onClose={onCancel} width={380}>
+      <ModalHeader>
+        <div className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Forward to Session
         </div>
-        <div className="px-5 py-3 border-b border-[var(--border)]">
-          <input
-            type="text"
-            placeholder="Search sessions..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleKeyDown}
-            autoFocus
-            className="w-full text-[13px] px-3 py-1.5 rounded-md outline-none border"
-            style={{
-              background: 'var(--bg-card)',
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border)',
-            }}
-          />
-        </div>
-        <div className="flex-1 overflow-y-auto py-1">
-          {filtered.length === 0 ? (
-            <div className="text-[12px] py-6 text-center" style={{ color: 'var(--text-dim)' }}>
-              No sessions found
-            </div>
-          ) : (
-            filtered.map((s, idx) => (
-              <button
-                key={s.id}
-                onClick={() => handleSelect(s.id)}
-                className={`w-full text-left text-[13px] px-5 py-2 transition-colors truncate cursor-pointer ${
-                  idx === selectedIdx ? 'bg-[var(--bg-hover)]' : ''
-                }`}
-                style={{
-                  color: 'var(--text-primary)',
-                }}
-                onMouseEnter={() => setSelectedIdx(idx)}
-              >
-                {s.title || 'Untitled'}
-              </button>
-            ))
-          )}
-        </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[var(--border)]" style={{ background: 'rgba(0,0,0,0.15)' }}>
-          <button
-            onClick={onCancel}
-            className="px-3.5 py-1.5 text-[12px] font-medium rounded-md transition-all duration-150 cursor-pointer text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
-          >
-            Cancel
-          </button>
-        </div>
+      </ModalHeader>
+
+      <div className="px-5 py-3 border-b border-[var(--border)]">
+        <Input
+          type="text"
+          placeholder="Search sessions..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          inputSize="sm"
+        />
       </div>
-    </div>,
-    document.body
+
+      <div className="flex-1 overflow-y-auto py-1 min-h-0">
+        {filtered.length === 0 ? (
+          <div className="text-[12px] py-6 text-center" style={{ color: 'var(--text-dim)' }}>
+            No sessions found
+          </div>
+        ) : (
+          filtered.map((s, idx) => (
+            <button
+              key={s.id}
+              onClick={() => handleSelect(s.id)}
+              className={`w-full text-left text-[13px] px-5 py-2 transition-colors truncate cursor-pointer ${
+                idx === selectedIdx ? 'bg-[var(--bg-hover)]' : ''
+              }`}
+              style={{ color: 'var(--text-primary)' }}
+              onMouseEnter={() => setSelectedIdx(idx)}
+            >
+              {s.title || 'Untitled'}
+            </button>
+          ))
+        )}
+      </div>
+
+      <ModalFooter>
+        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+      </ModalFooter>
+    </Modal>
   )
 }

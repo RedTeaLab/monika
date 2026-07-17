@@ -33,10 +33,10 @@ interface VideoResult {
 // Header style mirrors the existing ToolBlock badge conventions so media tools
 // feel native alongside the other tool outputs in the chat stream.
 const MEDIA_STYLE: Record<string, { color: string; label: string }> = {
-    video_understand: { color: '#c084fc', label: 'video' },   // purple
-    image_understand: { color: '#22d3ee', label: 'image' },   // cyan
-    pdf_understand: { color: '#f59e0b', label: 'pdf' },       // amber
-    audio_understand: { color: '#10b981', label: 'audio' },   // emerald
+    video_understand: { color: 'var(--purple)', label: 'video' },
+    image_understand: { color: 'var(--blue)', label: 'image' },
+    pdf_understand: { color: 'var(--yellow)', label: 'pdf' },
+    audio_understand: { color: 'var(--green)', label: 'audio' },
 }
 
 const HEADER_BG = 'var(--bg-sidebar)'
@@ -302,7 +302,7 @@ function VideoResultView({ parsed, onOpenMedia }: { parsed: VideoResult; onOpenM
                             <li key={i} className="flex gap-2 items-start text-[12px]">
                                 <span
                                     className="font-mono text-[10px] px-1 py-0.5 rounded shrink-0 mt-0.5"
-                                    style={{ background: 'rgba(192,132,252,0.08)', color: '#c084fc', border: '1px solid rgba(192,132,252,0.2)' }}
+                                    style={{ background: 'rgba(135,123,181,0.08)', color: 'var(--purple)', border: '1px solid rgba(135,123,181,0.2)' }}
                                 >
                                     {formatTimestamp(km.t)}
                                 </span>

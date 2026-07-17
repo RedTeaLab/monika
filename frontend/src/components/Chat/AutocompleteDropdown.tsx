@@ -3,7 +3,7 @@ import { useEffect, useRef, useCallback } from 'react'
 export interface AcItem {
   name: string
   detail: string    // e.g. "system command", "file", "directory"
-  icon: string      // single char or short text
+  icon: React.ReactNode      // single char, short text, or React element (e.g. Lucide icon)
   insert: string    // text to insert into input on selection
 }
 
