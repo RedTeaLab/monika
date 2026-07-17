@@ -581,7 +581,7 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
                     className="flex items-center gap-1.5 text-[12px] select-none shrink-0"
                     style={{ fontFamily: 'var(--font-sans)', padding: '6px 10px', background: 'var(--bg-sidebar)' }}
                 >
-                    <div className="ml-auto flex items-center gap-0.5">
+                    <div className="flex items-center gap-0.5">
                         <button
                             className={headerBtnClass}
                             style={{ color: headerAction === 'new-file' ? 'var(--text-primary)' : 'var(--text-dim)' }}
