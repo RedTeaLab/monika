@@ -15,10 +15,12 @@ const INPUT_BASE =
   'w-full bg-[var(--surface-card)] text-[var(--text-primary)] ' +
   'border border-[var(--border-default)] rounded-[var(--radius-md)] ' +
   'placeholder:text-[var(--text-dim)] ' +
-  'transition-colors duration-150 ' +
-  'hover:border-[var(--border-strong)] ' +
+  'shadow-[var(--inner-highlight)] ' +
+  'transition-all duration-[var(--duration-fast)] [transition-timing-function:var(--ease-out)] ' +
+  'hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] ' +
   'focus:outline-none focus:border-[var(--accent)] ' +
-  'focus:ring-2 focus:ring-[var(--accent-muted)] ' +
+  'focus:ring-2 focus:ring-[var(--accent-muted)] focus:bg-[var(--surface-card)] ' +
+  'focus:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-muted)] ' +
   'disabled:opacity-50 disabled:cursor-not-allowed ' +
   'cursor-text'
 

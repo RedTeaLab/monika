@@ -72,58 +72,81 @@
   --font-mono: 'Maple Mono NF', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
   --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-  /* === Shadow depths — deep blacks for dark theme === */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.7);
-  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.8);
+  /* === Shadow depths — deep blacks + ambient glows for premium feel ===
+     Layered shadows: base drop + ambient spread + subtle accent glow.
+     Pure black backgrounds cause OLED smear; always layer with rgba tints.  */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm:  0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md:  0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --shadow-lg:  0 8px 16px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-xl:  0 16px 32px rgba(0, 0, 0, 0.7), 0 8px 16px rgba(0, 0, 0, 0.5);
+  --shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.8), 0 12px 24px rgba(0, 0, 0, 0.6);
+
+  /* Accent glow — soft halo behind primary CTAs, active states, focus rings */
+  --glow-accent-sm: 0 0 0 1px rgba(0, 180, 255, 0.20), 0 2px 8px rgba(0, 180, 255, 0.15);
+  --glow-accent-md: 0 0 0 1px rgba(0, 180, 255, 0.30), 0 4px 16px rgba(0, 180, 255, 0.25);
+  --glow-success-sm: 0 0 0 1px rgba(0, 255, 136, 0.20), 0 2px 8px rgba(0, 255, 136, 0.15);
+  --glow-error-sm:   0 0 0 1px rgba(255, 71, 87, 0.20), 0 2px 8px rgba(255, 71, 87, 0.15);
+
+  /* Inner highlights — top-edge light leak that gives surfaces a "lit" feel */
+  --inner-highlight:   inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --inner-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 /* ── L2: Semantic Tokens ───────────────────────────────────────────────── */
 
 :root {
-  /* === Surface hierarchy ===
-     Depth from black: root → sidebar → card → elevated
-     Each step = +4-6% lightness for clear but subtle separation         */
-  --surface-root:     var(--pr-black);      /* #0c0c0c — deepest base */
-  --surface-sidebar:  var(--pr-gray-850);   /* #14171d — panel chrome */
-  --surface-card:     var(--pr-gray-900);   /* #1f252d — cards, inputs */
-  --surface-elevated: var(--pr-gray-750);   /* #252b35 — modals, dropdowns */
-  --surface-hover:    rgba(0, 180, 255, 0.06);  /* blue-tinted hover */
-  --surface-active:   rgba(0, 180, 255, 0.10);  /* blue-tinted active/pressed */
-  --surface-overlay:  rgba(0, 0, 0, 0.55);      /* modal backdrop */
+  /* === Surface hierarchy — NOT pure black ===
+     Premium dark UI uses near-black with subtle blue undertone.
+     Each layer adds ~3% lightness + ambient tint for depth perception.        */
+  --surface-root:     #0d0e12;   /* near-black with blue undertone (no OLED smear) */
+  --surface-sidebar:  #121319;   /* +3% — panel chrome */
+  --surface-card:     #181a22;   /* +3% — cards, inputs */
+  --surface-elevated: #1f222c;   /* +4% — modals, dropdowns, popovers */
+  --surface-raised:   #262936;   /* +4% — highest layer (active cards, hovered items) */
+  --surface-hover:    rgba(0, 180, 255, 0.06);
+  --surface-active:   rgba(0, 180, 255, 0.10);
+  --surface-overlay:  rgba(8, 10, 14, 0.72);  /* modal backdrop — darker + cooler */
+  --surface-glass:    rgba(24, 26, 34, 0.72); /* glassmorphism base */
 
   /* === Text === */
-  --text-primary:    var(--pr-gray-100);   /* #e8eaed — body, headings */
-  --text-secondary:  var(--pr-gray-400);   /* #9ca3af — descriptions, meta */
-  --text-dim:        var(--pr-gray-500);   /* #6b7280 — placeholders, disabled */
-  --text-inverse:    var(--pr-black);      /* on accent backgrounds */
+  --text-primary:    #e8eaed;   /* slightly off-white, not pure */
+  --text-secondary:  #a0a6b0;   /* warmer gray, not cold */
+  --text-dim:        #6b7280;
+  --text-inverse:    #0d0e12;
 
-  /* === Borders === */
-  --border-subtle:  rgba(107, 114, 128, 0.12);
-  --border-default: rgba(107, 114, 128, 0.20);
-  --border-strong:  rgba(107, 114, 128, 0.30);
-  --border-accent:  var(--pr-blue);
+  /* === Borders — dual-layer for depth === */
+  --border-subtle:  rgba(255, 255, 255, 0.06);   /* outer, faint */
+  --border-default: rgba(255, 255, 255, 0.10);   /* standard */
+  --border-strong:  rgba(255, 255, 255, 0.16);   /* active/focus */
+  --border-accent:  rgba(0, 180, 255, 0.50);     /* glow border */
 
-  /* === Accent system === */
-  --accent:        var(--pr-blue);       /* #00b4ff — primary CTA, links, focus */
-  --accent-hover:  var(--pr-blue-300);   /* #33c3ff — hover brighten */
-  --accent-muted:  var(--pr-blue-900);   /* rgba blue tint — subtle backgrounds */
-  --accent-subtle: rgba(0, 180, 255, 0.04);
+  /* === Accent system — with glow variants === */
+  --accent:        #00b4ff;
+  --accent-hover:  #33c3ff;
+  --accent-active: #0099d6;                    /* pressed state */
+  --accent-muted:  rgba(0, 180, 255, 0.12);    /* subtle backgrounds */
+  --accent-subtle: rgba(0, 180, 255, 0.04);    /* whisper tint */
+  --accent-glow:   rgba(0, 180, 255, 0.25);    /* for box-shadow halos */
 
   /* === Semantic colors === */
-  --color-success:    var(--pr-green);    /* #00ff88 — confirm, pass, connected */
-  --color-error:      var(--pr-red);      /* #ff4757 — delete, fail, disconnect */
-  --color-warning:    var(--pr-yellow);   /* #ffb347 — caution, pending */
-  --color-info:       var(--pr-blue);     /* #00b4ff — informational */
-  --color-accent-alt: var(--pr-peach);    /* #f8ad77 — warm accent for variety */
+  --color-success:    #00ff88;
+  --color-error:      #ff4757;
+  --color-warning:    #ffb347;
+  --color-info:       #00b4ff;
+  --color-accent-alt: #f8ad77;
 
-  /* === Animation === */
-  --duration-fast:    150ms;
-  --duration-normal:  200ms;
-  --duration-slow:    300ms;
-  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+  /* === Animation — premium easing curves ===
+     Expo.out = cubic-bezier(0.16, 1, 0.3, 1): fast start, gentle settle
+     Spring approximated for press states (overshoot + settle) */
+  --duration-instant: 100ms;   /* color-only changes */
+  --duration-fast:    150ms;   /* hover, focus */
+  --duration-normal:  220ms;   /* panel reveals, toggles */
+  --duration-slow:    320ms;   /* modal, dropdown */
+  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);    /* expo.out — premium standard */
   --ease-in-out:      cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring:      cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle overshoot for press */
+  --ease-exit:        cubic-bezier(0.4, 0, 1, 1);        /* fast exit (exits are faster than enters) */
 }
 
 /* ── L3: Component Tokens (backward-compatible aliases) ─────────────────── */

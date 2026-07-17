@@ -76,17 +76,27 @@ export function Tabs({
             disabled={item.disabled}
             onClick={() => onChange(item.id)}
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-2 text-sm',
-              'border-b-2 -mb-px transition-colors duration-150 cursor-pointer',
+              'relative inline-flex items-center gap-1.5 px-3 py-2 text-sm',
+              '-mb-px cursor-pointer',
+              'transition-colors duration-[var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
               'disabled:opacity-40 disabled:cursor-not-allowed',
               active
-                ? 'border-[var(--accent)] text-[var(--text-primary)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)]',
+                ? 'text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
             )}
           >
             {item.icon}
             {item.label}
+            <span
+              className={cn(
+                'absolute bottom-0 left-2 right-2 h-0.5 rounded-full',
+                'transition-all duration-[var(--duration-normal)] [transition-timing-function:var(--ease-out)]',
+                active
+                  ? 'bg-[var(--accent)] opacity-100 shadow-[0_0_8px_var(--accent-glow)]'
+                  : 'bg-transparent opacity-0',
+              )}
+            />
           </button>
         )
       })}

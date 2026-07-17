@@ -24,8 +24,9 @@ export function Card({
         'bg-[var(--surface-card)] border border-[var(--border-subtle)]',
         'rounded-[var(--radius-lg)]',
         compact ? 'p-3' : 'p-4',
-        'transition-all duration-200',
-        interactive && 'hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)] cursor-pointer',
+        'shadow-[var(--inner-highlight)]',
+        'transition-all duration-[var(--duration-normal)] [transition-timing-function:var(--ease-out)]',
+        interactive && 'hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[var(--shadow-lg),var(--inner-highlight-strong)] hover:-translate-y-px cursor-pointer',
         className,
       )}
       {...rest}

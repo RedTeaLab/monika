@@ -35,17 +35,23 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
       onClick={() => !disabled && onChange(!checked)}
       className={cn(
         'relative inline-flex items-center flex-shrink-0',
-        'rounded-full transition-colors duration-200 cursor-pointer',
+        'rounded-full cursor-pointer',
+        'transition-all duration-[var(--duration-normal)] [transition-timing-function:var(--ease-out)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--surface-root)]',
-        'disabled:opacity-40 disabled:cursor-not-allowed',
+        'active:scale-95',
+        'disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100',
         s.track,
-        checked ? 'bg-[var(--accent)]' : 'bg-[var(--border-default)]',
+        checked
+          ? 'bg-[var(--accent)] shadow-[var(--glow-accent-sm)]'
+          : 'bg-[var(--border-default)]',
         className,
       )}
     >
       <span
         className={cn(
-          'absolute left-0.5 inline-block rounded-full bg-white shadow-sm transition-transform duration-200',
+          'absolute left-0.5 inline-block rounded-full bg-white',
+          'shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
+          'transition-transform duration-[var(--duration-normal)] [transition-timing-function:var(--ease-spring)]',
           s.thumb,
           checked && s.translate,
         )}

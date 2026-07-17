@@ -7,134 +7,106 @@
 ---
 
 **Project:** Monika
-**Updated:** 2026-07-18
-**Palette:** Neon Dark
+**Updated:** 2026-07-18 (premium polish pass)
+**Palette:** Neon Dark — Cinema Mobile variant
 **Category:** Developer Tool / IDE
 
 ---
 
-## Global Rules
+## Design Philosophy
 
-### Color Palette
+Premium feel comes from **layered depth**, not flat colors. Every surface
+has three layers: base fill + inner highlight (top edge light leak) +
+outer shadow (ambient depth). Accents glow rather than just fill.
+
+## Color Palette
 
 | Role | Hex | CSS Variable | Usage |
 |------|-----|-------------|-------|
-| Black (base) | `#0c0c0c` | `--surface-root` | App background |
-| Gray dark | `#1f252d` | `--surface-card` | Cards, inputs |
-| Gray mid | `#6b7280` | `--text-dim` | Dim text, borders |
-| **Blue** | `#00b4ff` | `--accent` | Primary CTA, links, focus |
-| **Green** | `#00ff88` | `--color-success` | Confirm, connected, pass |
+| Root (near-black) | `#0d0e12` | `--surface-root` | App background — NOT pure black |
+| Sidebar | `#121319` | `--surface-sidebar` | Panel chrome |
+| Card | `#181a22` | `--surface-card` | Cards, inputs |
+| Elevated | `#1f222c` | `--surface-elevated` | Modals, dropdowns |
+| Raised | `#262936` | `--surface-raised` | Hovered items |
+| **Blue accent** | `#00b4ff` | `--accent` | Primary CTA, focus, links |
+| **Green** | `#00ff88` | `--color-success` | Confirm, connected |
 | **Yellow** | `#ffb347` | `--color-warning` | Caution, pending |
-| **Peach** | `#f8ad77` | `--color-accent-alt` | Warm alternative accent |
-| **Red** | `#ff4757` | `--color-error` | Delete, fail, disconnect |
+| **Peach** | `#f8ad77` | `--color-accent-alt` | Warm alternative |
+| **Red** | `#ff4757` | `--color-error` | Delete, error |
 
-### Surface Hierarchy (dark-only)
+### Anti-pattern: Pure Black
+Never use `#000000`. OLED displays smear pure black, destroying depth
+perception. Use `#0d0e12` (near-black with blue undertone) instead.
+
+## Layered Shadow System
 
 ```
-#0c0c0c  ── root background
-#14171d  ── sidebar / panel chrome
-#1f252d  ── cards, inputs, dropdowns
-#252b35  ── modals, elevated surfaces
+--shadow-xs:  0 1px 2px rgba(0,0,0,0.4)
+--shadow-sm:  0 2px 4px + 0 1px 2px (two layers)
+--shadow-md:  0 4px 8px + 0 2px 4px
+--shadow-lg:  0 8px 16px + 0 4px 8px
+--shadow-xl:  0 16px 32px + 0 8px 16px
 ```
 
-### Typography
+### Inner Highlights
+Every raised surface gets a top-edge light leak:
+```
+--inner-highlight:        inset 0 1px 0 rgba(255,255,255,0.04)
+--inner-highlight-strong: inset 0 1px 0 rgba(255,255,255,0.08)
+```
 
-- **Heading Font:** Inter
-- **Body Font:** Inter
-- **Mono Font:** Maple Mono NF
-- **Mood:** vibrant, technical, high-contrast, neon-accented, developer-focused
+### Accent Glows
+Primary CTAs and active states emit a soft halo:
+```
+--glow-accent-sm: 0 0 0 1px rgba(0,180,255,0.20), 0 2px 8px rgba(0,180,255,0.15)
+--glow-accent-md: 0 0 0 1px rgba(0,180,255,0.30), 0 4px 16px rgba(0,180,255,0.25)
+```
 
-### Spacing Scale
+## Typography
 
-`4 / 8 / 16 / 24 / 32 / 48 / 64` (px, mapped to `--sp-xs` through `--sp-3xl`)
+- **Sans:** Inter (UI text)
+- **Mono:** Maple Mono NF (code)
+- **Mood:** dark, cinematic, technical, precision, premium
+
+## Animation — Premium Easing
+
+All transitions use **expo.out** (`cubic-bezier(0.16, 1, 0.3, 1)`):
+fast start, gentle settle. This is the signature "premium" feel.
+
+| Token | Duration | Use |
+|-------|----------|-----|
+| `--duration-instant` | 100ms | Color-only changes |
+| `--duration-fast` | 150ms | Hover, focus |
+| `--duration-normal` | 220ms | Panel reveals, toggles |
+| `--duration-slow` | 320ms | Modal, dropdown |
+
+### Press Feedback
+All interactive elements scale to **0.97** on press, using spring easing
+(`cubic-bezier(0.34, 1.56, 0.64, 1)`) for a subtle overshoot.
+
+### Reduced Motion
+All animations respect `prefers-reduced-motion: reduce`.
 
 ---
 
-## Component Specs
+## Component Polish Checklist
 
-### Buttons
+- [ ] Buttons: press scale 0.97 + glow on primary
+- [ ] Inputs: inner highlight + focus glow ring
+- [ ] Cards: inner highlight + hover lift (-translate-y-px)
+- [ ] Dropdowns: glassmorphism (backdrop-blur) + layered shadow
+- [ ] Tabs: glow indicator with shadow halo
+- [ ] Switch: track glow when checked + spring thumb
+- [ ] All transitions use `--ease-out` (expo.out)
+- [ ] No pure black backgrounds
+- [ ] No flat single-layer shadows
 
-```css
-/* Primary */
-.btn-primary {
-  background: #00b4ff;
-  color: #0c0c0c;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  transition: all 200ms ease;
-  cursor: pointer;
-}
-.btn-primary:hover { background: #33c3ff; }
+## Anti-Patterns
 
-/* Destructive */
-.btn-destructive {
-  background: #ff4757;
-  color: #fff;
-}
-.btn-destructive:hover { background: #ff6b7a; }
-```
-
-### Cards
-
-```css
-.card {
-  background: #1f252d;
-  border: 1px solid rgba(107, 114, 128, 0.12);
-  border-radius: 8px;
-  padding: 16px;
-}
-```
-
-### Inputs
-
-```css
-.input {
-  background: #1f252d;
-  border: 1px solid rgba(107, 114, 128, 0.20);
-  color: #e8eaed;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-}
-.input:focus {
-  border-color: #00b4ff;
-  box-shadow: 0 0 0 2px rgba(0, 180, 255, 0.15);
-}
-```
-
----
-
-## Style Guidelines
-
-**Style:** Neon Dark
-
-**Keywords:** deep black, neon accents, high contrast, vibrant, technical, developer, OLED-friendly
-
-**Key Effects:** Blue glow on focus, smooth 150-300ms transitions, visible depth via subtle surface layers
-
----
-
-## Anti-Patterns (Do NOT Use)
-
-- ❌ Light mode
-- ❌ Emojis as icons — use Lucide SVG icons
-- ❌ Hardcoded hex colors — use CSS variables
-- ❌ Instant state changes — always transition 150-300ms
-- ❌ Invisible focus states — `:focus-visible` must show accent ring
-- ❌ Missing `cursor-pointer` on clickable elements
-- ❌ Tailwind color utility classes (`text-green-400`) — use `var(--green)` etc.
-
----
-
-## Pre-Delivery Checklist
-
-Before delivering any UI code, verify:
-
-- [ ] No emojis used as icons (use Lucide SVG instead)
-- [ ] All colors use CSS variables, not raw hex or Tailwind utilities
-- [ ] `cursor-pointer` on all clickable elements
-- [ ] Hover states with smooth transitions (150-300ms)
-- [ ] `:focus-visible` shows accent ring for keyboard navigation
-- [ ] `prefers-reduced-motion` respected
-- [ ] Text contrast ≥ 4.5:1 against surface backgrounds
+- ❌ Pure black `#000000` (OLED smear)
+- ❌ Single-layer shadows (flat, plastic feel)
+- ❌ Linear/ease timing (mechanical, not organic)
+- ❌ Color-only hover states (no depth change)
+- ❌ No press feedback (feels dead)
+- ❌ Emojis as icons
+- ❌ Hardcoded hex colors (use tokens)

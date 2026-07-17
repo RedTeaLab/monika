@@ -203,8 +203,6 @@ export function Combobox({
     }
   }
 
-  const triggerWidth = triggerRef.current?.offsetWidth ?? 0
-  const style = panelWidth ? { width: panelWidth } : { width: triggerWidth }
 
   return (
     <div className={cn('relative inline-block w-full', className)}>
@@ -222,9 +220,11 @@ export function Combobox({
           'h-9 px-3 text-sm rounded-[var(--radius-md)]',
           'bg-[var(--surface-card)] border border-[var(--border-default)]',
           'text-[var(--text-primary)]',
-          'transition-colors duration-150 cursor-pointer',
-          'hover:border-[var(--border-strong)]',
-          'focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]',
+          'shadow-[var(--inner-highlight)]',
+          'transition-all duration-[var(--duration-fast)] [transition-timing-function:var(--ease-out)] cursor-pointer',
+          'hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)]',
+          'focus:outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-card)]',
+          'focus:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-muted)]',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           !selected && 'text-[var(--text-dim)]',
         )}
@@ -244,12 +244,11 @@ export function Combobox({
         <div
           ref={panelRef}
           role="listbox"
-          aria-activedescendant={filtered[focusIdx]?.value}
-          style={{ ...style, ...(panelPos ? { top: panelPos.top, left: panelPos.left, maxHeight: panelPos.maxH } : { maxHeight: panelMaxHeight }) }}
           className={cn(
             'fixed z-[1000]',
-            'bg-[var(--surface-elevated)] border border-[var(--border-default)] rounded-[var(--radius-md)]',
-            'shadow-[var(--shadow-lg)] overflow-hidden flex flex-col',
+            'bg-[var(--surface-elevated)] backdrop-blur-xl',
+            'border border-[var(--border-strong)] rounded-[var(--radius-lg)]',
+            'shadow-[var(--shadow-xl),var(--inner-highlight-strong)] overflow-hidden flex flex-col',
             'animate-combobox-in',
           )}
         >
@@ -300,11 +299,12 @@ export function Combobox({
                   onClick={() => !opt.disabled && selectOption(opt.value)}
                   onMouseEnter={() => setFocusIdx(i)}
                   className={cn(
-                    'w-full flex items-start gap-2 px-3 py-1.5 text-left text-sm',
+                    'relative w-full flex items-start gap-2 px-3 py-2 text-left text-sm',
                     'text-[var(--text-primary)] cursor-pointer',
-                    'transition-colors duration-75',
+                    'transition-colors duration-[var(--duration-instant)]',
                     'disabled:opacity-40 disabled:cursor-not-allowed',
-                    isFocused && 'bg-[var(--surface-hover)]',
+                    isFocused && 'bg-[var(--surface-hover)] text-[var(--text-primary)]',
+                    isFocused && 'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--accent)]',
                     isSelected && 'text-[var(--accent)]',
                   )}
                 >
