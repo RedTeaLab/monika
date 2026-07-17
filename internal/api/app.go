@@ -79,7 +79,7 @@ type App struct {
 	loopOpts        []agent2.LoopOption
 	rawSystemPrompt string
 	mcpRegistry     *engine2.MCPRegistry
-	mcpFailures     map[string]*mcpFailureState // server ID → failure tracking (for exponential backoff)
+	mcpFailures     map[string]bool // server IDs that failed this session (fire-and-forget: no auto-retry)
 	kbStore         *memory.KBStore
 
 	permissionRequests map[string]chan permission.PermissionResponse
@@ -133,7 +133,7 @@ func NewApp(home, initialProject string, cfg config2.Config, providers map[strin
 		pendingChildren:   make(map[string]string),
 		loopOpts:          loopOpts,
 		mcpRegistry:     mcpRegistry,
-		mcpFailures:     make(map[string]*mcpFailureState),
+		mcpFailures:     make(map[string]bool),
 		kbStore:           kbStore,
 		checker:           update.NewChecker(),
 		bgTaskMgr:         NewBackgroundTaskManager(filepath.Join(home, ".monika", "logs")),
@@ -4678,14 +4678,6 @@ func (a *App) getMCPEngine() engine2.MCPEngine {
 	return mcpEng
 }
 
-// mcpFailureState tracks consecutive failures for exponential backoff.
-// First failure logs loudly; subsequent failures are silent until backoff expires.
-type mcpFailureState struct {
-	count        int       // consecutive failure count
-	nextRetryAt  time.Time // earliest time to attempt again
-	loggedOnce   bool      // whether the initial error was already logged
-}
-
 // connectMCPServer connects a single MCP server and registers it in the registry.
 func (a *App) connectMCPServer(entry config2.MCPServerEntry) error {
 	mcpEng := a.getMCPEngine()
@@ -4737,7 +4729,6 @@ func (a *App) syncMCPServers() {
 		return
 	}
 	mcpEng := a.getMCPEngine()
-	now := time.Now()
 
 	a.mu.RLock()
 	configured := make(map[string]bool, len(a.cfg.MCP.Servers))
@@ -4750,9 +4741,9 @@ func (a *App) syncMCPServers() {
 		if mcpEng != nil && mcpEng.IsConnected(s.ID) {
 			continue
 		}
-		// Exponential backoff: skip servers whose next-retry time hasn't arrived.
-		// This prevents log spam when syncMCPServers is triggered repeatedly.
-		if st, ok := a.mcpFailures[s.ID]; ok && now.Before(st.nextRetryAt) {
+		// Skip servers that already failed in this session — MCP is fire-and-forget.
+		// Users can manually retry via Settings → MCP → Reconnect.
+		if _, failed := a.mcpFailures[s.ID]; failed {
 			continue
 		}
 		toConnect = append(toConnect, s)
@@ -4761,7 +4752,11 @@ func (a *App) syncMCPServers() {
 
 	for _, s := range toConnect {
 		if err := a.connectMCPServer(s); err != nil {
-			a.recordMCPFailure(s.ID, err)
+			// Record as failed so we don't retry automatically. Log once, move on.
+			a.mu.Lock()
+			a.mcpFailures[s.ID] = true
+			a.mu.Unlock()
+			fmt.Fprintf(os.Stderr, "[monika] MCP %q connect failed: %v (retry manually via Settings)\n", s.ID, err)
 		}
 	}
 
@@ -4769,39 +4764,6 @@ func (a *App) syncMCPServers() {
 		if !configured[meta.ID] {
 			a.disconnectMCPServer(meta.ID)
 		}
-	}
-}
-
-// recordMCPFailure updates failure state with exponential backoff.
-// First failure logs the error; subsequent failures are silent to avoid spam.
-// Backoff schedule: 1m → 5m → 15m → 30m (capped).
-func (a *App) recordMCPFailure(serverID string, err error) {
-	const (
-		minBackoff = 1 * time.Minute
-		maxBackoff = 30 * time.Minute
-	)
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	st := a.mcpFailures[serverID]
-	if st == nil {
-		st = &mcpFailureState{}
-		a.mcpFailures[serverID] = st
-	}
-	st.count++
-	// Exponential backoff: base * 5^(count-1), capped at maxBackoff
-	backoff := minBackoff * time.Duration(1<<(st.count-1))
-	if st.count > 1 {
-		backoff = 5 * time.Minute * time.Duration(1<<(st.count-2))
-	}
-	if backoff > maxBackoff {
-		backoff = maxBackoff
-	}
-	st.nextRetryAt = time.Now().Add(backoff)
-	// Only log the first failure; subsequent retries are silent
-	if !st.loggedOnce {
-		st.loggedOnce = true
-		fmt.Fprintf(os.Stderr, "[monika] MCP %q failed: %v (will retry in %v, then back off)\n",
-			serverID, err, backoff)
 	}
 }
 
