@@ -1,22 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { IDockviewPanelProps } from 'dockview'
-import { EditorState } from '@codemirror/state'
-import { EditorView, hoverTooltip, keymap, lineNumbers, highlightSpecialChars, drawSelection, dropCursor } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { oneDarkHighlightStyle } from '@codemirror/theme-one-dark'
-import { syntaxHighlighting, bracketMatching, indentOnInput, foldGutter, foldService } from '@codemirror/language'
-import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap, CompletionContext } from '@codemirror/autocomplete'
-import { search, searchKeymap } from '@codemirror/search'
 import { useStore } from '../../store'
-import { getLanguageForFile, getLanguage, treeSitterInitPromise, computeFoldableRanges, FoldRange } from '../../lib/treeSitter'
-import { treeSitterHighlightExtension } from '../../lib/treeSitterHighlight'
 import { Call } from '@wailsio/runtime'
-import { lspService, LspSymbol, LspDiagnostic } from '../../lib/lspService'
+import { lspService, LspSymbol } from '../../lib/lspService'
 import { LspSymbolSidebar } from './LspSymbolSidebar'
 
 import { IconSidebar, IconFolder, IconMaximize, IconRestore, IconSearch, IconClose, IconEye, IconEdit, IconVideo, IconImage, IconFileText, IconMusic } from '../Icons'
-import { CodeMinimap } from './CodeMinimap'
 import MarkdownPreview from './MarkdownPreview'
 import { AnsiText } from '../../lib/ansi'
 import FileTree from '../FileTree/FileTree'
@@ -25,9 +14,6 @@ import type * as monacoType from 'monaco-editor'
 const ANSI_STRIP_RE = /\x1b\][^\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-?]*[ -/]*[@-~]|\x1b./g
 function stripAnsi(s: string): string { return s.replace(ANSI_STRIP_RE, '') }
 const MAX_FILE_LINES = 5000
-function escapeHtml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 const BOM_PATTERNS = ['\uFEFF', '\uFFFE', '\u0000FEFF', '\u0000FFFE\u0000']
 function isBinaryContent(content: string): boolean {
     // Treat files with BOM as text
@@ -38,120 +24,6 @@ function isBinaryContent(content: string): boolean {
     const slice = content.slice(0, 8192)
     return slice.indexOf('\x00') >= 0
 }
-const previewTheme = EditorView.theme({
-    '&': {
-        fontFamily: 'var(--font-mono)',
-        backgroundColor: '#0d0e12',
-        height: '100%',
-        color: '#abb2bf',
-    },
-    '.cm-scroller': { backgroundColor: '#0d0e12' },
-    '.cm-gutters': {
-        fontFamily: 'var(--font-mono)',
-        backgroundColor: '#121319',
-        color: '#495162',
-        border: 'none',
-        paddingLeft: 8,
-        paddingRight: 16,
-    },
-    '.cm-gutterElement': { color: 'inherit' },
-    '.cm-activeLineGutter': { backgroundColor: 'transparent', color: '#8b8fa0' },
-    '.cm-content': { fontFamily: 'var(--font-mono)', paddingLeft: 4, color: '#abb2bf' },
-    '.cm-line': { fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '22px', color: '#abb2bf' },
-
-    '.cm-activeLine': { backgroundColor: 'transparent' },
-    '.cm-selectionBackground': { backgroundColor: 'rgba(75,125,219,0.15)' },
-    '.cm-focused .cm-selectionBackground': { backgroundColor: 'rgba(75,125,219,0.15)' },
-    '.cm-matchingBracket': { backgroundColor: 'rgba(75,125,219,0.25)', outline: '1px solid rgba(75,125,219,0.4)' },
-
-    // Search panel — dark theme match
-    '.cm-panel.cm-search': {
-        backgroundColor: '#101218',
-        color: '#abb2bf',
-        padding: '6px 8px',
-        fontFamily: 'var(--font-sans)',
-        fontSize: '12px',
-        borderBottom: '1px solid #1e2130',
-        '& input, & button, & label': { margin: '.2em .6em .2em 0' },
-        '& input[type=checkbox]': { marginRight: '.3em', accentColor: '#528bff' },
-        '& input.cm-textfield': {
-            backgroundColor: '#1a1d2e',
-            border: '1px solid #2c3040',
-            color: '#abb2bf',
-            borderRadius: 4,
-            padding: '2px 6px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '12px',
-        },
-        '& input.cm-textfield:focus': {
-            outline: 'none',
-            borderColor: '#528bff',
-        },
-        '& button.cm-button': {
-            backgroundColor: '#1e2130',
-            border: '1px solid #2c3040',
-            color: '#abb2bf',
-            borderRadius: 4,
-            cursor: 'pointer',
-            padding: '2px 8px',
-            fontSize: '11px',
-            fontFamily: 'var(--font-sans)',
-        },
-        '& button.cm-button:hover': {
-            backgroundColor: '#2c3040',
-        },
-        '& label': {
-            fontSize: '11px',
-            color: '#8b8fa0',
-            whiteSpace: 'pre',
-            display: 'inline-flex',
-            alignItems: 'center',
-        },
-        '& [name=close]': {
-            position: 'absolute',
-            top: '6px',
-            right: '8px',
-            backgroundColor: 'transparent',
-            border: 'none',
-            color: '#8b8fa0',
-            fontSize: '16px',
-            cursor: 'pointer',
-            padding: '0 4px',
-            lineHeight: 1,
-        },
-        '& [name=close]:hover': {
-            color: '#abb2bf',
-        },
-    },
-    '.cm-searchMatch': { backgroundColor: 'rgba(82,139,255,0.25)' },
-    '.cm-searchMatch-selected': { backgroundColor: 'rgba(82,139,255,0.45)' },
-    // Autocomplete tooltip — dark theme
-    '.cm-tooltip-autocomplete > ul': {
-        fontFamily: 'var(--font-mono)',
-        fontSize: '12px',
-    },
-    '.cm-tooltip-autocomplete > ul > li': {
-        padding: '2px 8px 2px 18px',
-    },
-    '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-        backgroundColor: 'rgba(82,139,255,0.2)',
-        color: '#d7dae0',
-    },
-    '.cm-tooltip': {
-        backgroundColor: '#1a1d2e',
-        border: '1px solid #2c3040',
-        borderRadius: 4,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-    },
-    '.cm-tooltip-autocomplete .cm-completionDetail': {
-        color: '#6b7280',
-        fontSize: '11px',
-    },
-    '.cm-completionIcon': {
-        fontSize: '11px',
-        opacity: 0.7,
-    },
-}, { dark: true })
 
 function getLangLabel(filePath: string): string | null {
     const ext = filePath.split('.').pop()?.toLowerCase() || ''
@@ -175,77 +47,9 @@ function getLangLabel(filePath: string): string | null {
 }
 
 
-const lspCompletionSource = async (context: CompletionContext) => {
-    const state = useStore.getState()
-    const fp = state.preview.filePath
-    const pp = state.projectPath
-    if (!fp || !pp) return null
-
-    const word = context.matchBefore(/[\w$]+(\.[\w$]*)?/)
-    if (!word && !context.explicit) return null
-    if (word && word.from === word.to && !context.explicit) return null
-
-    const view = context.view
-    if (!view) return null
-    const line = view.state.doc.lineAt(context.pos)
-    const col = context.pos - line.from
-
-    try {
-        // Sync current document content to LSP before requesting completions.
-        const content = context.state.doc.toString()
-        lspDocVersion++
-        await lspService.didChange(pp, fp, content, lspDocVersion)
-
-        const result = await lspService.completion(pp, fp, line.number - 1, col)
-        if (!result || !result.items || result.items.length === 0) return null
-
-        // After a dot, position 'from' after the dot so only the member name is replaced.
-        const dotIdx = word ? word.text.lastIndexOf('.') : -1
-        const replaceFrom = dotIdx >= 0
-            ? word!.from + dotIdx + 1
-            : (word ? word.from : context.pos)
-
-        return {
-            from: replaceFrom,
-            options: result.items.map((item) => ({
-                label: item.label,
-                detail: item.detail,
-                type: getCompletionType(item.kind),
-                apply: item.insertText || item.label,
-            })),
-            validFor: /^[\w$]*$/,
-        }
-    } catch {
-        return null
-    }
-}
-
-// Helper to map LSP CompletionItemKind to CM6 completion type string
-function getCompletionType(kind: number | undefined): string {
-    const types: Record<number, string> = {
-        1: 'text', 2: 'method', 3: 'function', 4: 'constructor',
-        5: 'field', 6: 'variable', 7: 'class', 8: 'interface',
-        9: 'module', 10: 'property', 11: 'unit', 12: 'value',
-        13: 'enum', 14: 'keyword', 15: 'snippet', 16: 'color',
-        17: 'file', 18: 'reference', 19: 'folder', 20: 'enumMember',
-        21: 'constant', 22: 'struct', 23: 'event', 24: 'operator',
-        25: 'typeParameter',
-    }
-    return types[kind ?? 0] || 'text'
-}
-
-// Shared LSP document version counter — used by both the completion source and the component.
+// Shared LSP document version counter — used by the save handler to sync content to the LSP server.
 let lspDocVersion = 0
 
-// Fold state — populated after tree-sitter init parses the document.
-let foldRanges: FoldRange[] = []
-
-const treeSitterFoldService = foldService.of((state: EditorState, lineStart: number, _lineEnd: number) => {
-    for (const r of foldRanges) {
-        if (r.from === lineStart) return r
-    }
-    return null
-})
 
 
 interface HunkLine {
@@ -619,15 +423,11 @@ function PreviewPanel(props: IDockviewPanelProps) {
     const bgTaskLogCache = useStore((s) => s.bgTaskLogCache)
     const bgTaskDisplayCount = useStore((s) => s.bgTaskDisplayCount)
     const stopBgTask = useStore((s) => s.stopBgTask)
-    const containerRef = useRef<HTMLDivElement>(null)
-    const editorRef = useRef<EditorView | null>(null)
     const monacoEditorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null)
     const headerRef = useRef<HTMLDivElement>(null)
     const [maximized, setMaximized] = useState(false)
     const [selectedCommitFile, setSelectedCommitFile] = useState<string | null>(null)
     const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-    const prevFilePathRef = useRef<string | null>(null)
-    const diagTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
     const bgLogRef = useRef<HTMLDivElement>(null)
     const bgSentinelRef = useRef<HTMLDivElement>(null)
     const bgPrevScrollHeightRef = useRef(0)
@@ -639,14 +439,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
         title: string
         items: { path: string; line: number; col: number }[]
     } | null>(null)
-    const [contextMenu, setContextMenu] = useState<{
-        x: number
-        y: number
-        line: number
-        col: number
-    } | null>(null)
     const [symbols, setSymbols] = useState<LspSymbol[]>([])
-    const [diagnostics, setDiagnostics] = useState<LspDiagnostic[]>([])
     const [currentLine, setCurrentLine] = useState<number | null>(null)
     const [cursorPos, setCursorPos] = useState({ line: 0, col: 0 })
     const [breadcrumbMenu, setBreadcrumbMenu] = useState<{
@@ -666,13 +459,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
     }, [previewNeedsRefresh, preview.filePath])
     const [showSymbols, setShowSymbols] = useState(false)
     const [mdPreviewMode, setMdPreviewMode] = useState(true)
-
-    useEffect(() => {
-        if (!contextMenu) return
-        const close = () => setContextMenu(null)
-        window.addEventListener('click', close)
-        return () => window.removeEventListener('click', close)
-    }, [contextMenu])
 
     useEffect(() => {
         setMaximized(props.api.isMaximized())
@@ -706,22 +492,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
         }
     }, [])
 
-    const copyHandler = EditorView.domEventHandlers({
-        copy: (event, view) => {
-            const selection = view.state.selection.main
-            if (selection.empty) return
-            const store = useStore.getState()
-            const fp = store.preview.filePath || ''
-            if (!fp) return
-            const fromLine = view.state.doc.lineAt(selection.from).number
-            const toLine = view.state.doc.lineAt(selection.to).number
-            const selectedText = view.state.sliceDoc(selection.from, selection.to)
-            const metadata = `[ref:${fp} ${fromLine}~${toLine}]\n`
-            event.clipboardData?.setData('text/plain', metadata + selectedText)
-            event.preventDefault()
-        },
-    })
-
     // Content processing — defined before the editor useEffect (used inside it)
     const rawContent = preview.fileContent || ''
     const showBinary = preview.mode === 'file' && preview.fileContent !== null && isBinaryContent(rawContent)
@@ -731,7 +501,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
         ? (truncated ? rawContent.split('\n').slice(0, MAX_FILE_LINES).join('\n') : rawContent)
         : ''
     const lineCount = totalLines
-    const minimapLines = displayContent ? displayContent.split('\n').length : 0
     const showFile = preview.mode === 'file' && preview.fileContent && !showBinary
     const showDiff = preview.mode === 'diff' && preview.diffLines
     const showEmpty = preview.mode === null
@@ -767,59 +536,17 @@ function PreviewPanel(props: IDockviewPanelProps) {
             if (lspEnabledRef.current) {
                 lspService.didChange(pp, fp, content, lspDocVersion).catch(() => { })
             }
-            clearTimeout(diagTimeoutRef.current)
-            diagTimeoutRef.current = setTimeout(async () => {
-                const store = useStore.getState()
-                const fp2 = store.preview.filePath
-                const pp2 = store.projectPath
-                if (!fp2 || !pp2) return
-                try {
-                    const diags = await lspService.diagnostics(pp2, fp2)
-                    setDiagnostics(diags)
-                } catch { }
-            }, 500)
         } catch (e) {
             console.error('[preview] save failed:', e)
         }
     }, [lspEnabled])
 
-    const navHistoryRef = useRef<{ path: string; line: number; col: number }[]>([])
-    const navIndexRef = useRef(-1)
-
-    const pushNavHistory = useCallback((loc: { path: string; line: number; col: number }) => {
-        navHistoryRef.current = navHistoryRef.current.slice(0, navIndexRef.current + 1)
-        navHistoryRef.current.push(loc)
-        if (navHistoryRef.current.length > 50) navHistoryRef.current.shift()
-        navIndexRef.current = navHistoryRef.current.length - 1
-    }, [])
-
-    const goBack = useCallback(() => {
-        if (navIndexRef.current <= 0) return
-        navIndexRef.current--
-        const loc = navHistoryRef.current[navIndexRef.current]
-        navigateToLocation(loc)
-    }, [])
-
-    const goForward = useCallback(() => {
-        if (navIndexRef.current >= navHistoryRef.current.length - 1) return
-        navIndexRef.current++
-        const loc = navHistoryRef.current[navIndexRef.current]
-        navigateToLocation(loc)
-    }, [])
-
-    const navKeymap = [
-        { key: 'Alt-ArrowLeft', run: () => { goBack(); return true } },
-        { key: 'Alt-ArrowRight', run: () => { goForward(); return true } },
-    ]
 
     const navigateToLocation = useCallback(async (loc: { path: string; line: number; col: number }) => {
         const store = useStore.getState()
         const curPath = store.preview.filePath
 
-        if (loc.path === curPath) {
-            pushNavHistory(loc)
-            return
-        }
+        if (loc.path === curPath) return
 
         try {
             const decodedPath = decodeURIComponent(loc.path)
@@ -832,73 +559,16 @@ function PreviewPanel(props: IDockviewPanelProps) {
         } catch (e) {
             console.error('[lsp] failed to open file:', loc.path, e)
         }
-    }, [pushNavHistory])
+    }, [])
 
     const handleSymbolClick = useCallback((sym: LspSymbol) => {
         const mEditor = monacoEditorRef.current
-        if (mEditor) {
-            const pos = { lineNumber: sym.startLine + 1, column: sym.startCol + 1 }
-            mEditor.setPosition(pos)
-            mEditor.revealPositionInCenter(pos)
-            mEditor.focus()
-            return
-        }
-        const view = editorRef.current
-        if (!view) return
-        const line = view.state.doc.line(sym.startLine + 1)
-        const from = line.from + sym.startCol
-        view.dispatch({
-            selection: { anchor: from },
-            effects: EditorView.scrollIntoView(from, { y: 'center' }),
-        })
+        if (!mEditor) return
+        const pos = { lineNumber: sym.startLine + 1, column: sym.startCol + 1 }
+        mEditor.setPosition(pos)
+        mEditor.revealPositionInCenter(pos)
+        mEditor.focus()
     }, [])
-
-    const goToDefinitionHandler = EditorView.domEventHandlers({
-        mousedown: (event, view) => {
-            if (!event.ctrlKey && !event.metaKey) return
-            if (!lspEnabledRef.current) return
-
-            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
-            if (pos === null) return
-            const line = view.state.doc.lineAt(pos)
-            const lineNum = line.number - 1
-            const col = pos - line.from
-
-            const store = useStore.getState()
-            const fp = store.preview.filePath
-            const pp = store.projectPath
-            if (!fp || !pp) return
-
-            event.preventDefault()
-
-            lspService.goToDefinition(pp, fp, lineNum, col).then((locs) => {
-                if (!locs || locs.length === 0) return
-                if (locs.length === 1) {
-                    navigateToLocation(locs[0])
-                } else {
-                    setPeekPanel({
-                        title: 'Go to Definition',
-                        items: locs,
-                    })
-                }
-            }).catch(() => { })
-        },
-    })
-
-    const contextmenuHandler = EditorView.domEventHandlers({
-        contextmenu: (event, view) => {
-            if (!lspEnabledRef.current) return
-
-            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
-            if (pos === null) return
-            const line = view.state.doc.lineAt(pos)
-            const lineNum = line.number - 1
-            const col = pos - line.from
-
-            event.preventDefault()
-            showContextMenu(event.clientX, event.clientY, view, lineNum, col)
-        },
-    })
 
     const lspEnabledRef = useRef(lspEnabled)
     lspEnabledRef.current = lspEnabled
@@ -996,40 +666,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
         return () => window.removeEventListener('keydown', handler)
     }, [showTask])
 
-    const hoverProvider = hoverTooltip(async (view, pos) => {
-        if (!lspEnabledRef.current) { console.log('[preview] hover skipped: lspEnabled=false'); return null }
-        const store = useStore.getState()
-        const fp = store.preview.filePath
-        const pp = store.projectPath
-        if (!fp || !pp) { console.log('[preview] hover skipped: no fp/pp'); return null }
-        const line = view.state.doc.lineAt(pos)
-        const lineNum = line.number - 1
-        const col = pos - line.from
-        console.log('[preview] hover query:', fp, lineNum, col)
-        try {
-            const result = await lspService.hover(pp, fp, lineNum, col)
-            if (!result || !result.contents) return null
-            return {
-                pos, end: pos, above: true,
-                create() {
-                    const dom = document.createElement('div')
-                    dom.style.cssText = `
-                        max-width: 500px; max-height: 300px; overflow-y: auto;
-                        padding: 8px 12px; font-size: 12px; font-family: var(--font-mono);
-                        line-height: 1.5; color: #abb2bf; background: #1e1e1e;
-                        border: 1px solid #333; border-radius: 4px;
-                        white-space: pre-wrap; word-break: break-word;
-                    `
-                    dom.innerHTML = escapeHtml(result.contents)
-                        .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) =>
-                            `<pre style="background:#2d2d2d;padding:6px 8px;border-radius:3px;overflow-x:auto;margin:4px 0">${code}</pre>`)
-                        .replace(/\n/g, '<br>')
-                    return { dom }
-                },
-            }
-        } catch { return null }
-    }, { hoverTime: 500 })
-
     // Auto-save + dirty tracking for Monaco
     const handleMonacoChange = useCallback((val: string) => {
         const st = useStore.getState()
@@ -1038,96 +674,13 @@ function PreviewPanel(props: IDockviewPanelProps) {
         saveTimeoutRef.current = setTimeout(() => saveContent(val), 300)
     }, [saveContent])
 
-    const saveUpdateListener = EditorView.updateListener.of((update) => {
-        if (!update.docChanged) return
-        const state = useStore.getState()
-        if (state.preview.filePath) {
-            state.markFileDirty(state.preview.filePath)
-        }
-        clearTimeout(saveTimeoutRef.current)
-        saveTimeoutRef.current = setTimeout(saveContent, 300)
-    })
-
-    const cursorUpdateListener = EditorView.updateListener.of((update) => {
-        if (!update.view.composing && update.selectionSet) {
-            const sel = update.state.selection.main
-            const line = update.state.doc.lineAt(sel.from)
-            setCurrentLine(line.number - 1)
-            setCursorPos({ line: line.number - 1, col: sel.from - line.from })
-        }
-    })
-
-    const sharedEditorExtensions = [
-        previewTheme, syntaxHighlighting(oneDarkHighlightStyle), lineNumbers(),
-        highlightSpecialChars(), drawSelection(), dropCursor(),
-        keymap.of(defaultKeymap), keymap.of(navKeymap),
-        history(),
-        foldGutter(), treeSitterFoldService,
-        bracketMatching(),
-        indentOnInput(),
-        closeBrackets(),
-        autocompletion({ override: [lspCompletionSource] }),
-        search({ top: true }),
-        keymap.of([
-            ...closeBracketsKeymap,
-            ...historyKeymap,
-            ...searchKeymap,
-            ...completionKeymap,
-            indentWithTab,
-        ]),
-        keymap.of([{
-            key: 'Mod-s',
-            run: (view) => {
-                const content = view.state.doc.toString()
-                const state = useStore.getState()
-                const filePath = state.preview.filePath
-                const projectPath = state.projectPath
-                if (filePath && projectPath) {
-                    Call.ByName('monika/internal/api.App.WriteFile', projectPath, filePath, content).then(() => {
-                        useStore.getState().markFileClean(filePath)
-                        lspService.didChange(projectPath, filePath, content, lspDocVersion).catch(() => { })
-                    }).catch((err: any) => {
-                        console.error('Save failed:', err)
-                    })
-                }
-                return true
-            },
-            preventDefault: true,
-        }]),
-        keymap.of([{
-            key: 'F12',
-            run: (view) => {
-                const state = useStore.getState()
-                if (!state.preview.filePath || !state.projectPath) return false
-                const pos = view.state.selection.main.head
-                const line = view.state.doc.lineAt(pos)
-                const char = pos - line.from
-                lspService.goToDefinition(state.projectPath, state.preview.filePath, line.number - 1, char)
-                    .then((locs) => {
-                        if (locs && locs.length > 0) {
-                            const loc = locs[0]
-                            if (loc.path === state.preview.filePath) {
-                                view.dispatch({
-                                    selection: { anchor: view.state.doc.line(loc.line + 1).from + loc.col },
-                                    scrollIntoView: true,
-                                })
-                            }
-                        }
-                    }).catch(() => { })
-                return true
-            },
-        }]),
-        copyHandler, goToDefinitionHandler, contextmenuHandler,
-        saveUpdateListener, cursorUpdateListener, hoverProvider,
-    ]
-
     useEffect(() => {
         setLspEnabled(true)
         lspEnabledRef.current = true
     }, [preview.filePath])
 
-    // Fetch document symbols for Monaco editor (CM6 path is disabled)
-    // Backend blocks until LSP server is ready (up to ~2s), so single call is enough
+    // Fetch document symbols for the Monaco editor.
+    // Backend blocks until LSP server is ready (up to ~2s), so single call is enough.
     useEffect(() => {
         if (preview.mode !== 'file' || !preview.filePath) {
             setSymbols([])
@@ -1149,144 +702,26 @@ function PreviewPanel(props: IDockviewPanelProps) {
         return () => { cancelled = true }
     }, [preview.filePath, preview.mode, showSymbols])
 
-    useEffect(() => {
-        if (true) return; // CM6 disabled — using Monaco instead
-        if (!containerRef.current || preview.mode !== 'file' || !preview.fileContent || showBinary) {
-            if (editorRef.current) {
-                editorRef.current!.destroy()
-                editorRef.current = null
-            }
-            return
-        }
-        if (editorRef.current) {
-            editorRef.current!.destroy()
-            editorRef.current = null
-        }
-        if (prevFilePathRef.current && lspEnabledRef.current) {
-            const store = useStore.getState()
-            lspService.closeFile(store.projectPath, prevFilePathRef.current!).catch(() => { })
-        }
-        prevFilePathRef.current = null
-
-        console.log('[preview] creating editor, lspEnabled:', lspEnabled, 'file:', preview.filePath, 'extensions count:', sharedEditorExtensions.length)
-
-        const state = EditorState.create({
-            doc: displayContent,
-            extensions: sharedEditorExtensions,
-        })
-        editorRef.current = new EditorView({ state, parent: containerRef.current! })
-
-        if (!truncated) {
-            (async () => {
-                try {
-                    await treeSitterInitPromise
-                    console.log('[preview] tree-sitter init complete')
-                    const langName = getLanguageForFile(preview.filePath || '')
-                    console.log('[preview] langName for', preview.filePath, ':', langName)
-                    if (!langName) return
-                    const lang = await getLanguage(langName)
-                    console.log('[preview] lang loaded:', !!lang)
-                    if (!lang || !containerRef.current) return
-                    const cur = useStore.getState().preview
-                    if (cur.mode !== 'file' || cur.filePath !== preview.filePath) return
-                    if (!displayContent) return
-                    foldRanges = computeFoldableRanges(displayContent, lang)
-                    const hlState = EditorState.create({
-                        doc: displayContent,
-                        extensions: [
-                            ...sharedEditorExtensions,
-                            treeSitterHighlightExtension(lang),
-                        ],
-                    })
-                    editorRef.current?.destroy()
-                    editorRef.current = new EditorView({ state: hlState, parent: containerRef.current })
-                    // Open current file's LSP session (tree-sitter editor ready)
-                    if (preview.filePath && lspEnabledRef.current) {
-                        const store = useStore.getState()
-                        const pp = store.projectPath
-                        console.log('[preview] opening LSP for (ts):', preview.filePath, 'project:', pp)
-                        if (pp) {
-                            lspService.openFile(pp, preview.filePath).then(() => {
-                                console.log('[preview] LSP openFile OK (ts), fetching symbols...')
-                                setLspEnabled(true)
-                                lspService.documentSymbols(pp!, preview.filePath!).then(syms => {
-                                    console.log('[preview] symbols fetched (ts):', syms ? syms.length : 0)
-                                    if (syms) setSymbols(syms)
-                                }).catch((e) => { console.log('[preview] symbols fetch failed (ts):', e) })
-                            }).catch((e) => {
-                                console.log('[preview] LSP openFile failed (ts):', e)
-                                setLspEnabled(false)
-                            })
-                            prevFilePathRef.current = preview.filePath
-                        }
-                    }
-                } catch {
-                    // Tree-sitter unavailable — plain editor is already shown
-                    // Open LSP with plain editor instead
-                    if (preview.filePath && lspEnabledRef.current) {
-                        const store = useStore.getState()
-                        const pp = store.projectPath
-                        if (pp) {
-                            lspService.openFile(pp, preview.filePath).then(() => {
-                                setLspEnabled(true)
-                                lspService.documentSymbols(pp!, preview.filePath!).then(syms => {
-                                    if (syms) setSymbols(syms)
-                                }).catch(() => { })
-                            }).catch(() => {
-                                setLspEnabled(false)
-                            })
-                            prevFilePathRef.current = preview.filePath
-                        }
-                    }
-                }
-            })()
-        } else if (preview.filePath && lspEnabledRef.current) {
-            // Truncated file — no tree-sitter upgrade, open LSP with plain editor
-            const store = useStore.getState()
-            const pp = store.projectPath
-            if (pp) {
-                lspService.openFile(pp, preview.filePath!).then(() => {
-                    setLspEnabled(true)
-                    lspService.documentSymbols(pp!, preview.filePath!).then(syms => {
-                        if (syms) setSymbols(syms)
-                    }).catch(() => { })
-                }).catch(() => {
-                    setLspEnabled(false)
-                })
-                prevFilePathRef.current = preview.filePath
-            }
-        }
-
-        return () => {
-            clearTimeout(saveTimeoutRef.current)
-            clearTimeout(diagTimeoutRef.current)
-            if (prevFilePathRef.current && lspEnabled) {
-                const store = useStore.getState()
-                lspService.closeFile(store.projectPath, prevFilePathRef.current).catch(() => { })
-            }
-        }
-    }, [preview.mode, preview.fileContent, preview.filePath])
-
-
-    const showContextMenu = useCallback((x: number, y: number, _view: any, line: number, col: number) => {
-        setContextMenu({ x, y, line, col })
-    }, [])
-
-    const applyWorkspaceEdit = useCallback(async (edit: any, _view: EditorView, projectPath: string) => {
+    const applyWorkspaceEdit = useCallback(async (edit: any, projectPath: string) => {
         for (const fileEdit of edit.changes) {
             const curPath = useStore.getState().preview.filePath
             if (fileEdit.path === curPath) {
-                const view = editorRef.current
-                if (!view) continue
+                const editor = monacoEditorRef.current
+                const model = editor?.getModel()
+                if (!editor || !model) continue
+                // Sort descending so earlier edits aren't shifted by later ones.
                 const sorted = [...fileEdit.edits].sort((a: any, b: any) => b.startLine - a.startLine || b.startCol - a.startCol)
-                const tr = view.state.update({
-                    changes: sorted.map((e: any) => ({
-                        from: view.state.doc.line(e.startLine + 1).from + e.startCol,
-                        to: view.state.doc.line(e.endLine + 1).from + e.endCol,
-                        insert: e.newText,
-                    })),
-                })
-                view.dispatch(tr)
+                // model.applyEdits fires onDidChangeModelContent → MonacoPreview's onChange →
+                // handleMonacoChange, which marks the file dirty and schedules an auto-save.
+                model.applyEdits(sorted.map((e: any) => ({
+                    range: {
+                        startLineNumber: e.startLine + 1,
+                        startColumn: e.startCol + 1,
+                        endLineNumber: e.endLine + 1,
+                        endColumn: e.endCol + 1,
+                    },
+                    text: e.newText,
+                })))
             } else {
                 try {
                     const result: any = await Call.ByName(
@@ -1344,21 +779,132 @@ function PreviewPanel(props: IDockviewPanelProps) {
 
     const handleBreadcrumbClick = useCallback((sym: LspSymbol) => {
         const mEditor = monacoEditorRef.current
-        if (mEditor) {
-            const pos = { lineNumber: sym.startLine + 1, column: sym.startCol + 1 }
-            mEditor.setPosition(pos)
-            mEditor.revealPositionInCenter(pos)
-            return
-        }
-        const view = editorRef.current
-        if (!view) return
-        const line = view.state.doc.line(sym.startLine + 1)
-        const from = line.from + sym.startCol
-        view.dispatch({
-            selection: { anchor: from },
-            effects: EditorView.scrollIntoView(from, { y: 'center' }),
-        })
+        if (!mEditor) return
+        const pos = { lineNumber: sym.startLine + 1, column: sym.startCol + 1 }
+        mEditor.setPosition(pos)
+        mEditor.revealPositionInCenter(pos)
     }, [])
+
+    const handleEditorMount = useCallback((editor: monacoType.editor.IStandaloneCodeEditor) => {
+        monacoEditorRef.current = editor
+
+        // LSP actions registered as Monaco context menu items (under the "lsp" group).
+        // Position is read from the editor at run time — Monaco moves the cursor to the
+        // right-click location before opening the menu.
+        const ppFp = () => {
+            const st = useStore.getState()
+            return { pp: st.projectPath, fp: st.preview.filePath }
+        }
+        const lineCol = () => {
+            const p = editor.getPosition()
+            return p ? { line: p.lineNumber - 1, col: p.column - 1 } : null
+        }
+
+        editor.addAction({
+            id: 'monika-goto-def',
+            label: 'Go to Definition',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 1,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                try {
+                    const locs = await lspService.goToDefinition(pp, fp, lc.line, lc.col)
+                    if (locs && locs.length > 0) navigateToLocation(locs[0])
+                } catch (e) { console.warn('[lsp] go to definition error:', e) }
+            },
+        })
+        editor.addAction({
+            id: 'monika-goto-type-def',
+            label: 'Go to Type Definition',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 2,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                try {
+                    const locs = await lspService.typeDefinition(pp, fp, lc.line, lc.col)
+                    if (locs && locs.length > 0) navigateToLocation(locs[0])
+                } catch (e) { console.warn('[lsp] type definition error:', e) }
+            },
+        })
+        editor.addAction({
+            id: 'monika-find-impls',
+            label: 'Find Implementations',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 3,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                try {
+                    const locs = await lspService.implementation(pp, fp, lc.line, lc.col)
+                    if (locs && locs.length > 0) navigateToLocation(locs[0])
+                } catch (e) { console.warn('[lsp] implementation error:', e) }
+            },
+        })
+        editor.addAction({
+            id: 'monika-find-refs',
+            label: 'Find All References',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 4,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                try {
+                    const refs = await lspService.references(pp, fp, lc.line, lc.col)
+                    if (refs && refs.length > 0) {
+                        setPeekPanel({ title: 'References', items: refs })
+                    }
+                } catch (e) { console.warn('[lsp] references error:', e) }
+            },
+        })
+        editor.addAction({
+            id: 'monika-rename',
+            label: 'Rename Symbol...',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 5,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                const model = editor.getModel()
+                if (!model) return
+                try {
+                    const lineText = model.getLineContent(lc.line + 1)
+                    const word = lineText.slice(lc.col).match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/)
+                    const word2 = lineText.slice(0, lc.col).match(/[a-zA-Z_$][a-zA-Z0-9_$]*$/)
+                    const token = (word2 ? word2[0] : '') + (word ? word[0] : '')
+                    const newName = window.prompt('Rename symbol:', token)
+                    if (!newName || newName === token) return
+                    const edit = await lspService.rename(pp, fp, lc.line, lc.col, newName)
+                    if (edit) await applyWorkspaceEdit(edit, pp)
+                } catch (e) { console.warn('[lsp] rename error:', e) }
+            },
+        })
+        editor.addAction({
+            id: 'monika-code-actions',
+            label: 'Code Actions...',
+            contextMenuGroupId: 'lsp',
+            contextMenuOrder: 6,
+            run: async () => {
+                const { pp, fp } = ppFp(); if (!pp || !fp) return
+                const lc = lineCol(); if (!lc) return
+                try {
+                    const actions = await lspService.codeActions(pp, fp, lc.line, lc.col)
+                    if (actions && actions.length > 0) {
+                        const titles = actions.map((a, i) => `${i + 1}. ${a.title}`)
+                        const choice = window.prompt(`Available code actions:\n${titles.join('\n')}\n\nEnter number (1-${actions.length}):`)
+                        if (choice) {
+                            const idx = parseInt(choice) - 1
+                            if (idx >= 0 && idx < actions.length) {
+                                const result = await lspService.executeCodeAction(pp, actions[idx])
+                                if (result) await applyWorkspaceEdit(result, pp)
+                            }
+                        }
+                    }
+                } catch (e) { console.warn('[lsp] code actions error:', e) }
+            },
+        })
+    }, [navigateToLocation, applyWorkspaceEdit])
 
     return (
         <div className="flex flex-col h-full" style={{ background: 'var(--bg-root)' }}>
@@ -1576,9 +1122,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
                                         setCurrentLine(line)
                                         setCursorPos({ line, col })
                                     }}
-                                    onEditorMount={(editor) => {
-                                        monacoEditorRef.current = editor
-                                    }}
+                                    onEditorMount={handleEditorMount}
                                 />
                             </div>
                         )}
@@ -1590,15 +1134,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
                             />
                         )}
 
-                        {editorRef.current && !isMarkdown && (
-                            <CodeMinimap
-                                content={displayContent}
-                                totalLines={minimapLines}
-                                editorView={editorRef.current}
-                                width={50}
-                                diagnostics={diagnostics}
-                            />
-                        )}
                     </div>
                     {/* Bottom status bar with breadcrumbs + cursor */}
                     <div
@@ -1754,155 +1289,6 @@ function PreviewPanel(props: IDockviewPanelProps) {
                     </div>
                 )}
             </div>
-            {contextMenu && createPortal(
-                <>
-                    <div
-                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
-                        onClick={() => setContextMenu(null)}
-                    />
-                    <div
-                        style={{
-                            position: 'fixed',
-                            left: contextMenu.x,
-                            top: contextMenu.y,
-                            zIndex: 1000,
-                            background: '#1e1e1e',
-                            border: '1px solid #333',
-                            borderRadius: 6,
-                            padding: '4px 0',
-                            minWidth: 180,
-                            fontSize: 12,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                        }}
-                    >
-                        {[
-                            {
-                                label: 'Go to Definition', shortcut: 'Ctrl+Click', action: async () => {
-                                    try {
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const locs = await lspService.goToDefinition(pp, fp, contextMenu.line, contextMenu.col)
-                                        if (locs && locs.length > 0) navigateToLocation(locs[0])
-                                    } catch (e) { console.warn('[lsp] go to definition error:', e) }
-                                }
-                            },
-                            {
-                                label: 'Go to Type Definition', action: async () => {
-                                    try {
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const locs = await lspService.typeDefinition(pp, fp, contextMenu.line, contextMenu.col)
-                                        if (locs && locs.length > 0) navigateToLocation(locs[0])
-                                    } catch (e) { console.warn('[lsp] type definition error:', e) }
-                                }
-                            },
-                            {
-                                label: 'Find Implementations', action: async () => {
-                                    try {
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const locs = await lspService.implementation(pp, fp, contextMenu.line, contextMenu.col)
-                                        if (locs && locs.length > 0) navigateToLocation(locs[0])
-                                    } catch (e) { console.warn('[lsp] implementation error:', e) }
-                                }
-                            },
-                            {
-                                label: 'Find All References', action: async () => {
-                                    try {
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const refs = await lspService.references(pp, fp, contextMenu.line, contextMenu.col)
-                                        if (refs && refs.length > 0) {
-                                            setPeekPanel({ title: 'References', items: refs })
-                                        }
-                                    } catch (e) { console.warn('[lsp] references error:', e) }
-                                }
-                            },
-                            { type: 'separator' },
-                            {
-                                label: 'Rename Symbol...', action: async () => {
-                                    try {
-                                        if (!editorRef.current) return
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const lineText = editorRef.current.state.doc.line(contextMenu.line + 1).text
-                                        const word = lineText.slice(contextMenu.col).match(/^[a-zA-Z_$][a-zA-Z0-9_$]*/)
-                                        const word2 = lineText.slice(0, contextMenu.col).match(/[a-zA-Z_$][a-zA-Z0-9_$]*$/)
-                                        const token = (word2 ? word2[0] : '') + (word ? word[0] : '')
-                                        const newName = window.prompt('Rename symbol:', token)
-                                        if (!newName || newName === token) return
-                                        const edit = await lspService.rename(pp, fp, contextMenu.line, contextMenu.col, newName)
-                                        if (edit) {
-                                            await applyWorkspaceEdit(edit, editorRef.current, pp)
-                                        }
-                                    } catch (e) { console.warn('[lsp] rename error:', e) }
-                                }
-                            },
-                            {
-                                label: 'Code Actions...', action: async () => {
-                                    try {
-                                        const store = useStore.getState()
-                                        const fp = store.preview.filePath
-                                        const pp = store.projectPath
-                                        if (!fp || !pp) return
-                                        const actions = await lspService.codeActions(pp, fp, contextMenu.line, contextMenu.col)
-                                        if (actions && actions.length > 0) {
-                                            const titles = actions.map((a, i) => `${i + 1}. ${a.title}`)
-                                            const choice = window.prompt(`Available code actions:\n${titles.join('\n')}\n\nEnter number (1-${actions.length}):`)
-                                            if (choice) {
-                                                const idx = parseInt(choice) - 1
-                                                if (idx >= 0 && idx < actions.length) {
-                                                    const result = await lspService.executeCodeAction(pp, actions[idx])
-                                                    if (result && editorRef.current) {
-                                                        await applyWorkspaceEdit(result, editorRef.current, pp)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } catch (e) { console.warn('[lsp] code actions error:', e) }
-                                }
-                            },
-                        ].map((item, idx) => {
-                            if ('type' in item && item.type === 'separator') {
-                                return <div key={idx} style={{ height: 1, background: '#333', margin: '4px 8px' }} />
-                            }
-                            const i = item as { label: string; shortcut?: string; action: () => void }
-                            return (
-                                <div
-                                    key={idx}
-                                    onClick={() => { setContextMenu(null); i.action() }}
-                                    style={{
-                                        padding: '6px 16px',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        gap: 24,
-                                        color: '#abb2bf',
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
-                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                                >
-                                    <span>{i.label}</span>
-                                    {i.shortcut && (
-                                        <span style={{ color: '#5c6370', fontSize: 11 }}>{i.shortcut}</span>
-                                    )}
-                                </div>
-                            )
-                        })}
-                    </div>
-                </>,
-                document.body
-            )}
             {
                 showBinary && (
                     <div className="flex-1 flex items-center justify-center">

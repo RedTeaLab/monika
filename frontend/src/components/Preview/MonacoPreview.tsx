@@ -258,7 +258,7 @@ export default function MonacoPreview({ filePath, projectPath, content, language
                 fontSize: 13,
                 fontFamily: "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace",
                 lineHeight: 22,
-                minimap: { enabled: false },
+                minimap: { enabled: true, maxColumn: 80, renderCharacters: false },
                 scrollBeyondLastLine: false,
                 wordWrap: 'off',
                 tabSize: 4,
