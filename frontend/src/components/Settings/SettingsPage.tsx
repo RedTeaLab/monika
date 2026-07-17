@@ -46,7 +46,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
                 <span className="text-[14px] font-semibold">Settings</span>
             </div>
             <div className="flex flex-1 overflow-hidden flex-col">
-                <div className="px-6 pt-4 pb-0 border-b border-[var(--border)] bg-[var(--bg-sidebar)]">
+                <div className="px-6 pt-4 pb-0 border-b border-[var(--border)] bg-[var(--bg-root)]">
                     <Tabs
                         items={TABS.map(t => ({ id: t.id, label: t.label, icon: t.icon }))}
                         value={activeTab}

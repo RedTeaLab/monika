@@ -242,7 +242,7 @@ function SessionList(props: IDockviewPanelProps) {
     return (
         <div
             className="flex flex-col h-full"
-            style={{ background: 'var(--bg-sidebar)' }}
+            style={{ background: 'var(--bg-root)' }}
         >
             <div
                 className="flex items-center gap-1 px-2 border-b border-[var(--border)] shrink-0 select-none"

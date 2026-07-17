@@ -517,7 +517,7 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
     const startBgTask = useStore((s) => s.startBgTask)
 
     return (
-        <div className="flex flex-col h-full" style={{ background: 'var(--bg-sidebar)' }}>
+        <div className="flex flex-col h-full" style={{ background: 'var(--bg-root)' }}>
             {/* Tab bar */}
             <div
                 className="flex items-center gap-1 px-2 border-b border-[var(--border)] shrink-0 select-none"
