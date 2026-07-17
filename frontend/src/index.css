@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import 'dockview/dist/styles/dockview.css';
-
+@import "./tokens.css";
+ @import "tailwindcss";
+ @import 'dockview/dist/styles/dockview.css';
 /* ── Dockview theme overrides ── */
 .dockview-theme-dark {
   --dv-group-view-background-color: var(--bg-root);
@@ -91,114 +91,6 @@
   font-display: swap;
 }
 
-:root {
-  /* ── Surface Hierarchy (Linear-inspired solid depth) ── */
-  --bg-root:     #08090d;
-  --bg-sidebar:  #0c0d12;
-  --bg-card:     #0e1015;
-  --bg-elevated: #161820;
-  --bg-hover:    rgba(255,255,255,0.04);
-  --bg-active:   rgba(255,255,255,0.06);
-
-  /* ── Tool colors (mapped from semantic) ── */
-  --compaction:   #aa7b28;
-  --subtask:      #9380b1;
-  --bg-console:   #080a10;
-  --tool-bash:    var(--yellow);
-  --tool-file:    var(--blue);
-  --tool-grep:    var(--green);
-  --tool-glob:    var(--purple);
-  --tool-write:   var(--orange);
-  --tool-edit:    var(--orange);
-  --tool-spawn:   var(--blue);
-
-  /* ── Borders ── */
-  --border:        rgba(255,255,255,0.06);
-  --border-strong: rgba(255,255,255,0.10);
-
-  /* ── Text ── */
-  --text-primary:   #d4d4dc;
-  --text-secondary: #8b8b9e;
-  --text-dim:       #5e5e6e;
-
-  /* ── Accent (single, restrained) ── */
-  --accent:        #4b7ddb;
-  --accent-hover:  #6490e0;
-  --accent-muted:  rgba(75,125,219,0.12);
-
-  /* ── Semantic ── */
-  --green:  #44a573;
-  --red:    #cd5454;
-  --yellow: #b89238;
-  --orange: #b5723f;
-  --purple: #877bb5;
-  --blue:   #588dd5;
-
-  /* ── Syntax Highlighting (Catppuccin Mocha) ── */
-  --syn-comment:    #6c7086;   /* overlay0 */
-  --syn-string:     #a6e3a1;   /* green */
-  --syn-number:     #fab387;   /* peach */
-  --syn-type:       #b4befe;   /* lavender */
-  --syn-keyword:    #cba6f7;   /* mauve */
-  --syn-variable:   #74c7ec;   /* sapphire (fields/properties) */
-  --syn-function:   #89b4fa;   /* blue */
-  --syn-punct:      #7f849c;   /* overlay1 */
-  --syn-operator:   #94e2d5;   /* teal */
-  --syn-regex:      #a6e3a1;   /* green */
-  --syn-heading:    #f38ba8;   /* red */
-  --syn-link:       #89b4fa;   /* blue */
-  --syn-meta:       #cba6f7;   /* mauve */
-  --syn-markup:     #f9e2af;   /* yellow */
-  --syn-escape:     #fab387;   /* peach */
-
-  /* ── Context menu ── */
-  --ctx-menu-bg:       #161820;
-  --ctx-menu-border:   rgba(255,255,255,0.08);
-  --ctx-menu-shadow:   0 8px 24px rgba(0,0,0,0.5);
-  --ctx-menu-hover:    rgba(255,255,255,0.05);
-  --ctx-menu-sep:      rgba(255,255,255,0.06);
-  --ctx-menu-shortcut: #5c6370;
-
-  /* ── Symbol sidebar ── */
-  --sym-bg:             #0a0b10;
-  --sym-active-bg:      rgba(97,175,239,0.10);
-  --sym-active-fg:      #61afef;
-  --sym-kind-fg:        #5c6370;
-  --sym-expand-fg:      #5c6370;
-  --sym-border:         rgba(255,255,255,0.06);
-
-  /* ── Editor bottom bar ── */
-  --editor-bar-bg:      #0a0b10;
-  --editor-bar-fg:      #5c6370;
-  --editor-bar-fg-dim:  #3e4451;
-
-  /* ── Hover tooltip ── */
-  --hover-bg:        #161820;
-  --hover-border:    rgba(255,255,255,0.08);
-  --hover-radius:    var(--radius-md);
-  --hover-code-bg:   #101218;
-  --hover-shadow:    var(--ctx-menu-shadow);
-
-  /* ── Markdown element colors ── */
-  --md-h1:       var(--text-primary);
-  --md-h2:       var(--text-primary);
-  --md-h3:       var(--text-primary);
-  --md-bold:     var(--text-primary);
-  --md-code:     #c4a86b;
-  --md-link:     var(--accent);
-  --md-quote:    var(--text-secondary);
-  --md-codebar:  var(--border-strong);
-
-  /* ── Typography ── */
-  --font-sans: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
-  --font-ui:   'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
-  --font-mono: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
-
-  /* ── Radii ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-}
 
 @keyframes pulse { 50% { opacity: 0.4; } }
 
@@ -271,8 +163,13 @@
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
   ::-webkit-scrollbar-corner { background: transparent; }
 
-  /* Suppress browser focus ring globally — desktop app uses custom hover/active states */
+  /* Focus: suppress default ring for mouse, visible ring for keyboard nav */
   :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 2px;
+  }
 
   /* Tool call scrollbar: hidden by default, visible on hover */
   .tool-scroll::-webkit-scrollbar-thumb {
@@ -632,4 +529,25 @@
   color: var(--text-dim);
   pointer-events: none;
   user-select: none;
+}
+
+/* ── UI Component Library animations ── */
+
+@keyframes combobox-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-combobox-in {
+  animation: combobox-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top center;
+}
+
+.animate-tooltip-in {
+  animation: tooltip-in 100ms ease-out both;
 }

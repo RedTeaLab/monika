@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design Tokens — Monika
+   Palette: Neon Dark — vibrant accents on deep black
+   Stack: React 18 + Tailwind CSS v4
+
+   Layer architecture:
+     L1  Primitive tokens   — raw values from the palette
+     L2  Semantic tokens    — purpose-bound (surface, text, border, accent)
+     L3  Component tokens   — scoped to specific components (backward compat)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── L1: Primitive Palette ─────────────────────────────────────────────── */
+
+:root {
+  /* === Core palette (user-specified) === */
+  --pr-black:     #0c0c0c;
+  --pr-gray-900:  #1f252d;
+  --pr-gray-500:  #6b7280;
+  --pr-blue:      #00b4ff;
+  --pr-green:     #00ff88;
+  --pr-yellow:    #ffb347;
+  --pr-peach:     #f8ad77;
+  --pr-red:       #ff4757;
+
+  /* === Derived shades === */
+  --pr-gray-950:  #0a0a0a;   /* deeper than black, for pressed states */
+  --pr-gray-850:  #14171d;   /* sidebar — between black and gray-900 */
+  --pr-gray-800:  #1a1e25;   /* card alternative */
+  --pr-gray-750:  #252b35;   /* elevated surface */
+  --pr-gray-400:  #9ca3af;   /* secondary text */
+  --pr-gray-300:  #bcc3cc;   /* placeholder text */
+  --pr-gray-100:  #e8eaed;   /* primary text */
+
+  --pr-blue-300:  #33c3ff;   /* hover state — lighter blue */
+  --pr-blue-700:  #0099d6;   /* pressed state — darker blue */
+  --pr-blue-900:  rgba(0, 180, 255, 0.08);  /* subtle tint */
+
+  --pr-green-300: #33ffa0;   /* hover green */
+  --pr-green-700: #00cc6a;   /* pressed green */
+
+  --pr-red-300:   #ff6b7a;   /* hover red */
+  --pr-red-700:   #e03040;   /* pressed red */
+
+  /* === Spacing scale === */
+  --sp-xs:  0.25rem;  /* 4px */
+  --sp-sm:  0.5rem;   /* 8px */
+  --sp-md:  1rem;     /* 16px */
+  --sp-lg:  1.5rem;   /* 24px */
+  --sp-xl:  2rem;     /* 32px */
+  --sp-2xl: 3rem;     /* 48px */
+  --sp-3xl: 4rem;     /* 64px */
+
+  /* === Radii === */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* === Typography scale === */
+  --text-xs:   0.75rem;
+  --text-sm:   0.8125rem;
+  --text-base: 0.875rem;
+  --text-md:   1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+
+  /* === Font stacks === */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Maple Mono NF', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* === Shadow depths — deep blacks for dark theme === */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.8);
+}
+
+/* ── L2: Semantic Tokens ───────────────────────────────────────────────── */
+
+:root {
+  /* === Surface hierarchy ===
+     Depth from black: root → sidebar → card → elevated
+     Each step = +4-6% lightness for clear but subtle separation         */
+  --surface-root:     var(--pr-black);      /* #0c0c0c — deepest base */
+  --surface-sidebar:  var(--pr-gray-850);   /* #14171d — panel chrome */
+  --surface-card:     var(--pr-gray-900);   /* #1f252d — cards, inputs */
+  --surface-elevated: var(--pr-gray-750);   /* #252b35 — modals, dropdowns */
+  --surface-hover:    rgba(0, 180, 255, 0.06);  /* blue-tinted hover */
+  --surface-active:   rgba(0, 180, 255, 0.10);  /* blue-tinted active/pressed */
+  --surface-overlay:  rgba(0, 0, 0, 0.55);      /* modal backdrop */
+
+  /* === Text === */
+  --text-primary:    var(--pr-gray-100);   /* #e8eaed — body, headings */
+  --text-secondary:  var(--pr-gray-400);   /* #9ca3af — descriptions, meta */
+  --text-dim:        var(--pr-gray-500);   /* #6b7280 — placeholders, disabled */
+  --text-inverse:    var(--pr-black);      /* on accent backgrounds */
+
+  /* === Borders === */
+  --border-subtle:  rgba(107, 114, 128, 0.12);
+  --border-default: rgba(107, 114, 128, 0.20);
+  --border-strong:  rgba(107, 114, 128, 0.30);
+  --border-accent:  var(--pr-blue);
+
+  /* === Accent system === */
+  --accent:        var(--pr-blue);       /* #00b4ff — primary CTA, links, focus */
+  --accent-hover:  var(--pr-blue-300);   /* #33c3ff — hover brighten */
+  --accent-muted:  var(--pr-blue-900);   /* rgba blue tint — subtle backgrounds */
+  --accent-subtle: rgba(0, 180, 255, 0.04);
+
+  /* === Semantic colors === */
+  --color-success:    var(--pr-green);    /* #00ff88 — confirm, pass, connected */
+  --color-error:      var(--pr-red);      /* #ff4757 — delete, fail, disconnect */
+  --color-warning:    var(--pr-yellow);   /* #ffb347 — caution, pending */
+  --color-info:       var(--pr-blue);     /* #00b4ff — informational */
+  --color-accent-alt: var(--pr-peach);    /* #f8ad77 — warm accent for variety */
+
+  /* === Animation === */
+  --duration-fast:    150ms;
+  --duration-normal:  200ms;
+  --duration-slow:    300ms;
+  --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out:      cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── L3: Component Tokens (backward-compatible aliases) ─────────────────── */
+/* Components reference --bg-root etc. directly — no breaking changes.       */
+
+:root {
+  /* === Surface aliases === */
+  --bg-root:     var(--surface-root);
+  --bg-sidebar:  var(--surface-sidebar);
+  --bg-card:     var(--surface-card);
+  --bg-elevated: var(--surface-elevated);
+  --bg-hover:    var(--surface-hover);
+  --bg-active:   var(--surface-active);
+
+  /* === Border aliases === */
+  --border:        var(--border-subtle);
+  --border-strong: var(--border-default);
+
+  /* === Semantic aliases === */
+  --green:  var(--color-success);
+  --red:    var(--color-error);
+  --yellow: var(--color-warning);
+  --blue:   var(--color-info);
+  --orange: var(--pr-peach);
+  --purple: #7c8cf8;  /* derived from blue at lower saturation, for syntax */
+
+  /* === Tool-specific colors ===
+     Each tool type gets a distinct accent for quick visual scanning.  */
+  --compaction:   #d4972a;   /* amber */
+  --subtask:      #7c8cf8;   /* periwinkle (derived from blue) */
+  --bg-console:   #060608;   /* even deeper than root, for terminal */
+  --tool-bash:    var(--blue);
+  --tool-file:    var(--green);
+  --tool-grep:    var(--yellow);
+  --tool-glob:    var(--purple);
+  --tool-write:   var(--orange);
+  --tool-edit:    var(--orange);
+  --tool-spawn:   var(--blue);
+
+  /* === Context menu === */
+  --ctx-menu-bg:       var(--surface-elevated);
+  --ctx-menu-border:   var(--border-default);
+  --ctx-menu-shadow:   var(--shadow-lg);
+  --ctx-menu-hover:    var(--surface-hover);
+  --ctx-menu-sep:      var(--border-subtle);
+  --ctx-menu-shortcut: var(--pr-gray-500);
+
+  /* === Symbol sidebar === */
+  --sym-bg:             #0a0b10;
+  --sym-active-bg:      rgba(0, 180, 255, 0.10);
+  --sym-active-fg:      var(--pr-blue);
+  --sym-kind-fg:        var(--pr-gray-500);
+  --sym-expand-fg:      var(--pr-gray-500);
+  --sym-border:         var(--border-subtle);
+
+  /* === Editor bottom bar === */
+  --editor-bar-bg:      #0a0b10;
+  --editor-bar-fg:      var(--pr-gray-500);
+  --editor-bar-fg-dim:  #3e4451;
+
+  /* === Hover tooltip === */
+  --hover-bg:        var(--surface-elevated);
+  --hover-border:    var(--border-default);
+  --hover-radius:    var(--radius-md);
+  --hover-code-bg:   #14171d;
+  --hover-shadow:    var(--shadow-lg);
+
+  /* === Markdown rendering === */
+  --md-h1:       var(--text-primary);
+  --md-h2:       var(--text-primary);
+  --md-h3:       var(--text-primary);
+  --md-bold:     var(--text-primary);
+  --md-code:     var(--pr-peach);
+  --md-link:     var(--accent);
+  --md-quote:    var(--text-secondary);
+  --md-codebar:  var(--border-default);
+
+  /* === Syntax highlighting (Catppuccin Mocha — preserved) === */
+  --syn-comment:    #6c7086;
+  --syn-string:     #a6e3a1;
+  --syn-number:     #fab387;
+  --syn-type:       #b4befe;
+  --syn-keyword:    #cba6f7;
+  --syn-variable:   #74c7ec;
+  --syn-function:   #89b4fa;
+  --syn-punct:      #7f849c;
+  --syn-operator:   #94e2d5;
+  --syn-regex:      #a6e3a1;
+  --syn-heading:    #f38ba8;
+  --syn-link:       #89b4fa;
+  --syn-meta:       #cba6f7;
+  --syn-markup:     #f9e2af;
+  --syn-escape:     #fab387;
+}
