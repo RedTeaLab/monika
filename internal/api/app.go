@@ -28,8 +28,8 @@ import (
 	"monika/internal/dap"
 	"monika/internal/dbdiscovery"
 	copilotprovider "monika/internal/engines/provider/copilot"
-	"monika/internal/mcpdiscovery"
 	"monika/internal/lsp"
+	"monika/internal/mcpdiscovery"
 	"monika/internal/memory"
 	"monika/internal/permission"
 	tool2 "monika/internal/tool"
@@ -275,6 +275,11 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 	})
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[monika] bg task stream goroutine panic: %v\n", r)
+			}
+		}()
 		for ev := range a.bgTaskMgr.Subscribe() {
 			se := StreamEvent{
 				Type: "bg_task",
@@ -286,7 +291,14 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 		}
 	}()
 
-	go a.bgTaskMgr.CleanOldLogs()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[monika] CleanOldLogs panic: %v\n", r)
+			}
+		}()
+		a.bgTaskMgr.CleanOldLogs()
+	}()
 
 	return nil
 }
@@ -1263,7 +1275,18 @@ func (a *App) drainQueue(sm *SessionManager, sessionID string) {
 	a.cancelMu.Unlock()
 
 	// Start agent loop for this queued message
-	a.startAgentLoop(ctx, cancel, sm, s, sessionID, item.Text, item.ProviderID, item.Model, item.ID)
+	// Use the session's current model, not the one baked into the queue item
+	// at enqueue time — the user may have switched models (e.g. after an error).
+	execProvider := s.Provider
+	execModel := s.Model
+	if execProvider == "" {
+		execProvider = item.ProviderID
+	}
+	if execModel == "" {
+		execModel = item.Model
+	}
+
+	a.startAgentLoop(ctx, cancel, sm, s, sessionID, item.Text, execProvider, execModel, item.ID)
 }
 
 func (a *App) ExecuteQueueItem(projectPath, sessionID, itemID string) error {
@@ -1319,7 +1342,16 @@ func (a *App) ExecuteQueueItem(projectPath, sessionID, itemID string) error {
 	a.cancelMu.Unlock()
 
 	// Start agent loop
-	a.startAgentLoop(ctx, cancel, sm, s, sessionID, item.Text, item.ProviderID, item.Model, item.ID)
+	// Use the session's current model (user may have switched since enqueue).
+	execProvider := s.Provider
+	execModel := s.Model
+	if execProvider == "" {
+		execProvider = item.ProviderID
+	}
+	if execModel == "" {
+		execModel = item.Model
+	}
+	a.startAgentLoop(ctx, cancel, sm, s, sessionID, item.Text, execProvider, execModel, item.ID)
 	return nil
 }
 
@@ -1530,6 +1562,11 @@ func (a *App) SkipQueueItem(projectPath, sessionID, itemID string) error {
 }
 
 func (a *App) safeEmit(eventName string, data any) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "[monika] safeEmit panic (%s): %v\n", eventName, r)
+		}
+	}()
 	app := application.Get()
 	if app == nil {
 		return
@@ -2454,6 +2491,14 @@ func (a *App) startExtractionWorkerLocked(projectPath string, q *memory.Extracti
 	}
 	a.extractWorkers[projectPath] = struct{}{}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[monika] extraction worker panic (%s): %v\n", projectPath, r)
+				a.extractWorkerMu.Lock()
+				delete(a.extractWorkers, projectPath)
+				a.extractWorkerMu.Unlock()
+			}
+		}()
 		for {
 			a.extractWorkerMu.Lock()
 			item, ok := q.Dequeue()
@@ -3808,7 +3853,7 @@ type MCPServerInfo struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
 	Status  string            `json:"status"` // "connected" | "disconnected"
-	Scope   string            `json:"scope"` // "project" | "global"
+	Scope   string            `json:"scope"`  // "project" | "global"
 }
 
 // ListAgents returns all registered agents.
@@ -3949,8 +3994,8 @@ func copilotSupportedInputs(m copilot.CopilotModel) []string {
 }
 
 // syncProviderFromModelsDev enriches a provider's model list from the models.dev
-// catalog. It populates missing context/output limits for existing models and
-// auto-appends new catalog models (disabled). Providers themselves are never auto-added.
+// catalog. It populates missing context/output limits for existing models only.
+// It does NOT auto-append new models — users add models manually via Settings.
 func (a *App) syncProviderFromModelsDev(providerID string) {
 	pc, ok := a.cfg.ModelProviders[providerID]
 	if !ok {
@@ -4009,22 +4054,20 @@ func (a *App) syncProviderFromModelsDev(providerID string) {
 		}
 	}
 
-	// Auto-detect modelsdev provider from existing models, or by
-	// fuzzy-matching the provider ID.
+	// Detect models.dev provider: prefer exact ID match, fall back to model-ID match.
 	if pc.ModelsDevProvider == "" {
-		for modelID, info := range modelIndex {
-			if existingIDs[modelID] {
-				pc.ModelsDevProvider = info.Provider
+		normalized := normalizeProviderID(providerID)
+		for pID := range catalog {
+			if normalizeProviderID(pID) == normalized {
+				pc.ModelsDevProvider = pID
 				changed = true
 				break
 			}
 		}
-		// Fallback: try matching provider ID directly.
 		if pc.ModelsDevProvider == "" {
-			normalized := normalizeProviderID(providerID)
-			for pID := range catalog {
-				if normalizeProviderID(pID) == normalized {
-					pc.ModelsDevProvider = pID
+			for modelID, info := range modelIndex {
+				if existingIDs[modelID] {
+					pc.ModelsDevProvider = info.Provider
 					changed = true
 					break
 				}
@@ -4032,33 +4075,25 @@ func (a *App) syncProviderFromModelsDev(providerID string) {
 		}
 	}
 
-	// Auto-append new catalog models for this provider (disabled by default).
-	// Users opt in by enabling them in the Settings UI.
-	if devProv, ok := catalog[pc.ModelsDevProvider]; ok {
-		newIDs := make([]string, 0, 16)
-		for modelID, md := range devProv.Models {
-			if !existingIDs[modelID] && md.Limit.Context > 0 {
-				newIDs = append(newIDs, modelID)
+	// Clean up polluted models: remove disabled models that don't belong to the
+	// correct catalog provider. Enabled models are always kept (user explicitly
+	// added them or toggled them on).
+	if pc.ModelsDevProvider != "" {
+		validIDs := make(map[string]bool)
+		if devProv, ok := catalog[pc.ModelsDevProvider]; ok {
+			for mid := range devProv.Models {
+				validIDs[mid] = true
 			}
 		}
-		sort.Strings(newIDs)
-		for _, modelID := range newIDs {
-			md := devProv.Models[modelID]
-			name := md.Name
-			if name == "" {
-				name = modelID
+		cleaned := pc.Models[:0]
+		for _, m := range pc.Models {
+			if m.Enabled || validIDs[m.ID] {
+				cleaned = append(cleaned, m)
+			} else {
+				changed = true
 			}
-			pc.Models = append(pc.Models, config2.ModelEntry{
-				ID:              modelID,
-				DisplayName:     name,
-				ContextLimit:    md.Limit.Context,
-				OutputLimit:     md.Limit.Output,
-				SupportedInputs: modelIndex[modelID].Inputs,
-				Enabled:         false,
-			})
-			existingIDs[modelID] = true
-			changed = true
 		}
+		pc.Models = cleaned
 	}
 
 	if changed {

@@ -211,7 +211,7 @@ export default function ModelsTab() {
                 }))
             } else {
                 models = (providers.find((p) => p.id === editingId)?.models || []).map(m => ({
-                    id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: true,
+                    id: m.id, name: m.name, context_limit: m.context_limit || 0, output_limit: m.output_limit || 0, enabled: m.enabled ?? true,
                 }))
             }
             const tokenExpiresAt = copilotToken

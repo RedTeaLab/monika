@@ -714,7 +714,12 @@ func (a *AgentLoop) Run(ctx context.Context, conv *Conversation, userMessage str
 	ch := make(chan Event, 128)
 	a.conv = conv
 	go func() {
-		defer close(ch)
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- Event{Type: EventError, Content: fmt.Sprintf("agent loop panic: %v", r)}
+			}
+			close(ch)
+		}()
 		a.runStreaming(ctx, conv, userMessage, ch)
 	}()
 	return ch
@@ -1133,7 +1138,14 @@ func (a *AgentLoop) runStreaming(ctx context.Context, conv *Conversation, userMe
 
 			wg.Add(1)
 			go func(rIdx int, pc *pendingCall) {
-				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						results[rIdx].output = fmt.Sprintf("tool goroutine panic: %v", r)
+						results[rIdx].status = "error"
+						sendToolOutput(pc.tc, results[rIdx].output, results[rIdx].status, nil, false, "", "")
+					}
+					wg.Done()
+				}()
 
 				if pc.isMCP {
 					conn, _ := a.mcpRegistry.GetConnection(pc.mcpServer)

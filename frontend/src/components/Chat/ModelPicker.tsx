@@ -75,7 +75,7 @@ function ModelPicker() {
         // Build lookup: "providerId:modelId" -> { provider, model }
         const allModelsLookup = new Map<string, { provider: ProviderInfo; model: ModelInfo }>()
         for (const p of availableProviders) {
-            const models = modelsByProvider[p.id] || []
+            const models = (modelsByProvider[p.id] || []).filter(m => (m as any).Enabled !== false)
             for (const m of models) {
                 allModelsLookup.set(`${p.id}:${m.ID}`.toLowerCase(), { provider: p, model: m })
             }
@@ -101,7 +101,7 @@ function ModelPicker() {
 
         // Provider groups
         for (const p of availableProviders) {
-            const models = modelsByProvider[p.id] || []
+            const models = (modelsByProvider[p.id] || []).filter(m => (m as any).Enabled !== false)
             const filtered = searchLower
                 ? models.filter((m) =>
                     m.DisplayName.toLowerCase().includes(searchLower) ||

@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -64,6 +63,11 @@ func main() {
 
 	// Refresh models.dev catalog (background, non-blocking).
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[monika] models.dev refresh panic: %v\n", r)
+			}
+		}()
 		if err := modelsdev.Refresh(home); err != nil {
 			fmt.Fprintf(os.Stderr, "[monika] models.dev refresh: %v\n", err)
 		}
@@ -105,6 +109,11 @@ func main() {
 			_ = mcp.Init(ctx, nil)
 			if len(pr.Config.MCP.Servers) > 0 {
 				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Fprintf(os.Stderr, "[monika] mcp connect goroutine panic: %v\n", r)
+						}
+					}()
 					for _, srv := range pr.Config.MCP.Servers {
 						cfg := engine2.MCPServerConfig{
 							ID: srv.ID, Type: srv.Type, Command: srv.Command,
@@ -713,9 +722,9 @@ func syncModelsDev(home string, cfg *config2.Config) {
 
 	changed := false
 
-	// Enrich already-configured providers from models.dev: fill missing limits and
-	// auto-append new catalog models (disabled). Providers themselves are never auto-added —
-	// users must explicitly add providers through the Settings UI.
+	// Enrich already-configured providers from models.dev: fill missing limits.
+	// Providers themselves are never auto-added — users must explicitly add
+	// providers through the Settings UI.
 	if len(cfg.ModelProviders) > 0 {
 		for key, pc := range cfg.ModelProviders {
 			// Copilot providers are synced from the Copilot API, not models.dev.
@@ -747,20 +756,20 @@ func syncModelsDev(home string, cfg *config2.Config) {
 				}
 			}
 
-			// Auto-detect models.dev provider if not set.
+			// Detect models.dev provider: prefer exact ID match, fall back to model-ID match.
 			if pc.ModelsDevProvider == "" {
-				for modelID, info := range modelIndex {
-					if existingIDs[modelID] {
-						pc.ModelsDevProvider = info.Provider
+				normalized := normalizeID(key)
+				for pID := range catalog {
+					if normalizeID(pID) == normalized {
+						pc.ModelsDevProvider = pID
 						changed = true
 						break
 					}
 				}
 				if pc.ModelsDevProvider == "" {
-					normalized := normalizeID(key)
-					for pID := range catalog {
-						if normalizeID(pID) == normalized {
-							pc.ModelsDevProvider = pID
+					for modelID, info := range modelIndex {
+						if existingIDs[modelID] {
+							pc.ModelsDevProvider = info.Provider
 							changed = true
 							break
 						}
@@ -768,33 +777,24 @@ func syncModelsDev(home string, cfg *config2.Config) {
 				}
 			}
 
-			// Auto-append new catalog models for this provider (disabled by default).
-			// Users opt in by enabling them in the Settings UI.
-			if devProv, ok := catalog[pc.ModelsDevProvider]; ok {
-				newIDs := make([]string, 0, 16)
-				for modelID, md := range devProv.Models {
-					if !existingIDs[modelID] && md.Limit.Context > 0 {
-						newIDs = append(newIDs, modelID)
+			// Clean up polluted models: remove disabled models that don't belong
+			// to the correct catalog provider. Enabled models are always kept.
+			if pc.ModelsDevProvider != "" {
+				validIDs := make(map[string]bool)
+				if devProv, ok := catalog[pc.ModelsDevProvider]; ok {
+					for mid := range devProv.Models {
+						validIDs[mid] = true
 					}
 				}
-				sort.Strings(newIDs)
-				for _, modelID := range newIDs {
-					md := devProv.Models[modelID]
-					name := md.Name
-					if name == "" {
-						name = modelID
+				cleaned := pc.Models[:0]
+				for _, m := range pc.Models {
+					if m.Enabled || validIDs[m.ID] {
+						cleaned = append(cleaned, m)
+					} else {
+						changed = true
 					}
-					pc.Models = append(pc.Models, config2.ModelEntry{
-						ID:              modelID,
-						DisplayName:     name,
-						ContextLimit:    md.Limit.Context,
-						OutputLimit:     md.Limit.Output,
-						Enabled:         false,
-						SupportedInputs: md.Modalities.Input,
-					})
-					existingIDs[modelID] = true
-					changed = true
 				}
+				pc.Models = cleaned
 			}
 
 			cfg.ModelProviders[key] = pc

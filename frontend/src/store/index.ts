@@ -2115,372 +2115,376 @@ export function setupWailsEvents() {
     }
 
     function processEvent(data: StreamEvent & { seq?: number }) {
-        const sid = data.session_id!
-        const store = useStore.getState()
+        try {
+            const sid = data.session_id!
+            const store = useStore.getState()
 
-        switch (data.type) {
-            case 'text_delta':
-                if (useStore.getState().retryInfo) useStore.setState({ retryInfo: null })
-                if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
-                if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
-                textBatch[sid].textParts.push(data.content || '')
-                if (data.model) textBatch[sid].model = data.model
-                if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
-                break
+            switch (data.type) {
+                case 'text_delta':
+                    if (useStore.getState().retryInfo) useStore.setState({ retryInfo: null })
+                    if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
+                    if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
+                    textBatch[sid].textParts.push(data.content || '')
+                    if (data.model) textBatch[sid].model = data.model
+                    if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
+                    break
 
-            case 'thinking':
-                if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
-                textBatch[sid].thinkingParts.push(data.content || '')
-                if (data.model) textBatch[sid].model = data.model
-                if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
-                break
+                case 'thinking':
+                    if (!textBatch[sid]) textBatch[sid] = { textParts: [], thinkingParts: [] }
+                    textBatch[sid].thinkingParts.push(data.content || '')
+                    if (data.model) textBatch[sid].model = data.model
+                    if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(flushTextBatch) }
+                    break
 
-            case 'tool_start':
-                if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
-                if (data.tool) {
-                    store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-                    if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
-                        store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+                case 'tool_start':
+                    if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
+                    if (data.tool) {
+                        store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+                        if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
+                            store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
 
+                        }
                     }
-                }
-                break
+                    break
 
-            case 'tool_output':
-                if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
-                if (data.tool) {
-                    store.updateSessionToolDone(sid, data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
-                    if (data.tool.input) {
-                        store.updateSessionToolInput(sid, data.tool.id, data.tool.input)
-                    }
-                    if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
-                        store.updateToolDone(data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+                case 'tool_output':
+                    if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
+                    if (data.tool) {
+                        store.updateSessionToolDone(sid, data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
                         if (data.tool.input) {
-                            store.updateToolInput(data.tool.id, data.tool.input)
+                            store.updateSessionToolInput(sid, data.tool.id, data.tool.input)
                         }
-                        // Use backend-computed diff if available
-                        if (data.tool.diffLines && data.tool.diffLines.length > 0 && data.tool.input) {
-                            try {
-                                const parsed = JSON.parse(data.tool.input)
-                                if (parsed.filePath) {
-                                    const name = parsed.filePath.split('/').pop() || parsed.filePath.split('\\').pop() || parsed.filePath
-                                    if (data.tool.conflict && data.tool.diskContent && data.tool.aiContent) {
-                                        useStore.getState().handleToolConflict({
-                                            filePath: parsed.filePath,
-                                            name: data.tool.name,
-                                            diffLines: data.tool.diffLines,
-                                            diskContent: data.tool.diskContent,
-                                            aiContent: data.tool.aiContent,
-                                        })
-                                    } else {
-                                        useStore.getState().setPreviewDiff(parsed.filePath, name, data.tool.diffLines)
+                        if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
+                            store.updateToolDone(data.tool.id, data.tool.output || '', data.tool.status === 'error' ? 'error' : 'done')
+                            if (data.tool.input) {
+                                store.updateToolInput(data.tool.id, data.tool.input)
+                            }
+                            // Use backend-computed diff if available
+                            if (data.tool.diffLines && data.tool.diffLines.length > 0 && data.tool.input) {
+                                try {
+                                    const parsed = JSON.parse(data.tool.input)
+                                    if (parsed.filePath) {
+                                        const name = parsed.filePath.split('/').pop() || parsed.filePath.split('\\').pop() || parsed.filePath
+                                        if (data.tool.conflict && data.tool.diskContent && data.tool.aiContent) {
+                                            useStore.getState().handleToolConflict({
+                                                filePath: parsed.filePath,
+                                                name: data.tool.name,
+                                                diffLines: data.tool.diffLines,
+                                                diskContent: data.tool.diskContent,
+                                                aiContent: data.tool.aiContent,
+                                            })
+                                        } else {
+                                            useStore.getState().setPreviewDiff(parsed.filePath, name, data.tool.diffLines)
+                                        }
                                     }
-                                }
-                            } catch { }
+                                } catch { }
+                            }
                         }
                     }
-                }
-                // Clear any pending progress message for this tool.
-                if (data.tool?.id) {
-                    store.setToolProgress(data.tool.id, '')
-                }
-                break
-
-            case 'tool_done':
-                if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
-                if (data.tool) {
-                    store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
-                    if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
-                        store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+                    // Clear any pending progress message for this tool.
+                    if (data.tool?.id) {
+                        store.setToolProgress(data.tool.id, '')
                     }
-                    // Refresh file tree and changes when a file-modifying tool finishes
-                    if (data.tool.name === 'file_write' || data.tool.name === 'file_edit' || data.tool.name === 'bash') {
-                        store.bumpFileTreeVersion()
+                    break
+
+                case 'tool_done':
+                    if (textBatch[sid]?.textParts?.length || textBatch[sid]?.thinkingParts?.length) flushTextBatch()
+                    if (data.tool) {
+                        store.addSessionToolStart(sid, { id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+                        if (sid === store.activeSessionId || (!store.activeSessionId && sid === 'chat')) {
+                            store.addToolStart({ id: data.tool.id, name: data.tool.name, input: data.tool.input || '', status: 'running' })
+                        }
+                        // Refresh file tree and changes when a file-modifying tool finishes
+                        if (data.tool.name === 'file_write' || data.tool.name === 'file_edit' || data.tool.name === 'bash') {
+                            store.bumpFileTreeVersion()
+                        }
                     }
-                }
-                break
+                    break
 
-            case 'tool_progress':
-                // Streaming tools (e.g. video_understand) emit progress
-                // messages with sid = tool call id. Stash them in the
-                // toolProgress map so MediaToolBlock can render the
-                // latest line under the running spinner. The matching
-                // tool_output event below clears the entry when the
-                // tool completes.
-                if (sid) {
-                    store.setToolProgress(sid, data.content || '')
-                }
-                break
+                case 'tool_progress':
+                    // Streaming tools (e.g. video_understand) emit progress
+                    // messages with sid = tool call id. Stash them in the
+                    // toolProgress map so MediaToolBlock can render the
+                    // latest line under the running spinner. The matching
+                    // tool_output event below clears the entry when the
+                    // tool completes.
+                    if (sid) {
+                        store.setToolProgress(sid, data.content || '')
+                    }
+                    break
 
-            case 'usage':
-                if (data.usage) {
-                    store.addTokens(sid, data.usage.total_tokens || 0, data.usage.max_context)
-                }
-                break
+                case 'usage':
+                    if (data.usage) {
+                        store.addTokens(sid, data.usage.total_tokens || 0, data.usage.max_context)
+                    }
+                    break
 
-            case 'retrying':
-                if (data.retry_attempt !== undefined && data.retry_max !== undefined) {
-                    useStore.setState({
-                        retryInfo: {
-                            attempt: data.retry_attempt,
-                            max: data.retry_max,
-                            message: data.content || `重试连接中 (${data.retry_attempt}/${data.retry_max})...`,
-                        },
-                    })
-                }
-                break
+                case 'retrying':
+                    if (data.retry_attempt !== undefined && data.retry_max !== undefined) {
+                        useStore.setState({
+                            retryInfo: {
+                                attempt: data.retry_attempt,
+                                max: data.retry_max,
+                                message: data.content || `重试连接中 (${data.retry_attempt}/${data.retry_max})...`,
+                            },
+                        })
+                    }
+                    break
 
-            case 'error':
-                if (data.content === 'cancelled') {
+                case 'error':
+                    if (data.content === 'cancelled') {
+                        store.removeGeneratingSession(sid)
+                        store.setSessionStatus(sid, 'pending')
+                        store.setSessionError(sid, '')
+                        // Also clean up child/subagent sessions — their "cancelled"
+                        // events are lost because the parent stopped forwarding.
+                        const childIds = Object.entries(store.sessionParents)
+                            .filter(([, pid]) => pid === sid)
+                            .map(([cid]) => cid)
+                        for (const cid of childIds) {
+                            store.removeGeneratingSession(cid)
+                            store.setSessionStatus(cid, 'pending')
+                        }
+                        store.bumpSessionListVersion()
+                        break
+                    }
+                    store.addSessionError(sid, data.content || 'Unknown error')
+                    if (sid === store.activeSessionId) {
+                        store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
+                    }
                     store.removeGeneratingSession(sid)
                     store.setSessionStatus(sid, 'pending')
-                    store.setSessionError(sid, '')
-                    // Also clean up child/subagent sessions — their "cancelled"
-                    // events are lost because the parent stopped forwarding.
-                    const childIds = Object.entries(store.sessionParents)
-                        .filter(([, pid]) => pid === sid)
-                        .map(([cid]) => cid)
-                    for (const cid of childIds) {
-                        store.removeGeneratingSession(cid)
-                        store.setSessionStatus(cid, 'pending')
-                    }
+                    store.setSessionError(sid, data.content || 'Unknown error')
                     store.bumpSessionListVersion()
+                    syncActiveMessages(sid)
                     break
-                }
-                store.addSessionError(sid, data.content || 'Unknown error')
-                if (sid === store.activeSessionId) {
-                    store.addMessage({ id: crypto.randomUUID(), role: 'error', content: data.content || 'Unknown error' })
-                }
-                store.removeGeneratingSession(sid)
-                store.setSessionStatus(sid, 'pending')
-                store.setSessionError(sid, data.content || 'Unknown error')
-                store.bumpSessionListVersion()
-                syncActiveMessages(sid)
-                break
 
-            case 'file_changed':
-                store.bumpFileTreeVersion()
-                // If changed file matches current preview, flag it for refresh
-                if (data.file_change && data.file_change.path) {
-                    const curPreview = useStore.getState().preview
-                    if (curPreview.mode === 'file' && curPreview.filePath === data.file_change.path) {
-                        useStore.setState({ previewNeedsRefresh: data.file_change.path })
+                case 'file_changed':
+                    store.bumpFileTreeVersion()
+                    // If changed file matches current preview, flag it for refresh
+                    if (data.file_change && data.file_change.path) {
+                        const curPreview = useStore.getState().preview
+                        if (curPreview.mode === 'file' && curPreview.filePath === data.file_change.path) {
+                            useStore.setState({ previewNeedsRefresh: data.file_change.path })
+                        }
                     }
-                }
-                break
+                    break
 
-            case 'done': {
-                if (useStore.getState().retryInfo) useStore.setState({ retryInfo: null })
-                store.removeGeneratingSession(sid)
-                store.removeGeneratingSession(sid)
-                const sessionMsgs = store.sessionMessages[sid] || []
-                for (let i = sessionMsgs.length - 1; i >= 0; i--) {
-                    if (sessionMsgs[i].role === 'assistant' && sessionMsgs[i].startedAt) {
-                        store.setLastAssistantMeta(sid, { duration: Math.round((Date.now() - sessionMsgs[i].startedAt!) / 100) / 10 })
-                        break
-                    }
-                }
-                const latestMsgs = useStore.getState().sessionMessages[sid] || []
-                for (let i = latestMsgs.length - 1; i >= 0; i--) {
-                    if (latestMsgs[i].role === 'compaction' && !latestMsgs[i].content) {
-                        useStore.getState().fillCompactionCard(sid, { summary: 'Compaction completed', beforeTokens: 0, afterTokens: 0, compactionNum: 0 })
-                        break
-                    }
-                }
-                store.setSessionStatus(sid, 'pending')
-                store.bumpFileTreeVersion()
-                store.bumpSessionListVersion()
-                // Trigger notification for AI reply completion (skip subagent sessions)
-                if (!sid.startsWith('call_') && !sid.startsWith('sub_')) {
-                    const openSessions = useStore.getState().openSessions
-                    const sessionInfo = openSessions.find((s) => s.id === sid)
-                    const sessionTitle = sessionInfo?.title || sid.slice(0, 8)
-                    useNotificationStore.getState().push({
-                        sessionId: sid,
-                        sessionTitle,
-                        type: 'reply-complete',
-                        message: '回复完成',
-                    })
-                }
-                syncActiveMessages(sid)
-                break
-            }
-
-            case 'session_updated':
-                if (data.content) {
-                    store.updateSessionTitle(sid, data.content)
-                }
-                store.bumpSessionListVersion()
-                break
-
-            case 'turn_start': {
-                const newMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now(), model: data.model || undefined }
-                store.appendToSession(sid, [newMsg])
-                store.setSessionStatus(sid, 'generating')
-                store.addGeneratingSession(sid)
-                store.bumpSessionListVersion()
-                break
-            }
-
-            case 'task_updated':
-                if (data.tasks) {
-                    store.setSessionTasks(sid, data.tasks as TaskItem[])
-                } else {
-                    store.setSessionTasks(sid, [])
-                }
-                break
-
-
-            case 'shell_output': {
-                const shellMsgs = store.sessionMessages[sid]
-                if (shellMsgs && shellMsgs.length > 0) {
-                    let found = false
-                    for (let i = shellMsgs.length - 1; i >= 0; i--) {
-                        if (shellMsgs[i].role === 'shell') {
-                            const existing = shellMsgs[i].content
-                            let newContent: string
-                            if (existing.includes('\u200B\u200B')) {
-                                newContent = existing.replace('\u200B\u200B', '') + (data.content || '')
-                            } else {
-                                newContent = existing + '\n' + (data.content || '')
-                            }
-                            shellMsgs[i] = { ...shellMsgs[i], content: newContent }
-                            found = true
+                case 'done': {
+                    if (useStore.getState().retryInfo) useStore.setState({ retryInfo: null })
+                    store.removeGeneratingSession(sid)
+                    store.removeGeneratingSession(sid)
+                    const sessionMsgs = store.sessionMessages[sid] || []
+                    for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+                        if (sessionMsgs[i].role === 'assistant' && sessionMsgs[i].startedAt) {
+                            store.setLastAssistantMeta(sid, { duration: Math.round((Date.now() - sessionMsgs[i].startedAt!) / 100) / 10 })
                             break
                         }
                     }
-                    if (!found) {
-                        shellMsgs.push({ id: crypto.randomUUID(), role: 'shell', content: data.content || '' })
+                    const latestMsgs = useStore.getState().sessionMessages[sid] || []
+                    for (let i = latestMsgs.length - 1; i >= 0; i--) {
+                        if (latestMsgs[i].role === 'compaction' && !latestMsgs[i].content) {
+                            useStore.getState().fillCompactionCard(sid, { summary: 'Compaction completed', beforeTokens: 0, afterTokens: 0, compactionNum: 0 })
+                            break
+                        }
                     }
-                    useStore.setState({
-                        sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs] },
-                        messages: store.activeSessionId === sid ? [...shellMsgs] : store.messages,
-                    })
+                    store.setSessionStatus(sid, 'pending')
+                    store.bumpFileTreeVersion()
+                    store.bumpSessionListVersion()
+                    // Trigger notification for AI reply completion (skip subagent sessions)
+                    if (!sid.startsWith('call_') && !sid.startsWith('sub_')) {
+                        const openSessions = useStore.getState().openSessions
+                        const sessionInfo = openSessions.find((s) => s.id === sid)
+                        const sessionTitle = sessionInfo?.title || sid.slice(0, 8)
+                        useNotificationStore.getState().push({
+                            sessionId: sid,
+                            sessionTitle,
+                            type: 'reply-complete',
+                            message: '回复完成',
+                        })
+                    }
+                    syncActiveMessages(sid)
+                    break
                 }
-                break
-            }
-            case 'shell_done': {
-                try {
-                    const done = JSON.parse(data.content || '{}')
-                    const shellMsgs2 = store.sessionMessages[sid]
-                    if (shellMsgs2 && shellMsgs2.length > 0) {
+
+                case 'session_updated':
+                    if (data.content) {
+                        store.updateSessionTitle(sid, data.content)
+                    }
+                    store.bumpSessionListVersion()
+                    break
+
+                case 'turn_start': {
+                    const newMsg = { id: crypto.randomUUID(), role: 'assistant' as const, content: '', startedAt: Date.now(), model: data.model || undefined }
+                    store.appendToSession(sid, [newMsg])
+                    store.setSessionStatus(sid, 'generating')
+                    store.addGeneratingSession(sid)
+                    store.bumpSessionListVersion()
+                    break
+                }
+
+                case 'task_updated':
+                    if (data.tasks) {
+                        store.setSessionTasks(sid, data.tasks as TaskItem[])
+                    } else {
+                        store.setSessionTasks(sid, [])
+                    }
+                    break
+
+
+                case 'shell_output': {
+                    const shellMsgs = store.sessionMessages[sid]
+                    if (shellMsgs && shellMsgs.length > 0) {
                         let found = false
-                        for (let i = shellMsgs2.length - 1; i >= 0; i--) {
-                            if (shellMsgs2[i].role === 'shell') {
-                                let content = shellMsgs2[i].content
-                                if (done.exitCode !== 0) {
-                                    content += `\n\nShell exited with code ${done.exitCode}`
+                        for (let i = shellMsgs.length - 1; i >= 0; i--) {
+                            if (shellMsgs[i].role === 'shell') {
+                                const existing = shellMsgs[i].content
+                                let newContent: string
+                                if (existing.includes('\u200B\u200B')) {
+                                    newContent = existing.replace('\u200B\u200B', '') + (data.content || '')
+                                } else {
+                                    newContent = existing + '\n' + (data.content || '')
                                 }
-                                shellMsgs2[i] = { ...shellMsgs2[i], content }
+                                shellMsgs[i] = { ...shellMsgs[i], content: newContent }
                                 found = true
                                 break
                             }
                         }
                         if (!found) {
-                            shellMsgs2.push({ id: crypto.randomUUID(), role: 'shell', content: `Shell exited with code ${done.exitCode ?? 0}` })
+                            shellMsgs.push({ id: crypto.randomUUID(), role: 'shell', content: data.content || '' })
                         }
                         useStore.setState({
-                            sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs2] },
-                            messages: store.activeSessionId === sid ? [...shellMsgs2] : store.messages,
+                            sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs] },
+                            messages: store.activeSessionId === sid ? [...shellMsgs] : store.messages,
                         })
                     }
-                } catch { }
-                store.removeShellExecutingSession(sid)
-                break
-            }
-            case 'shell_error': {
-                const shellMsgs3 = store.sessionMessages[sid]
-                if (shellMsgs3 && shellMsgs3.length > 0) {
-                    let found = false
-                    for (let i = shellMsgs3.length - 1; i >= 0; i--) {
-                        if (shellMsgs3[i].role === 'shell') {
-                            let content = shellMsgs3[i].content
-                            if (content.includes('\u200B\u200B')) {
-                                content = content.replace('\u200B\u200B', '')
+                    break
+                }
+                case 'shell_done': {
+                    try {
+                        const done = JSON.parse(data.content || '{}')
+                        const shellMsgs2 = store.sessionMessages[sid]
+                        if (shellMsgs2 && shellMsgs2.length > 0) {
+                            let found = false
+                            for (let i = shellMsgs2.length - 1; i >= 0; i--) {
+                                if (shellMsgs2[i].role === 'shell') {
+                                    let content = shellMsgs2[i].content
+                                    if (done.exitCode !== 0) {
+                                        content += `\n\nShell exited with code ${done.exitCode}`
+                                    }
+                                    shellMsgs2[i] = { ...shellMsgs2[i], content }
+                                    found = true
+                                    break
+                                }
                             }
-                            content += `\nError: ${data.content || 'Unknown error'}`
-                            shellMsgs3[i] = { ...shellMsgs3[i], content }
-                            found = true
-                            break
+                            if (!found) {
+                                shellMsgs2.push({ id: crypto.randomUUID(), role: 'shell', content: `Shell exited with code ${done.exitCode ?? 0}` })
+                            }
+                            useStore.setState({
+                                sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs2] },
+                                messages: store.activeSessionId === sid ? [...shellMsgs2] : store.messages,
+                            })
                         }
-                    }
-                    if (!found) {
-                        shellMsgs3.push({ id: crypto.randomUUID(), role: 'shell', content: `Error: ${data.content || 'Unknown error'}` })
-                    }
-                    useStore.setState({
-                        sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs3] },
-                        messages: store.activeSessionId === sid ? [...shellMsgs3] : store.messages,
-                    })
+                    } catch { }
+                    store.removeShellExecutingSession(sid)
+                    break
                 }
-                store.removeShellExecutingSession(sid)
-                break
-            }
-            case 'compaction':
-                if (data.compaction) {
-                    const c = data.compaction
-                    if (c.after_tokens) {
-                        store.addTokens(sid, c.after_tokens, undefined)
-                    }
-                    // Auto-compaction: no empty card was pre-created (unlike manual /compact).
-                    // Create one now so fillCompactionCard can find and fill it.
-                    {
-                        const msgs = store.sessionMessages[sid] || []
-                        const hasPendingCard = msgs.some((m: any) => m.role === 'compaction' && !m.content)
-                        if (!hasPendingCard) {
-                            store.appendToSession(sid, [{ id: crypto.randomUUID(), role: 'compaction', content: '' }])
+                case 'shell_error': {
+                    const shellMsgs3 = store.sessionMessages[sid]
+                    if (shellMsgs3 && shellMsgs3.length > 0) {
+                        let found = false
+                        for (let i = shellMsgs3.length - 1; i >= 0; i--) {
+                            if (shellMsgs3[i].role === 'shell') {
+                                let content = shellMsgs3[i].content
+                                if (content.includes('\u200B\u200B')) {
+                                    content = content.replace('\u200B\u200B', '')
+                                }
+                                content += `\nError: ${data.content || 'Unknown error'}`
+                                shellMsgs3[i] = { ...shellMsgs3[i], content }
+                                found = true
+                                break
+                            }
                         }
-                    }
-                    store.fillCompactionCard(sid, {
-                        summary: c.summary || '',
-                        beforeTokens: c.before_tokens,
-                        afterTokens: c.after_tokens,
-                        compactionNum: c.compaction_num,
-                    })
-                }
-                break
-
-            case 'queue_updated': {
-                try {
-                    const items = data.content ? JSON.parse(data.content) : []
-                    store.setQueue(sid, items)
-                } catch { }
-                break
-            }
-            case 'queue_item_started': {
-                try {
-                    const item = data.content ? JSON.parse(data.content) : null
-                    if (item) {
-                        store.updateQueueItem(sid, item.id, { status: 'executing' })
-                        const userMsg: Message = {
-                            id: crypto.randomUUID(),
-                            role: 'user',
-                            content: stripTransientBlocks(item.text),
+                        if (!found) {
+                            shellMsgs3.push({ id: crypto.randomUUID(), role: 'shell', content: `Error: ${data.content || 'Unknown error'}` })
                         }
-                        const assistantMsg: Message = {
-                            id: crypto.randomUUID(),
-                            role: 'assistant',
-                            content: '',
-                            startedAt: Date.now(),
-                        }
-                        store.appendToSession(sid, [userMsg, assistantMsg])
-                        store.addGeneratingSession(sid)
-                    }
-                } catch { }
-                break
-            }
-            case 'queue_error': {
-                try {
-                    const info = data.content ? JSON.parse(data.content) : null
-                    if (info) {
-                        store.updateQueueItem(sid, info.item_id, {
-                            status: 'error',
-                            error: info.error,
+                        useStore.setState({
+                            sessionMessages: { ...store.sessionMessages, [sid]: [...shellMsgs3] },
+                            messages: store.activeSessionId === sid ? [...shellMsgs3] : store.messages,
                         })
-                        store.toggleQueuePause(sid, true)
                     }
-                } catch { }
-                break
+                    store.removeShellExecutingSession(sid)
+                    break
+                }
+                case 'compaction':
+                    if (data.compaction) {
+                        const c = data.compaction
+                        if (c.after_tokens) {
+                            store.addTokens(sid, c.after_tokens, undefined)
+                        }
+                        // Auto-compaction: no empty card was pre-created (unlike manual /compact).
+                        // Create one now so fillCompactionCard can find and fill it.
+                        {
+                            const msgs = store.sessionMessages[sid] || []
+                            const hasPendingCard = msgs.some((m: any) => m.role === 'compaction' && !m.content)
+                            if (!hasPendingCard) {
+                                store.appendToSession(sid, [{ id: crypto.randomUUID(), role: 'compaction', content: '' }])
+                            }
+                        }
+                        store.fillCompactionCard(sid, {
+                            summary: c.summary || '',
+                            beforeTokens: c.before_tokens,
+                            afterTokens: c.after_tokens,
+                            compactionNum: c.compaction_num,
+                        })
+                    }
+                    break
+
+                case 'queue_updated': {
+                    try {
+                        const items = data.content ? JSON.parse(data.content) : []
+                        store.setQueue(sid, items)
+                    } catch { }
+                    break
+                }
+                case 'queue_item_started': {
+                    try {
+                        const item = data.content ? JSON.parse(data.content) : null
+                        if (item) {
+                            store.updateQueueItem(sid, item.id, { status: 'executing' })
+                            const userMsg: Message = {
+                                id: crypto.randomUUID(),
+                                role: 'user',
+                                content: stripTransientBlocks(item.text),
+                            }
+                            const assistantMsg: Message = {
+                                id: crypto.randomUUID(),
+                                role: 'assistant',
+                                content: '',
+                                startedAt: Date.now(),
+                            }
+                            store.appendToSession(sid, [userMsg, assistantMsg])
+                            store.addGeneratingSession(sid)
+                        }
+                    } catch { }
+                    break
+                }
+                case 'queue_error': {
+                    try {
+                        const info = data.content ? JSON.parse(data.content) : null
+                        if (info) {
+                            store.updateQueueItem(sid, info.item_id, {
+                                status: 'error',
+                                error: info.error,
+                            })
+                            store.toggleQueuePause(sid, true)
+                        }
+                    } catch { }
+                    break
+                }
             }
+        } catch (err) {
+            console.error('[monika] processEvent crash', data, err)
         }
     }
 
@@ -2496,96 +2500,92 @@ export function setupWailsEvents() {
     }
 
     Events.On('stream', (ev) => {
-        let store = useStore.getState()
-        const data = ev.data as StreamEvent & { seq?: number }
-        const sid = data.session_id
+        try {
+            let store = useStore.getState()
+            const data = ev.data as StreamEvent & { seq?: number }
+            const sid = data.session_id
 
-        if (data.type === 'bg_task') {
-            try {
-                const ev = typeof data.content === 'string' ? JSON.parse(data.content) : data.content
-                const store = useStore.getState()
-                switch (ev.type) {
-                    case 'started':
-                        store.updateBgTask({
-                            id: ev.task_id,
-                            command: ev.command,
-                            work_dir: ev.work_dir,
-                            pid: ev.pid,
-                            status: 'running',
-                            exit_code: 0,
-                            started_at: new Date().toISOString(),
-                        })
-                        break
-                    case 'log_update':
-                        store.updateBgTaskLineCount(ev.task_id, ev.line_count)
-                        break
-                    case 'stopped':
-                    case 'exited': {
-                        const task = store.bgTasks.find(t => t.id === ev.task_id)
-                        if (task) {
-                            store.updateBgTask({ ...task, status: ev.status, exit_code: ev.exit_code || 0 })
+            if (data.type === 'bg_task') {
+                try {
+                    const ev = typeof data.content === 'string' ? JSON.parse(data.content) : data.content
+                    const store = useStore.getState()
+                    switch (ev.type) {
+                        case 'started':
+                            store.updateBgTask({
+                                id: ev.task_id,
+                                command: ev.command,
+                                work_dir: ev.work_dir,
+                                pid: ev.pid,
+                                status: 'running',
+                                exit_code: 0,
+                                started_at: new Date().toISOString(),
+                            })
+                            break
+                        case 'log_update':
+                            store.updateBgTaskLineCount(ev.task_id, ev.line_count)
+                            break
+                        case 'stopped':
+                        case 'exited': {
+                            const task = store.bgTasks.find(t => t.id === ev.task_id)
+                            if (task) {
+                                store.updateBgTask({ ...task, status: ev.status, exit_code: ev.exit_code || 0 })
+                            }
+                            break
                         }
-                        break
                     }
+                } catch { /* ignore parse errors */ }
+                return
+            }
+
+            if (sid && (sid.startsWith('call_') || sid.startsWith('sub_') || data.type === 'compaction') && !store.sessionMessages[sid]) {
+                useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
+                store = useStore.getState()
+            }
+
+            const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
+            if (data.type === 'permission_required' && permPayload) {
+                useStore.setState({ pendingPermission: permPayload })
+                if (!permPayload.sessionId.startsWith('call_') && !permPayload.sessionId.startsWith('sub_')) {
+                    const openSessions = useStore.getState().openSessions
+                    const sessionInfo = openSessions.find((s) => s.id === permPayload.sessionId)
+                    const sessionTitle = sessionInfo?.title || permPayload.sessionId.slice(0, 8)
+                    useNotificationStore.getState().push({
+                        sessionId: permPayload.sessionId,
+                        sessionTitle,
+                        type: 'permission-request',
+                        message: '需要确认',
+                    })
                 }
-            } catch { /* ignore parse errors */ }
-            return
-        }
-
-        // Auto-create entry for child session so streaming events are buffered
-        if (sid && (sid.startsWith('call_') || sid.startsWith('sub_') || data.type === 'compaction') && !store.sessionMessages[sid]) {
-            useStore.setState({ sessionMessages: { ...store.sessionMessages, [sid]: [] } })
-            store = useStore.getState()
-        }
-
-        // Handle permission_required events — they carry a session_id but may
-        // arrive before the session tab is opened in the frontend.
-        const permPayload = (data as any).permission as PermissionRequiredEvent | undefined
-        if (data.type === 'permission_required' && permPayload) {
-            useStore.setState({ pendingPermission: permPayload })
-            // Trigger notification for permission request (skip subagent sessions)
-            if (!permPayload.sessionId.startsWith('call_') && !permPayload.sessionId.startsWith('sub_')) {
-                const openSessions = useStore.getState().openSessions
-                const sessionInfo = openSessions.find((s) => s.id === permPayload.sessionId)
-                const sessionTitle = sessionInfo?.title || permPayload.sessionId.slice(0, 8)
-                useNotificationStore.getState().push({
-                    sessionId: permPayload.sessionId,
-                    sessionTitle,
-                    type: 'permission-request',
-                    message: '需要确认',
-                })
+                if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
+                return
             }
-            if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
-            return
-        }
 
-        const askPayload = (data as any).ask_user as AskUserEvent | undefined
-        if (data.type === 'ask_user' && askPayload) {
-            useStore.setState({ pendingAskUser: askPayload })
-            // Advance past this seq so subsequent events aren't blocked
-            if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
-            return
-        }
-
-        // Drop events with no session_id or session that was explicitly closed
-        // Skip past their seq so the sequencer doesn't jam on the gap.
-        if (!sid || !store.sessionMessages[sid]) {
-            console.warn('[monika] stream event dropped:', data.type, 'sid=', sid, 'known=', Object.keys(store.sessionMessages))
-            if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
-            return
-        }
-
-        // Route through sequenced queue to prevent out-of-order rendering
-        if (data.seq && data.seq > 0) {
-            pendingEvents.push(data)
-            if (pendingEvents.length === 1) {
-                drainPendingEvents()
-            } else if (!drainScheduled) {
-                drainScheduled = true
-                setTimeout(drainPendingEvents, 0)
+            const askPayload = (data as any).ask_user as AskUserEvent | undefined
+            if (data.type === 'ask_user' && askPayload) {
+                useStore.setState({ pendingAskUser: askPayload })
+                if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
+                return
             }
-        } else {
-            processEvent(data)
+
+            if (!sid || !store.sessionMessages[sid]) {
+                console.warn('[monika] stream event dropped:', data.type, 'sid=', sid, 'known=', Object.keys(store.sessionMessages))
+                if (data.seq && data.seq >= nextSeq) nextSeq = data.seq + 1
+                return
+            }
+
+            if (data.seq && data.seq > 0) {
+                pendingEvents.push(data)
+                if (pendingEvents.length === 1) {
+                    drainPendingEvents()
+                } else if (!drainScheduled) {
+                    drainScheduled = true
+                    setTimeout(drainPendingEvents, 0)
+                }
+            } else {
+                processEvent(data)
+            }
+        } catch (err) {
+            console.error('[monika] stream handler crash', ev.data, err)
         }
     })
 
