@@ -296,7 +296,7 @@ function SessionList(props: IDockviewPanelProps) {
                                             tabIndex={0}
                                             role="button"
                                             aria-label={`Select ${s.title || 'session'}`}
-                                            className="group flex justify-between items-center py-1 px-2 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
+                                            className="group flex justify-between items-center py-1 px-2 ml-3 cursor-pointer text-[13px] truncate leading-[26px] rounded-md transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)]"
                                             style={{
                                                 color: activeSessionId === s.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                                                 background: activeSessionId === s.id ? 'var(--bg-active)' : hoveredId === s.id ? 'var(--bg-hover)' : 'transparent',
