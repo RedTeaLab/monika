@@ -4,7 +4,7 @@ import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import { IconTrash, IconPlus, IconPin, IconInbox } from '../Icons'
 import { logger } from '../../lib/logger'
-import ConfirmModal from '../Chat/ConfirmModal'
+import { AlertDialog } from '../ui'
 import SessionContextMenu from '../Chat/SessionContextMenu'
 import WorktreeManager from '../Chat/WorktreeManager'
 
@@ -20,6 +20,8 @@ export function deriveStatus(sessionId: string, s: SessionInfo, generatingIds: s
 function SessionList(props: IDockviewPanelProps) {
     const [sessions, setSessions] = useState<SessionInfo[]>([])
     const [sessionToDelete, setSessionToDelete] = useState<SessionInfo | null>(null)
+    const [confirmLoading, setConfirmLoading] = useState(false)
+    const [confirmError, setConfirmError] = useState('')
     const [hoveredId, setHoveredId] = useState<string | null>(null)
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -367,14 +369,26 @@ function SessionList(props: IDockviewPanelProps) {
                     })
                 )}
             </div>
-            {sessionToDelete && (
-                <ConfirmModal
-                    title="Delete Session"
-                    message={`Delete "${sessionToDelete.title || 'Untitled'}"? This cannot be undone.`}
-                    onConfirm={handleDeleteConfirm}
-                    onCancel={handleDeleteCancel}
-                />
-            )}
+            <AlertDialog
+                open={!!sessionToDelete}
+                title="Delete Session"
+                description={sessionToDelete ? `Delete "${sessionToDelete.title || 'Untitled'}"? This cannot be undone.` : ''}
+                confirmLabel="Delete"
+                variant="destructive"
+                loading={confirmLoading}
+                error={confirmError}
+                onConfirm={async () => {
+                    setConfirmError(''); setConfirmLoading(true)
+                    try {
+                        await handleDeleteConfirm()
+                    } catch (e) {
+                        setConfirmError(e instanceof Error ? e.message : 'Operation failed')
+                    } finally {
+                        setConfirmLoading(false)
+                    }
+                }}
+                onCancel={handleDeleteCancel}
+            />
             {contextMenu && (
                 <SessionContextMenu
                     sessionId={contextMenu.sessionId}

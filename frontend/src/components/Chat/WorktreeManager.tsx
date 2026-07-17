@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button } from '../ui'
 
 interface WorktreeInfo {
     branch: string
@@ -224,28 +225,30 @@ export default function WorktreeManager({ sessionId, onClose }: WorktreeManagerP
                             })}
                         </div>
                         <div className="flex items-center gap-2">
-                            <ModalButton onClick={handleCreate} disabled={!selectedBranch} variant="primary">Create</ModalButton>
-                            <ModalButton onClick={() => { setCreating(false); setSelectedBranch(''); setBranchFilter('') }}>Cancel</ModalButton>
+                            <Button variant="primary" size="sm" onClick={handleCreate} disabled={!selectedBranch}>Create</Button>
+                            <Button variant="secondary" size="sm" onClick={() => { setCreating(false); setSelectedBranch(''); setBranchFilter('') }}>Cancel</Button>
                         </div>
                     </div>
                 )}
             </ModalBody>
 
             <ModalFooter>
-                <ModalButton onClick={() => setCreating(true)}>+ New</ModalButton>
-                <ModalButton
+                <Button variant="secondary" size="sm" onClick={() => setCreating(true)}>+ New</Button>
+                <Button
+                    variant={selectedPath && selectedPath !== currentWorktreePath ? 'primary' : 'secondary'}
+                    size="sm"
                     onClick={handleAttach}
                     disabled={!selectedPath || selectedPath === currentWorktreePath}
-                    variant={selectedPath && selectedPath !== currentWorktreePath ? 'primary' : 'default'}
-                >Attach</ModalButton>
-                <ModalButton
+                >Attach</Button>
+                <Button
+                    variant={selectedPath ? 'destructive' : 'secondary'}
+                    size="sm"
                     onClick={handleDelete}
                     disabled={!selectedPath}
-                    variant={selectedPath ? 'danger' : 'default'}
-                >Delete</ModalButton>
+                >Delete</Button>
                 <div className="flex-1" />
                 {currentWorktreePath && (
-                    <ModalButton onClick={handleDetach}>Detach</ModalButton>
+                    <Button variant="secondary" size="sm" onClick={handleDetach}>Detach</Button>
                 )}
             </ModalFooter>
         </Modal>

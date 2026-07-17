@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore, SkillInfo } from '../../store'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
 import { IconStar, IconPlus, IconTrash } from '../Icons'
-import { Button, Input, Switch } from '../ui'
-import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
+import { Button, IconButton, Input, Switch, Tabs, AlertDialog } from '../ui'
+import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState, SettingsScopeToggle } from './shared'
 
 const SOURCE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   'project-opencode': { label: 'Project', color: 'var(--accent)', bg: 'var(--accent-muted)' },
@@ -80,13 +79,15 @@ function SkillCard({
               aria-label={skill.enabled !== false ? `Disable ${skill.name}` : `Enable ${skill.name}`}
             />
           </span>
-          <button
-            onClick={(e) => { e.stopPropagation(); onUninstall() }}
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] px-1 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Uninstall ${skill.name}`}
+          <IconButton
+            label={`Uninstall ${skill.name}`}
+            size="sm"
+            variant="ghost"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); onUninstall() }}
+            className="text-[var(--text-dim)] hover:text-[var(--red)]"
           >
             <IconTrash size={13} />
-          </button>
+          </IconButton>
         </div>
       </div>
       {expanded && (
@@ -139,6 +140,8 @@ export default function SkillsTab() {
   const [skillContents, setSkillContents] = useState<Record<string, { content: string; files: string[] } | null>>({})
   const [loadingContents, setLoadingContents] = useState<Record<string, boolean>>({})
   const [confirmUninstall, setConfirmUninstall] = useState<string | null>(null)
+  const [uninstallLoading, setUninstallLoading] = useState(false)
+  const [uninstallError, setUninstallError] = useState('')
 
   useEffect(() => { loadSkills() }, [loadSkills])
 
@@ -273,40 +276,17 @@ export default function SkillsTab() {
             {/* Scope toggle */}
             <div className="mb-4">
               <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-2">Scope</label>
-              <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
-                {(['project', 'global'] as const).map((scope) => (
-                  <button
-                    key={scope}
-                    onClick={() => setInstallScope(scope)}
-                    className="px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors border-none"
-                    style={{
-                      background: installScope === scope ? 'var(--accent-muted)' : 'transparent',
-                      color: installScope === scope ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {scope.charAt(0).toUpperCase() + scope.slice(1)}
-                  </button>
-                ))}
-              </div>
+              <SettingsScopeToggle value={installScope} onChange={setInstallScope} />
             </div>
 
             {/* Source tabs */}
             <div className="mb-4">
-              <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
-                {(['github', 'zip'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => { setInstallTab(tab); setInstallError(''); setInstallResult([]) }}
-                    className="px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors border-none"
-                    style={{
-                      background: installTab === tab ? 'var(--accent-muted)' : 'var(--bg-card)',
-                      color: installTab === tab ? 'var(--accent)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {tab === 'github' ? 'GitHub URL' : 'Upload ZIP'}
-                  </button>
-                ))}
-              </div>
+              <Tabs
+                items={[{ id: 'github', label: 'GitHub URL' }, { id: 'zip', label: 'Upload ZIP' }]}
+                value={installTab}
+                onChange={(id) => { setInstallTab(id as 'github' | 'zip'); setInstallError(''); setInstallResult([]) }}
+                variant="pills"
+              />
             </div>
 
             {installTab === 'github' && (
@@ -332,29 +312,40 @@ export default function SkillsTab() {
             )}
           </ModalBody>
           <ModalFooter>
-            <ModalButton onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</ModalButton>
-            <ModalButton variant="primary" onClick={handleInstall} disabled={installing || (installTab === 'github' && !githubURL.trim())}>
+            <Button variant="secondary" size="sm" onClick={() => setShowInstallModal(false)} disabled={installing}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={handleInstall} disabled={installing || (installTab === 'github' && !githubURL.trim())} loading={installing}>
               {installing ? 'Installing...' : installTab === 'zip' ? 'Select ZIP File' : 'Install'}
-            </ModalButton>
+            </Button>
           </ModalFooter>
         </Modal>
       )}
 
-      {confirmUninstall && (
-        <ConfirmModal
-          title="Uninstall Skill"
-          message={`Are you sure you want to uninstall "${confirmUninstall}"?`}
-          confirmLabel="Uninstall"
-          icon={<IconTrash size={15} />}
-          onConfirm={async () => {
+      <AlertDialog
+        open={!!confirmUninstall}
+        title="Uninstall Skill"
+        description={confirmUninstall ? `Are you sure you want to uninstall "${confirmUninstall}"?` : ''}
+        confirmLabel="Uninstall"
+        icon={<IconTrash size={15} />}
+        variant="destructive"
+        loading={uninstallLoading}
+        error={uninstallError}
+        onConfirm={async () => {
+          if (!confirmUninstall) return
+          setUninstallError('')
+          setUninstallLoading(true)
+          try {
             await handleUninstall(confirmUninstall)
             setSkillContents((prev) => { const next = { ...prev }; delete next[confirmUninstall]; return next })
             setExpandedSkill(null)
             setConfirmUninstall(null)
-          }}
-          onCancel={() => setConfirmUninstall(null)}
-        />
-      )}
+          } catch (e) {
+            setUninstallError(e instanceof Error ? e.message : 'Failed to uninstall')
+          } finally {
+            setUninstallLoading(false)
+          }
+        }}
+        onCancel={() => { setConfirmUninstall(null); setUninstallError('') }}
+      />
     </div>
   )
 }

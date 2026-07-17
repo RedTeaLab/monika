@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
 import type { BranchInfo } from '../../../bindings/monika';
-import ConfirmModal from '../Chat/ConfirmModal';
-import { Combobox, type ComboboxOption } from '../ui';
+import { Combobox, type ComboboxOption, AlertDialog } from '../ui';
 import {
   getErrorMessage,
   parseUnmergedError,
@@ -36,7 +35,7 @@ function branchValue(b: BranchInfo): string {
  * `description` field so the flat searchable list stays scannable.
  *
  * Business logic preserved verbatim from the legacy inline dropdown:
- *  - active-generation dirty guard (ConfirmModal before switching)
+ *  - active-generation dirty guard (AlertDialog before switching)
  *  - unmerged-conflict detection with an AI-resolve fallback
  * No custom dropdown markup remains.
  */
@@ -49,6 +48,8 @@ export function BranchDropdown({ disabled, className }: BranchDropdownProps) {
   const [error, setError] = useState<string | null>(null);
   const [dirtyConfirm, setDirtyConfirm] = useState<{ branchName: string; remote: string } | null>(null);
   const [unmergedFiles, setUnmergedFiles] = useState<string[] | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   // Keep the branch list fresh on mount. Combobox owns its own open state, so
   // there is no `isOpen` gate; we hydrate up-front rather than lazily.
@@ -133,33 +134,50 @@ export function BranchDropdown({ disabled, className }: BranchDropdownProps) {
         emptyMessage={error ?? 'No branches'}
         className={className}
       />
-      {dirtyConfirm && (
-        <ConfirmModal
-          title="Switch Branch"
-          message={confirmMessage}
-          confirmLabel="Discard"
-          onConfirm={async () => {
-            const { branchName, remote } = dirtyConfirm;
+      <AlertDialog
+        open={!!dirtyConfirm}
+        title="Switch Branch"
+        description={confirmMessage}
+        confirmLabel="Discard"
+        variant="destructive"
+        loading={confirmLoading}
+        error={confirmError}
+        onConfirm={async () => {
+          setConfirmError(''); setConfirmLoading(true);
+          try {
+            const { branchName, remote } = dirtyConfirm!;
             setDirtyConfirm(null);
             await doSwitch(branchName, remote);
-          }}
-          onCancel={() => setDirtyConfirm(null)}
-        />
-      )}
-      {unmergedFiles && (
-        <ConfirmModal
-          title="Cannot Switch Branch"
-          message={`Unresolved merge conflicts detected:\n\n${unmergedFiles.join('\n')}\n\nLet AI resolve them automatically?`}
-          confirmLabel="Let AI Handle"
-          variant="primary"
-          onConfirm={async () => {
-            const files = unmergedFiles;
+          } catch (e) {
+            setConfirmError(e instanceof Error ? e.message : 'Operation failed');
+          } finally {
+            setConfirmLoading(false);
+          }
+        }}
+        onCancel={() => { setDirtyConfirm(null); setConfirmError('') }}
+      />
+      <AlertDialog
+        open={!!unmergedFiles}
+        title="Cannot Switch Branch"
+        description={unmergedFiles ? `Unresolved merge conflicts detected:\n\n${unmergedFiles.join('\n')}\n\nLet AI resolve them automatically?` : ''}
+        confirmLabel="Let AI Handle"
+        variant="primary"
+        loading={confirmLoading}
+        error={confirmError}
+        onConfirm={async () => {
+          setConfirmError(''); setConfirmLoading(true);
+          try {
+            const files = unmergedFiles!;
             await resolveUnmergedWithAI(projectPath, files, useStore.getState());
             setUnmergedFiles(null);
-          }}
-          onCancel={() => setUnmergedFiles(null)}
-        />
-      )}
+          } catch (e) {
+            setConfirmError(e instanceof Error ? e.message : 'Operation failed');
+          } finally {
+            setConfirmLoading(false);
+          }
+        }}
+        onCancel={() => { setUnmergedFiles(null); setConfirmError('') }}
+      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useCallback } from 'react'
 import { Call } from '@wailsio/runtime'
 import { useDebugState } from './useDebugState'
+import { IconButton } from '../ui'
 
 function AccordionSection({
     label,
@@ -56,17 +57,6 @@ function AccordionSection({
             )}
         </div>
     )
-}
-
-const tinyBtnStyle: React.CSSProperties = {
-    background: 'var(--bg-active)',
-    border: '1px solid var(--border)',
-    borderRadius: '2px',
-    color: 'var(--text-secondary)',
-    cursor: 'pointer',
-    fontSize: '10px',
-    padding: '1px 6px',
-    fontFamily: 'var(--font-sans)',
 }
 
 const dimText: React.CSSProperties = {
@@ -166,29 +156,11 @@ export default function DebugPanel() {
                         {activeSession.adapter}
                     </span>
 
-                    <button style={tinyBtnStyle}
-                        disabled={!isStopped}
-                        onClick={handleContinue}
-                        title="Continue">▶</button>
-                    <button style={tinyBtnStyle}
-                        disabled={!isStopped}
-                        onClick={handleStepOver}
-                        title="Step Over">↘</button>
-                    <button style={tinyBtnStyle}
-                        disabled={!isStopped}
-                        onClick={handleStepIn}
-                        title="Step In">↓</button>
-                    <button style={tinyBtnStyle}
-                        disabled={!isStopped}
-                        onClick={handleStepOut}
-                        title="Step Out">↑</button>
-                    <button style={{
-                        ...tinyBtnStyle,
-                        borderColor: '#c04040',
-                        color: '#e06060',
-                    }}
-                        onClick={handleStop}
-                        title="Stop">■</button>
+                    <IconButton label="Continue" size="sm" disabled={!isStopped} onClick={handleContinue}>▶</IconButton>
+                    <IconButton label="Step Over" size="sm" disabled={!isStopped} onClick={handleStepOver}>↘</IconButton>
+                    <IconButton label="Step In" size="sm" disabled={!isStopped} onClick={handleStepIn}>↓</IconButton>
+                    <IconButton label="Step Out" size="sm" disabled={!isStopped} onClick={handleStepOut}>↑</IconButton>
+                    <IconButton label="Stop" size="sm" variant="destructive" onClick={handleStop}>■</IconButton>
                 </div>
             )}
 
@@ -350,22 +322,14 @@ export default function DebugPanel() {
                                             }}>
                                                 {fileName}:{bp.line}
                                             </span>
-                                            <button
+                                            <IconButton
+                                                label="Remove breakpoint"
+                                                size="sm"
                                                 onClick={(e) => {
                                                     e.stopPropagation()
                                                     handleRemoveBreakpoint(bp.file, bp.line)
                                                 }}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    color: 'var(--text-dim)',
-                                                    cursor: 'pointer',
-                                                    fontSize: '10px',
-                                                    padding: '0 2px',
-                                                    lineHeight: 1,
-                                                }}
-                                                title="Remove breakpoint"
-                                            >✕</button>
+                                            >✕</IconButton>
                                         </div>
                                     )
                                 })

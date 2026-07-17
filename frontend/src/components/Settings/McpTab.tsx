@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
 import type { MCPServerInfo } from '../../store'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
-import { Button, IconButton, Textarea, StatusDot } from '../ui'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, IconButton, Textarea, StatusDot, AlertDialog } from '../ui'
 import { IconServer, IconTrash, IconPlus, IconZap, IconRefresh, IconEdit } from '../Icons'
 import {
   SettingsTabHeader,
@@ -177,6 +176,8 @@ export default function McpTab() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [testStates, setTestStates] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
   const [editServer, setEditServer] = useState<MCPServerInfo | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const [editJsonText, setEditJsonText] = useState('')
   const [editError, setEditError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
@@ -406,32 +407,41 @@ export default function McpTab() {
             )}
           </ModalBody>
           <ModalFooter>
-            <ModalButton onClick={() => setShowAddModal(false)} disabled={importing}>Cancel</ModalButton>
-            <ModalButton
+            <Button variant="secondary" size="sm" onClick={() => setShowAddModal(false)} disabled={importing}>Cancel</Button>
+            <Button
               variant="primary"
+              size="sm"
               onClick={handleImport}
               disabled={importing || parsed.servers.length === 0 || !!parsed.error}
             >
               {importing ? 'Importing...' : 'Import'}
-            </ModalButton>
+            </Button>
           </ModalFooter>
         </Modal>
       )}
-
-      {confirmDelete && (
-        <ConfirmModal
-          title="Delete MCP Server"
-          message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          icon={<IconTrash size={15} />}
-          onConfirm={async () => {
+      <AlertDialog
+        open={!!confirmDelete}
+        title="Delete MCP Server"
+        description={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        icon={<IconTrash size={15} />}
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={async () => {
+          if (!confirmDelete) return
+          setDeleteError(''); setDeleteLoading(true)
+          try {
             const srv = servers.find(s => s.id === confirmDelete)
             await deleteServer(confirmDelete, srv?.scope)
             setConfirmDelete(null)
-          }}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
+          } catch (e) {
+            setDeleteError(e instanceof Error ? e.message : 'Failed to delete server')
+          } finally {
+            setDeleteLoading(false)
+          }
+        }}
+        onCancel={() => { setConfirmDelete(null); setDeleteError('') }}
+      />
 
       {/* Edit modal */}
       {editServer && (
@@ -456,14 +466,15 @@ export default function McpTab() {
             )}
           </ModalBody>
           <ModalFooter>
-            <ModalButton onClick={() => setEditServer(null)} disabled={editSaving}>Cancel</ModalButton>
-            <ModalButton
+            <Button variant="secondary" size="sm" onClick={() => setEditServer(null)} disabled={editSaving}>Cancel</Button>
+            <Button
               variant="primary"
+              size="sm"
               onClick={handleEditSave}
               disabled={editSaving}
             >
               {editSaving ? 'Saving...' : 'Save'}
-            </ModalButton>
+            </Button>
           </ModalFooter>
         </Modal>
       )}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../../store'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import { Button, IconButton, Input, Select, Checkbox, Tabs } from '../ui'
+import type { FormatterEntry } from '../../store'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, IconButton, AlertDialog, Input, Select, Checkbox, Tabs } from '../ui'
 import {
     SettingsTabHeader,
     SettingsScopeToggle,
@@ -52,12 +53,12 @@ function LspServerCard({ name, srv, onEdit, onDelete }: {
                     </div>
                 </div>
                 <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
-                    <button onClick={onEdit} title="Edit" className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors">
-                        <IconEdit size={13} />
-                    </button>
-                    <button onClick={onDelete} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors">
-                        <IconTrash size={13} />
-                    </button>
+                    <IconButton label="Edit" size="sm" onClick={onEdit}>
+                        <IconEdit size={12} />
+                    </IconButton>
+                    <IconButton label="Delete" size="sm" variant="ghost" onClick={onDelete}>
+                        <IconTrash size={12} />
+                    </IconButton>
                 </div>
             </div>
         </div>
@@ -91,12 +92,12 @@ function FormatterCard({ lang, cfg, onEdit, onDelete }: {
                     </div>
                 </div>
                 <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
-                    <button onClick={onEdit} title="Edit" className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors">
-                        <IconEdit size={13} />
-                    </button>
-                    <button onClick={onDelete} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors">
-                        <IconTrash size={13} />
-                    </button>
+                    <IconButton label="Edit" size="sm" onClick={onEdit}>
+                        <IconEdit size={12} />
+                    </IconButton>
+                    <IconButton label="Delete" size="sm" variant="ghost" onClick={onDelete}>
+                        <IconTrash size={12} />
+                    </IconButton>
                 </div>
             </div>
         </div>
@@ -133,6 +134,10 @@ export default function LspFormattersTab() {
     const [fmtLang, setFmtLang] = useState('')
     const [fmtCommand, setFmtCommand] = useState('')
     const [fmtArgs, setFmtArgs] = useState('')
+
+    // Pending delete confirmation state
+    const [pendingLspDelete, setPendingLspDelete] = useState<string | null>(null)
+    const [pendingFmtDelete, setPendingFmtDelete] = useState<string | null>(null)
 
     useEffect(() => {
         loadLSPConfig(scope)
@@ -185,9 +190,15 @@ export default function LspFormattersTab() {
     }
 
     const handleLspDelete = (name: string) => {
+        setPendingLspDelete(name)
+    }
+
+    const confirmLspDelete = () => {
+        if (!pendingLspDelete) return
         const updated = { ...lspServers }
-        delete updated[name]
+        delete updated[pendingLspDelete]
         saveLSPConfig(scope, updated)
+        setPendingLspDelete(null)
     }
 
     // --- Formatter handlers ---
@@ -211,16 +222,22 @@ export default function LspFormattersTab() {
     const handleFmtSave = () => {
         const cmd = fmtCommand.trim()
         const args = fmtArgs.trim() ? fmtArgs.split(/\s+/).filter(Boolean) : []
-        const entry: any = cmd === 'lsp' ? { ref: 'lsp' } : { command: cmd, args }
+        const entry: FormatterEntry = cmd === 'lsp' ? { command: '', ref: 'lsp' } : { command: cmd, args }
         const updated = { ...formatterConfig, [fmtLang]: entry }
         saveFormatterConfig(scope, updated)
         setFmtModal(false)
     }
 
     const handleFmtDelete = (lang: string) => {
+        setPendingFmtDelete(lang)
+    }
+
+    const confirmFmtDelete = () => {
+        if (!pendingFmtDelete) return
         const updated = { ...formatterConfig }
-        delete updated[lang]
+        delete updated[pendingFmtDelete]
         saveFormatterConfig(scope, updated)
+        setPendingFmtDelete(null)
     }
 
     return (
@@ -361,8 +378,8 @@ export default function LspFormattersTab() {
                         </div>
                     </ModalBody>
                     <ModalFooter>
-                        <ModalButton onClick={() => setLspModal(false)}>Cancel</ModalButton>
-                        <ModalButton variant="primary" onClick={handleLspSave} disabled={!lspName.trim() || !lspCommand.trim()}>Save</ModalButton>
+                        <Button variant="secondary" size="sm" onClick={() => setLspModal(false)}>Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={handleLspSave} disabled={!lspName.trim() || !lspCommand.trim()}>Save</Button>
                     </ModalFooter>
                 </Modal>
             )}
@@ -398,11 +415,31 @@ export default function LspFormattersTab() {
                         </div>
                     </ModalBody>
                     <ModalFooter>
-                        <ModalButton onClick={() => setFmtModal(false)}>Cancel</ModalButton>
-                        <ModalButton variant="primary" onClick={handleFmtSave} disabled={!fmtLang.trim() || !fmtCommand.trim()}>Save</ModalButton>
+                        <Button variant="secondary" size="sm" onClick={() => setFmtModal(false)}>Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={handleFmtSave} disabled={!fmtLang.trim() || !fmtCommand.trim()}>Save</Button>
                     </ModalFooter>
                 </Modal>
             )}
+
+            {/* Delete confirmation dialogs */}
+            <AlertDialog
+                open={!!pendingLspDelete}
+                title="Delete LSP Server"
+                description={pendingLspDelete ? `Remove "${pendingLspDelete}" from this scope?` : ''}
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={confirmLspDelete}
+                onCancel={() => setPendingLspDelete(null)}
+            />
+            <AlertDialog
+                open={!!pendingFmtDelete}
+                title="Delete Formatter"
+                description={pendingFmtDelete ? `Remove the "${pendingFmtDelete}" formatter from this scope?` : ''}
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={confirmFmtDelete}
+                onCancel={() => setPendingFmtDelete(null)}
+            />
         </div>
     )
 }

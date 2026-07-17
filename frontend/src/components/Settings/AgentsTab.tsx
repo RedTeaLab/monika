@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore, AgentInfo } from '../../store'
-import { Button, Input, Textarea, Select, Combobox } from '../ui'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
+import { Button, IconButton, Input, Textarea, Select, Combobox, AlertDialog } from '../ui'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
 import { IconBot, IconEdit, IconTrash, IconPlus, IconShield, IconClose } from '../Icons'
 import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
@@ -44,6 +43,8 @@ function AgentsTab() {
   const [newRuleDecision, setNewRuleDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   useEffect(() => { loadAgents() }, [])
   useEffect(() => {
     if (!modalOpen) return
@@ -102,7 +103,15 @@ function AgentsTab() {
   }
 
   const handleDelete = async (agentName: string) => {
-    await deleteAgent(agentName)
+    setDeleteError(''); setDeleteLoading(true)
+    try {
+      await deleteAgent(agentName)
+      setConfirmDelete(null)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete agent')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const addRule = () => {
@@ -144,20 +153,8 @@ function AgentsTab() {
               key={agent.name}
               hoverActions={agent.source === 'custom' ? (
                 <>
-                  <button
-                    onClick={() => openEdit(agent)}
-                    className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-                    aria-label={`Edit ${agent.name}`}
-                  >
-                    <IconEdit size={13} />
-                  </button>
-                  <button
-                    onClick={() => setConfirmDelete(agent.name)}
-                    className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-                    aria-label={`Delete ${agent.name}`}
-                  >
-                    <IconTrash size={13} />
-                  </button>
+                  <IconButton label={`Edit ${agent.name}`} size="sm" variant="ghost" onClick={() => openEdit(agent)}><IconEdit size={13} /></IconButton>
+                  <IconButton label={`Delete ${agent.name}`} size="sm" variant="ghost" onClick={() => setConfirmDelete(agent.name)} className="hover:text-[var(--red)]"><IconTrash size={13} /></IconButton>
                 </>
               ) : undefined}
             >
@@ -283,13 +280,15 @@ function AgentsTab() {
                       >
                         <span className="font-mono text-[var(--text-primary)]">{tool}</span>
                         <span className={`px-1 py-px rounded text-[10px] font-medium ${decisionColors[decision] || ''}`}>{decision}</span>
-                        <button
-                          aria-label={`Remove rule for ${tool}`}
+                        <IconButton
+                          label={`Remove rule for ${tool}`}
+                          size="sm"
+                          variant="ghost"
                           onClick={() => removeRule(tool)}
-                          className="ml-0.5 bg-transparent border-none cursor-pointer text-[var(--text-dim)] hover:text-[var(--red)] text-[12px] leading-none p-0"
+                          className="ml-0.5 hover:text-[var(--red)]"
                         >
                           <IconClose size={12} />
-                        </button>
+                        </IconButton>
                       </span>
                     ))}
                   </div>
@@ -328,24 +327,25 @@ function AgentsTab() {
           </ModalBody>
 
           <ModalFooter>
-            <ModalButton onClick={() => setModalOpen(false)} disabled={saving}>Cancel</ModalButton>
-            <ModalButton variant="primary" onClick={handleSave} disabled={saving || !name.trim()}>
+            <Button variant="secondary" size="sm" onClick={() => setModalOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={handleSave} disabled={saving || !name.trim()}>
               {saving ? 'Saving...' : 'Save Agent'}
-            </ModalButton>
+            </Button>
           </ModalFooter>
         </Modal>
       )}
 
-      {confirmDelete && (
-        <ConfirmModal
-          title="Delete Agent"
-          message={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
-          confirmLabel="Delete"
-          icon={<IconTrash size={15} />}
-          onConfirm={async () => { await handleDelete(confirmDelete); setConfirmDelete(null) }}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
+      <AlertDialog
+        open={!!confirmDelete}
+        title="Delete Agent"
+        description={`Are you sure you want to delete "${confirmDelete}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+        icon={<IconTrash size={15} />}
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete) }}
+        onCancel={() => { setConfirmDelete(null); setDeleteError('') }}
+      />
     </div>
   )
 }

@@ -6,12 +6,11 @@ import {
   IconMinimize, IconMaximize, IconClose, IconRestore,
   IconPlus,
 } from '../Icons'
-import { IconButton } from '../ui'
+import { IconButton, AlertDialog } from '../ui'
 import { ProjectDropdown } from './ProjectDropdown'
 import { BranchDropdown } from './BranchDropdown'
 import { CreateBranchPanel } from './CreateBranchPanel'
 import { FileDialog } from './FileDialog'
-import ConfirmModal from '../Chat/ConfirmModal'
 import { buildDirtyGuardMessage } from './dropdownHelpers'
 
 function TitleBar() {
@@ -24,7 +23,9 @@ function TitleBar() {
 
   const [showCreateBranch, setShowCreateBranch] = useState(false)
   const [fileDialogOpen, setFileDialogOpen] = useState(false)
-  const [confirmModal, setConfirmModal] = useState<{ title: string; message: string; targetPath: string } | null>(null)
+  const [pendingConfirm, setPendingConfirm] = useState<{ title: string; message: string; targetPath: string } | null>(null)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [confirmError, setConfirmError] = useState('')
   const newBranchBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
@@ -54,7 +55,7 @@ function TitleBar() {
 
     if (isGenerating) {
       const message = buildDirtyGuardMessage(0, isGenerating, 'projects');
-      setConfirmModal({ title: 'Switch Project', message, targetPath })
+      setPendingConfirm({ title: 'Switch Project', message, targetPath })
       return
     }
 
@@ -179,19 +180,28 @@ function TitleBar() {
         onOpen={(dirPath) => { setFileDialogOpen(false); handleProjectSelect(dirPath) }}
       />
 
-      {confirmModal && (
-        <ConfirmModal
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmLabel="Discard"
-          onConfirm={async () => {
-            const target = confirmModal.targetPath
-            setConfirmModal(null)
+      <AlertDialog
+        open={!!pendingConfirm}
+        title={pendingConfirm?.title ?? ''}
+        description={pendingConfirm?.message}
+        confirmLabel="Discard"
+        variant="destructive"
+        loading={confirmLoading}
+        error={confirmError}
+        onConfirm={async () => {
+          setConfirmError(''); setConfirmLoading(true)
+          try {
+            const target = pendingConfirm!.targetPath
+            setPendingConfirm(null)
             await doSwitchProject(target)
-          }}
-          onCancel={() => setConfirmModal(null)}
-        />
-      )}
+          } catch (e) {
+            setConfirmError(e instanceof Error ? e.message : 'Operation failed')
+          } finally {
+            setConfirmLoading(false)
+          }
+        }}
+        onCancel={() => { setPendingConfirm(null); setConfirmError('') }}
+      />
     </div>
   )
 }

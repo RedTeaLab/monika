@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { App } from '../../../bindings/monika'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
-import { Button, SearchInput, Switch, Textarea } from '../ui'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, SearchInput, Switch, Textarea, AlertDialog } from '../ui'
 import { IconDatabase, IconTrash, IconEdit, IconEye } from '../Icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -44,6 +43,8 @@ function KnowledgeBaseTab() {
     const [editing, setEditing] = useState(false)
     const [editContent, setEditContent] = useState('')
     const [confirmDelete, setConfirmDelete] = useState<KBFileInfo | null>(null)
+    const [deleteLoading, setDeleteLoading] = useState(false)
+    const [deleteError, setDeleteError] = useState('')
 
     const loadFiles = useCallback(async () => {
         setLoading(true)
@@ -106,6 +107,8 @@ function KnowledgeBaseTab() {
     }
 
     const handleDelete = async (f: KBFileInfo) => {
+        setDeleteError('')
+        setDeleteLoading(true)
         try {
             await App.KBDeleteFile(f.scope, f.path)
             setConfirmDelete(null)
@@ -116,6 +119,9 @@ function KnowledgeBaseTab() {
             }
         } catch (e) {
             console.error('KBDeleteFile:', e)
+            setDeleteError(e instanceof Error ? e.message : 'Failed to delete file')
+        } finally {
+            setDeleteLoading(false)
         }
     }
 
@@ -307,34 +313,36 @@ function KnowledgeBaseTab() {
                     <ModalFooter>
                         {editing ? (
                             <>
-                                <ModalButton onClick={handleSave} variant="primary">Save</ModalButton>
-                                <ModalButton onClick={() => { setEditing(false); setEditContent(fileContent) }}>Cancel</ModalButton>
+                                <Button variant="primary" size="sm" onClick={handleSave}>Save</Button>
+                                <Button variant="secondary" size="sm" onClick={() => { setEditing(false); setEditContent(fileContent) }}>Cancel</Button>
                             </>
                         ) : (
                             <>
-                                <ModalButton onClick={() => setConfirmDelete(viewFile)} variant="danger">
+                                <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(viewFile)}>
                                     <span className="inline-flex items-center gap-1"><IconTrash size={11} /> Delete</span>
-                                </ModalButton>
-                                <ModalButton onClick={() => { setEditing(true); setEditContent(fileContent) }}>
+                                </Button>
+                                <Button variant="secondary" size="sm" onClick={() => { setEditing(true); setEditContent(fileContent) }}>
                                     <span className="inline-flex items-center gap-1"><IconEdit size={11} /> Edit</span>
-                                </ModalButton>
-                                <ModalButton onClick={closeModal}>Close</ModalButton>
+                                </Button>
+                                <Button variant="secondary" size="sm" onClick={closeModal}>Close</Button>
                             </>
                         )}
                     </ModalFooter>
                 </Modal>
             )}
-
             {/* Delete confirmation */}
-            {confirmDelete && (
-                <ConfirmModal
-                    title="Delete Memory"
-                    message={`Are you sure you want to delete "${confirmDelete.title}"? This will soft-delete the file.`}
-                    confirmLabel="Delete"
-                    onConfirm={() => handleDelete(confirmDelete)}
-                    onCancel={() => setConfirmDelete(null)}
-                />
-            )}
+            <AlertDialog
+                open={!!confirmDelete}
+                title="Delete Memory"
+                description={confirmDelete ? `Are you sure you want to delete "${confirmDelete.title}"? This will soft-delete the file.` : ''}
+                confirmLabel="Delete"
+                icon={<IconTrash size={15} />}
+                variant="destructive"
+                loading={deleteLoading}
+                error={deleteError}
+                onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete) }}
+                onCancel={() => { setConfirmDelete(null); setDeleteError('') }}
+            />
         </div>
     )
 }

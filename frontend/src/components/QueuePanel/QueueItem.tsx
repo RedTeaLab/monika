@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../store'
 import { App } from '../../../bindings/monika'
 import { IconPencilLine, IconPlay, IconRefresh, IconSkipForward, IconClose, IconClock, IconXCircle } from '../Icons'
+import { Button, IconButton } from '../ui'
 
 interface QueueItemProps {
     item: {
@@ -85,8 +86,6 @@ export function QueueItem({ item, sessionId, projectPath, manualMode, onDragStar
     const canEdit = item.status === 'queued' || item.status === 'error'
     const canDrag = item.status !== 'executing'
 
-    const iconBtnClass = 'flex items-center justify-center w-5 h-5 rounded hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors'
-
     return (
         <div
             className="group flex items-start gap-2 rounded border p-1.5 text-[12px]"
@@ -116,8 +115,8 @@ export function QueueItem({ item, sessionId, projectPath, manualMode, onDragStar
                             rows={2}
                         />
                         <div className="flex gap-2">
-                            <button className="text-[11px] hover:underline" style={{ color: 'var(--green)' }} onClick={handleSaveEdit}>Save</button>
-                            <button className="text-[11px] hover:underline" style={{ color: 'var(--text-dim)' }} onClick={() => { setEditText(item.text); setEditing(false) }}>Cancel</button>
+                            <Button variant="secondary" size="sm" onClick={handleSaveEdit}>Save</Button>
+                            <Button variant="ghost" size="sm" onClick={() => { setEditText(item.text); setEditing(false) }}>Cancel</Button>
                         </div>
                     </div>
                 ) : (
@@ -132,53 +131,48 @@ export function QueueItem({ item, sessionId, projectPath, manualMode, onDragStar
             {!editing && (
                 <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     {manualMode && item.status === 'queued' && (
-                        <button
-                            className={iconBtnClass}
-                            style={{ color: 'var(--text-dim)' }}
+                        <IconButton
+                            label="Run"
+                            size="sm"
                             onClick={(e) => { e.stopPropagation(); handleExecute() }}
-                            title="Run"
                         >
                             <IconPlay size={13} />
-                        </button>
+                        </IconButton>
                     )}
                     {canEdit && (
-                        <button
-                            className={iconBtnClass}
-                            style={{ color: 'var(--text-dim)' }}
+                        <IconButton
+                            label="Edit"
+                            size="sm"
                             onClick={(e) => { e.stopPropagation(); setEditing(true) }}
-                            title="Edit"
                         >
                             <IconPencilLine size={13} />
-                        </button>
+                        </IconButton>
                     )}
                     {item.status === 'error' && (
                         <>
-                            <button
-                                className={iconBtnClass}
-                                style={{ color: 'var(--text-dim)' }}
+                            <IconButton
+                                label="Retry"
+                                size="sm"
                                 onClick={(e) => { e.stopPropagation(); handleRetry() }}
-                                title="Retry"
                             >
                                 <IconRefresh size={13} />
-                            </button>
-                            <button
-                                className={iconBtnClass}
-                                style={{ color: 'var(--text-dim)' }}
+                            </IconButton>
+                            <IconButton
+                                label="Skip"
+                                size="sm"
                                 onClick={(e) => { e.stopPropagation(); handleSkip() }}
-                                title="Skip"
                             >
                                 <IconSkipForward size={13} />
-                            </button>
+                            </IconButton>
                         </>
                     )}
-                    <button
-                        className={iconBtnClass}
-                        style={{ color: 'var(--text-dim)' }}
+                    <IconButton
+                        label="Cancel"
+                        size="sm"
                         onClick={(e) => { e.stopPropagation(); handleCancel() }}
-                        title="Cancel"
                     >
                         <IconClose size={13} />
-                    </button>
+                    </IconButton>
                 </div>
             )}
         </div>

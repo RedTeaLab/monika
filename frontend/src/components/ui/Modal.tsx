@@ -1,4 +1,4 @@
-import { useEffect, useRef, forwardRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface ModalProps {
@@ -74,22 +74,3 @@ export function ModalFooter({ children }: { children: ReactNode }) {
 
 export const ModalActions = ModalFooter
 
-export const ModalButton = forwardRef<HTMLButtonElement, {
-    children: ReactNode
-    onClick?: () => void
-    disabled?: boolean
-    variant?: 'default' | 'primary' | 'danger'
-    type?: 'button' | 'submit'
-}>(({ children, onClick, disabled, variant = 'default', type = 'button' }, ref) => {
-    const base = 'px-3.5 py-1.5 text-[12px] font-medium rounded-md transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-strong)]'
-    const styles: Record<string, string> = {
-        default: `${base} text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]`,
-        primary: `${base} bg-[var(--accent-muted)] text-[var(--accent)] hover:bg-[var(--bg-hover)]`,
-        danger: `${base} bg-[var(--red)]/15 text-[var(--red)] hover:bg-[var(--red)]/25`,
-    }
-    return (
-        <button ref={ref} type={type} onClick={onClick} disabled={disabled} className={styles[variant]}>
-            {children}
-        </button>
-    )
-})

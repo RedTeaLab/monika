@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
-import { Button, IconButton, Input, Select } from '../ui'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, IconButton, Input, Select, AlertDialog } from '../ui'
 import { IconShield, IconTrash, IconPlus } from '../Icons'
 import {
   SettingsTabHeader,
@@ -117,10 +116,10 @@ function AddRuleModal({
         {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
       </ModalBody>
       <ModalFooter>
-        <ModalButton onClick={onClose} disabled={loading}>Cancel</ModalButton>
-        <ModalButton variant="primary" onClick={handleAdd} disabled={loading}>
+        <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="primary" size="sm" onClick={handleAdd} disabled={loading} loading={loading}>
           {loading ? 'Adding...' : 'Add Rule'}
-        </ModalButton>
+        </Button>
       </ModalFooter>
     </Modal>
   )
@@ -143,8 +142,19 @@ function PermissionsTab() {
     }
   }, [projectPath])
 
-  const handleDelete = (tool: string, pattern: string, source: string) => {
-    deletePermissionRule(tool, pattern, source)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const handleDelete = async (tool: string, pattern: string, source: string) => {
+    setDeleteLoading(true)
+    setDeleteError('')
+    try {
+      await deletePermissionRule(tool, pattern, source)
+      setConfirmDelete(null)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete rule')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const handleAdd = async (tool: string, pattern: string, decision: string, source: string) => {
@@ -232,16 +242,18 @@ function PermissionsTab() {
         )}
       </SettingsCardList>
 
-      {confirmDelete && (
-        <ConfirmModal
-          title="Delete Permission Rule"
-          message={`Are you sure you want to delete the rule for "${confirmDelete.tool}"?`}
-          confirmLabel="Delete"
-          icon={<IconTrash size={15} />}
-          onConfirm={async () => { await handleDelete(confirmDelete.tool, confirmDelete.pattern, confirmDelete.source); setConfirmDelete(null) }}
-          onCancel={() => setConfirmDelete(null)}
-        />
-      )}
+      <AlertDialog
+        open={!!confirmDelete}
+        title="Delete Permission Rule"
+        description={confirmDelete ? `Are you sure you want to delete the rule for "${confirmDelete.tool}"?` : ''}
+        confirmLabel="Delete"
+        icon={<IconTrash size={15} />}
+        variant="destructive"
+        loading={deleteLoading}
+        error={deleteError}
+        onConfirm={() => { if (confirmDelete) handleDelete(confirmDelete.tool, confirmDelete.pattern, confirmDelete.source) }}
+        onCancel={() => { setConfirmDelete(null); setDeleteError('') }}
+      />
     </div>
   )
 }

@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore, AvailableProviderInfo } from '../../store'
 import { CopilotLoginSection } from './CopilotLogin'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import ConfirmModal from '../Chat/ConfirmModal'
-import { Button, Input, Combobox } from '../ui'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, IconButton, Input, Combobox, AlertDialog } from '../ui'
 import { IconDatabase, IconEdit, IconPlus, IconTrash, IconStar } from '../Icons'
 import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
@@ -43,6 +42,8 @@ export default function ModelsTab() {
     const [error, setError] = useState('')
     const [saved, setSaved] = useState(false)
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+    const [deleteLoading, setDeleteLoading] = useState(false)
+    const [deleteError, setDeleteError] = useState('')
     const [authMode, setAuthMode] = useState<'api_key' | 'oauth'>('api_key')
     const [copilotToken, setCopilotToken] = useState<{
         refreshToken: string
@@ -147,8 +148,15 @@ export default function ModelsTab() {
 
     const handleDelete = useCallback(async () => {
         if (!deleteTarget) return
-        try { await deleteProvider(deleteTarget) } catch { /* best effort */ }
-        setDeleteTarget(null)
+        setDeleteError(''); setDeleteLoading(true)
+        try {
+            await deleteProvider(deleteTarget)
+            setDeleteTarget(null)
+        } catch (e) {
+            setDeleteError(e instanceof Error ? e.message : 'Failed to delete provider')
+        } finally {
+            setDeleteLoading(false)
+        }
     }, [deleteTarget, deleteProvider])
 
     const setDefaultModel = useCallback(async (providerId: string, modelId: string) => {
@@ -196,8 +204,8 @@ export default function ModelsTab() {
                                 key={p.id}
                                 hoverActions={
                                     <>
-                                        <button onClick={() => openEdit(p)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Edit ${p.display_name}`}><IconEdit size={13} /></button>
-                                        <button onClick={() => setDeleteTarget(p.id)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Delete ${p.display_name}`}><IconTrash size={13} /></button>
+                                        <IconButton label={`Edit ${p.display_name}`} size="sm" variant="ghost" onClick={() => openEdit(p)}><IconEdit size={13} /></IconButton>
+                                        <IconButton label={`Delete ${p.display_name}`} size="sm" variant="ghost" onClick={() => setDeleteTarget(p.id)} className="hover:text-[var(--red)]"><IconTrash size={13} /></IconButton>
                                     </>
                                 }
                             >
@@ -225,10 +233,11 @@ export default function ModelsTab() {
                                         {p.models.map(m => {
                                             const isDefault = p.id === selectedProvider && m.id === selectedModel
                                             return (
-                                                <button
+                                                <Button
                                                     key={m.id}
+                                                    variant="ghost"
                                                     onClick={() => setDefaultModel(p.id, m.id)}
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] bg-transparent border-none cursor-pointer transition-colors"
+                                                    className="h-auto px-2 py-0.5 text-[11px] gap-1 rounded"
                                                     style={{
                                                         background: isDefault ? 'var(--accent-muted)' : 'var(--bg-sidebar)',
                                                         color: isDefault ? 'var(--accent)' : 'var(--text-primary)',
@@ -241,7 +250,7 @@ export default function ModelsTab() {
                                                             {formatContext(m.context_limit ?? 0)}
                                                         </span>
                                                     )}
-                                                </button>
+                                                </Button>
                                             )
                                         })}
                                     </div>
@@ -318,25 +327,26 @@ export default function ModelsTab() {
                         )}
                     </ModalBody>
                     <ModalFooter>
-                        <ModalButton onClick={closeModal} disabled={loading}>Cancel</ModalButton>
-                        <ModalButton variant="primary" onClick={handleSave} disabled={loading || !provId.trim() || !name.trim()}>
+                        <Button variant="secondary" size="sm" onClick={closeModal} disabled={loading}>Cancel</Button>
+                        <Button variant="primary" size="sm" onClick={handleSave} disabled={loading || !provId.trim() || !name.trim()}>
                             {loading ? 'Saving...' : 'Save Provider'}
-                        </ModalButton>
+                        </Button>
                     </ModalFooter>
                 </Modal>
             )}
 
-            {deleteTarget && (
-                <ConfirmModal
-                    title="Delete Provider"
-                    message={`Are you sure you want to delete "${providers.find(p => p.id === deleteTarget)?.display_name || deleteTarget}"? This cannot be undone.`}
-                    confirmLabel="Delete"
-                    variant="danger"
-                    icon={<IconTrash size={15} />}
-                    onConfirm={handleDelete}
-                    onCancel={() => setDeleteTarget(null)}
-                />
-            )}
+            <AlertDialog
+                open={!!deleteTarget}
+                title="Delete Provider"
+                description={`Are you sure you want to delete "${providers.find(p => p.id === deleteTarget)?.display_name || deleteTarget}"? This cannot be undone.`}
+                confirmLabel="Delete"
+                variant="destructive"
+                icon={<IconTrash size={15} />}
+                loading={deleteLoading}
+                error={deleteError}
+                onConfirm={handleDelete}
+                onCancel={() => { setDeleteTarget(null); setDeleteError('') }}
+            />
         </div>
     )
 }

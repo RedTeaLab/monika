@@ -36,12 +36,12 @@ export type { BadgeProps, BadgeVariant, BadgeSize, StatusDotProps, StatusColor }
 export { Card, CardHeader, CardTitle, CardBody, EmptyState, Divider } from './Card'
 export type { CardProps, EmptyStateProps } from './Card'
 
+export { default as Modal, ModalHeader, ModalBody, ModalFooter, ModalActions } from './Modal'
 export { Tabs } from './Tabs'
 export type { TabsProps, TabItem } from './Tabs'
 
 export { Tooltip } from './Tooltip'
 export type { TooltipProps } from './Tooltip'
 
-export { default as Modal, ModalHeader, ModalBody, ModalFooter, ModalActions, ModalButton } from './Modal'
 export { AlertDialog } from './AlertDialog'
 export type { AlertDialogProps } from './AlertDialog'

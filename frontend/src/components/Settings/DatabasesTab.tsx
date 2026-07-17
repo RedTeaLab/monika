@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { App } from '../../../bindings/monika'
 import { IconDatabase, IconRefresh, IconZap, IconPlus, IconChevronDown, IconChevronRight } from '../Icons'
-import { Button, Select, Input, StatusDot, Badge } from '../ui'
+import { Button, IconButton, Select, Input, StatusDot, Badge } from '../ui'
 import type { StatusColor } from '../ui'
 import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
@@ -42,15 +42,14 @@ function ConnectionCard({ conn, onTest, testState }: {
   return (
     <SettingsCard
       hoverActions={
-        <button
+        <IconButton
+          label={`Test ${conn.name}`}
+          size="sm"
           onClick={onTest}
           disabled={testState.loading}
-          title="Test connection"
-          className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-          aria-label={`Test ${conn.name}`}
         >
-          {testState.loading ? <IconRefresh size={14} /> : <IconZap size={14} />}
-        </button>
+          {testState.loading ? <IconRefresh size={12} /> : <IconZap size={12} />}
+        </IconButton>
       }
     >
       <div className="flex items-start gap-3">

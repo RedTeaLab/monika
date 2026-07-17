@@ -6,8 +6,8 @@ import { App as MonikaApp } from '../../../bindings/monika'
 import type { ChangeStat, CommitInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import { GitBranch, GitCommitHorizontal, Copy, Clipboard, Tag, GitPullRequestArrow, RotateCcw, UndoDot, Pencil, Eye, Circle, CircleCheck, Upload, Download } from 'lucide-react'
-import ConfirmModal from '../Chat/ConfirmModal'
-import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
+import { Button, AlertDialog } from '../ui'
 
 function useEffectiveChangesPath() {
     const projectPath = useStore((s) => s.projectPath)
@@ -414,10 +414,12 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; commit: CommitInfo } | null>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const menuJustOpened = useRef(false)
-    const [confirmModal, setConfirmModal] = useState<{
+    const [pendingConfirm, setPendingConfirm] = useState<{
         title: string; message: string; confirmLabel: string; variant: 'danger' | 'primary';
         onConfirm: () => Promise<void>;
     } | null>(null)
+    const [confirmLoading, setConfirmLoading] = useState(false)
+    const [confirmError, setConfirmError] = useState('')
     const [inputModal, setInputModal] = useState<{
         title: string; label: string; defaultValue: string; confirmLabel: string;
         onConfirm: (value: string) => Promise<void>;
@@ -499,7 +501,7 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
 
     const handleRevertCommit = (c: CommitInfo) => {
         setContextMenu(null)
-        setConfirmModal({
+        setPendingConfirm({
             title: `Revert ${c.hash.slice(0, 7)}?`,
             message: `This will create a new commit that reverses "${c.message}".`,
             confirmLabel: 'Revert',
@@ -507,14 +509,14 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
             onConfirm: async () => {
                 await MonikaApp.RevertCommit(effectivePath, c.hash)
                 loadCommitHistory()
-                setConfirmModal(null)
+                setPendingConfirm(null)
             },
         })
     }
 
     const handleCherryPick = (c: CommitInfo) => {
         setContextMenu(null)
-        setConfirmModal({
+        setPendingConfirm({
             title: 'Cherry-pick Commit?',
             message: `Apply "${c.hash.slice(0, 7)}: ${c.message}" to the current branch.`,
             confirmLabel: 'Cherry-pick',
@@ -522,7 +524,7 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
             onConfirm: async () => {
                 await MonikaApp.CherryPickCommit(effectivePath, c.hash)
                 loadCommitHistory()
-                setConfirmModal(null)
+                setPendingConfirm(null)
             },
         })
     }
@@ -534,7 +536,7 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
             mixed: 'HEAD + index — unstaged changes are kept (default).',
             hard: 'ALL changes will be permanently discarded.',
         }
-        setConfirmModal({
+        setPendingConfirm({
             title: `Reset to ${c.hash.slice(0, 7)} (${mode})?`,
             message: descriptions[mode] + (mode === 'hard' ? ' This cannot be undone.' : ''),
             confirmLabel: `Reset ${mode}`,
@@ -542,7 +544,7 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
             onConfirm: async () => {
                 await MonikaApp.ResetToCommit(effectivePath, c.hash, mode)
                 loadCommitHistory()
-                setConfirmModal(null)
+                setPendingConfirm(null)
             },
         })
     }
@@ -646,14 +648,27 @@ function HistoryTab({ active, effectivePath }: { active: boolean; effectivePath:
                 ))}
             </div>
             {renderContextMenu()}
-            {confirmModal && (
-                <ConfirmModal
-                    title={confirmModal.title}
-                    message={confirmModal.message}
-                    confirmLabel={confirmModal.confirmLabel}
-                    variant={confirmModal.variant}
-                    onConfirm={confirmModal.onConfirm}
-                    onCancel={() => setConfirmModal(null)}
+            {pendingConfirm && (
+                <AlertDialog
+                    open={true}
+                    title={pendingConfirm.title}
+                    description={pendingConfirm.message}
+                    confirmLabel={pendingConfirm.confirmLabel}
+                    variant={pendingConfirm.variant === 'primary' ? 'primary' : 'destructive'}
+                    loading={confirmLoading}
+                    error={confirmError}
+                    onConfirm={async () => {
+                        setConfirmError(''); setConfirmLoading(true)
+                        try {
+                            await pendingConfirm.onConfirm()
+                            setPendingConfirm(null)
+                        } catch (e) {
+                            setConfirmError(e instanceof Error ? e.message : 'Operation failed')
+                        } finally {
+                            setConfirmLoading(false)
+                        }
+                    }}
+                    onCancel={() => { setPendingConfirm(null); setConfirmError('') }}
                 />
             )}
             {inputModal && <InputModal config={inputModal} onCancel={() => setInputModal(null)} />}
@@ -824,10 +839,10 @@ function InputModal({ config, onCancel }: { config: { title: string; label: stri
                 {error && <p className="text-[12px] text-[var(--red)] mt-3 mb-0">{error}</p>}
             </ModalBody>
             <ModalFooter>
-                <ModalButton onClick={onCancel} disabled={isLoading}>Cancel</ModalButton>
-                <ModalButton variant="primary" onClick={handleSubmit} disabled={isLoading || !value.trim()}>
+                <Button variant="secondary" size="sm" onClick={onCancel} disabled={isLoading}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={handleSubmit} disabled={isLoading || !value.trim()}>
                     {isLoading ? `${config.confirmLabel}ing...` : config.confirmLabel}
-                </ModalButton>
+                </Button>
             </ModalFooter>
         </Modal>
     )

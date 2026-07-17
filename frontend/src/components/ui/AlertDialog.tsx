@@ -7,21 +7,20 @@ export interface AlertDialogProps {
   title: ReactNode
   description?: ReactNode
   icon?: ReactNode
-  /** Confirm button text. */
   confirmLabel?: string
-  /** Cancel button text. Hide cancel button by setting to undefined. */
   cancelLabel?: string | null
-  /** Variant controls confirm button styling. */
   variant?: Extract<ButtonVariant, 'primary' | 'destructive'>
   loading?: boolean
+  /** Error message from a failed confirm action; shown below description. */
+  error?: string
   onConfirm: () => void
   onCancel: () => void
 }
 
 /**
  * Confirmation dialog — modal that blocks until user picks confirm or cancel.
- * Built on top of the shared Modal primitive. Replaces hand-rolled
- * Chat/ConfirmModal and other inline confirm dialogs.
+ * Built on top of the shared Modal primitive. Standard replacement for
+ * hand-rolled inline confirm dialogs.
  */
 export function AlertDialog({
   open,
@@ -32,6 +31,7 @@ export function AlertDialog({
   cancelLabel = 'Cancel',
   variant = 'primary',
   loading = false,
+  error,
   onConfirm,
   onCancel,
 }: AlertDialogProps) {
@@ -60,6 +60,9 @@ export function AlertDialog({
           <div className="text-sm text-[var(--text-secondary)] leading-relaxed">
             {description}
           </div>
+        )}
+        {error && (
+          <p className="text-xs text-[var(--color-error)] mt-3 mb-0">{error}</p>
         )}
       </ModalBody>
       <ModalFooter>

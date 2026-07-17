@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
-import ConfirmModal from '../Chat/ConfirmModal';
 import { getErrorMessage, parseUnmergedError, sectionHeaderStyle, resolveUnmergedWithAI } from './dropdownHelpers';
-import { Button, Input, Select } from '../ui';
+import { Button, Input, Select, AlertDialog } from '../ui';
 
 interface CreateBranchPanelProps {
   onCancel: () => void;
@@ -20,6 +19,8 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
   const [error, setError] = useState<string | null>(null);
   const [unmergedFiles, setUnmergedFiles] = useState<string[] | null>(null);
   const [creating, setCreating] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState('');
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -95,21 +96,29 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
           </Button>
         </div>
       </div>
-      {unmergedFiles && (
-        <ConfirmModal
-          title="Cannot Create Branch"
-          message={`Unresolved merge conflicts detected:\n\n${unmergedFiles.join('\n')}\n\nLet AI resolve them automatically?`}
-          confirmLabel="Let AI Handle"
-          variant="primary"
-          onConfirm={async () => {
-            const files = unmergedFiles;
+      <AlertDialog
+        open={!!unmergedFiles}
+        title="Cannot Create Branch"
+        description={unmergedFiles ? `Unresolved merge conflicts detected:\n\n${unmergedFiles.join('\n')}\n\nLet AI resolve them automatically?` : ''}
+        confirmLabel="Let AI Handle"
+        variant="primary"
+        loading={confirmLoading}
+        error={confirmError}
+        onConfirm={async () => {
+          setConfirmError(''); setConfirmLoading(true);
+          try {
+            const files = unmergedFiles!;
             await resolveUnmergedWithAI(projectPath, files, useStore.getState());
             setUnmergedFiles(null);
             onCancel();
-          }}
-          onCancel={() => setUnmergedFiles(null)}
-        />
-      )}
+          } catch (e) {
+            setConfirmError(e instanceof Error ? e.message : 'Operation failed');
+          } finally {
+            setConfirmLoading(false);
+          }
+        }}
+        onCancel={() => { setUnmergedFiles(null); setConfirmError('') }}
+      />
     </>
   );
 }
