@@ -45,7 +45,7 @@ function defineMonikaTheme(m: typeof monaco) {
             { token: 'attribute.name', foreground: 'fab387' },
         ],
         colors: {
-            'editor.background': '#0a0b10',
+            'editor.background': '#0d0e12',
             'editor.foreground': '#cdd6f4',
             'editorLineNumber.foreground': '#3e4451',
             'editorLineNumber.activeForeground': '#8b8b9e',
@@ -57,15 +57,15 @@ function defineMonikaTheme(m: typeof monaco) {
             'editorWhitespace.foreground': '#2b2d35',
             'editorIndentGuide.background1': '#1a1c24',
             'editorIndentGuide.activeBackground1': '#2b2d35',
-            'editorGutter.background': '#0a0b10',
+            'editorGutter.background': '#121319',
             'editor.foldBackground': '#12141c',
             'editorBracketMatch.background': '#4b7ddb22',
             'editorBracketMatch.border': '#4b7ddb55',
-            'editorOverviewRuler.border': '#0a0b10',
+            'editorOverviewRuler.border': '#0d0e12',
             'scrollbarSlider.background': '#ffffff11',
             'scrollbarSlider.hoverBackground': '#ffffff22',
             'scrollbarSlider.activeBackground': '#ffffff33',
-            'minimap.background': '#0a0b10',
+            'minimap.background': '#121319',
         },
     })
 }
@@ -256,7 +256,7 @@ export default function MonacoPreview({ filePath, projectPath, content, language
             onMount={handleEditorDidMount}
             options={{
                 fontSize: 13,
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                fontFamily: "'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace",
                 lineHeight: 22,
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
