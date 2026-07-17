@@ -41,14 +41,14 @@ function isBinaryContent(content: string): boolean {
 const previewTheme = EditorView.theme({
     '&': {
         fontFamily: 'var(--font-mono)',
-        backgroundColor: '#08090d',
+        backgroundColor: '#0d0e12',
         height: '100%',
         color: '#abb2bf',
     },
-    '.cm-scroller': { backgroundColor: '#08090d' },
+    '.cm-scroller': { backgroundColor: '#0d0e12' },
     '.cm-gutters': {
         fontFamily: 'var(--font-mono)',
-        backgroundColor: '#0a0b10',
+        backgroundColor: '#121319',
         color: '#495162',
         border: 'none',
         paddingLeft: 8,
@@ -1361,7 +1361,7 @@ function PreviewPanel(props: IDockviewPanelProps) {
     }, [])
 
     return (
-        <div className="flex flex-col h-full" style={{ background: '#08090d' }}>
+        <div className="flex flex-col h-full" style={{ background: 'var(--bg-root)' }}>
             <div ref={headerRef} style={{ display: 'none' }} />
             <div
                 className="flex items-center gap-1.5 select-none shrink-0"
