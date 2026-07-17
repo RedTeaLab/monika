@@ -139,7 +139,7 @@ function MsgBlock({
         <div
             className="rounded-lg px-[12px] py-[8px] w-full relative group/msg"
             style={{
-                background: background || 'var(--bg-elevated)',
+                background: background || 'var(--surface-sidebar)',
             }}
         >
             {header && <div className={children ? 'mb-2' : ''}>{header}</div>}
@@ -153,7 +153,7 @@ function MsgBlock({
 function ThinkingBlock({ content, isGenerating }: { content: string; isGenerating?: boolean }) {
     return (
         <MsgBlock
-            background="var(--bg-card)"
+            background="var(--surface-sidebar)"
             header={
                 <span className="text-[10px] font-semibold uppercase tracking-[0.05em]" style={{ color: 'var(--yellow)' }}>
                     Thinking
@@ -273,7 +273,7 @@ function ToolBlock({ tool }: { tool: ToolCall }) {
     )
 
     return (
-        <MsgBlock header={header} background="var(--bg-sidebar)">
+        <MsgBlock header={header} background="var(--surface-sidebar)">
             {hasInput && (
                 <div className="mb-2 relative group/input">
                     <button
@@ -459,7 +459,7 @@ function CompactionCard({ message }: { message: Message }) {
     return (
         <MsgBlock
             accent="var(--compaction)"
-            background="var(--bg-card)"
+            background="var(--surface-sidebar)"
             header={
                 <button
                     className="flex items-center gap-1.5 cursor-pointer w-full text-left"
@@ -575,7 +575,7 @@ const MessageBubble = React.memo(function MessageBubble({ message, isGenerating,
             return (
                 <div className="flex flex-col gap-1.5 mb-1.5">
                     <RoleLabel role="compaction" isGenerating />
-                    <MsgBlock accent="var(--compaction)" background="var(--bg-card)">
+                    <MsgBlock accent="var(--compaction)" background="var(--surface-sidebar)">
                         <div className="flex items-center gap-2 text-[13px] text-[var(--text-dim)]">
                             <span className="inline-block w-3.5 h-3.5 border-2 border-[var(--compaction)] border-t-transparent rounded-full animate-spin" />
                             Compacting...
