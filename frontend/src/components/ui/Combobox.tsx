@@ -244,6 +244,11 @@ export function Combobox({
         <div
           ref={panelRef}
           role="listbox"
+          style={{
+            top: panelPos?.top ?? 0,
+            left: panelPos?.left ?? 0,
+            width: panelWidth ?? triggerRef.current?.offsetWidth ?? 200,
+          }}
           className={cn(
             'fixed z-[1000]',
             'bg-[var(--surface-elevated)] backdrop-blur-xl',
