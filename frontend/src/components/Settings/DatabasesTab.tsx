@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { App } from '../../../bindings/monika'
 import { IconDatabase, IconRefresh, IconZap, IconPlus, IconChevronDown, IconChevronRight } from '../Icons'
+import { Button, Select, Input, StatusDot, Badge } from '../ui'
+import type { StatusColor } from '../ui'
+import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
 type DBConn = {
   name: string
@@ -12,17 +15,23 @@ type DBConn = {
 
 const DRIVERS = ['postgres', 'mysql', 'sqlite', 'redis', 'mongo']
 
-function statusDot(status: string) {
-  if (status === 'connected') return <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
-  if (status === 'error' || status === 'unavailable') return <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
-  return <span className="inline-block w-1.5 h-1.5 rounded-full bg-yellow-500" />
+function statusDotColor(status: string): StatusColor {
+  if (status === 'connected') return 'success'
+  if (status === 'error' || status === 'unavailable') return 'error'
+  return 'warning'
 }
 
-function statusLabel(status: string) {
-  if (status === 'connected') return <span className="text-green-400">connected</span>
-  if (status === 'error') return <span className="text-red-400">error</span>
-  if (status === 'unavailable') return <span className="text-red-400">unavailable</span>
-  return <span className="text-yellow-400">available</span>
+function statusBadgeVariant(status: string): 'success' | 'error' | 'warning' {
+  if (status === 'connected') return 'success'
+  if (status === 'error' || status === 'unavailable') return 'error'
+  return 'warning'
+}
+
+function statusLabel(status: string): string {
+  if (status === 'connected') return 'connected'
+  if (status === 'error') return 'error'
+  if (status === 'unavailable') return 'unavailable'
+  return 'available'
 }
 
 function ConnectionCard({ conn, onTest, testState }: {
@@ -31,9 +40,18 @@ function ConnectionCard({ conn, onTest, testState }: {
   testState: { loading: boolean; result?: string; error?: string }
 }) {
   return (
-    <div
-      className="rounded-lg px-4 py-3 w-full relative group/card"
-      style={{ background: 'var(--bg-card)' }}
+    <SettingsCard
+      hoverActions={
+        <button
+          onClick={onTest}
+          disabled={testState.loading}
+          title="Test connection"
+          className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
+          aria-label={`Test ${conn.name}`}
+        >
+          {testState.loading ? <IconRefresh size={14} /> : <IconZap size={14} />}
+        </button>
+      }
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
@@ -53,8 +71,8 @@ function ConnectionCard({ conn, onTest, testState }: {
               {conn.driver}
             </span>
             <span className="inline-flex items-center gap-1 text-[10px]">
-              {statusDot(conn.status)}
-              {statusLabel(conn.status)}
+              <StatusDot color={statusDotColor(conn.status)} />
+              <Badge variant={statusBadgeVariant(conn.status)} size="sm">{statusLabel(conn.status)}</Badge>
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--text-dim)]">
@@ -64,25 +82,14 @@ function ConnectionCard({ conn, onTest, testState }: {
             <div className="mt-1 text-[10px] text-[var(--red)]">{conn.error}</div>
           )}
           {testState.result && (
-            <div className="mt-1 text-[10px] text-green-400">{testState.result}</div>
+            <div className="mt-1 text-[10px] text-[var(--green)]">{testState.result}</div>
           )}
           {testState.error && (
             <div className="mt-1 text-[10px] text-[var(--red)]">{testState.error}</div>
           )}
         </div>
-        <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
-          <button
-            onClick={onTest}
-            disabled={testState.loading}
-            title="Test connection"
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Test ${conn.name}`}
-          >
-            {testState.loading ? <IconRefresh size={14} /> : <IconZap size={14} />}
-          </button>
-        </div>
       </div>
-    </div>
+    </SettingsCard>
   )
 }
 
@@ -131,29 +138,31 @@ export default function DatabasesTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-[15px] font-semibold m-0 mb-1">Databases</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">Manage discovered database connections</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowAdd((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-          >
-            {showAdd ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-            Add
-          </button>
-          <button
-            onClick={handleRescan}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-          >
-            <IconRefresh size={12} />
-            {loading ? 'Scanning...' : 'Rescan Project'}
-          </button>
-        </div>
-      </div>
+      <SettingsTabHeader
+        title="Databases"
+        description="Discovered database connections"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRescan}
+              disabled={loading}
+            >
+              <IconRefresh size={12} />
+              {loading ? 'Scanning...' : 'Rescan'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdd((v) => !v)}
+            >
+              {showAdd ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+              Add
+            </Button>
+          </>
+        }
+      />
 
       {showAdd && (
         <div
@@ -161,54 +170,38 @@ export default function DatabasesTab() {
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
         >
           <div className="flex items-center gap-3">
-            <input
-              type="text"
+            <Input
               value={addName}
               onChange={(e) => { setAddName(e.target.value); setAddError('') }}
               placeholder="Connection name"
-              className="flex-1 text-[12px] font-mono px-3 py-1.5 rounded-md outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
-              style={{
-                background: 'var(--bg-console)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-              }}
+              className="flex-1 font-mono"
             />
-            <select
+            <Select
               value={addDriver}
               onChange={(e) => setAddDriver(e.target.value)}
-              className="text-[12px] px-3 py-1.5 rounded-md outline-none cursor-pointer"
-              style={{
-                background: 'var(--bg-console)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-              }}
+              className="w-auto"
             >
               {DRIVERS.map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="flex items-center gap-3">
-            <input
-              type="text"
+            <Input
               value={addDSN}
               onChange={(e) => { setAddDSN(e.target.value); setAddError('') }}
               placeholder="DSN (e.g. postgres://user:pass@localhost:5432/dbname)"
-              className="flex-1 text-[12px] font-mono px-3 py-1.5 rounded-md outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
-              style={{
-                background: 'var(--bg-console)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-              }}
+              className="flex-1 font-mono"
             />
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               disabled
               title="Manual connections coming soon"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-dim)] cursor-not-allowed opacity-50"
             >
               <IconPlus size={12} />
               Add
-            </button>
+            </Button>
             <span className="text-[10px] text-[var(--text-dim)] self-center italic">Coming soon</span>
           </div>
           {addError && (
@@ -218,13 +211,13 @@ export default function DatabasesTab() {
       )}
 
       {connections.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-          <IconDatabase size={32} />
-          <span className="text-[13px] mt-3">No databases discovered.</span>
-          <span className="text-[11px] mt-1">Click "Rescan Project" to detect databases.</span>
-        </div>
+        <SettingsEmptyState
+          icon={<IconDatabase size={32} />}
+          title="No databases discovered."
+          description='Click "Rescan" to detect databases.'
+        />
       ) : (
-        <div className="space-y-3">
+        <SettingsCardList>
           {connections.map((conn) => (
             <ConnectionCard
               key={conn.name}
@@ -233,7 +226,7 @@ export default function DatabasesTab() {
               testState={testStates[conn.name] || { loading: false }}
             />
           ))}
-        </div>
+        </SettingsCardList>
       )}
     </div>
   )

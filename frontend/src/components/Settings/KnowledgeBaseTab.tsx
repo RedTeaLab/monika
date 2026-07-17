@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { App } from '../../../bindings/monika'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconDatabase, IconSearch, IconTrash, IconEdit, IconEye } from '../Icons'
+import { Button, SearchInput, Switch, Textarea } from '../ui'
+import { IconDatabase, IconTrash, IconEdit, IconEye } from '../Icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useStore } from '../../store'
+import { SettingsTabHeader, SettingsScopeToggle, SettingsEmptyState } from './shared'
 
 interface KBFileInfo {
     path: string
@@ -27,7 +30,7 @@ interface KBStats {
 }
 
 function KnowledgeBaseTab() {
-    const [scope, setScope] = useState<'global' | 'project'>('project')
+    const scope = useStore((s) => s.settingsScope)
     const [files, setFiles] = useState<KBFileInfo[]>([])
     const [stats, setStats] = useState<KBStats | null>(null)
     const [searchQuery, setSearchQuery] = useState('')
@@ -66,6 +69,8 @@ function KnowledgeBaseTab() {
     useEffect(() => {
         loadFiles()
         loadStats()
+        // Scope changed via header toggle — drop any stale search results.
+        setSearchResults([])
     }, [loadFiles, loadStats])
 
     const handleView = async (f: KBFileInfo) => {
@@ -151,8 +156,8 @@ function KnowledgeBaseTab() {
         const styles: Record<string, string> = {
             doc: 'text-[var(--accent)] bg-[var(--accent-muted)]',
             code: 'text-[var(--green)] bg-[var(--green)]/10',
-            lessons: 'text-[#f59e0b] bg-[rgba(245,158,11,0.1)]',
-            topics: 'text-[#8b5cf6] bg-[rgba(139,92,246,0.1)]',
+            lessons: 'text-[var(--orange)] bg-[var(--orange)]/10',
+            topics: 'text-[var(--purple)] bg-[var(--purple)]/10',
             knowledge: 'text-[var(--text-primary)] bg-[var(--bg-sidebar)]',
             profile: 'text-[var(--text-dim)] bg-[var(--bg-sidebar)]',
         }
@@ -162,47 +167,26 @@ function KnowledgeBaseTab() {
 
     return (
         <div>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div>
-                    <h3 className="text-[15px] font-semibold m-0 mb-1">Memory</h3>
-                    <p className="text-[11px] text-[var(--text-dim)] m-0">Browse, search and manage stored memories</p>
-                </div>
-                <div className="inline-flex rounded-md border border-[var(--border)] overflow-hidden">
-                    {(['project', 'global'] as const).map((s) => (
-                        <button
-                            key={s}
-                            onClick={() => { setScope(s); setSearchResults([]) }}
-                            className="px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-colors border-none"
-                            style={{
-                                background: scope === s ? 'var(--accent-muted)' : 'transparent',
-                                color: scope === s ? 'var(--accent)' : 'var(--text-secondary)',
-                            }}
-                        >
-                            {s.charAt(0).toUpperCase() + s.slice(1)}
-                        </button>
-                    ))}
-                </div>
-            </div>
+            <SettingsTabHeader
+                title="Memory"
+                description="Knowledge base entries extracted from conversations"
+                actions={<SettingsScopeToggle />}
+            />
 
             {/* Search bar */}
             <div className="mb-3">
                 <div className="flex gap-2">
-                    <div className="relative flex-1">
-                        <div className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-dim)' }}>
-                            <IconSearch size={12} />
-                        </div>
-                        <input
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                            placeholder="Search memory..."
-                            className="w-full pl-8 pr-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
-                        />
-                    </div>
-                    <button onClick={handleSearch} className="inline-flex items-center gap-1 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors">
+                    <SearchInput
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                        placeholder="Search memory..."
+                        onClear={() => setSearchQuery('')}
+                        className="flex-1"
+                    />
+                    <Button variant="outline" size="sm" onClick={handleSearch}>
                         Search
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -218,11 +202,11 @@ function KnowledgeBaseTab() {
             {loading ? (
                 <div className="py-8 text-center text-[12px] text-[var(--text-dim)]">Loading...</div>
             ) : filesToShow.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-                    <IconDatabase size={32} />
-                    <span className="text-[13px] mt-3">No files found.</span>
-                    <span className="text-[11px] mt-1">Use AI chat to add documents, repos, or memories.</span>
-                </div>
+                <SettingsEmptyState
+                    icon={<IconDatabase size={32} />}
+                    title="No files found."
+                    description="Use AI chat to add documents, repos, or memories."
+                />
             ) : (
                 <div className="rounded-lg border border-[var(--border)] overflow-hidden" style={{ background: 'var(--bg-card)' }}>
                     <table className="w-full" style={{ borderCollapse: 'collapse' }}>
@@ -258,25 +242,20 @@ function KnowledgeBaseTab() {
                                         <span className="text-[11px] text-[var(--text-dim)]">{f.updated_at}</span>
                                     </td>
                                     <td className="px-3 py-2.5 text-center">
-                                        <button
-                                            onClick={() => handleToggleStatus(f)}
-                                            className="relative w-8 h-[18px] rounded-full border-none cursor-pointer transition-colors"
-                                            style={{ background: f.status === 'active' ? 'var(--accent)' : 'var(--border)' }}
-                                            title={f.status === 'active' ? 'Disable' : 'Enable'}
-                                        >
-                                            <span
-                                                className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all"
-                                                style={{ left: f.status === 'active' ? '14px' : '2px' }}
-                                            />
-                                        </button>
+                                        <Switch
+                                            checked={f.status === 'active'}
+                                            onChange={() => handleToggleStatus(f)}
+                                            aria-label={f.status === 'active' ? `Disable ${f.title}` : `Enable ${f.title}`}
+                                        />
                                     </td>
                                     <td className="px-3 py-2.5 text-right">
-                                        <button
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
                                             onClick={() => handleView(f)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
                                         >
                                             <IconEye size={11} /> View
-                                        </button>
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
@@ -302,10 +281,10 @@ function KnowledgeBaseTab() {
                         {contentLoading ? (
                             <div className="py-8 text-center text-[12px] text-[var(--text-dim)]">Loading...</div>
                         ) : editing ? (
-                            <textarea
+                            <Textarea
                                 value={editContent}
                                 onChange={(e) => setEditContent(e.target.value)}
-                                className="w-full min-h-[300px] bg-[var(--bg-input)] border border-[var(--border)] rounded p-3 text-[12px] font-mono resize-none text-[var(--text-primary)] focus:outline-none focus:border-[var(--border-strong)]"
+                                className="min-h-[300px] font-mono"
                             />
                         ) : (
                             <div className="text-[13px] text-[var(--text-primary)] leading-relaxed markdown-body">

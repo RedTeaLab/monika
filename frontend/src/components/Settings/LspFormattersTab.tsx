@@ -1,7 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
-import { IconServer, IconTrash, IconPlus, IconEdit, IconRefresh, IconChevronDown } from '../Icons'
+import { Button, IconButton, Input, Select, Checkbox, Tabs } from '../ui'
+import {
+    SettingsTabHeader,
+    SettingsScopeToggle,
+    SettingsSectionHeader,
+    SettingsEmptyState,
+} from './shared'
+import { IconServer, IconTrash, IconPlus, IconEdit, IconRefresh } from '../Icons'
 
 const LANGUAGES = [
     'go', 'python', 'typescript', 'javascript', 'rust', 'lua',
@@ -10,63 +17,7 @@ const LANGUAGES = [
     'json', 'yaml', 'markdown',
 ]
 
-const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
 const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
-
-// --- Language Picker (matches ModelsTab ProviderPicker style) ---
-
-function LangPicker({ value, onChange, disabled }: {
-    value: string
-    onChange: (v: string) => void
-    disabled?: boolean
-}) {
-    const [open, setOpen] = useState(false)
-    const ref = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handler)
-        return () => document.removeEventListener('mousedown', handler)
-    }, [])
-
-    return (
-        <div ref={ref} style={{ position: 'relative' }}>
-            <button
-                type="button"
-                disabled={disabled}
-                onClick={() => setOpen(v => !v)}
-                className="w-full px-3 py-2 text-[12px] rounded-md border cursor-pointer flex items-center justify-between"
-                style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit', textAlign: 'left', opacity: disabled ? 0.5 : 1 }}
-            >
-                <span style={{ color: value ? 'var(--text-primary)' : 'var(--text-dim)' }}>
-                    {value || 'Select language...'}
-                </span>
-                <IconChevronDown size={8} />
-            </button>
-            {open && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', width: '100%', maxHeight: '260px', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md, 6px)', padding: '4px', zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-                    {LANGUAGES.map(l => (
-                        <div
-                            key={l}
-                            onClick={() => { onChange(l); setOpen(false) }}
-                            className="text-[11px] px-2 py-1 rounded cursor-pointer"
-                            style={{
-                                background: l === value ? 'var(--bg-sidebar)' : 'transparent',
-                                color: l === value ? 'var(--text-primary)' : 'var(--text-secondary)',
-                            }}
-                            onMouseEnter={e => { if (l !== value) (e.target as HTMLElement).style.background = 'var(--bg-hover)' }}
-                            onMouseLeave={e => { if (l !== value) (e.target as HTMLElement).style.background = 'transparent' }}
-                        >
-                            {l}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    )
-}
 
 // --- LSP Server Card ---
 
@@ -156,7 +107,6 @@ function FormatterCard({ lang, cfg, onEdit, onDelete }: {
 
 export default function LspFormattersTab() {
     const scope = useStore(s => s.settingsScope)
-    const setScope = useStore(s => s.setSettingsScope)
     const lspServers = useStore(s => s.lspConfigServers)
     const formatterConfig = useStore(s => s.formatterConfig)
     const loadLSPConfig = useStore(s => s.loadLSPConfig)
@@ -275,63 +225,48 @@ export default function LspFormattersTab() {
 
     return (
         <div>
-            {/* Scope Selector */}
-            <div className="flex items-center gap-2 mb-4">
-                <span className="text-[11px] text-[var(--text-dim)]">Scope:</span>
-                {(['global', 'project'] as const).map(s => (
-                    <button
-                        key={s}
-                        onClick={() => setScope(s)}
-                        className={`text-[11px] px-3 py-1 rounded border cursor-pointer transition-colors ${
-                            scope === s
-                                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-strong)]'
-                                : 'bg-transparent text-[var(--text-dim)] border-[var(--border)] hover:bg-[var(--bg-hover)]'
-                        }`}
-                    >
-                        {s === 'global' ? 'Global' : 'Project'}
-                    </button>
-                ))}
-                <button
-                    onClick={() => loadLSPStatus()}
-                    title="Refresh LSP status"
-                    className="ml-auto inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-                    aria-label="Refresh LSP status"
-                >
-                    <IconRefresh size={12} />
-                </button>
-            </div>
+            <SettingsTabHeader
+                title="LSP & Formatters"
+                description="Language servers and code formatters"
+                actions={
+                    <>
+                        <SettingsScopeToggle />
+                        <IconButton
+                            label="Refresh LSP status"
+                            onClick={() => loadLSPStatus()}
+                            size="sm"
+                        >
+                            <IconRefresh size={14} />
+                        </IconButton>
+                    </>
+                }
+            />
 
             {/* Subtabs */}
-            <div className="flex gap-2 mb-4 border-b border-[var(--border)]">
-                {(['lsp', 'formatters'] as const).map(st => (
-                    <button
-                        key={st}
-                        onClick={() => setSubtab(st)}
-                        className={`text-[13px] px-3 py-1.5 cursor-pointer bg-transparent border-none border-b-2 transition-colors ${
-                            subtab === st
-                                ? 'text-[var(--text-primary)] border-[var(--accent)] font-medium'
-                                : 'text-[var(--text-dim)] border-transparent hover:text-[var(--text-primary)]'
-                        }`}
-                    >
-                        {st === 'lsp' ? 'LSP Servers' : 'Formatters'}
-                    </button>
-                ))}
+            <div className="mb-4">
+                <Tabs
+                    items={[
+                        { id: 'lsp', label: 'LSP Servers' },
+                        { id: 'formatters', label: 'Formatters' },
+                    ]}
+                    value={subtab}
+                    onChange={(id) => setSubtab(id as 'lsp' | 'formatters')}
+                    variant="underline"
+                />
             </div>
 
             {/* LSP Subtab */}
             {subtab === 'lsp' && (
                 <div>
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] text-[var(--text-dim)]">
-                            {Object.keys(lspServers).length} server{Object.keys(lspServers).length !== 1 ? 's' : ''}
-                        </span>
-                        <button
-                            onClick={openLspAdd}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-                        >
-                            <IconPlus size={12} /> Add Server
-                        </button>
-                    </div>
+                    <SettingsSectionHeader
+                        title="LSP Servers"
+                        count={Object.keys(lspServers).length}
+                        actions={
+                            <Button variant="outline" size="sm" onClick={openLspAdd}>
+                                <IconPlus size={12} /> Add Server
+                            </Button>
+                        }
+                    />
                     <div className="flex flex-col gap-2">
                         {Object.entries(lspServers).map(([name, srv]) => (
                             <LspServerCard
@@ -343,9 +278,11 @@ export default function LspFormattersTab() {
                             />
                         ))}
                         {Object.keys(lspServers).length === 0 && (
-                            <div className="text-[12px] text-[var(--text-dim)] py-4 text-center">
-                                No LSP servers configured for this scope.
-                            </div>
+                            <SettingsEmptyState
+                                icon={<IconServer size={24} />}
+                                title="No LSP servers"
+                                description="No LSP servers configured for this scope."
+                            />
                         )}
                     </div>
                 </div>
@@ -354,17 +291,15 @@ export default function LspFormattersTab() {
             {/* Formatters Subtab */}
             {subtab === 'formatters' && (
                 <div>
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-[11px] text-[var(--text-dim)]">
-                            {Object.keys(formatterConfig).length} formatter{Object.keys(formatterConfig).length !== 1 ? 's' : ''}
-                        </span>
-                        <button
-                            onClick={openFmtAdd}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-                        >
-                            <IconPlus size={12} /> Add Formatter
-                        </button>
-                    </div>
+                    <SettingsSectionHeader
+                        title="Formatters"
+                        count={Object.keys(formatterConfig).length}
+                        actions={
+                            <Button variant="outline" size="sm" onClick={openFmtAdd}>
+                                <IconPlus size={12} /> Add Formatter
+                            </Button>
+                        }
+                    />
                     <div className="flex flex-col gap-2">
                         {Object.entries(formatterConfig).map(([lang, cfg]) => (
                             <FormatterCard
@@ -376,9 +311,11 @@ export default function LspFormattersTab() {
                             />
                         ))}
                         {Object.keys(formatterConfig).length === 0 && (
-                            <div className="text-[12px] text-[var(--text-dim)] py-4 text-center">
-                                No formatters configured. Files will use LSP formatting when available.
-                            </div>
+                            <SettingsEmptyState
+                                icon={<IconEdit size={24} />}
+                                title="No formatters"
+                                description="No formatters configured. Files will use LSP formatting when available."
+                            />
                         )}
                     </div>
                 </div>
@@ -394,31 +331,31 @@ export default function LspFormattersTab() {
                         <div className="space-y-4">
                             <div>
                                 <label className={labelCls}>Server Name</label>
-                                <input type="text" value={lspName} onChange={e => setLspName(e.target.value)}
-                                    className={inputCls} placeholder="e.g. gopls" disabled={!!editingLsp} />
+                                <Input type="text" value={lspName} onChange={e => setLspName(e.target.value)}
+                                    placeholder="e.g. gopls" disabled={!!editingLsp} />
                             </div>
                             <div>
                                 <label className={labelCls}>Command</label>
-                                <input type="text" value={lspCommand} onChange={e => setLspCommand(e.target.value)}
-                                    className={inputCls} placeholder="e.g. gopls" />
+                                <Input type="text" value={lspCommand} onChange={e => setLspCommand(e.target.value)}
+                                    placeholder="e.g. gopls" />
                             </div>
                             <div>
                                 <label className={labelCls}>Arguments (comma-separated)</label>
-                                <input type="text" value={lspArgs} onChange={e => setLspArgs(e.target.value)}
-                                    className={inputCls} placeholder="e.g. serve" />
+                                <Input type="text" value={lspArgs} onChange={e => setLspArgs(e.target.value)}
+                                    placeholder="e.g. serve" />
                             </div>
                             <div>
                                 <label className={labelCls}>File Types (comma-separated)</label>
-                                <input type="text" value={lspFileTypes} onChange={e => setLspFileTypes(e.target.value)}
-                                    className={inputCls} placeholder="e.g. .go, .mod" />
+                                <Input type="text" value={lspFileTypes} onChange={e => setLspFileTypes(e.target.value)}
+                                    placeholder="e.g. .go, .mod" />
                             </div>
                             <div>
                                 <label className={labelCls}>Root Markers (comma-separated)</label>
-                                <input type="text" value={lspRootMarkers} onChange={e => setLspRootMarkers(e.target.value)}
-                                    className={inputCls} placeholder="e.g. go.mod" />
+                                <Input type="text" value={lspRootMarkers} onChange={e => setLspRootMarkers(e.target.value)}
+                                    placeholder="e.g. go.mod" />
                             </div>
                             <label className="flex items-center gap-2 text-[12px]">
-                                <input type="checkbox" checked={lspDisabled} onChange={e => setLspDisabled(e.target.checked)} />
+                                <Checkbox checked={lspDisabled} onChange={setLspDisabled} />
                                 Disabled
                             </label>
                         </div>
@@ -440,17 +377,20 @@ export default function LspFormattersTab() {
                         <div className="space-y-4">
                             <div>
                                 <label className={labelCls}>Language</label>
-                                <LangPicker value={fmtLang} onChange={setFmtLang} disabled={!!editingLang} />
+                                <Select value={fmtLang} onChange={e => setFmtLang(e.target.value)} disabled={!!editingLang}>
+                                    <option value="">Select language...</option>
+                                    {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+                                </Select>
                             </div>
                             <div>
                                 <label className={labelCls}>Command (or type "lsp" for LSP formatting)</label>
-                                <input type="text" value={fmtCommand} onChange={e => setFmtCommand(e.target.value)}
-                                    className={inputCls} placeholder="e.g. black, prettier, or lsp" />
+                                <Input type="text" value={fmtCommand} onChange={e => setFmtCommand(e.target.value)}
+                                    placeholder="e.g. black, prettier, or lsp" />
                             </div>
                             <div>
                                 <label className={labelCls}>Arguments (space-separated)</label>
-                                <input type="text" value={fmtArgs} onChange={e => setFmtArgs(e.target.value)}
-                                    className={inputCls} placeholder="e.g. --write" />
+                                <Input type="text" value={fmtArgs} onChange={e => setFmtArgs(e.target.value)}
+                                    placeholder="e.g. --write" />
                             </div>
                             <div className="text-[10px] text-[var(--text-dim)]">
                                 Type <span className="font-mono">lsp</span> in the command field to use LSP formatting for this language.

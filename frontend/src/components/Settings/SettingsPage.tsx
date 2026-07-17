@@ -9,6 +9,7 @@ import LspFormattersTab from './LspFormattersTab'
 import DatabasesTab from './DatabasesTab'
 import KnowledgeBaseTab from './KnowledgeBaseTab'
 import NetworkTab from './NetworkTab'
+import { Tabs } from '../ui'
 import { IconDatabase, IconBot, IconShield, IconStar, IconPlug, IconServer, IconInfo, IconHardDrive, IconBookOpen } from '../Icons'
 
 type Tab = 'agents' | 'permissions' | 'skills' | 'mcp' | 'models' | 'lsp-formatters' | 'databases' | 'knowledge-base' | 'network' | 'about'
@@ -44,29 +45,15 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
                 </button>
                 <span className="text-[14px] font-semibold">Settings</span>
             </div>
-            <div className="flex flex-1 overflow-hidden">
-                <nav
-                    className="w-[180px] bg-[var(--bg-sidebar)] border-r border-[var(--border)] py-2 flex-shrink-0"
-                    role="tablist"
-                >
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`w-full text-left text-[13px] cursor-pointer border-none bg-transparent transition-colors px-3 py-1.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--accent)] flex items-center gap-2 ${activeTab === tab.id
-                                ? 'text-[var(--text-primary)] bg-[var(--bg-active)] font-medium'
-                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
-                                }`}
-                            role="tab"
-                            aria-selected={activeTab === tab.id}
-                        >
-                            <span className="shrink-0" style={{ color: activeTab === tab.id ? 'var(--accent)' : 'var(--text-dim)' }}>
-                                {tab.icon}
-                            </span>
-                            {tab.label}
-                        </button>
-                    ))}
-                </nav>
+            <div className="flex flex-1 overflow-hidden flex-col">
+                <div className="px-6 pt-4 pb-0 border-b border-[var(--border)] bg-[var(--bg-sidebar)]">
+                    <Tabs
+                        items={TABS.map(t => ({ id: t.id, label: t.label, icon: t.icon }))}
+                        value={activeTab}
+                        onChange={(id) => setActiveTab(id as Tab)}
+                        variant="underline"
+                    />
+                </div>
                 <main className="flex-1 p-6 overflow-y-auto" role="tabpanel">
                     {activeTab === 'agents' && <AgentsTab />}
                     {activeTab === 'permissions' && <PermissionsTab />}

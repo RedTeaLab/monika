@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useStore, AvailableProviderInfo } from '../../store'
 import { CopilotLoginSection } from './CopilotLogin'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconDatabase, IconEdit, IconPlus, IconTrash, IconChevronDown } from '../Icons'
+import { Button, Input, Combobox } from '../ui'
+import { IconDatabase, IconEdit, IconPlus, IconTrash, IconStar } from '../Icons'
+import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
 function maskKey(key: string): string {
     if (!key) return '\u2014'
@@ -16,93 +18,6 @@ function formatContext(limit: number): string {
     if (limit >= 1000000) return `${(limit / 1000000).toFixed(0)}M`
     if (limit >= 1000) return `${(limit / 1000).toFixed(0)}K`
     return `${limit}`
-}
-
-function ProviderSelect({ catalog, onSelect }: { catalog: AvailableProviderInfo[]; onSelect: (p: AvailableProviderInfo) => void }) {
-    const [open, setOpen] = useState(false)
-    const [search, setSearch] = useState('')
-    const [focusIdx, setFocusIdx] = useState(0)
-    const ref = useRef<HTMLDivElement>(null)
-    const searchRef = useRef<HTMLInputElement>(null)
-
-    const filtered = useMemo(() => {
-        const q = search.toLowerCase()
-        if (!q) return catalog
-        return catalog.filter(p => p.id.toLowerCase().includes(q) || p.display_name.toLowerCase().includes(q))
-    }, [catalog, search])
-
-    useEffect(() => {
-        if (focusIdx >= filtered.length) setFocusIdx(Math.max(0, filtered.length - 1))
-    }, [filtered.length, focusIdx])
-
-    useEffect(() => {
-        if (!open) return
-        setSearch('')
-        setFocusIdx(0)
-        setTimeout(() => searchRef.current?.focus(), 0)
-        const handler = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-        }
-        document.addEventListener('mousedown', handler)
-        return () => document.removeEventListener('mousedown', handler)
-    }, [open])
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') { setOpen(false); return }
-        if (e.key === 'ArrowDown') { e.preventDefault(); setFocusIdx(i => Math.min(i + 1, filtered.length - 1)) }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); setFocusIdx(i => Math.max(i - 1, 0)) }
-        else if (e.key === 'Enter') {
-            e.preventDefault()
-            const p = filtered[focusIdx]
-            if (p) { onSelect(p); setOpen(false) }
-        }
-    }
-
-    return (
-        <div ref={ref} style={{ position: 'relative' }}>
-            <button
-                type="button"
-                onClick={() => setOpen(v => !v)}
-                className="w-full px-3 py-2 text-[12px] rounded-md border cursor-pointer flex items-center justify-between"
-                style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit', textAlign: 'left' }}
-            >
-                <span className="text-[var(--text-dim)]">Choose a provider...</span>
-                <IconChevronDown size={8} />
-            </button>
-            {open && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '4px', width: '100%', maxHeight: '260px', overflowY: 'auto', background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-md, 6px)', padding: '4px', zIndex: 1000, boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
-                    <input
-                        ref={searchRef}
-                        value={search}
-                        onChange={e => { setSearch(e.target.value); setFocusIdx(0) }}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Search providers..."
-                        className="text-[11px] w-full px-2 py-1 rounded border mb-1 outline-none"
-                        style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text-primary)', fontFamily: 'inherit' }}
-                    />
-                    {filtered.length === 0 ? (
-                        <div className="text-[11px] text-[var(--text-dim)] px-2 py-1">No matches</div>
-                    ) : (
-                        filtered.map((p, idx) => (
-                            <div
-                                key={p.id}
-                                onClick={() => { onSelect(p); setOpen(false) }}
-                                className="text-[11px] px-2 py-1 rounded cursor-pointer flex justify-between items-center"
-                                style={{
-                                    background: idx === focusIdx ? 'var(--bg-sidebar)' : 'transparent',
-                                    color: idx === focusIdx ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                }}
-                                onMouseEnter={() => setFocusIdx(idx)}
-                            >
-                                <span>{p.display_name || p.id}</span>
-                                <span className="text-[10px] text-[var(--text-dim)]">{p.models.length} models</span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-        </div>
-    )
 }
 
 export default function ModelsTab() {
@@ -240,7 +155,6 @@ export default function ModelsTab() {
         await setDefaultModelGlobal(providerId, modelId)
     }, [setDefaultModelGlobal])
 
-    const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
     const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
     // Only show providers that have API keys configured.
@@ -250,44 +164,42 @@ export default function ModelsTab() {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-4">
-                <div>
-                    <h3 className="text-[15px] font-semibold m-0 mb-1">Providers</h3>
-                    <p className="text-[11px] text-[var(--text-dim)] m-0">Configure your AI model providers.</p>
-                </div>
-                <button
-                    onClick={openAdd}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ color: 'var(--text-primary)' }}
-                >
-                    <IconPlus size={12} />
-                    Add
-                </button>
-            </div>
+            <SettingsTabHeader
+                title="Providers"
+                description="Manage model providers and API keys"
+                actions={
+                    <Button variant="outline" size="sm" onClick={openAdd}>
+                        <IconPlus size={12} />
+                        Add
+                    </Button>
+                }
+            />
 
             {sortedProviders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-                    <IconDatabase size={32} />
-                    <span className="text-[13px] mt-3">No providers configured</span>
-                    <span className="text-[11px] mt-1 mb-3">Add a provider to start using Monika</span>
-                    <button
-                        onClick={openAdd}
-                        className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded cursor-pointer transition-colors"
-                        style={{ color: 'var(--accent)', background: 'var(--accent-muted)' }}
-                    >
-                        <IconPlus size={12} />
-                        Add Your First Provider
-                    </button>
-                </div>
+                <SettingsEmptyState
+                    icon={<IconDatabase size={32} />}
+                    title="No providers configured"
+                    description="Add a provider to start using Monika"
+                    action={
+                        <Button variant="outline" size="sm" onClick={openAdd}>
+                            <IconPlus size={12} />
+                            Add Your First Provider
+                        </Button>
+                    }
+                />
             ) : (
-                <div className="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto">
+                <SettingsCardList>
                     {sortedProviders.map((p) => {
                         const totalModels = (p.models || []).length
                         return (
-                            <div
+                            <SettingsCard
                                 key={p.id}
-                                className="rounded-lg px-4 py-3 w-full relative group/card"
-                                style={{ background: 'var(--bg-card)' }}
+                                hoverActions={
+                                    <>
+                                        <button onClick={() => openEdit(p)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Edit ${p.display_name}`}><IconEdit size={13} /></button>
+                                        <button onClick={() => setDeleteTarget(p.id)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Delete ${p.display_name}`}><IconTrash size={13} /></button>
+                                    </>
+                                }
                             >
                                 <div className="flex items-start gap-3 mb-2">
                                     <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
@@ -300,10 +212,6 @@ export default function ModelsTab() {
                                                 <span className="text-[10px] text-[var(--text-dim)]">{totalModels} models</span>
                                             )}
                                         </div>
-                                    </div>
-                                    <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1">
-                                        <button onClick={() => openEdit(p)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--text-primary)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Edit ${p.display_name}`}><IconEdit size={13} /></button>
-                                        <button onClick={() => setDeleteTarget(p.id)} className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors" aria-label={`Delete ${p.display_name}`}><IconTrash size={13} /></button>
                                     </div>
                                 </div>
                                 {p.api_key && (
@@ -326,7 +234,7 @@ export default function ModelsTab() {
                                                         color: isDefault ? 'var(--accent)' : 'var(--text-primary)',
                                                     }}
                                                 >
-                                                    {isDefault && <span className="text-[9px]" style={{ color: 'var(--accent)' }}>&#9733; </span>}
+                                                    {isDefault && <IconStar size={10} filled />}
                                                     {m.name}
                                                     {(m.context_limit ?? 0) > 0 && (
                                                         <span className={isDefault ? 'opacity-70' : ''} style={{ color: 'var(--text-dim)', fontSize: 10 }}>
@@ -338,10 +246,10 @@ export default function ModelsTab() {
                                         })}
                                     </div>
                                 )}
-                            </div>
+                            </SettingsCard>
                         )
                     })}
-                </div>
+                </SettingsCardList>
             )}
 
             {(editingId || isAdding) && (
@@ -355,27 +263,38 @@ export default function ModelsTab() {
                             {isAdding && (
                                 <div>
                                     <label className={labelCls}>Select Provider</label>
-                                    <ProviderSelect catalog={availableProvidersCatalog.filter(p => p.npm === '@ai-sdk/openai-compatible' && !providers.find(c => c.id === p.id))} onSelect={handleProviderSelect} />
+                                    <Combobox
+                                        value={selectedAvailableProvider || null}
+                                        options={availableProvidersCatalog
+                                            .filter(p => p.npm === '@ai-sdk/openai-compatible' && !providers.find(c => c.id === p.id))
+                                            .map(p => ({ value: p.id, label: p.display_name || p.id, description: `${p.models.length} models` }))}
+                                        onChange={(v) => {
+                                            const cat = availableProvidersCatalog.find(p => p.id === v)
+                                            if (cat) handleProviderSelect(cat)
+                                        }}
+                                        placeholder="Choose a provider..."
+                                        searchable={true}
+                                        searchPlaceholder="Search providers..."
+                                    />
                                 </div>
                             )}
                             <div>
                                 <label className={labelCls}>ID</label>
-                                <input className={inputCls} value={provId} onChange={e => setProvId(e.target.value)} disabled={!!selectedAvailableProvider} placeholder={isAdding ? 'Auto-filled from selection' : ''} />
+                                <Input value={provId} onChange={e => setProvId(e.target.value)} disabled={!!selectedAvailableProvider} placeholder={isAdding ? 'Auto-filled from selection' : ''} />
                             </div>
                             <div>
                                 <label className={labelCls}>Display Name</label>
-                                <input className={inputCls} value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My OpenAI" />
+                                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. My OpenAI" />
                             </div>
                             {authMode === 'api_key' && (
                                 <div>
                                     <label className={labelCls}>Base URL</label>
-                                    <input className={inputCls} value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.openai.com/v1" />
+                                <Input value={baseURL} onChange={e => setBaseURL(e.target.value)} placeholder="https://api.openai.com/v1" />
                                 </div>
                             )}
                             {authMode === 'api_key' ? (
                                 <div>
-                                    <label className={labelCls}>API Key</label>
-                                    <input type="password" className={inputCls} value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!isAdding} />
+                                <Input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter your API key" autoFocus={!isAdding} />
                                 </div>
                             ) : (
                                 <div>

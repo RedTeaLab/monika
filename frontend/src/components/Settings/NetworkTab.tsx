@@ -2,7 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { Call } from '@wailsio/runtime'
 import { useStore } from '../../store'
 import type { ProxyConfig } from '../../store'
+import { Input, Switch, Button } from '../ui'
+import { SettingsTabHeader } from './shared'
 
+const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 export default function NetworkTab() {
     const loadProxyConfig = useStore(s => s.loadProxyConfig)
     const saveProxyConfig = useStore(s => s.saveProxyConfig)
@@ -57,15 +60,13 @@ export default function NetworkTab() {
         return <div className="text-[12px] text-[var(--text-dim)]">Loading...</div>
     }
 
-    const inputCls = 'w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150'
-    const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
     return (
         <div>
-            <div className="mb-4">
-                <h3 className="text-[15px] font-semibold m-0 mb-1">Network</h3>
-                <p className="text-[11px] text-[var(--text-dim)] m-0">Configure proxy settings for outbound HTTP requests.</p>
-            </div>
+            <SettingsTabHeader
+                title="Network"
+                description="Configure proxy and connection settings"
+            />
 
             <div className="rounded-lg p-4 space-y-4" style={{ background: 'var(--bg-card)' }}>
                 <div className="flex items-center justify-between">
@@ -73,26 +74,13 @@ export default function NetworkTab() {
                         <span className="text-[13px] font-medium text-[var(--text-primary)]">Enable Proxy</span>
                         <p className="text-[11px] text-[var(--text-dim)] m-0 mt-0.5">Route all HTTP requests through a proxy server.</p>
                     </div>
-                    <button
-                        onClick={() => setEnabled(!enabled)}
-                        className="relative w-9 h-5 rounded-full transition-colors cursor-pointer border-none"
-                        style={{
-                            background: enabled ? 'var(--accent)' : 'var(--bg-sidebar)',
-                        }}
-                        aria-label="Toggle proxy"
-                    >
-                        <span
-                            className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-                            style={{ left: enabled ? '18px' : '2px' }}
-                        />
-                    </button>
+                    <Switch checked={enabled} onChange={setEnabled} aria-label="Toggle proxy" />
                 </div>
 
                 {enabled && (
                     <div>
                         <label className={labelCls}>Proxy URL</label>
-                        <input
-                            className={inputCls}
+                        <Input
                             value={url}
                             onChange={e => setUrl(e.target.value)}
                             placeholder="http://127.0.0.1:10808"
@@ -113,22 +101,22 @@ export default function NetworkTab() {
                 )}
 
                 <div className="flex justify-end gap-2">
-                    <button
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={handleTest}
                         disabled={testing}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
-                        style={{ color: 'var(--text-primary)' }}
                     >
                         {testing ? 'Testing...' : 'Test Connection'}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={handleSave}
                         disabled={saving}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors disabled:opacity-50"
-                        style={{ color: 'var(--text-primary)' }}
                     >
                         {saving ? 'Saving...' : 'Save'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

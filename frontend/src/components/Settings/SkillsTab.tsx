@@ -3,6 +3,8 @@ import { useStore, SkillInfo } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
 import { IconStar, IconPlus, IconTrash } from '../Icons'
+import { Button, Input, Switch } from '../ui'
+import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
 
 const SOURCE_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   'project-opencode': { label: 'Project', color: 'var(--accent)', bg: 'var(--accent-muted)' },
@@ -46,9 +48,10 @@ function SkillCard({
   onClick: () => void
 }) {
   return (
-    <div
-      className="rounded-lg border border-[var(--border)] px-4 py-3 w-full cursor-pointer select-none"
-      style={{ background: 'var(--bg-card)', opacity: skill.enabled === false ? 0.5 : 1 }}
+    <SettingsCard
+      interactive
+      className="select-none"
+      style={{ opacity: skill.enabled === false ? 0.5 : 1 }}
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-3">
@@ -70,16 +73,13 @@ function SkillCard({
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleEnabled() }}
-            className="relative w-8 h-[18px] rounded-full border-none cursor-pointer transition-colors"
-            style={{ background: skill.enabled !== false ? 'var(--accent)' : 'var(--border)' }}
-          >
-            <span
-              className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white transition-all"
-              style={{ left: skill.enabled !== false ? '14px' : '2px' }}
+          <span onClick={(e) => e.stopPropagation()} className="inline-flex">
+            <Switch
+              checked={skill.enabled !== false}
+              onChange={onToggleEnabled}
+              aria-label={skill.enabled !== false ? `Disable ${skill.name}` : `Enable ${skill.name}`}
             />
-          </button>
+          </span>
           <button
             onClick={(e) => { e.stopPropagation(); onUninstall() }}
             className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] px-1 cursor-pointer bg-transparent border-none rounded transition-colors"
@@ -113,7 +113,7 @@ function SkillCard({
           )}
         </div>
       )}
-    </div>
+    </SettingsCard>
   )
 }
 
@@ -221,32 +221,33 @@ export default function SkillsTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-[15px] font-semibold m-0 mb-1">Skills</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">Discover and manage agent skills</p>
-        </div>
-        <button
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-          onClick={() => {
-            setShowInstallModal(true)
-            setInstallError('')
-            setInstallResult([])
-            setGithubURL('')
-          }}
-        >
-          <IconPlus size={12} /> Add
-        </button>
-      </div>
+      <SettingsTabHeader
+        title="Skills"
+        description="Discover and manage agent skills"
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setShowInstallModal(true)
+              setInstallError('')
+              setInstallResult([])
+              setGithubURL('')
+            }}
+          >
+            <IconPlus size={12} /> Add
+          </Button>
+        }
+      />
 
       {skills.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-          <IconStar size={32} />
-          <span className="text-[13px] mt-3">No skills discovered.</span>
-          <span className="text-[11px] mt-1">Click "Add" to add skills.</span>
-        </div>
+        <SettingsEmptyState
+          icon={<IconStar size={32} />}
+          title="No skills discovered."
+          description='Click "Add" to add skills.'
+        />
       ) : (
-        <div className="space-y-3">
+        <SettingsCardList>
           {skills.map((s) => (
             <SkillCard
               key={s.name}
@@ -260,7 +261,7 @@ export default function SkillsTab() {
               onClick={() => handleExpand(s.name)}
             />
           ))}
-        </div>
+        </SettingsCardList>
       )}
 
       {showInstallModal && (
@@ -310,8 +311,7 @@ export default function SkillsTab() {
 
             {installTab === 'github' && (
               <div>
-                <input
-                  className="w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+                <Input
                   placeholder="https://github.com/user/skill-repo"
                   value={githubURL}
                   onChange={(e) => setGithubURL(e.target.value)}

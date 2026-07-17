@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Call, Events } from '@wailsio/runtime'
 import { IconRefresh } from '../Icons'
+import { Button } from '../ui'
+import { SettingsTabHeader } from './shared'
 
 type VersionInfo = {
   version: string
@@ -97,11 +99,14 @@ export default function AboutTab() {
   }, [])
 
   return (
-    <div className="max-w-xl">
-      <h2 className="text-[15px] font-semibold mb-4">About Monika</h2>
+    <div>
+      <SettingsTabHeader
+        title="About Monika"
+        description="Version info and updates"
+      />
 
       {/* App info */}
-      <div className="mb-6 p-4 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)]">
+      <div className="mb-6 p-4 rounded-lg bg-[var(--bg-card)] border border-[var(--border)]">
         <div className="mb-3">
           <div>
             <h3 className="text-[14px] font-semibold">Monika</h3>
@@ -131,24 +136,21 @@ export default function AboutTab() {
       </div>
 
       {/* Update section */}
-      <div className="p-4 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)]">
+      <div className="p-4 rounded-lg bg-[var(--bg-card)] border border-[var(--border)]">
         <h3 className="text-[13px] font-semibold mb-3">Updates</h3>
 
         {/* Status message */}
         {status.message && (
           <div className={`text-[12px] mb-3 px-2 py-1 rounded ${
             status.state === 'error'
-              ? 'bg-red-500/10 text-red-500'
+              ? 'bg-[rgba(255,71,87,0.1)] text-[var(--color-error)]'
               : status.state === 'available'
-                ? 'bg-yellow-500/10 text-yellow-600'
+                ? 'bg-[rgba(234,179,8,0.1)] text-[var(--color-warning)]'
                 : 'bg-[var(--bg-hover)] text-[var(--text-secondary)]'
           }`}>
             {status.message}
           </div>
         )}
-
-        {/* Debug: show raw state */}
-        <div className="text-[10px] text-[var(--text-dim)] mb-2">state={status.state} downloading={String(downloading)}</div>
 
         {/* Progress bar */}
         {status.state === 'downloading' && (
@@ -190,34 +192,37 @@ export default function AboutTab() {
 
         {/* Action buttons */}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleCheck}
             disabled={checking}
-            className="px-3 py-1.5 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 flex items-center gap-1.5"
           >
             <span className={checking ? 'animate-spin inline-block' : ''}>
               <IconRefresh size={12} />
             </span>
             {checking ? 'Checking...' : 'Check for Updates'}
-          </button>
+          </Button>
 
           {status.state === 'available' && updateInfo?.downloadURL && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleDownload}
               disabled={downloading}
-              className="px-3 py-1.5 text-[12px] rounded-md bg-[var(--accent)] text-white hover:opacity-90 disabled:opacity-50"
             >
               {downloading ? `Downloading ${status.progress}%` : 'Download Update'}
-            </button>
+            </Button>
           )}
 
           {status.state === 'downloaded' && (
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleInstall}
-              className="px-3 py-1.5 text-[12px] rounded-md bg-[var(--accent)] text-white hover:opacity-90"
             >
               Install & Restart
-            </button>
+            </Button>
           )}
         </div>
       </div>

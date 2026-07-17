@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
-import { IconShield, IconTrash, IconPlus, IconChevronDown } from '../Icons'
+import { Button, IconButton, Input, Select } from '../ui'
+import { IconShield, IconTrash, IconPlus } from '../Icons'
+import {
+  SettingsTabHeader,
+  SettingsScopeToggle,
+  SettingsCardList,
+  SettingsCard,
+  SettingsEmptyState,
+} from './shared'
 
 const TOOLS = [
   'bash', 'file_read', 'file_write', 'file_edit', 'file_list',
@@ -15,141 +23,42 @@ const DECISIONS = [
   { value: 'deny', label: 'deny' },
 ] as const
 
-const SOURCES = [
-  { value: 'project', label: 'project' },
-  { value: 'global', label: 'global' },
-] as const
-
-function DropdownSelect<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: readonly { value: T; label: string }[]
-  onChange: (v: T) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [focusIdx, setFocusIdx] = useState(0)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  useEffect(() => {
-    if (open) setFocusIdx(0)
-  }, [open])
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') { setOpen(false); return }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setFocusIdx((prev) => Math.min(prev + 1, options.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setFocusIdx((prev) => Math.max(prev - 1, 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      onChange(options[focusIdx].value)
-      setOpen(false)
-    }
-  }
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="w-full text-[12px] px-3 py-2 rounded-md cursor-pointer flex items-center justify-between"
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          color: 'var(--text-primary)',
-          fontFamily: 'inherit',
-        }}
-      >
-        <span>{value}</span>
-        <IconChevronDown size={8} />
-      </button>
-      {open && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '100%',
-            left: 0,
-            marginBottom: '4px',
-            minWidth: '100%',
-            maxHeight: '240px',
-            overflowY: 'auto',
-            background: 'var(--bg-elevated)',
-            border: '1px solid var(--border-strong)',
-            borderRadius: 'var(--radius-md, 6px)',
-            padding: '4px',
-            zIndex: 1000,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-          }}
-          onKeyDown={handleKeyDown}
-        >
-          {options.map((opt, idx) => {
-            const isSelected = opt.value === value
-            return (
-              <button
-                key={opt.value}
-                onClick={() => { onChange(opt.value); setOpen(false) }}
-                onMouseEnter={() => setFocusIdx(idx)}
-                className="text-[11px] w-full text-left px-2 py-1 rounded cursor-pointer"
-                style={{
-                  background:
-                    idx === focusIdx
-                      ? 'var(--bg-hover)'
-                      : isSelected
-                        ? 'var(--accent-muted)'
-                        : 'transparent',
-                  color: isSelected ? 'var(--accent)' : 'var(--text-primary)',
-                  border: 'none',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
+// Decision badge: text + tinted background via CSS variables (no hardcoded Tailwind colors).
 const decisionStyles: Record<string, string> = {
-  allow: 'text-green-400 bg-green-400/10',
-  ask: 'text-yellow-400 bg-yellow-400/10',
-  deny: 'text-red-400 bg-red-400/10',
+  allow: 'text-[var(--color-success)] bg-[rgba(0,255,136,0.10)]',
+  ask: 'text-[var(--color-warning)] bg-[rgba(255,179,71,0.10)]',
+  deny: 'text-[var(--color-error)] bg-[rgba(255,71,87,0.10)]',
 }
 
+// Source badge: text + tinted background via CSS variables.
 const sourceStyles: Record<string, { color: string; bg: string }> = {
-  builtin: { color: '#9ca3af', bg: 'rgba(156,163,175,0.1)' },
-  global: { color: '#60a5fa', bg: 'rgba(96,165,250,0.1)' },
-  project: { color: '#4ade80', bg: 'rgba(74,222,128,0.1)' },
+  builtin: { color: 'var(--text-dim)', bg: 'rgba(156,163,175,0.1)' },
+  global: { color: 'var(--accent)', bg: 'rgba(0,180,255,0.1)' },
+  project: { color: 'var(--color-success)', bg: 'rgba(0,255,136,0.1)' },
 }
 
 const labelCls = 'block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5'
 
+interface PermissionRule {
+  tool: string
+  pattern: string
+  decision: string
+  source: string
+  createdAt: string
+}
+
 function AddRuleModal({
+  scope,
   onClose,
   onAdd,
 }: {
+  scope: 'project' | 'global'
   onClose: () => void
   onAdd: (tool: string, pattern: string, decision: string, source: string) => Promise<void>
 }) {
   const [tool, setTool] = useState('bash')
   const [pattern, setPattern] = useState('')
   const [decision, setDecision] = useState<'allow' | 'ask' | 'deny'>('ask')
-  const [source, setSource] = useState<'global' | 'project'>('project')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const patternRef = useRef<HTMLInputElement>(null)
@@ -162,7 +71,7 @@ function AddRuleModal({
     setError('')
     setLoading(true)
     try {
-      await onAdd(tool, pattern, decision, source)
+      await onAdd(tool, pattern, decision, scope)
       onClose()
     } catch {
       setError('Failed to add rule')
@@ -172,35 +81,37 @@ function AddRuleModal({
   }
 
   return (
-    <Modal onClose={onClose} loading={loading} width={440}>
+    <Modal onClose={onClose} loading={loading} width={540}>
       <ModalHeader icon={<IconShield size={15} />}>
         <h2 className="text-[14px] font-semibold m-0">Add Permission Rule</h2>
       </ModalHeader>
       <ModalBody>
+        <p className="text-[11px] text-[var(--text-dim)] m-0 mb-4">
+          Adding to <span className="font-mono">{scope}</span> scope
+        </p>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Tool</label>
-            <DropdownSelect value={tool} options={TOOLS.map((t) => ({ value: t, label: t }))} onChange={setTool} />
+            <Select value={tool} onChange={(e) => setTool(e.target.value)}>
+              {TOOLS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
           </div>
           <div>
             <label className={labelCls}>Pattern</label>
-            <input
+            <Input
               ref={patternRef}
               type="text"
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
               placeholder="* wildcard, empty matches all"
-              className="w-full px-3 py-2 text-[12px] rounded-md border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] placeholder-[var(--text-dim)] focus:outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
             />
           </div>
           <div>
             <label className={labelCls}>Decision</label>
-            <DropdownSelect value={decision} options={DECISIONS} onChange={(v) => setDecision(v as 'allow' | 'ask' | 'deny')} />
-          </div>
-          <div>
-            <label className={labelCls}>Source</label>
-            <DropdownSelect value={source} options={SOURCES} onChange={(v) => setSource(v as 'global' | 'project')} />
+            <Select value={decision} onChange={(e) => setDecision(e.target.value as 'allow' | 'ask' | 'deny')}>
+              {DECISIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </Select>
           </div>
         </div>
         {error && <p className="text-[11px] text-[var(--red)] m-0 mt-4">{error}</p>}
@@ -217,6 +128,7 @@ function AddRuleModal({
 
 function PermissionsTab() {
   const projectPath = useStore((s) => s.projectPath)
+  const scope = useStore((s) => s.settingsScope)
   const permissionRules = useStore((s) => s.permissionRules)
   const loadPermissionRules = useStore((s) => s.loadPermissionRules)
   const addPermissionRule = useStore((s) => s.addPermissionRule)
@@ -241,42 +153,54 @@ function PermissionsTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-[15px] font-semibold m-0 mb-1">Permissions</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">
-            Manage tool execution permissions and auto rules
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-        >
-          <IconPlus size={12} />
-          Add
-        </button>
-      </div>
+      <SettingsTabHeader
+        title="Permissions"
+        description="Manage tool execution permissions and auto rules"
+        actions={
+          <>
+            <SettingsScopeToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddModal(true)}
+            >
+              <IconPlus size={12} />
+              Add
+            </Button>
+          </>
+        }
+      />
 
       {showAddModal && (
-        <AddRuleModal onClose={() => setShowAddModal(false)} onAdd={handleAdd} />
+        <AddRuleModal scope={scope} onClose={() => setShowAddModal(false)} onAdd={handleAdd} />
       )}
 
-      {permissionRules.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-          <IconShield size={32} />
-          <span className="text-[13px] mt-3">No permission rules configured.</span>
-          <span className="text-[11px] mt-1">Click "Add" to create one.</span>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {permissionRules.map((rule, idx) => {
+      <SettingsCardList>
+        {permissionRules.length === 0 ? (
+          <SettingsEmptyState
+            icon={<IconShield size={32} />}
+            title="No permission rules configured."
+            description={`No rules in ${scope} scope. Click "Add" to create one.`}
+          />
+        ) : (
+          permissionRules.map((rule: PermissionRule, idx) => {
             const ds = decisionStyles[rule.decision] || ''
             const ss = sourceStyles[rule.source] || sourceStyles['project']
             return (
-              <div
+              <SettingsCard
                 key={`${rule.tool}-${rule.pattern}-${rule.source}-${idx}`}
-                className="rounded-lg px-4 py-3 w-full relative group/card"
-                style={{ background: 'var(--bg-card)' }}
+                hoverActions={
+                  rule.source !== 'builtin' ? (
+                    <IconButton
+                      size="sm"
+                      label={`Delete rule for ${rule.tool}`}
+                      onClick={() => setConfirmDelete({ tool: rule.tool, pattern: rule.pattern, source: rule.source })}
+                      className="hover:text-[var(--color-error)]"
+                    >
+                      <IconTrash size={13} />
+                    </IconButton>
+                  ) : undefined
+                }
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
@@ -301,23 +225,12 @@ function PermissionsTab() {
                       </span>
                     </div>
                   </div>
-                  {rule.source !== 'builtin' && (
-                    <div className="opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0">
-                      <button
-                        onClick={() => setConfirmDelete({ tool: rule.tool, pattern: rule.pattern, source: rule.source })}
-                        className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-                        aria-label={`Delete rule for ${rule.tool}`}
-                      >
-                        <IconTrash size={13} />
-                      </button>
-                    </div>
-                  )}
                 </div>
-              </div>
+              </SettingsCard>
             )
-          })}
-        </div>
-      )}
+          })
+        )}
+      </SettingsCardList>
 
       {confirmDelete && (
         <ConfirmModal

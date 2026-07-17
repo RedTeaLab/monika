@@ -1,11 +1,20 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store'
+import type { MCPServerInfo } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter, ModalButton } from '../ui/Modal'
 import ConfirmModal from '../Chat/ConfirmModal'
+import { Button, IconButton, Textarea, StatusDot } from '../ui'
 import { IconServer, IconTrash, IconPlus, IconZap, IconRefresh, IconEdit } from '../Icons'
+import {
+  SettingsTabHeader,
+  SettingsScopeToggle,
+  SettingsCardList,
+  SettingsCard,
+  SettingsEmptyState,
+} from './shared'
 
 function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: {
-  srv: ReturnType<typeof useStore.getState>['mcpServers'][0]
+  srv: MCPServerInfo
   onDelete: () => void
   onTest: () => void
   onReconnect: () => void
@@ -14,9 +23,41 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: 
 }) {
   const isStdio = srv.type !== 'http' && srv.type !== 'sse'
   return (
-    <div
-      className="rounded-lg px-4 py-3 w-full relative group/card"
-      style={{ background: 'var(--bg-card)' }}
+    <SettingsCard
+      hoverActions={
+        <>
+          <IconButton
+            size="sm"
+            label={`Test ${srv.id}`}
+            onClick={onTest}
+            disabled={testResult.loading}
+          >
+            <IconZap size={14} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            label={`Reconnect ${srv.id}`}
+            onClick={onReconnect}
+          >
+            <IconRefresh size={14} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            label={`Edit ${srv.id}`}
+            onClick={onEdit}
+          >
+            <IconEdit size={13} />
+          </IconButton>
+          <IconButton
+            size="sm"
+            label={`Delete ${srv.id}`}
+            onClick={onDelete}
+            className="hover:text-[var(--color-error)]"
+          >
+            <IconTrash size={13} />
+          </IconButton>
+        </>
+      }
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 shrink-0" style={{ color: 'var(--text-dim)' }}>
@@ -47,13 +88,13 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: 
               {srv.scope || 'project'}
             </span>
             {srv.status === 'connected' ? (
-              <span className="inline-flex items-center gap-1 text-green-400 text-[10px]">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span className="inline-flex items-center gap-1 text-[var(--green)] text-[10px]">
+                <StatusDot color="success" />
                 connected
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-red-400 text-[10px]">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className="inline-flex items-center gap-1 text-[var(--red)] text-[10px]">
+                <StatusDot color="error" />
                 disconnected
               </span>
             )}
@@ -66,7 +107,7 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: 
             )}
           </div>
           {testResult.tools && (
-            <div className="mt-1 text-[10px] text-green-400">
+            <div className="mt-1 text-[10px] text-[var(--green)]">
               {testResult.tools.length} tool{testResult.tools.length !== 1 ? 's' : ''}: {testResult.tools.slice(0, 5).join(', ')}{testResult.tools.length > 5 ? '...' : ''}
             </div>
           )}
@@ -74,42 +115,8 @@ function ServerCard({ srv, onDelete, onTest, onReconnect, onEdit, testResult }: 
             <div className="mt-1 text-[10px] text-[var(--red)]">{testResult.error}</div>
           )}
         </div>
-        <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-1 shrink-0">
-          <button
-            onClick={onTest}
-            disabled={testResult.loading}
-            title="Test connection"
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Test ${srv.id}`}
-          >
-            <IconZap size={14} />
-          </button>
-          <button
-            onClick={onReconnect}
-            title="Reconnect"
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Reconnect ${srv.id}`}
-          >
-            <IconRefresh size={14} />
-          </button>
-          <button
-            onClick={onEdit}
-            title="Edit"
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Edit ${srv.id}`}
-          >
-            <IconEdit size={13} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--red)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors"
-            aria-label={`Delete ${srv.id}`}
-          >
-            <IconTrash size={13} />
-          </button>
-        </div>
       </div>
-    </div>
+    </SettingsCard>
   )
 }
 
@@ -153,6 +160,7 @@ function parseMcpJson(text: string): { servers: { id: string; type: string; comm
 
 export default function McpTab() {
   const servers = useStore((s) => s.mcpServers)
+  const scope = useStore((s) => s.settingsScope)
   const loadServers = useStore((s) => s.loadMCPServers)
   const deleteServer = useStore((s) => s.deleteMCPServer)
   const importServers = useStore((s) => s.importMCPServers)
@@ -165,11 +173,10 @@ export default function McpTab() {
   const [jsonText, setJsonText] = useState('')
   const [importError, setImportError] = useState('')
   const [importing, setImporting] = useState(false)
-  const [importScope, setImportScope] = useState<'project' | 'global'>('project')
   const [addTestResult, setAddTestResult] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [testStates, setTestStates] = useState<Record<string, { loading: boolean; tools?: string[]; error?: string }>>({})
-  const [editServer, setEditServer] = useState<typeof servers[0] | null>(null)
+  const [editServer, setEditServer] = useState<MCPServerInfo | null>(null)
   const [editJsonText, setEditJsonText] = useState('')
   const [editError, setEditError] = useState('')
   const [editSaving, setEditSaving] = useState(false)
@@ -178,6 +185,9 @@ export default function McpTab() {
 
   const parsed = parseMcpJson(jsonText)
 
+  // Scope filter: show only servers matching the header toggle.
+  const scopedServers = servers.filter((s) => (s.scope || 'project') === scope)
+
   const handleImport = useCallback(async () => {
     if (!parsed.servers.length) return
     setImporting(true); setImportError('')
@@ -185,7 +195,7 @@ export default function McpTab() {
       let payload = jsonText
       try {
         const parsedJson = JSON.parse(jsonText)
-        if (parsedJson && !parsedJson.scope) parsedJson.scope = importScope
+        if (parsedJson && !parsedJson.scope) parsedJson.scope = scope
         payload = JSON.stringify(parsedJson)
       } catch { /* pass through raw json */ }
       await importServers(payload)
@@ -195,7 +205,7 @@ export default function McpTab() {
     } catch (e: any) {
       setImportError(e?.message || 'Failed to import servers')
     } finally { setImporting(false) }
-  }, [jsonText, parsed, importServers, importScope])
+  }, [jsonText, parsed, importServers, scope])
 
   const handleAddTest = useCallback(async (srvId: string) => {
     const srv = parsed.servers.find(s => s.id === srvId)
@@ -236,7 +246,7 @@ export default function McpTab() {
     }
   }, [reconnectServer])
 
-  const handleEditOpen = useCallback((srv: typeof servers[0]) => {
+  const handleEditOpen = useCallback((srv: MCPServerInfo) => {
     const isStdio = srv.type !== 'http' && srv.type !== 'sse'
     const serverObj: Record<string, any> = {
       type: srv.type || (isStdio ? 'stdio' : 'http'),
@@ -283,30 +293,33 @@ export default function McpTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-[15px] font-semibold m-0 mb-1">MCP Servers</h3>
-          <p className="text-[11px] text-[var(--text-dim)] m-0">Manage MCP server connections</p>
-        </div>
-          <button
-            onClick={() => { setShowAddModal(true); setJsonText(''); setImportError(''); setImportScope('project'); setAddTestResult({}) }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium rounded border border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
-        >
-          <IconPlus size={12} />
-          Add
-        </button>
-      </div>
+      <SettingsTabHeader
+        title="MCP Servers"
+        description="Manage MCP server connections"
+        actions={
+          <>
+            <SettingsScopeToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setShowAddModal(true); setJsonText(''); setImportError(''); setAddTestResult({}) }}
+            >
+              <IconPlus size={12} />
+              Add
+            </Button>
+          </>
+        }
+      />
 
-      {/* Server list */}
-      {servers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[var(--text-dim)]">
-          <IconServer size={32} />
-          <span className="text-[13px] mt-3">No MCP servers configured.</span>
-          <span className="text-[11px] mt-1">Click "Add" to paste JSON config.</span>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {servers.map((srv) => (
+      <SettingsCardList>
+        {scopedServers.length === 0 ? (
+          <SettingsEmptyState
+            icon={<IconServer size={32} />}
+            title="No MCP servers configured."
+            description={`No servers in ${scope} scope. Click "Add" to paste JSON config.`}
+          />
+        ) : (
+          scopedServers.map((srv) => (
             <ServerCard
               key={srv.id}
               srv={srv}
@@ -316,37 +329,27 @@ export default function McpTab() {
               onEdit={() => handleEditOpen(srv)}
               testResult={testStates[srv.id] || { loading: false }}
             />
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </SettingsCardList>
 
-      {/* Add modal */}
+      {/* Add modal — scope comes from the header toggle, no scope Select here */}
       {showAddModal && (
         <Modal onClose={() => setShowAddModal(false)} loading={importing} width={540}>
           <ModalHeader icon={<IconServer size={15} />}>
             <h4 className="text-[14px] font-semibold m-0">Add MCP Server</h4>
           </ModalHeader>
           <ModalBody>
-            <div className="flex items-center gap-2 mb-3">
-              <label className="text-[11px] font-medium text-[var(--text-secondary)]">Scope:</label>
-              <select
-                value={importScope}
-                onChange={(e) => setImportScope(e.target.value as 'project' | 'global')}
-                className="text-[11px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] outline-none cursor-pointer"
-              >
-                <option value="project">project (.monika/config.json)</option>
-                <option value="global">global (~/.monika/config.json)</option>
-              </select>
-            </div>
-            <textarea
+            <p className="text-[11px] text-[var(--text-dim)] m-0 mb-3">
+              Adding to <span className="font-mono">{scope}</span> scope ({scope === 'global' ? '~/.monika/config.json' : '.monika/config.json'})
+            </p>
+            <Textarea
               value={jsonText}
               onChange={(e) => { setJsonText(e.target.value); setImportError('') }}
               placeholder={'{\n  "mcpServers": {\n    "server-name": {\n      "type": "stdio",\n      "command": "npx",\n      "args": ["-y", "@scope/package"],\n      "env": { "API_KEY": "..." }\n    }\n  }\n}'}
-              className="w-full text-[12px] font-mono px-3 py-2.5 rounded-md resize-y outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+              className="font-mono"
               style={{
                 background: 'var(--bg-console)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
                 minHeight: '160px',
               }}
               rows={8}
@@ -383,17 +386,17 @@ export default function McpTab() {
                       <span className="font-mono text-[11px] text-[var(--text-dim)] truncate flex-1 min-w-0">
                         {isStdio ? `${s.command} ${s.args.join(' ')}` : s.url}
                       </span>
-                      <button
+                      <IconButton
+                        size="sm"
+                        label={`Test ${s.id}`}
                         onClick={() => handleAddTest(s.id)}
                         disabled={result?.loading}
-                        title="Test connection"
-                        className="inline-flex items-center text-[var(--text-dim)] hover:text-[var(--accent)] text-[11px] px-1.5 py-0.5 cursor-pointer bg-transparent border-none rounded transition-colors shrink-0"
                       >
                         <IconZap size={14} />
-                      </button>
+                      </IconButton>
                       <div className="shrink-0 text-[10px] min-w-0">
                         {result?.loading && <span className="text-[var(--text-dim)]">Testing...</span>}
-                        {result?.tools && <span className="text-green-400">{result.tools.length} tools</span>}
+                        {result?.tools && <span className="text-[var(--green)]">{result.tools.length} tools</span>}
                         {result?.error && <span className="text-[var(--red)]">{result.error}</span>}
                       </div>
                     </div>
@@ -437,14 +440,12 @@ export default function McpTab() {
             <h4 className="text-[14px] font-semibold m-0">Edit MCP Server</h4>
           </ModalHeader>
           <ModalBody>
-            <textarea
+            <Textarea
               value={editJsonText}
               onChange={(e) => { setEditJsonText(e.target.value); setEditError('') }}
-              className="w-full text-[12px] font-mono px-3 py-2.5 rounded-md resize-y outline-none focus:border-[var(--border-strong)] form-input-glow transition-colors duration-150"
+              className="font-mono"
               style={{
                 background: 'var(--bg-console)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
                 minHeight: '180px',
               }}
               rows={10}
