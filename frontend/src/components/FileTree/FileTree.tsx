@@ -692,18 +692,20 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
                                     tabIndex={0}
                                     onClick={() => toggleGroup(group.label)}
                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label) }}
-                                    className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-3 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors sticky top-0 z-10"
-                                    style={{ background: 'var(--bg-sidebar)' }}
+                                    className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-2.5 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors sticky top-0 z-10"
+                                    style={{ background: 'var(--bg-root)' }}
                                 >
-                                    <span className={`inline-block transition-transform ${collapsedGroups.has(group.label) ? '' : 'rotate-90'}`}>&#9654;</span>
+                                    <span className={`transition-transform duration-150 ${collapsedGroups.has(group.label) ? '' : 'rotate-90'}`}>
+                                        <IconChevronRight size={12} />
+                                    </span>
                                     <span>{group.label}</span>
-                                    <span className="ml-auto">{group.tasks.length}</span>
+                                    <span className="ml-auto text-[var(--text-dim)]">{group.tasks.length}</span>
                                 </div>
                                 {!collapsedGroups.has(group.label) && group.tasks.map((task) => (
                                     <div
                                         key={task.id}
                                         onClick={() => selectBgTask(task.id)}
-                                        className={`flex items-center gap-2.5 px-2 py-1 cursor-pointer rounded-md transition-colors duration-100 ${selectedBgTaskId === task.id
+                                        className={`flex items-center gap-2.5 px-2 py-1 ml-3 cursor-pointer rounded-md transition-colors duration-100 ${selectedBgTaskId === task.id
                                             ? 'bg-[var(--bg-active)] text-[var(--text-primary)]'
                                             : 'hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]'
                                             }`}
