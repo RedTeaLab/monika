@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { IDockviewPanelProps } from 'dockview'
+import { IconTrash, IconPlus, IconPin, IconInbox, IconChevronRight } from '../Icons'
 import { App, SessionInfo } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconTrash, IconPlus, IconPin, IconInbox } from '../Icons'
 import { logger } from '../../lib/logger'
 import { AlertDialog } from '../ui'
 import SessionContextMenu from '../Chat/SessionContextMenu'
@@ -268,21 +268,22 @@ function SessionList(props: IDockviewPanelProps) {
                     </div>
                 ) : (
                     groupedSessions.map((group) => {
-                        const collapsed = collapsedGroups.has(group.label) || ('defaultCollapsed' in group && group.defaultCollapsed && !collapsedGroups.has('expanded:' + group.label))
+                        const hasDefault = 'defaultCollapsed' in group && group.defaultCollapsed === true
+                        const collapsed = collapsedGroups.has(group.label) || (hasDefault && !collapsedGroups.has('expanded:' + group.label))
                         return (
                             <div key={group.label}>
                                 <div
                                     role="button"
                                     tabIndex={0}
-                                    onClick={() => toggleGroup(group.label, 'defaultCollapsed' in group && (group as any).defaultCollapsed)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label, 'defaultCollapsed' in group && (group as any).defaultCollapsed) }}
-                                    className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-3 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors"
+                                    onClick={() => toggleGroup(group.label, hasDefault)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleGroup(group.label, hasDefault) }}
+                                    className="flex items-center gap-1 text-[11px] text-[var(--text-dim)] px-2 pt-2.5 pb-1 select-none font-medium uppercase tracking-wider cursor-pointer hover:text-[var(--text-secondary)] transition-colors"
                                 >
-                                    <span className={`inline-block transition-transform ${collapsed ? '' : 'rotate-90'}`}>
-                                        &#9654;
+                                    <span className={`transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}>
+                                        <IconChevronRight size={12} />
                                     </span>
                                     <span>{group.label}</span>
-                                    <span className="ml-auto">{group.items.length}</span>
+                                    <span className="ml-auto text-[var(--text-dim)]">{group.items.length}</span>
                                 </div>
                                 {!collapsed && group.items.map((s) => {
                                     const st = deriveStatus(s.id, s, generatingSessionIds, sessionStatuses)
