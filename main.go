@@ -101,45 +101,14 @@ func main() {
 	taskStore := builtin.NewTaskStore(nil)
 	builtin.RegisterTasks(registry, taskStore)
 
-	// Create MCP registry and connect servers asynchronously
+	// Create MCP registry. Servers are connected later by App.syncMCPServers()
+	// (called from ServiceStartup and onProjectSwitch) — no init goroutine here
+	// to avoid duplicate connection attempts and log spam on startup.
 	mcpRegistry := engine2.NewMCPRegistry()
 	mcpEng, err := engine2.EngineByID("mcp")
 	if err == nil {
 		if mcp, ok := mcpEng.(engine2.MCPEngine); ok {
 			_ = mcp.Init(ctx, nil)
-			if len(pr.Config.MCP.Servers) > 0 {
-				go func() {
-					defer func() {
-						if r := recover(); r != nil {
-							fmt.Fprintf(os.Stderr, "[monika] mcp connect goroutine panic: %v\n", r)
-						}
-					}()
-					for _, srv := range pr.Config.MCP.Servers {
-						cfg := engine2.MCPServerConfig{
-							ID: srv.ID, Type: srv.Type, Command: srv.Command,
-							Args: srv.Args, Env: srv.Env, URL: srv.URL, Headers: srv.Headers,
-						}
-						if mcp.IsConnected(srv.ID) {
-							continue
-						}
-						mcpCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-						conn, err := mcp.ConnectServer(mcpCtx, cfg)
-						cancel()
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "[monika] MCP server %q connect failed: %v\n", srv.ID, err)
-							continue
-						}
-						tools, err := conn.ListTools(context.Background())
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "[monika] MCP server %q list tools: %v\n", srv.ID, err)
-							continue
-						}
-						meta := conn.ServerMeta()
-						mcpRegistry.AddServer(meta, conn, tools)
-						fmt.Fprintf(os.Stderr, "[monika] MCP server %q connected (%d tools)\n", srv.ID, len(tools))
-					}
-				}()
-			}
 		}
 	}
 

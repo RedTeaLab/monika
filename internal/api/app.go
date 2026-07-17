@@ -79,6 +79,7 @@ type App struct {
 	loopOpts        []agent2.LoopOption
 	rawSystemPrompt string
 	mcpRegistry     *engine2.MCPRegistry
+	mcpFailures     map[string]time.Time // server ID → last connect failure time (for backoff)
 	kbStore         *memory.KBStore
 
 	permissionRequests map[string]chan permission.PermissionResponse
@@ -131,8 +132,8 @@ func NewApp(home, initialProject string, cfg config2.Config, providers map[strin
 		childSessions:     make(map[string]*agent2.ChildSession),
 		pendingChildren:   make(map[string]string),
 		loopOpts:          loopOpts,
-		rawSystemPrompt:   rawSystemPrompt,
-		mcpRegistry:       mcpRegistry,
+		mcpRegistry:     mcpRegistry,
+		mcpFailures:     make(map[string]time.Time),
 		kbStore:           kbStore,
 		checker:           update.NewChecker(),
 		bgTaskMgr:         NewBackgroundTaskManager(filepath.Join(home, ".monika", "logs")),
@@ -298,6 +299,17 @@ func (a *App) ServiceStartup(ctx context.Context, options application.ServiceOpt
 			}
 		}()
 		a.bgTaskMgr.CleanOldLogs()
+	}()
+
+	// Connect MCP servers (global + restored project). Runs async to avoid
+	// blocking startup; syncMCPServers is idempotent and backoff-protected.
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Fprintf(os.Stderr, "[monika] startup syncMCPServers panic: %v\n", r)
+			}
+		}()
+		a.syncMCPServers()
 	}()
 
 	return nil
@@ -4692,6 +4704,9 @@ func (a *App) connectMCPServer(entry config2.MCPServerEntry) error {
 	}
 	meta := conn.ServerMeta()
 	a.mcpRegistry.AddServer(meta, conn, tools)
+	a.mu.Lock()
+	delete(a.mcpFailures, entry.ID)
+	a.mu.Unlock()
 	fmt.Fprintf(os.Stderr, "[monika] MCP server %q connected (%d tools)\n", entry.ID, len(tools))
 	return nil
 }
@@ -4714,9 +4729,11 @@ func (a *App) syncMCPServers() {
 		return
 	}
 	mcpEng := a.getMCPEngine()
+	const backoff = 60 * time.Second // skip servers that failed within this window
 	a.mu.RLock()
 	configured := make(map[string]bool, len(a.cfg.MCP.Servers))
 	var toConnect []config2.MCPServerEntry
+	now := time.Now()
 	for _, s := range a.cfg.MCP.Servers {
 		configured[s.ID] = true
 		if _, ok := a.mcpRegistry.GetConnection(s.ID); ok {
@@ -4725,13 +4742,20 @@ func (a *App) syncMCPServers() {
 		if mcpEng != nil && mcpEng.IsConnected(s.ID) {
 			continue
 		}
+		// Backoff: skip servers that recently failed to avoid log spam on every sync.
+		if lastFail, ok := a.mcpFailures[s.ID]; ok && now.Sub(lastFail) < backoff {
+			continue
+		}
 		toConnect = append(toConnect, s)
 	}
 	a.mu.RUnlock()
 
 	for _, s := range toConnect {
 		if err := a.connectMCPServer(s); err != nil {
-			fmt.Fprintf(os.Stderr, "[monika] syncMCPServers: %v\n", err)
+			a.mu.Lock()
+			a.mcpFailures[s.ID] = time.Now()
+			a.mu.Unlock()
+			fmt.Fprintf(os.Stderr, "[monika] syncMCPServers: %v (skipping retries for %ds)\n", err, int(backoff.Seconds()))
 		}
 	}
 
@@ -4755,8 +4779,11 @@ func (a *App) ReconnectMCPServer(args json.RawMessage) ([]string, error) {
 		return nil, fmt.Errorf("mcp engine not available")
 	}
 
-	// Disconnect + remove from registry
+	// Disconnect + remove from registry; clear backoff so manual retry bypasses it
 	a.disconnectMCPServer(req.ID)
+	a.mu.Lock()
+	delete(a.mcpFailures, req.ID)
+	a.mu.Unlock()
 
 	var entry *config2.MCPServerEntry
 	a.mu.RLock()
