@@ -901,118 +901,111 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
         : formatTokens(tokenCount)
 
     return (
-        <div className="border-t border-[var(--border)] px-4 py-3" style={{ background: 'var(--bg-sidebar)' }}>
+        <div className="border-t border-[var(--border)] flex flex-col" style={{ background: 'var(--bg-root)' }}>
             <QueuePanel />
+
+            <AutocompleteDropdown
+                state={ac}
+                onSelect={selectAcItem}
+                onClose={closeAutocomplete}
+            />
+
             <div
-                className="rounded-md border transition-colors relative"
+                ref={editorRef}
+                contentEditable={!disabled}
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+                data-file-drop-target="true"
+                className="text-[13px] text-[var(--text-primary)] outline-none px-4 pt-3 pb-1 resize-none w-full bg-transparent overflow-hidden whitespace-pre-wrap break-words border-0 min-h-[120px] flex-1"
                 style={{
-                    background: 'var(--bg-card)',
-                    borderColor: 'var(--border)',
+                    fontFamily: 'inherit',
+                    letterSpacing: 'inherit',
                 }}
+                data-placeholder={
+                    disabled
+                        ? 'Generating...'
+                        : isGenerating
+                            ? 'Send a message... (will be queued)'
+                            : inputMode === 'shell'
+                                ? 'Run a shell command... (each command runs independently)'
+                                : 'Send a message... (Enter to submit, Shift+Enter for newline)'
+                }
+            />
+
+            <div
+                className="flex items-center gap-2 px-3 pb-2.5 pt-1"
+                style={{ background: 'transparent' }}
             >
-                <AutocompleteDropdown
-                    state={ac}
-                    onSelect={selectAcItem}
-                    onClose={closeAutocomplete}
+                <InputModePicker />
+                <PermissionModePicker />
+                <ModelPicker />
+                <WorktreeChip
+                    sessionId={activeSessionId}
+                    onClick={() => setWorktreeManagerOpen(true)}
                 />
-
-                <div
-                    ref={editorRef}
-                    contentEditable={!disabled}
-                    suppressContentEditableWarning
-                    onInput={handleInput}
-                    onCompositionStart={handleCompositionStart}
-                    onCompositionEnd={handleCompositionEnd}
-                    onPaste={handlePaste}
-                    onKeyDown={handleKeyDown}
-                    data-file-drop-target="true"
-                    className="text-[13px] text-[var(--text-primary)] outline-none px-[14px] pt-[12px] pb-[6px] resize-none w-full bg-transparent overflow-hidden whitespace-pre-wrap break-words border-0 min-h-[160px]"
-                    style={{
-                        fontFamily: 'inherit',
-                        letterSpacing: 'inherit',
-                    }}
-                    data-placeholder={
-                        disabled
-                            ? 'Generating...'
-                            : isGenerating
-                                ? 'Send a message... (will be queued)'
-                                : inputMode === 'shell'
-                                    ? 'Run a shell command... (each command runs independently)'
-                                    : 'Send a message... (Enter to submit, Shift+Enter for newline)'
-                    }
-                />
-
-                <div
-                    className="flex items-center gap-2 px-[10px] pb-[8px]"
-                    style={{ background: 'transparent' }}
-                >
-                    <InputModePicker />
-                    <PermissionModePicker />
-                    <ModelPicker />
-                    <WorktreeChip
+                {worktreeManagerOpen && (
+                    <WorktreeManager
                         sessionId={activeSessionId}
-                        onClick={() => setWorktreeManagerOpen(true)}
+                        onClose={() => setWorktreeManagerOpen(false)}
                     />
-                    {worktreeManagerOpen && (
-                        <WorktreeManager
-                            sessionId={activeSessionId}
-                            onClose={() => setWorktreeManagerOpen(false)}
-                        />
-                    )}
+                )}
 
-                    {/* Native file picker (also covers keyboard / screen-reader
-                        access). Drag-drop is handled by the Wails runtime. */}
+                {/* Native file picker (also covers keyboard / screen-reader
+                    access). Drag-drop is handled by the Wails runtime. */}
+                <button
+                    type="button"
+                    title="Attach media file"
+                    aria-label="Attach media file"
+                    disabled={disabled}
+                    onClick={handlePickMedia}
+                    className="flex items-center justify-center w-7 h-7 rounded hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ color: 'var(--text-dim)' }}
+                >
+                    <IconPaperclip size={16} />
+                </button>
+
+                <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
+                    tok: {tokenText}
+                </span>
+
+                <div className="flex-1" />
+
+                {isGenerating && !value.trim() ? (
                     <button
-                        type="button"
-                        title="Attach media file"
-                        aria-label="Attach media file"
-                        disabled={disabled}
-                        onClick={handlePickMedia}
-                        className="flex items-center justify-center w-7 h-7 rounded hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        style={{ color: 'var(--text-dim)' }}
+                        onClick={onStop}
+                        title="Stop generating"
+                        className="flex items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
+                        style={{ width: '28px', height: '28px', border: 'none', background: 'none', cursor: 'pointer', flexShrink: 0 }}
                     >
-                        <IconPaperclip size={16} />
+                        <span className="inline-block w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                     </button>
-
-                    <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
-                        tok: {tokenText}
-                    </span>
-
-                    <div className="flex-1" />
-
-                    {isGenerating && !value.trim() ? (
-                        <button
-                            onClick={onStop}
-                            title="Stop generating"
-                            className="flex items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                            style={{ width: '28px', height: '28px', border: 'none', background: 'none', cursor: 'pointer', flexShrink: 0 }}
-                        >
-                            <span className="inline-block w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleSendClick}
-                            disabled={!value.trim() || disabled || isShellExecuting}
-                            title={isGenerating ? 'Queue message (Enter) · Esc to stop' : 'Send message (Enter)'}
-                            className="flex items-center justify-center rounded transition-colors"
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                border: 'none',
-                                background: 'none',
-                                color: !value.trim() || disabled || isShellExecuting
-                                    ? 'var(--text-dim)'
-                                    : isGenerating ? 'var(--yellow)' : 'var(--accent)',
-                                cursor: (!value.trim() || disabled || isShellExecuting) ? 'default' : 'pointer',
-                                opacity: (!value.trim() || disabled || isShellExecuting) ? 0.4 : 1,
-                                transition: 'color 0.15s, opacity 0.15s',
-                                flexShrink: 0,
-                            }}
-                        >
-                            <IconSend size={16} />
-                        </button>
-                    )}
-                </div>
+                ) : (
+                    <button
+                        onClick={handleSendClick}
+                        disabled={!value.trim() || disabled || isShellExecuting}
+                        title={isGenerating ? 'Queue message (Enter) · Esc to stop' : 'Send message (Enter)'}
+                        className="flex items-center justify-center rounded transition-colors"
+                        style={{
+                            width: '28px',
+                            height: '28px',
+                            border: 'none',
+                            background: 'none',
+                            color: !value.trim() || disabled || isShellExecuting
+                                ? 'var(--text-dim)'
+                                : isGenerating ? 'var(--yellow)' : 'var(--accent)',
+                            cursor: (!value.trim() || disabled || isShellExecuting) ? 'default' : 'pointer',
+                            opacity: (!value.trim() || disabled || isShellExecuting) ? 0.4 : 1,
+                            transition: 'color 0.15s, opacity 0.15s',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <IconSend size={16} />
+                    </button>
+                )}
             </div>
         </div>
     )
