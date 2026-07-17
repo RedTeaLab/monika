@@ -80,6 +80,7 @@ type App struct {
 	rawSystemPrompt string
 	mcpRegistry     *engine2.MCPRegistry
 	mcpFailures     map[string]bool // server IDs that failed this session (fire-and-forget: no auto-retry)
+	mcpSyncMu       sync.Mutex     // serializes syncMCPServers calls to prevent concurrent connect storms
 	kbStore         *memory.KBStore
 
 	permissionRequests map[string]chan permission.PermissionResponse
@@ -4723,18 +4724,28 @@ func (a *App) disconnectMCPServer(id string) {
 }
 
 // syncMCPServers connects servers present in a.cfg but missing from the registry,
-// and disconnects servers in the registry but absent from a.cfg.
 func (a *App) syncMCPServers() {
+	// Serialize sync calls. Multiple triggers (startup, project switch, import)
+	// can fire concurrently; the mutex makes them run one at a time, and the
+	// mcpFailures check inside ensures each failed server is tried at most once.
+	a.mcpSyncMu.Lock()
+	defer a.mcpSyncMu.Unlock()
+
 	if a.mcpRegistry == nil {
 		return
 	}
 	mcpEng := a.getMCPEngine()
-
 	a.mu.RLock()
 	configured := make(map[string]bool, len(a.cfg.MCP.Servers))
 	var toConnect []config2.MCPServerEntry
+	seen := make(map[string]bool, len(a.cfg.MCP.Servers))
 	for _, s := range a.cfg.MCP.Servers {
 		configured[s.ID] = true
+		// Dedup: skip repeated entries with the same ID (config corruption guard).
+		if seen[s.ID] {
+			continue
+		}
+		seen[s.ID] = true
 		if _, ok := a.mcpRegistry.GetConnection(s.ID); ok {
 			continue
 		}
@@ -4743,7 +4754,7 @@ func (a *App) syncMCPServers() {
 		}
 		// Skip servers that already failed in this session — MCP is fire-and-forget.
 		// Users can manually retry via Settings → MCP → Reconnect.
-		if _, failed := a.mcpFailures[s.ID]; failed {
+		if a.mcpFailures[s.ID] {
 			continue
 		}
 		toConnect = append(toConnect, s)
