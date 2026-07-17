@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Design Tokens — Monika
@@ -67,10 +66,14 @@
   --text-xl:   1.25rem;
   --text-2xl:  1.5rem;
 
-  /* === Font stacks === */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'Maple Mono NF', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
-  --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* === Font stacks — unified: Maple Mono NF (EN+code) + LXGW WenKai (CN) ===
+     Both UI text and code use the same monospace family for consistency.
+     LXGW WenKai provides Chinese glyph coverage; Maple Mono NF handles
+     Latin/code with ligatures. Fallbacks cover environments without
+     these fonts installed. */
+  --font-sans: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
+  --font-mono: 'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
+  --font-ui:   'Maple Mono NF', 'LXGW WenKai', 'Cascadia Code', 'Fira Code', monospace;
 
   /* === Shadow depths — deep blacks + ambient glows for premium feel ===
      Layered shadows: base drop + ambient spread + subtle accent glow.
