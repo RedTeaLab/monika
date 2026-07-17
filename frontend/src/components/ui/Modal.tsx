@@ -25,7 +25,7 @@ export default function Modal({ children, onClose, loading, width = 440, animate
     return createPortal(
         <div
             className={`fixed inset-0 z-50 flex items-center justify-center${animate ? ' modal-backdrop-enter' : ''}`}
-            style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}
+            style={{ background: 'var(--surface-overlay)', backdropFilter: 'blur(6px)' }}
             onClick={loading ? undefined : onClose}
         >
             <div
