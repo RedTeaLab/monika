@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore, AgentInfo } from '../../store'
-import { Button, IconButton, Input, Textarea, Select, Combobox, AlertDialog } from '../ui'
+import { Button, IconButton, Input, Textarea, Combobox, AlertDialog } from '../ui'
 import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
 import { IconBot, IconEdit, IconTrash, IconPlus, IconShield, IconClose } from '../Icons'
 import { SettingsTabHeader, SettingsCardList, SettingsCard, SettingsEmptyState } from './shared'
@@ -294,30 +294,34 @@ function AgentsTab() {
                   </div>
                 )}
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Input
                     type="text"
                     value={newRuleTool}
                     onChange={(e) => setNewRuleTool(e.target.value)}
                     className="flex-1"
-                    placeholder="tool name"
+                    placeholder="tool name (e.g. bash)"
+                    inputSize="sm"
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') addRule()
+                      if (e.key === 'Enter' && newRuleTool.trim()) addRule()
                     }}
                   />
-                  <Select
+                  <Combobox
                     value={newRuleDecision}
-                    onChange={(e) => setNewRuleDecision(e.target.value as 'allow' | 'ask' | 'deny')}
-                    className="w-[90px]"
-                  >
-                    {(['allow', 'ask', 'deny'] as const).map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </Select>
+                    options={[
+                      { value: 'allow', label: 'Allow', description: 'Grant without asking' },
+                      { value: 'ask', label: 'Ask', description: 'Prompt user each time' },
+                      { value: 'deny', label: 'Deny', description: 'Block outright' },
+                    ]}
+                    onChange={(v) => setNewRuleDecision(v as 'allow' | 'ask' | 'deny')}
+                    searchable={false}
+                    className="w-[120px]"
+                  />
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={addRule}
+                    disabled={!newRuleTool.trim()}
                   >
                     <IconPlus size={10} />
                   </Button>
