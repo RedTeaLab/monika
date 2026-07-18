@@ -24,13 +24,13 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         className={cn(
           'w-full appearance-none bg-[var(--surface-card)] text-[var(--text-primary)]',
           'border border-[var(--border-default)] rounded-[var(--radius-md)]',
+          'shadow-[var(--inner-highlight)]',
           'h-9 text-sm pl-3 pr-8',
           'placeholder:text-[var(--text-dim)]',
-          'transition-colors duration-150',
-          'hover:border-[var(--border-strong)]',
-          'focus:outline-none focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]',
+          'transition-all duration-[var(--duration-fast)] [transition-timing-function:var(--ease-out)] cursor-pointer',
+          'hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)]',
+          'focus:outline-none focus:border-[var(--accent)] focus:bg-[var(--surface-card)] focus:shadow-[0_0_0_1px_var(--accent),0_0_0_4px_var(--accent-muted)]',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          'cursor-pointer',
           invalid && 'border-[var(--color-error)]',
         )}
         {...rest}

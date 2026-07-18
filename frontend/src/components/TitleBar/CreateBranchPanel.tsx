@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
 import { getErrorMessage, parseUnmergedError, resolveUnmergedWithAI } from './dropdownHelpers';
-import { Button, Input, Select, AlertDialog } from '../ui';
+import { Button, Input, AlertDialog, Combobox } from '../ui'
 import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal';
 
 interface CreateBranchPanelProps {
@@ -62,16 +62,18 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
           <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5 mt-3">
             From branch
           </label>
-          <Select
+          <Combobox
             value={baseBranch}
-            onChange={e => setBaseBranch(e.target.value)}
-          >
-            {allBranches.map(b => (
-              <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.remote ? `${b.remote}/${b.name}` : b.name}>
-                {b.remote ? `${b.remote}/${b.name}` : b.name}{b.name === branch && !b.remote ? ' (current)' : ''}
-              </option>
-            ))}
-          </Select>
+            options={allBranches.map(b => ({
+              value: b.remote ? `${b.remote}/${b.name}` : b.name,
+              label: b.remote ? `${b.remote}/${b.name}` : b.name,
+              description: b.name === branch && !b.remote ? 'current' : b.remote ? 'remote' : undefined,
+            }))}
+            onChange={setBaseBranch}
+            searchable
+            placeholder="Select branch…"
+            emptyMessage="No branches"
+          />
           {error && (
             <p className="text-[11px] text-[var(--color-error)] mt-3 mb-0">{error}</p>
           )}
