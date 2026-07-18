@@ -315,7 +315,7 @@ function AgentsTab() {
                     ]}
                     onChange={(v) => setNewRuleDecision(v as 'allow' | 'ask' | 'deny')}
                     searchable={false}
-                    className="!w-auto min-w-[72px] [&>button]:!text-[11px]"
+                    className="!w-auto min-w-[72px] [&>button]:!text-[11px] [&>button]:!h-7 [&>button]:!py-0.5 [&>button]:!px-2"
                   />
                   <Button
                     variant="outline"
