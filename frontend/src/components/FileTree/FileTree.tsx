@@ -46,6 +46,7 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
     const bumpFileTreeVersion = useStore((s) => s.bumpFileTreeVersion)
     const setPreviewFile = useStore((s) => s.setPreviewFile)
     const previewFilePath = useStore((s) => s.preview.filePath)
+    const clearPreview = useStore((s) => s.clearPreview)
     const revealFilePath = useStore((s) => s.revealFilePath)
     const setRevealFilePath = useStore((s) => s.setRevealFilePath)
     const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
@@ -167,6 +168,7 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
             next.has(node.path) ? next.delete(node.path) : next.add(node.path)
             setExpanded(next)
             setSelectedDir(node.path)
+            clearPreview()
         } else {
             setSelectedDir('')
             try {
