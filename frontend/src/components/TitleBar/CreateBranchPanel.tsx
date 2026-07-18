@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useStore } from '../../store';
 import { App } from '../../../bindings/monika';
-import { getErrorMessage, parseUnmergedError, sectionHeaderStyle, resolveUnmergedWithAI } from './dropdownHelpers';
+import { getErrorMessage, parseUnmergedError, resolveUnmergedWithAI } from './dropdownHelpers';
 import { Button, Input, Select, AlertDialog } from '../ui';
+import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal';
 
 interface CreateBranchPanelProps {
   onCancel: () => void;
@@ -44,58 +45,46 @@ export function CreateBranchPanel({ onCancel, onCreated }: CreateBranchPanelProp
 
   return (
     <>
-      <div style={{ padding: 12 }}>
-        <div style={{ ...sectionHeaderStyle, marginBottom: 8, borderBottom: 'none' }}>
-          Create New Branch
-        </div>
-
-        <Input
-          inputSize="sm"
-          type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="Branch name"
-          autoFocus
-          onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onCancel(); }}
-          style={{ marginBottom: 8 }}
-        />
-
-        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>From branch</div>
-        <Select
-          value={baseBranch}
-          onChange={e => setBaseBranch(e.target.value)}
-          style={{ marginBottom: 10 }}
-        >
-          {allBranches.map(b => (
-            <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.remote ? `${b.remote}/${b.name}` : b.name}>
-              {b.remote ? `${b.remote}/${b.name}` : b.name}{b.name === branch && !b.remote ? ' (current)' : ''}
-            </option>
-          ))}
-        </Select>
-
-        {error && (
-          <div style={{ color: 'var(--red)', fontSize: 11, marginBottom: 8 }}>{error}</div>
-        )}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            disabled={creating}
+      <Modal onClose={onCancel} width={360}>
+        <ModalHeader>
+          <h2 className="text-[14px] font-semibold m-0">Create New Branch</h2>
+        </ModalHeader>
+        <ModalBody>
+          <Input
+            inputSize="sm"
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Branch name"
+            autoFocus
+            onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') onCancel(); }}
+          />
+          <label className="block text-[11px] font-medium text-[var(--text-secondary)] mb-1.5 mt-3">
+            From branch
+          </label>
+          <Select
+            value={baseBranch}
+            onChange={e => setBaseBranch(e.target.value)}
           >
+            {allBranches.map(b => (
+              <option key={b.remote ? `${b.remote}/${b.name}` : b.name} value={b.remote ? `${b.remote}/${b.name}` : b.name}>
+                {b.remote ? `${b.remote}/${b.name}` : b.name}{b.name === branch && !b.remote ? ' (current)' : ''}
+              </option>
+            ))}
+          </Select>
+          {error && (
+            <p className="text-[11px] text-[var(--color-error)] mt-3 mb-0">{error}</p>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="ghost" size="sm" onClick={onCancel} disabled={creating}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleCreate}
-            disabled={!name.trim() || creating}
-          >
+          <Button variant="primary" size="sm" onClick={handleCreate} disabled={!name.trim() || creating}>
             {creating ? 'Creating...' : 'Create & Switch'}
           </Button>
-        </div>
-      </div>
+        </ModalFooter>
+      </Modal>
       <AlertDialog
         open={!!unmergedFiles}
         title="Cannot Create Branch"

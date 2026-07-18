@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Window, Events } from '@wailsio/runtime'
 import { useStore } from '../../store'
 import { App } from '../../../bindings/monika'
@@ -26,7 +26,6 @@ function TitleBar() {
   const [pendingConfirm, setPendingConfirm] = useState<{ title: string; message: string; targetPath: string } | null>(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [confirmError, setConfirmError] = useState('')
-  const newBranchBtnRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     Window.IsMaximised().then(setIsMaximised)
@@ -62,11 +61,6 @@ function TitleBar() {
     await doSwitchProject(targetPath)
   }, [generatingSessionIds])
 
-  // Position the create-branch popover under the + button.
-  const newBranchRect = newBranchBtnRef.current?.getBoundingClientRect()
-  const createBranchTop = newBranchRect ? newBranchRect.bottom + 4 : 0
-  const createBranchLeft = newBranchRect ? newBranchRect.left : 0
-
   return (
     <div
       className="flex items-center h-9 border-b border-[var(--border)] select-none"
@@ -78,8 +72,6 @@ function TitleBar() {
         zIndex: 10,
       } as React.CSSProperties}
     >
-      <span className="text-[13px] font-semibold text-[var(--text-secondary)] tracking-tight">Monika</span>
-
       {/* Interactive cluster — no-drag overrides the inherited drag region so
           the Combobox triggers and action buttons are clickable. The CSS
           variable inherits to all descendants, including the Combobox's
@@ -109,7 +101,6 @@ function TitleBar() {
         </div>
         {isGitRepo && (
           <IconButton
-            ref={newBranchBtnRef}
             label="Create new branch"
             size="sm"
             onClick={() => setShowCreateBranch(true)}
@@ -154,32 +145,13 @@ function TitleBar() {
         </IconButton>
       </div>
 
-      {/* Create-branch popover */}
+      {/* Create-new-branch modal */}
       {showCreateBranch && (
-        <div style={{
-          position: 'fixed',
-          top: createBranchTop,
-          left: createBranchLeft,
-          minWidth: 280,
-          background: 'var(--bg-sidebar)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-lg)',
-          zIndex: 1000,
-        }}>
-          <CreateBranchPanel
-            onCancel={() => setShowCreateBranch(false)}
-            onCreated={() => setShowCreateBranch(false)}
-          />
-        </div>
+        <CreateBranchPanel
+          onCancel={() => setShowCreateBranch(false)}
+          onCreated={() => setShowCreateBranch(false)}
+        />
       )}
-
-      <FileDialog
-        isOpen={fileDialogOpen}
-        onClose={() => setFileDialogOpen(false)}
-        onOpen={(dirPath) => { setFileDialogOpen(false); handleProjectSelect(dirPath) }}
-      />
-
       <AlertDialog
         open={!!pendingConfirm}
         title={pendingConfirm?.title ?? ''}
