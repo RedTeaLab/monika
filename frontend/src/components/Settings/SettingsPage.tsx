@@ -39,7 +39,7 @@ function SettingsPage({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed top-[28px] left-0 right-0 bottom-0 z-50 flex bg-[var(--bg-root)]"
+      className="fixed top-[32px] left-0 right-0 bottom-0 z-50 flex border-t border-[var(--border-strong)] bg-[var(--bg-root)]"
       onKeyDown={(e) => { if (e.key === 'Escape') onClose() }}
     >
       {/* Sidebar */}
