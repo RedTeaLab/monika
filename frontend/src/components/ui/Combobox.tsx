@@ -80,7 +80,7 @@ export function Combobox({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
-  const [panelPos, setPanelPos] = useState<{ top: number; left: number; maxH: number } | null>(null)
+  const [panelPos, setPanelPos] = useState<{ top?: number; bottom?: number; left: number; maxH: number } | null>(null)
 
   const query = searchValue ?? internalQuery
   const setQuery = onSearchChange ?? setInternalQuery
@@ -119,9 +119,10 @@ export function Combobox({
       return
     }
     const baseMax = typeof panelMaxHeight === 'number' ? panelMaxHeight : 280
+    const triggerW = triggerRef.current?.offsetWidth ?? 200
     const pw = panelWidth
-      ? typeof panelWidth === 'number' ? panelWidth : triggerRef.current?.offsetWidth ?? 200
-      : triggerRef.current?.offsetWidth ?? 200
+      ? typeof panelWidth === 'number' ? panelWidth : triggerW
+      : Math.max(triggerW, 160)  // min 160px so compact triggers don't clip content
     const margin = 4
     const position = () => {
       const el = triggerRef.current
@@ -149,10 +150,11 @@ export function Combobox({
       else if (!placeBelow && spaceAbove < 120 && spaceBelow >= 120) placeBelow = true
       if (placeBelow) {
         const maxH = Math.max(120, Math.min(baseMax, spaceBelow))
-        setPanelPos({ top: r.bottom + margin, left, maxH })
+        setPanelPos({ top: r.bottom + margin, left, maxH, bottom: undefined })
       } else {
         const maxH = Math.max(120, Math.min(baseMax, spaceAbove))
-        setPanelPos({ top: Math.max(margin, r.top - margin - maxH), left, maxH })
+        // Anchor panel bottom to trigger top; let CSS handle the height
+        setPanelPos({ top: undefined, bottom: vh - r.top + margin, left, maxH })
       }
     }
     position()
@@ -245,9 +247,13 @@ export function Combobox({
           ref={panelRef}
           role="listbox"
           style={{
-            top: panelPos?.top ?? 0,
+            top: panelPos?.top,
+            bottom: panelPos?.bottom,
             left: panelPos?.left ?? 0,
-            width: panelWidth ?? triggerRef.current?.offsetWidth ?? 200,
+            width: panelWidth
+              ? (typeof panelWidth === 'number' ? panelWidth : triggerRef.current?.offsetWidth ?? 200)
+              : Math.max(triggerRef.current?.offsetWidth ?? 200, 160),
+            minWidth: 'max-content',
           }}
           className={cn(
             'fixed z-[1000]',
