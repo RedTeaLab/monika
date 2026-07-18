@@ -299,7 +299,7 @@ function AgentsTab() {
                     type="text"
                     value={newRuleTool}
                     onChange={(e) => setNewRuleTool(e.target.value)}
-                    className="flex-1"
+                    className="flex-[2]"
                     placeholder="tool name (e.g. bash)"
                     inputSize="sm"
                     onKeyDown={(e) => {
@@ -315,7 +315,7 @@ function AgentsTab() {
                     ]}
                     onChange={(v) => setNewRuleDecision(v as 'allow' | 'ask' | 'deny')}
                     searchable={false}
-                    className="w-[120px]"
+                    className="!w-auto min-w-[72px] [&>button]:!text-[11px]"
                   />
                   <Button
                     variant="outline"
