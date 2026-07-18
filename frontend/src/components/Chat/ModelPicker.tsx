@@ -31,13 +31,18 @@ function ModelPicker() {
 
     // Ensure models for the selected provider are loaded so the button label is correct.
     // applySessionBinding can set selectedProvider without loading its models first.
+    // Load models for ALL providers so the dropdown shows every available model.
+    // The selected provider is loaded first (for the trigger label); the rest
+    // are loaded in parallel so they appear in the dropdown without delay.
     useEffect(() => {
-        if (!selectedProvider || availableProviders.length === 0) return
-        const models = modelsByProvider[selectedProvider]
-        if (!models || models.length === 0) {
-            loadModelsForProvider(selectedProvider)
+        if (availableProviders.length === 0) return
+        for (const p of availableProviders) {
+            const existing = modelsByProvider[p.id]
+            if (!existing || existing.length === 0) {
+                loadModelsForProvider(p.id)
+            }
         }
-    }, [selectedProvider, availableProviders, modelsByProvider, loadModelsForProvider])
+    }, [availableProviders, modelsByProvider, loadModelsForProvider])
 
     // Build options across ALL providers, grouped by Favorites + provider name.
     // Each option's value is encoded as "providerId:modelId" so onChange can
