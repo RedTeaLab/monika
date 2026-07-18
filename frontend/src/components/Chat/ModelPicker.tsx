@@ -126,7 +126,7 @@ function ModelPicker() {
             aria-label="Select model"
             panelWidth={240}
             className={
-                '!w-auto min-w-[100px] ' +
+                '!w-auto min-w-[60px] ' +
                 '[&>button]:!w-auto [&>button]:!h-auto [&>button]:!py-0.5 [&>button]:!px-2 ' +
                 '[&>button]:!text-[11px] [&>button]:!gap-1 [&>button]:!bg-[var(--bg-elevated)] ' +
                 '[&>button]:!border-[var(--border)] [&>button]:!rounded'

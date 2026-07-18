@@ -948,19 +948,21 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
             >
                 <InputModePicker />
                 <PermissionModePicker />
-                <ModelPicker />
-                {selectedModel && (
-                    <IconButton
-                        label={isCurrentModelFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                        size="sm"
-                        onClick={() => toggleFavoriteModel(selectedProvider, selectedModel)}
-                        className="!h-5 !w-5"
-                    >
-                        <span style={{ color: isCurrentModelFavorite ? 'var(--accent)' : 'var(--text-dim)' }}>
-                            <IconStar filled={!!isCurrentModelFavorite} size={11} />
-                        </span>
-                    </IconButton>
-                )}
+                <div className="flex items-center gap-0.5">
+                    <ModelPicker />
+                    {selectedModel && (
+                        <IconButton
+                            label={isCurrentModelFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                            size="sm"
+                            onClick={() => toggleFavoriteModel(selectedProvider, selectedModel)}
+                            className="!h-5 !w-5"
+                        >
+                            <span style={{ color: isCurrentModelFavorite ? 'var(--accent)' : 'var(--text-dim)' }}>
+                                <IconStar filled={!!isCurrentModelFavorite} size={11} />
+                            </span>
+                        </IconButton>
+                    )}
+                </div>
                 <button
                     type="button"
                     title="Attach media file"
