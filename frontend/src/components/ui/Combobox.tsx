@@ -16,6 +16,10 @@ export interface ComboboxOption {
   icon?: ReactNode
   /** Disable this specific option. */
   disabled?: boolean
+  /** Group header label. Options with the same group are rendered under
+   *  a non-selectable header. First occurrence of a group label triggers
+   *  the header render. */
+  group?: string
 }
 
 export interface ComboboxProps {
@@ -300,38 +304,46 @@ export function Combobox({
             {!loading && filtered.map((opt, i) => {
               const isSelected = opt.value === value
               const isFocused = i === focusIdx
+              const prevGroup = i > 0 ? filtered[i - 1].group : undefined
+              const showGroupHeader = opt.group && opt.group !== prevGroup
               return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  disabled={opt.disabled}
-                  onClick={() => !opt.disabled && selectOption(opt.value)}
-                  onMouseEnter={() => setFocusIdx(i)}
-                  className={cn(
-                    'relative w-full flex items-start gap-2 px-3 py-2 text-left text-sm',
-                    'text-[var(--text-primary)] cursor-pointer',
-                    'transition-colors duration-[var(--duration-instant)]',
-                    'disabled:opacity-40 disabled:cursor-not-allowed',
-                    isFocused && 'bg-[var(--surface-hover)] text-[var(--text-primary)]',
-                    isFocused && 'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--accent)]',
-                    isSelected && 'text-[var(--accent)]',
+                <div key={opt.value}>
+                  {showGroupHeader && (
+                    <div className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-dim)] select-none">
+                      {opt.group}
+                    </div>
                   )}
-                >
-                  {opt.icon && <span className="flex-shrink-0 mt-0.5">{opt.icon}</span>}
-                  <span className="flex-1 min-w-0">
-                    <span className="block truncate">{opt.label}</span>
-                    {opt.description && (
-                      <span className="block text-xs text-[var(--text-dim)] truncate">
-                        {opt.description}
-                      </span>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    disabled={opt.disabled}
+                    onClick={() => !opt.disabled && selectOption(opt.value)}
+                    onMouseEnter={() => setFocusIdx(i)}
+                    className={cn(
+                      'relative w-full flex items-start gap-2 px-3 py-2 text-left text-sm',
+                      'text-[var(--text-primary)] cursor-pointer',
+                      'transition-colors duration-[var(--duration-instant)]',
+                      'disabled:opacity-40 disabled:cursor-not-allowed',
+                      isFocused && 'bg-[var(--surface-hover)] text-[var(--text-primary)]',
+                      isFocused && 'before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-[var(--accent)]',
+                      isSelected && 'text-[var(--accent)]',
                     )}
-                  </span>
-                  {isSelected && (
-                    <Check size={14} className="flex-shrink-0 mt-0.5 text-[var(--accent)]" />
-                  )}
-                </button>
+                  >
+                    {opt.icon && <span className="flex-shrink-0 mt-0.5">{opt.icon}</span>}
+                    <span className="flex-1 min-w-0">
+                      <span className="block truncate">{opt.label}</span>
+                      {opt.description && (
+                        <span className="block text-xs text-[var(--text-dim)] truncate">
+                          {opt.description}
+                        </span>
+                      )}
+                    </span>
+                    {isSelected && (
+                      <Check size={14} className="flex-shrink-0 mt-0.5 text-[var(--accent)]" />
+                    )}
+                  </button>
+                </div>
               )
             })}
           </div>

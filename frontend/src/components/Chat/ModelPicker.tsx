@@ -39,43 +39,84 @@ function ModelPicker() {
         }
     }, [selectedProvider, availableProviders, modelsByProvider, loadModelsForProvider])
 
-    const models = useMemo<ResolvedModel[]>(
-        () => (modelsByProvider[selectedProvider] || []).filter((m) => (m as ResolvedModel).Enabled !== false),
-        [modelsByProvider, selectedProvider],
-    )
+    // Build options across ALL providers, grouped by Favorites + provider name.
+    // Each option's value is encoded as "providerId:modelId" so onChange can
+    // route to the correct provider. The trigger label is resolved separately.
+    const options = useMemo<ComboboxOption[]>(() => {
+        const result: ComboboxOption[] = []
 
-    const options = useMemo<ComboboxOption[]>(() => (
-        models.map((m) => {
-            const favKey = `${selectedProvider}:${m.ID}`.toLowerCase()
-            const isFavorite = favoriteModels.some((k) => k.toLowerCase() === favKey)
-            return {
-                value: m.ID,
-                label: m.DisplayName || m.ID,
-                description: formatContext((m as ResolvedModel).ContextLimit ?? 0) || undefined,
-                icon: isFavorite ? <IconStar filled size={11} /> : undefined,
+        // Lookup: "providerId:modelId" → { provider, model }
+        const allModels: { providerId: string; providerName: string; model: ResolvedModel }[] = []
+        for (const p of availableProviders) {
+            const models = (modelsByProvider[p.id] || []).filter((m) => (m as ResolvedModel).Enabled !== false)
+            for (const m of models) {
+                allModels.push({ providerId: p.id, providerName: p.display_name || p.id, model: m as ResolvedModel })
             }
-        })
-    ), [models, favoriteModels, selectedProvider])
+        }
+
+        // Favorites group
+        const favSet = new Set(favoriteModels.map((k) => k.toLowerCase()))
+        const favItems = allModels.filter(({ providerId, model }) =>
+            favSet.has(`${providerId}:${model.ID}`.toLowerCase())
+        )
+        if (favItems.length > 0) {
+            for (const { providerId, providerName, model } of favItems) {
+                const ctx = formatContext(model.ContextLimit ?? 0)
+                result.push({
+                    value: `${providerId}\u0000${model.ID}`,
+                    label: model.DisplayName || model.ID,
+                    description: ctx ? `${providerName} · ${ctx}` : providerName,
+                    icon: <IconStar filled size={11} />,
+                    group: 'Favorites',
+                })
+            }
+        }
+
+        // Provider groups
+        const showProviderHeaders = availableProviders.length > 1
+        for (const p of availableProviders) {
+            const models = (modelsByProvider[p.id] || []).filter((m) => (m as ResolvedModel).Enabled !== false)
+            if (models.length === 0) continue
+            const providerName = p.display_name || p.id
+            for (const m of models) {
+                const ctx = formatContext((m as ResolvedModel).ContextLimit ?? 0)
+                const isFav = favSet.has(`${p.id}:${m.ID}`.toLowerCase())
+                result.push({
+                    value: `${p.id}\u0000${m.ID}`,
+                    label: m.DisplayName || m.ID,
+                    description: ctx || undefined,
+                    icon: isFav ? <IconStar filled size={11} /> : undefined,
+                    group: showProviderHeaders ? providerName : undefined,
+                })
+            }
+        }
+        return result
+    }, [availableProviders, modelsByProvider, favoriteModels])
 
     // No providers state
     if (availableProviders.length === 0) {
         return <span className="text-[11px] text-[var(--text-dim)]">No providers</span>
     }
 
-    const currentModel = models.find((m) => m.ID === selectedModel) || models[0]
+    // Resolve current model from selectedProvider + selectedModel
+    const currentModels = (modelsByProvider[selectedProvider] || []).filter((m) => (m as ResolvedModel).Enabled !== false)
+    const currentModel = currentModels.find((m) => m.ID === selectedModel) || currentModels[0]
     const currentFavKey = currentModel ? `${selectedProvider}:${currentModel.ID}`.toLowerCase() : ''
     const isFavorite = !!currentModel && favoriteModels.some((k) => k.toLowerCase() === currentFavKey)
 
     return (
         <div className="flex items-center gap-1">
             <Combobox
-                value={currentModel?.ID ?? null}
+                value={currentModel ? `${selectedProvider}\u0000${currentModel.ID}` : null}
                 options={options}
-                onChange={(modelId) => {
-                    // Combobox is disabled while generating; guard stays defensive.
+                onChange={(encoded) => {
                     if (isGenerating) return
-                    // Options are scoped to the selected provider, so providerId is fixed.
-                    void setActiveSessionModel(selectedProvider, modelId)
+                    // Decode "providerId\u0000modelId"
+                    const sep = encoded.indexOf('\u0000')
+                    if (sep < 0) return
+                    const providerId = encoded.slice(0, sep)
+                    const modelId = encoded.slice(sep + 1)
+                    void setActiveSessionModel(providerId, modelId)
                 }}
                 placeholder="Select model"
                 searchPlaceholder="Search models…"
