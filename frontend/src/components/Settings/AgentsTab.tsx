@@ -116,7 +116,7 @@ function AgentsTab() {
 
   const addRule = () => {
     if (!newRuleTool.trim()) return
-    setPermission({ ...permission, [newRuleTool.trim()]: newRuleDecision })
+    setPermission((prev) => ({ ...prev, [newRuleTool.trim()]: newRuleDecision }))
     setNewRuleTool('')
     setNewRuleDecision('ask')
   }
