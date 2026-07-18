@@ -53,7 +53,10 @@ export function BranchDropdown({ disabled, className }: BranchDropdownProps) {
 
   // Keep the branch list fresh on mount. Combobox owns its own open state, so
   // there is no `isOpen` gate; we hydrate up-front rather than lazily.
+  // Load branches whenever the project path becomes available. 
+  // (on mount projectPath may not be set yet, so we wait for it.)
   useEffect(() => {
+    if (!projectPath) return
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -61,7 +64,7 @@ export function BranchDropdown({ disabled, className }: BranchDropdownProps) {
       .then(() => { if (!cancelled) setLoading(false); })
       .catch((e: Error) => { if (!cancelled) { setError(e.message); setLoading(false); } });
     return () => { cancelled = true; };
-  }, [loadBranches]);
+  }, [loadBranches, projectPath]);
 
   const options: ComboboxOption[] = useMemo(() => allBranches.map(b => ({
     value: branchValue(b),
