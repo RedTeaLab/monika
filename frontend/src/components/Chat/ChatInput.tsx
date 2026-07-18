@@ -11,7 +11,8 @@ import AutocompleteDropdown, { AcItem, AcState } from './AutocompleteDropdown'
 import { findLabels, LabelRegion, renderChipHTML } from './LabelChip'
 import { App } from '../../../bindings/monika'
 import { Call, Events } from '@wailsio/runtime'
-import { IconSend, IconPaperclip, IconCornerDownLeft, IconChevronRight } from '../Icons'
+import { IconSend, IconPaperclip, IconCornerDownLeft, IconChevronRight, IconStar } from '../Icons'
+import { IconButton } from '../ui'
 import { QueuePanel } from '../QueuePanel/QueuePanel'
 
 const INIT_TEMPLATE = `Please analyze this project and check if an \`AGENTS.md\` file exists in the project root.
@@ -254,6 +255,11 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
     const projectPath = useStore((s) => s.projectPath)
     const selectedProvider = useStore((s) => s.selectedProvider)
     const selectedModel = useStore((s) => s.selectedModel)
+    const favoriteModels = useStore((s) => s.favoriteModels)
+    const toggleFavoriteModel = useStore((s) => s.toggleFavoriteModel)
+    const isCurrentModelFavorite = selectedModel && favoriteModels.some(
+        (k) => k.toLowerCase() === `${selectedProvider}:${selectedModel}`.toLowerCase()
+    )
     const historyRef = useRef<string[]>(loadHistory(activeSessionId))
     const historyIndexRef = useRef(-1)
     const navigatingHistoryRef = useRef(false)
@@ -940,27 +946,21 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
                 className="flex items-center gap-1.5 px-3 pb-2.5 pt-1"
                 style={{ background: 'transparent' }}
             >
-                {/* Mode group */}
                 <InputModePicker />
                 <PermissionModePicker />
-
-                {/* Model group */}
                 <ModelPicker />
-
-                {/* Workspace group */}
-                <WorktreeChip
-                    sessionId={activeSessionId}
-                    onClick={() => setWorktreeManagerOpen(true)}
-                />
-                {worktreeManagerOpen && (
-                    <WorktreeManager
-                        sessionId={activeSessionId}
-                        onClose={() => setWorktreeManagerOpen(false)}
-                    />
+                {selectedModel && (
+                    <IconButton
+                        label={isCurrentModelFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        size="sm"
+                        onClick={() => toggleFavoriteModel(selectedProvider, selectedModel)}
+                        className="!h-5 !w-5"
+                    >
+                        <span style={{ color: isCurrentModelFavorite ? 'var(--accent)' : 'var(--text-dim)' }}>
+                            <IconStar filled={!!isCurrentModelFavorite} size={11} />
+                        </span>
+                    </IconButton>
                 )}
-
-                {/* Attach + token — right-aligned utility group */}
-                <div className="flex-1" />
                 <button
                     type="button"
                     title="Attach media file"
@@ -972,12 +972,20 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
                 >
                     <IconPaperclip size={14} />
                 </button>
-
                 <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
                     {tokenText}
                 </span>
-
-                {/* Send button */}
+                <WorktreeChip
+                    sessionId={activeSessionId}
+                    onClick={() => setWorktreeManagerOpen(true)}
+                />
+                {worktreeManagerOpen && (
+                    <WorktreeManager
+                        sessionId={activeSessionId}
+                        onClose={() => setWorktreeManagerOpen(false)}
+                    />
+                )}
+                <div className="flex-1" />
                 {isGenerating && !value.trim() ? (
                     <button
                         onClick={onStop}

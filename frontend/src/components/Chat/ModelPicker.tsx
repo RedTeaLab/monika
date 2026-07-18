@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useStore } from '../../store'
 import type { ModelInfo } from '../../../bindings/monika'
 import { IconStar } from '../Icons'
-import { Combobox, IconButton } from '../ui'
+import { Combobox } from '../ui'
 import type { ComboboxOption } from '../ui'
 
 /** Format a context-limit token count the same way ModelsTab does (e.g. 200K ctx, 1M ctx). */
@@ -22,7 +22,6 @@ function ModelPicker() {
     const selectedModel = useStore((s) => s.selectedModel)
     const modelsByProvider = useStore((s) => s.modelsByProvider)
     const favoriteModels = useStore((s) => s.favoriteModels)
-    const toggleFavoriteModel = useStore((s) => s.toggleFavoriteModel)
     const setActiveSessionModel = useStore((s) => s.setActiveSessionModel)
     const loadModelsForProvider = useStore((s) => s.loadModelsForProvider)
     const generatingSessionIds = useStore((s) => s.generatingSessionIds)
@@ -106,50 +105,33 @@ function ModelPicker() {
     // Resolve current model from selectedProvider + selectedModel
     const currentModels = (modelsByProvider[selectedProvider] || []).filter((m) => (m as ResolvedModel).Enabled !== false)
     const currentModel = currentModels.find((m) => m.ID === selectedModel) || currentModels[0]
-    const currentFavKey = currentModel ? `${selectedProvider}:${currentModel.ID}`.toLowerCase() : ''
-    const isFavorite = !!currentModel && favoriteModels.some((k) => k.toLowerCase() === currentFavKey)
 
     return (
-        <div className="flex items-center gap-1">
-            <Combobox
-                value={currentModel ? `${selectedProvider}\u0000${currentModel.ID}` : null}
-                options={options}
-                onChange={(encoded) => {
-                    if (isGenerating) return
-                    // Decode "providerId\u0000modelId"
-                    const sep = encoded.indexOf('\u0000')
-                    if (sep < 0) return
-                    const providerId = encoded.slice(0, sep)
-                    const modelId = encoded.slice(sep + 1)
-                    void setActiveSessionModel(providerId, modelId)
-                }}
-                placeholder="Select model"
-                searchPlaceholder="Search models…"
-                searchable
-                disabled={isGenerating}
-                emptyMessage="No models"
-                aria-label="Select model"
-                panelWidth={240}
-                className={
-                    '!w-auto min-w-[120px] ' +
-                    '[&>button]:!w-auto [&>button]:!h-auto [&>button]:!py-0.5 [&>button]:!px-2 ' +
-                    '[&>button]:!text-[11px] [&>button]:!gap-1 [&>button]:!bg-[var(--bg-elevated)] ' +
-                    '[&>button]:!border-[var(--border)] [&>button]:!rounded'
-                }
-            />
-            {currentModel && (
-                <IconButton
-                    label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                    size="sm"
-                    onClick={() => toggleFavoriteModel(selectedProvider, currentModel.ID)}
-                    className="!h-5 !w-5"
-                >
-                    <span style={{ color: isFavorite ? 'var(--accent)' : 'var(--text-dim)' }}>
-                        <IconStar filled={isFavorite} size={11} />
-                    </span>
-                </IconButton>
-            )}
-        </div>
+        <Combobox
+            value={currentModel ? `${selectedProvider}\u0000${currentModel.ID}` : null}
+            options={options}
+            onChange={(encoded) => {
+                if (isGenerating) return
+                const sep = encoded.indexOf('\u0000')
+                if (sep < 0) return
+                const providerId = encoded.slice(0, sep)
+                const modelId = encoded.slice(sep + 1)
+                void setActiveSessionModel(providerId, modelId)
+            }}
+            placeholder="Select model"
+            searchPlaceholder="Search models…"
+            searchable
+            disabled={isGenerating}
+            emptyMessage="No models"
+            aria-label="Select model"
+            panelWidth={240}
+            className={
+                '!w-auto min-w-[100px] ' +
+                '[&>button]:!w-auto [&>button]:!h-auto [&>button]:!py-0.5 [&>button]:!px-2 ' +
+                '[&>button]:!text-[11px] [&>button]:!gap-1 [&>button]:!bg-[var(--bg-elevated)] ' +
+                '[&>button]:!border-[var(--border)] [&>button]:!rounded'
+            }
+        />
     )
 }
 
