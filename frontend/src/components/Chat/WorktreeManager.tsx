@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { App } from '../../../bindings/monika'
 import { useStore } from '../../store'
 import Modal, { ModalHeader, ModalBody, ModalFooter } from '../ui/Modal'
-import { Button } from '../ui'
+import { Button, Input } from '../ui'
 
 interface WorktreeInfo {
     branch: string
@@ -191,20 +191,18 @@ export default function WorktreeManager({ sessionId, onClose }: WorktreeManagerP
                 })}
 
                 {creating && (
-                    <div className="flex flex-col gap-2 px-3 py-2 mt-2">
-                        <div className="flex items-center gap-2">
-                            <input
+                    <div className="mt-3 rounded-lg border border-[var(--border-default)] bg-[var(--surface-card)] shadow-[var(--inner-highlight)] overflow-hidden">
+                        <div className="px-3 pt-2.5 pb-2">
+                            <Input
                                 value={branchFilter}
                                 onChange={(e) => { setBranchFilter(e.target.value); setSelectedBranch('') }}
-                                placeholder="Search branches..."
-                                className="flex-1 text-[12px] px-2 py-1 rounded border border-[var(--border)] bg-transparent outline-none"
-                                style={{ color: 'var(--text-primary)' }}
                                 autoFocus
+                                placeholder="Search branches…"
                             />
                         </div>
-                        <div className="max-h-[160px] overflow-y-auto rounded border border-[var(--border)]">
+                        <div className="max-h-[160px] overflow-y-auto border-t border-[var(--border-subtle)]">
                             {filteredBranches.length === 0 && (
-                                <div className="px-2 py-3 text-center text-[11px]" style={{ color: 'var(--text-dim)' }}>
+                                <div className="px-3 py-3 text-center text-[11px] text-[var(--text-dim)]">
                                     No branches found
                                 </div>
                             )}
@@ -213,18 +211,18 @@ export default function WorktreeManager({ sessionId, onClose }: WorktreeManagerP
                                 return (
                                     <div
                                         key={b.name}
-                                        className={`flex items-center gap-2 px-2 py-1 cursor-pointer text-[12px] transition-colors ${selectedBranch === b.name ? 'bg-[var(--bg-hover)]' : 'hover:bg-[var(--bg-hover)]'} ${alreadyUsed ? 'opacity-50' : ''}`}
+                                        className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer text-[12px] transition-colors ${selectedBranch === b.name ? 'bg-[var(--surface-hover)]' : 'hover:bg-[var(--surface-hover)]'} ${alreadyUsed ? 'opacity-50' : ''}`}
                                         onClick={() => { if (!alreadyUsed) setSelectedBranch(b.name) }}
                                     >
-                                        <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>{b.name}</span>
+                                        <span className="font-mono text-[var(--text-secondary)]">{b.name}</span>
                                         {alreadyUsed && (
-                                            <span className="text-[10px] ml-auto" style={{ color: 'var(--text-dim)' }}>already a worktree</span>
+                                            <span className="text-[10px] ml-auto text-[var(--text-dim)]">already a worktree</span>
                                         )}
                                     </div>
                                 )
                             })}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--border-subtle)]">
                             <Button variant="primary" size="sm" onClick={handleCreate} disabled={!selectedBranch}>Create</Button>
                             <Button variant="secondary" size="sm" onClick={() => { setCreating(false); setSelectedBranch(''); setBranchFilter('') }}>Cancel</Button>
                         </div>
