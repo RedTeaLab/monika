@@ -937,12 +937,17 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
             />
 
             <div
-                className="flex items-center gap-2 px-3 pb-2.5 pt-1"
+                className="flex items-center gap-1.5 px-3 pb-2.5 pt-1"
                 style={{ background: 'transparent' }}
             >
+                {/* Mode group */}
                 <InputModePicker />
                 <PermissionModePicker />
+
+                {/* Model group */}
                 <ModelPicker />
+
+                {/* Workspace group */}
                 <WorktreeChip
                     sessionId={activeSessionId}
                     onClick={() => setWorktreeManagerOpen(true)}
@@ -954,26 +959,25 @@ function ChatInput({ onSend, onStop, onRunShell, disabled, isGenerating, quotedM
                     />
                 )}
 
-                {/* Native file picker (also covers keyboard / screen-reader
-                    access). Drag-drop is handled by the Wails runtime. */}
+                {/* Attach + token — right-aligned utility group */}
+                <div className="flex-1" />
                 <button
                     type="button"
                     title="Attach media file"
                     aria-label="Attach media file"
                     disabled={disabled}
                     onClick={handlePickMedia}
-                    className="flex items-center justify-center w-7 h-7 rounded hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center w-6 h-6 rounded hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ color: 'var(--text-dim)' }}
                 >
-                    <IconPaperclip size={16} />
+                    <IconPaperclip size={14} />
                 </button>
 
                 <span className="text-[11px] text-[var(--text-dim)] select-none" style={{ fontFeatureSettings: '"tnum"' }}>
-                    tok: {tokenText}
+                    {tokenText}
                 </span>
 
-                <div className="flex-1" />
-
+                {/* Send button */}
                 {isGenerating && !value.trim() ? (
                     <button
                         onClick={onStop}
