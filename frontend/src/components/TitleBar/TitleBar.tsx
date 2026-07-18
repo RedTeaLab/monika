@@ -174,6 +174,11 @@ function TitleBar() {
         }}
         onCancel={() => { setPendingConfirm(null); setConfirmError('') }}
       />
+      <FileDialog
+        isOpen={fileDialogOpen}
+        onClose={() => setFileDialogOpen(false)}
+        onOpen={(path) => { setFileDialogOpen(false); handleProjectSelect(path) }}
+      />
     </div>
   )
 }
