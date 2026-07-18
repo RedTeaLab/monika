@@ -158,8 +158,11 @@ export function SettingsCard({
     <div
       className={cn(
         'group/card relative bg-[var(--surface-card)] rounded-[var(--radius-lg)]',
-        'p-3.5 transition-colors duration-150',
-        interactive && 'cursor-pointer hover:bg-[var(--surface-hover)]',
+        'border border-[var(--border-subtle)]',
+        'shadow-[var(--inner-highlight)]',
+        'p-4',
+        'transition-all duration-[var(--duration-fast)] [transition-timing-function:var(--ease-out)]',
+        interactive && 'cursor-pointer hover:border-[var(--border-strong)] hover:bg-[var(--surface-raised)] hover:shadow-[var(--shadow-md),var(--inner-highlight-strong)] hover:-translate-y-px',
         className,
       )}
       {...rest}
@@ -168,7 +171,7 @@ export function SettingsCard({
       {hoverActions && (
         <div
           className={cn(
-            'absolute top-2 right-2 flex items-center gap-1',
+            'absolute top-3 right-3 flex items-center gap-1',
             'opacity-0 group-hover/card:opacity-100 transition-opacity duration-150',
           )}
         >

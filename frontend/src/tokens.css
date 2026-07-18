@@ -104,13 +104,13 @@
      Each layer adds ~3% lightness + ambient tint for depth perception.        */
   --surface-root:     #0d0e12;   /* near-black with blue undertone (no OLED smear) */
   --surface-sidebar:  #121319;   /* +3% — panel chrome */
-  --surface-card:     #181a22;   /* +3% — cards, inputs */
+  --surface-card:     #1a1c22;   /* +3% — cards, inputs (clean neutral, no blue cast) */
   --surface-elevated: #1f222c;   /* +4% — modals, dropdowns, popovers */
   --surface-raised:   #262936;   /* +4% — highest layer (active cards, hovered items) */
   --surface-hover:    rgba(255, 255, 255, 0.05);
   --surface-active:   rgba(255, 255, 255, 0.08);
   --surface-overlay:  rgba(8, 10, 14, 0.72);  /* modal backdrop — darker + cooler */
-  --surface-glass:    rgba(24, 26, 34, 0.72); /* glassmorphism base */
+  --surface-glass:    rgba(26, 28, 34, 0.72); /* glassmorphism base — matches surface-card */
 
   /* === Text === */
   --text-primary:    #e8eaed;   /* slightly off-white, not pure */
