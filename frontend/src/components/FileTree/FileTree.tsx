@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom'
 import { IDockviewPanelProps } from 'dockview'
 import { App, FileNode } from '../../../bindings/monika'
 import { useStore } from '../../store'
-import { IconChevronRight, IconChevronDown, IconFile, IconEye, IconSearch, IconFilePlus, IconFolderPlus, IconPencilLine, IconTrash, IconRestore, IconClipboardPaste, IconFiles, IconExternalLink } from '../Icons'
+import { IconChevronRight, IconChevronDown, IconEye, IconSearch, IconFilePlus, IconFolderPlus, IconPencilLine, IconTrash, IconRestore, IconClipboardPaste, IconFiles, IconExternalLink } from '../Icons'
+import { FileIcon } from './FileIcon'
 import { Link, MessageSquare, FileMinus } from 'lucide-react'
 import DebugPanel from '../debug/DebugPanel'
 
@@ -409,10 +410,10 @@ function FileTree({ hideTasks, ..._props }: IDockviewPanelProps & { hideTasks?: 
                     onClick={() => handleFileClick(node)}
                     onContextMenu={(e) => handleContextMenu(e, node)}
                 >
-                    <span className="flex-shrink-0 inline-flex items-center justify-center w-4 h-4 text-[var(--text-dim)]">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center w-4 h-4">
                         {node.is_dir
                             ? (isExpanded ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />)
-                            : <IconFile size={13} />
+                            : <FileIcon name={node.name} />
                         }
                     </span>
                     {isRenaming ? (
